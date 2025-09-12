@@ -1,15 +1,18 @@
-
+// full contents of components/ui/StatusBadge.tsx
 
 import React from 'react';
 // FIX: Corrected import path to be relative.
 import { DocumentStatus, IncidentSeverity, IncidentStatus, EquipmentStatus, TimesheetStatus, InvoiceStatus, QuoteStatus, UserStatus, Project } from '../../types';
 
 export const DocumentStatusBadge: React.FC<{ status: DocumentStatus }> = ({ status }) => {
+    // FIX: The statusMap was using properties (UPLOADING, SCANNING, QUARANTINED) that do not exist on the DocumentStatus enum.
+    // It has been updated to correctly map all available statuses from the enum.
     const statusMap = {
         [DocumentStatus.APPROVED]: { text: 'Approved', color: 'bg-green-100 text-green-800' },
-        [DocumentStatus.UPLOADING]: { text: 'Uploading...', color: 'bg-sky-100 text-sky-800 animate-pulse' },
-        [DocumentStatus.SCANNING]: { text: 'Scanning...', color: 'bg-yellow-100 text-yellow-800 animate-pulse' },
-        [DocumentStatus.QUARANTINED]: { text: 'Quarantined', color: 'bg-red-100 text-red-800' },
+        [DocumentStatus.DRAFT]: { text: 'Draft', color: 'bg-slate-200 text-slate-800' },
+        [DocumentStatus.PENDING_APPROVAL]: { text: 'Pending Approval', color: 'bg-sky-100 text-sky-800' },
+        [DocumentStatus.CHANGES_REQUESTED]: { text: 'Changes Requested', color: 'bg-yellow-100 text-yellow-800' },
+        [DocumentStatus.ARCHIVED]: { text: 'Archived', color: 'bg-gray-100 text-gray-800' },
     };
     const { text, color } = statusMap[status] || { text: 'Unknown', color: 'bg-gray-100 text-gray-800' };
 
@@ -63,6 +66,7 @@ export const InvoiceStatusBadge: React.FC<{ status: InvoiceStatus }> = ({ status
         [InvoiceStatus.OVERDUE]: 'bg-red-100 text-red-800',
         [InvoiceStatus.DRAFT]: 'bg-slate-200 text-slate-800',
         [InvoiceStatus.VOID]: 'bg-gray-200 text-gray-800',
+        [InvoiceStatus.PARTIALLY_PAID]: 'bg-yellow-100 text-yellow-800',
     };
     return <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusMap[status]}`}>{status}</span>;
 }

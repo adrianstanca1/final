@@ -17,7 +17,8 @@ export type View =
   | 'templates'
   | 'all-tasks'
   | 'map'
-  | 'principal-dashboard';
+  | 'principal-dashboard'
+  | 'foreman-dashboard';
 
 export enum Role {
   PRINCIPAL_ADMIN = 'Principal Admin',
@@ -42,6 +43,8 @@ export interface User {
   avatarUrl?: string;
   phone?: string;
   status?: UserStatus;
+  twoFactorEnabled?: boolean;
+  presence?: 'online' | 'away' | 'offline';
 }
 
 export interface Company {
@@ -116,10 +119,11 @@ export interface Todo {
 }
 
 export enum DocumentStatus {
-  APPROVED = 'Approved',
-  UPLOADING = 'Uploading',
-  SCANNING = 'Scanning',
-  QUARANTINED = 'Quarantined',
+    DRAFT = 'Draft',
+    PENDING_APPROVAL = 'Pending Approval',
+    APPROVED = 'Approved',
+    CHANGES_REQUESTED = 'Changes Requested',
+    ARCHIVED = 'Archived',
 }
 
 export enum DocumentCategory {
@@ -130,14 +134,35 @@ export enum DocumentCategory {
   PHOTOS = 'Photos',
 }
 
+export interface DocumentVersion {
+    id: number;
+    documentId: number;
+    versionNumber: number;
+    url: string;
+    uploaderId: number;
+    uploadedAt: Date;
+    changeNotes?: string;
+    status: DocumentStatus;
+    comments?: Comment[];
+}
+
 export interface Document {
   id: number;
   name: string;
   projectId: number;
+  folderId: number | null;
   category: DocumentCategory;
-  status: DocumentStatus;
-  url: string;
-  uploadedAt: Date;
+  latestVersionNumber: number;
+  status: DocumentStatus; // Status of the latest version
+  updatedAt: Date; // Timestamp of the latest version
+}
+
+export interface DocumentFolder {
+    id: number;
+    name: string;
+    projectId: number;
+    parentId: number | null;
+    companyId: number;
 }
 
 export enum IncidentSeverity {
@@ -161,6 +186,9 @@ export interface SafetyIncident {
   timestamp: Date;
   severity: IncidentSeverity;
   status: IncidentStatus;
+  investigationNotes?: string;
+  rootCause?: string;
+  correctiveActions?: string[];
 }
 
 export enum TimesheetStatus {
@@ -179,6 +207,10 @@ export interface Timesheet {
   status: TimesheetStatus;
   notes?: string;
   rejectionReason?: string;
+  approverId?: number | null;
+  approvedAt?: Date | null;
+  lastModifiedBy?: number | null;
+  billedInInvoiceId?: number | null;
 }
 
 export enum EquipmentStatus {
@@ -197,6 +229,15 @@ export interface Equipment {
     lastAssignedDate?: Date | null;
     maintenanceStartDate?: Date | null;
     estimatedAvailableDate?: Date | null;
+}
+
+export interface EquipmentHistory {
+    id: number;
+    equipmentId: number;
+    action: 'Assigned' | 'Unassigned' | 'Status Change';
+    details: string;
+    actorId: number;
+    timestamp: Date;
 }
 
 export interface ProjectAssignment {
@@ -222,13 +263,19 @@ export interface ChatMessage {
     content: string;
     timestamp: Date;
     isRead: boolean;
+    attachment?: { name: string; url: string; type: 'image' | 'file' };
+    reactions?: { emoji: string; userIds: number[] }[];
 }
 
 export interface Conversation {
     id: number;
+    type: 'dm' | 'channel';
+    name?: string; // For channels
+    projectId?: number; // For channels
     participants: number[];
     messages: ChatMessage[];
     lastMessage: ChatMessage | null;
+    typing?: number[]; // Array of user IDs currently typing
 }
 
 export interface AISearchResult {
@@ -270,11 +317,18 @@ export interface LocationPreferences {
     gpsAccuracy: 'standard' | 'high';
 }
 
+export interface LocalizationPreferences {
+    timezone: string;
+    language: 'en-GB' | 'en-US' | 'es-ES';
+    dateFormat: 'DD/MM/YYYY' | 'MM/DD/YYYY';
+}
+
 export interface CompanySettings {
     companyId: number;
     theme: 'light' | 'dark';
     notificationPreferences: NotificationPreferences;
     locationPreferences: LocationPreferences;
+    localization: LocalizationPreferences;
 }
 
 export interface Grant {
@@ -316,16 +370,32 @@ export enum InvoiceStatus {
     OVERDUE = 'Overdue',
     DRAFT = 'Draft',
     VOID = 'Void',
+    PARTIALLY_PAID = 'Partially Paid',
+}
+
+export interface InvoiceLineItem {
+    id: number;
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    total: number;
 }
 
 export interface Invoice {
     id: number;
+    invoiceNumber: string;
     clientId: number;
     projectId: number;
     status: InvoiceStatus;
+    issuedAt: Date;
     dueAt: Date;
-    amountDue: number;
+    lineItems: InvoiceLineItem[];
+    subtotal: number;
+    taxAmount: number;
     total: number;
+    amountPaid: number;
+    paidAt?: Date | null;
+    notes?: string;
 }
 
 export enum QuoteStatus {
@@ -335,15 +405,65 @@ export enum QuoteStatus {
     DRAFT = 'Draft',
 }
 
-export interface Quote {
+export interface QuoteLineItem {
     id: number;
-    clientId: number;
-    projectId: number;
-    status: QuoteStatus;
-    validUntil: Date;
+    description: string;
+    quantity: number;
+    unitPrice: number;
     total: number;
 }
 
+export interface Quote {
+    id: number;
+    quoteNumber: string;
+    clientId: number;
+    projectId: number;
+    status: QuoteStatus;
+    issuedAt: Date;
+    validUntil: Date;
+    lineItems: QuoteLineItem[];
+    subtotal: number;
+    taxAmount: number;
+    total: number;
+    notes?: string;
+}
+
+export enum ExpenseCategory {
+    TRAVEL = 'Travel',
+    MATERIALS = 'Materials',
+    EQUIPMENT_RENTAL = 'Equipment Rental',
+    SUBCONTRACTOR = 'Subcontractor',
+    OTHER = 'Other',
+}
+
+export enum ExpenseStatus {
+    PENDING = 'Pending',
+    APPROVED = 'Approved',
+    REJECTED = 'Rejected',
+}
+
+export interface Expense {
+    id: number;
+    userId: number;
+    projectId: number;
+    amount: number;
+    currency: 'GBP' | 'USD' | 'EUR';
+    category: ExpenseCategory;
+    description: string;
+    status: ExpenseStatus;
+    submittedAt: Date;
+    approverId?: number | null;
+    approvedAt?: Date | null;
+    rejectionReason?: string;
+}
+
+export interface Payment {
+    id: number;
+    invoiceId: number;
+    amount: number;
+    paymentDate: Date;
+    method: 'Bank Transfer' | 'Credit Card' | 'Check';
+}
 
 export interface ProjectTemplate {
     id: number;
@@ -366,11 +486,75 @@ export interface AuditLog {
     timestamp: Date;
 }
 
+export interface SafetyInspectionChecklistItem {
+    id: number;
+    text: string;
+    isChecked: boolean;
+    notes?: string;
+}
 
-export interface PendingApproval { id: number; type: 'Timesheet' | 'Invoice'; description: string; }
+export interface SafetyInspection {
+    id: number;
+    projectId: number;
+    inspectorId: number;
+    date: Date;
+    status: 'Scheduled' | 'In Progress' | 'Completed' | 'Overdue';
+    checklist: SafetyInspectionChecklistItem[];
+}
+
+export interface RiskAssessment {
+    id: number;
+    projectId: number;
+    description: string;
+    severity: IncidentSeverity;
+    probability: 'Low' | 'Medium' | 'High';
+    mitigationPlan: string;
+    ownerId: number;
+}
+
+export interface TrainingRecord {
+    id: number;
+    userId: number;
+    trainingName: string;
+    issuedDate: Date;
+    expiryDate: Date;
+}
+
+export type NotificationType =
+  | 'APPROVAL_REQUEST'
+  | 'TASK_ASSIGNED'
+  | 'NEW_MESSAGE'
+  | 'DOCUMENT_COMMENT'
+  | 'SAFETY_ALERT';
+
+export interface NotificationLink {
+  view: View;
+  targetId?: number | string;
+  // e.g. for chat, targetId could be conversationId
+}
+
+export interface Notification {
+  id: number;
+  userId: number; // The user who should receive the notification
+  type: NotificationType;
+  message: string; // The text content of the notification
+  isRead: boolean;
+  timestamp: Date;
+  link: NotificationLink;
+  actorId?: number; // The user who triggered the notification
+}
+
+
+export interface PendingApproval { id: number; type: 'Timesheet' | 'Invoice' | 'Expense'; description: string; timesheetId?: number; expenseId?: number; }
 export interface SystemHealth { status: 'OK' | 'DEGRADED' | 'DOWN'; message: string; }
 export interface UsageMetric { name: string; value: number; unit: string; }
 export interface PlatformSettings { maintenanceMode: boolean; }
+export interface CompanyHealthStats {
+    totalUsers: number;
+    activeProjects: number;
+    storageUsageGB: number;
+    storageCapacityGB: number;
+}
 
 
 export enum Permission {
@@ -384,12 +568,16 @@ export enum Permission {
     VIEW_OWN_TIMESHEETS = 'VIEW_OWN_TIMESHEETS',
     MANAGE_TIMESHEETS = 'MANAGE_TIMESHEETS',
     VIEW_ALL_TIMESHEETS = 'VIEW_ALL_TIMESHEETS',
+    SUBMIT_EXPENSE = 'SUBMIT_EXPENSE',
+    MANAGE_EXPENSES = 'MANAGE_EXPENSES',
     VIEW_DOCUMENTS = 'VIEW_DOCUMENTS',
     UPLOAD_DOCUMENTS = 'UPLOAD_DOCUMENTS',
     MANAGE_DOCUMENTS = 'MANAGE_DOCUMENTS',
     VIEW_SAFETY_REPORTS = 'VIEW_SAFETY_REPORTS',
     SUBMIT_SAFETY_REPORT = 'SUBMIT_SAFETY_REPORT',
     MANAGE_SAFETY_REPORTS = 'MANAGE_SAFETY_REports',
+    MANAGE_SAFETY_INSPECTIONS = 'MANAGE_SAFETY_INSPECTIONS',
+    MANAGE_RISK_ASSESSMENTS = 'MANAGE_RISK_ASSESSMENTS',
     VIEW_FINANCES = 'VIEW_FINANCES',
     MANAGE_FINANCES = 'MANAGE_FINANCES',
     VIEW_TEAM = 'VIEW_TEAM',
@@ -398,6 +586,7 @@ export enum Permission {
     MANAGE_PROJECT_TEMPLATES = 'MANAGE_PROJECT_TEMPLATES',
     ACCESS_ALL_TOOLS = 'ACCESS_ALL_TOOLS',
     SEND_DIRECT_MESSAGE = 'SEND_DIRECT_MESSAGE',
+    VIEW_NOTIFICATIONS = 'VIEW_NOTIFICATIONS',
 }
 
 export interface ProjectHealth {
@@ -415,12 +604,16 @@ export const RolePermissions: Record<Role, Set<Permission>> = {
         Permission.MANAGE_TASKS,
         Permission.MANAGE_TIMESHEETS,
         Permission.VIEW_ALL_TIMESHEETS,
+        Permission.SUBMIT_EXPENSE,
+        Permission.MANAGE_EXPENSES,
         Permission.MANAGE_DOCUMENTS,
         Permission.VIEW_DOCUMENTS,
         Permission.UPLOAD_DOCUMENTS,
         Permission.MANAGE_SAFETY_REPORTS,
         Permission.VIEW_SAFETY_REPORTS,
         Permission.SUBMIT_SAFETY_REPORT,
+        Permission.MANAGE_SAFETY_INSPECTIONS,
+        Permission.MANAGE_RISK_ASSESSMENTS,
         Permission.VIEW_FINANCES,
         Permission.MANAGE_FINANCES,
         Permission.VIEW_TEAM,
@@ -429,6 +622,7 @@ export const RolePermissions: Record<Role, Set<Permission>> = {
         Permission.MANAGE_PROJECT_TEMPLATES,
         Permission.ACCESS_ALL_TOOLS,
         Permission.SEND_DIRECT_MESSAGE,
+        Permission.VIEW_NOTIFICATIONS,
     ]),
     [Role.PM]: new Set([
         Permission.VIEW_DASHBOARD,
@@ -438,33 +632,47 @@ export const RolePermissions: Record<Role, Set<Permission>> = {
         Permission.MANAGE_TASKS,
         Permission.MANAGE_TIMESHEETS, // For their project teams
         Permission.VIEW_ALL_TIMESHEETS, // For their projects
+        Permission.SUBMIT_EXPENSE,
+        Permission.MANAGE_EXPENSES, // For their project teams
         Permission.VIEW_DOCUMENTS,
         Permission.UPLOAD_DOCUMENTS,
         Permission.VIEW_SAFETY_REPORTS,
         Permission.SUBMIT_SAFETY_REPORT,
-        Permission.VIEW_TEAM,
-        Permission.ACCESS_ALL_TOOLS,
+        Permission.MANAGE_SAFETY_REPORTS,
+        Permission.MANAGE_SAFETY_INSPECTIONS,
+        Permission.MANAGE_RISK_ASSESSMENTS,
+        Permission.VIEW_FINANCES, // Can view finances for their projects
+        Permission.MANAGE_FINANCES, // Can manage finances for their projects
+        Permission.VIEW_TEAM, // Can view their project teams
         Permission.SEND_DIRECT_MESSAGE,
+        Permission.VIEW_NOTIFICATIONS,
     ]),
     [Role.FOREMAN]: new Set([
+        Permission.VIEW_DASHBOARD,
         Permission.VIEW_ASSIGNED_PROJECTS,
-        Permission.VIEW_ALL_TASKS,
+        Permission.VIEW_ALL_TASKS, // Within their projects
         Permission.MANAGE_TASKS, // Can manage tasks for their crew
         Permission.SUBMIT_TIMESHEET,
         Permission.VIEW_OWN_TIMESHEETS,
+        Permission.MANAGE_TIMESHEETS, // Approve for their crew
+        Permission.SUBMIT_EXPENSE,
         Permission.VIEW_DOCUMENTS,
         Permission.UPLOAD_DOCUMENTS,
         Permission.SUBMIT_SAFETY_REPORT,
         Permission.VIEW_SAFETY_REPORTS,
-        Permission.VIEW_TEAM,
+        Permission.VIEW_TEAM, // View their crew
         Permission.SEND_DIRECT_MESSAGE,
+        Permission.VIEW_NOTIFICATIONS,
     ]),
     [Role.OPERATIVE]: new Set([
+        Permission.VIEW_DASHBOARD, // My Day view
         Permission.VIEW_ASSIGNED_PROJECTS,
         Permission.SUBMIT_TIMESHEET,
         Permission.VIEW_OWN_TIMESHEETS,
+        Permission.SUBMIT_EXPENSE,
         Permission.VIEW_DOCUMENTS,
         Permission.SUBMIT_SAFETY_REPORT,
         Permission.SEND_DIRECT_MESSAGE,
+        Permission.VIEW_NOTIFICATIONS,
     ]),
 };

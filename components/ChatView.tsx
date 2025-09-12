@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User, Conversation, ChatMessage } from '../types';
 import { api } from '../services/mockApi';
@@ -46,7 +47,8 @@ export const ChatView: React.FC<ChatViewProps> = ({ user, addToast, initialRecip
                     setActiveConversationId(existingConvo.id);
                 } else {
                     // Create a placeholder conversation
-                    const placeholderConvo: Conversation = { id: Date.now(), participants: [user.id, initialRecipient.id], messages: [], lastMessage: null };
+                    // FIX: Added the required 'type' property to the placeholder Conversation object.
+                    const placeholderConvo: Conversation = { id: Date.now(), type: 'dm', participants: [user.id, initialRecipient.id], messages: [], lastMessage: null };
                     setConversations(prev => [placeholderConvo, ...prev]);
                     setActiveConversationId(placeholderConvo.id);
                 }

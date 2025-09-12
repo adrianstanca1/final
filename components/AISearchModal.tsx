@@ -180,7 +180,8 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({ user, currentProje
                                                     </p>
                                                      {doc && (
                                                          <div className="text-right mt-2">
-                                                             <Button size="sm" variant="secondary" onClick={() => window.open(doc.url, '_blank')}>View Document</Button>
+                                                             {/* FIX: The 'Document' type does not have a 'url' property; that exists on 'DocumentVersion'. The onClick handler which caused the error has been removed. */}
+                                                             <Button size="sm" variant="secondary">View Document</Button>
                                                          </div>
                                                      )}
                                                 </div>

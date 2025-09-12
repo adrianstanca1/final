@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Login } from './components/Login';
-import { User, View, Project, Timesheet, TimesheetStatus, Permission, SafetyIncident, IncidentStatus, Role } from './types';
+import { User, View, Project, Timesheet, TimesheetStatus, Permission, SafetyIncident, IncidentStatus, Role, Notification } from './types';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { Dashboard } from './components/Dashboard';
@@ -28,6 +28,7 @@ import { api } from './services/mockApi';
 import { hasPermission } from './services/auth';
 import { ProjectsMapView } from './components/ProjectsMapView';
 import { PrincipalAdminDashboard } from './components/PrincipalAdminDashboard';
+import { ForemanDashboard } from './components/ForemanDashboard';
 
 interface Toast {
     id: number;
@@ -45,6 +46,7 @@ const App: React.FC = () => {
     const [pendingTimesheetCount, setPendingTimesheetCount] = useState(0);
     const [openIncidentCount, setOpenIncidentCount] = useState(0);
     const [unreadMessageCount, setUnreadMessageCount] = useState(0);
+    const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
     const [chatRecipient, setChatRecipient] = useState<User | null>(null);
 
 
@@ -73,67 +75,55 @@ const App: React.FC = () => {
         if (!user) return;
         const intervals: number[] = [];
 
-        // Fetch pending timesheets for managers/admins
-        if (hasPermission(user, Permission.MANAGE_TIMESHEETS)) {
-            const fetchPendingCount = async () => {
-                try {
+        const fetchCounts = async () => {
+            try {
+                // Fetch pending timesheets for managers/admins
+                if (hasPermission(user, Permission.MANAGE_TIMESHEETS)) {
                     let timesheets: Timesheet[];
                     if (user.role === Role.ADMIN) {
                         timesheets = await api.getTimesheetsByCompany(user.companyId!, user.id);
                     } else { // PM
                         timesheets = await api.getTimesheetsForManager(user.id);
                     }
-                    const pendingCount = timesheets.filter(ts => ts.status === TimesheetStatus.PENDING).length;
-                    setPendingTimesheetCount(pendingCount);
-                } catch (error) {
-                    console.error("Failed to fetch pending timesheet count", error);
+                    setPendingTimesheetCount(timesheets.filter(ts => ts.status === TimesheetStatus.PENDING).length);
+                } else {
+                    setPendingTimesheetCount(0);
                 }
-            };
-            fetchPendingCount();
-            intervals.push(window.setInterval(fetchPendingCount, 60000));
-        } else {
-            setPendingTimesheetCount(0);
-        }
 
-        // Fetch open safety incidents for relevant staff
-        if (hasPermission(user, Permission.MANAGE_SAFETY_REPORTS)) {
-            const fetchOpenIncidents = async () => {
-                try {
+                // Fetch open safety incidents for relevant staff
+                if (hasPermission(user, Permission.MANAGE_SAFETY_REPORTS)) {
                    const incidents = await api.getSafetyIncidentsByCompany(user.companyId!);
-                   const openCount = incidents.filter(i => i.status !== IncidentStatus.RESOLVED).length;
-                   setOpenIncidentCount(openCount);
-                } catch (e) {
-                   console.error("failed to fetch open incidents", e)
+                   setOpenIncidentCount(incidents.filter(i => i.status !== IncidentStatus.RESOLVED).length);
+                } else {
+                    setOpenIncidentCount(0);
                 }
-           }
-           fetchOpenIncidents();
-           intervals.push(window.setInterval(fetchOpenIncidents, 60000));
-        } else {
-            setOpenIncidentCount(0);
-        }
-        
-        // Fetch unread message count
-        if (hasPermission(user, Permission.SEND_DIRECT_MESSAGE)) {
-            const fetchUnreadCount = async () => {
-                try {
-                    const conversations = await api.getConversationsForUser(user.id);
-                    let count = 0;
+                
+                // Fetch unread messages & notifications
+                if (hasPermission(user, Permission.VIEW_NOTIFICATIONS)) {
+                    const [conversations, notifications] = await Promise.all([
+                        api.getConversationsForUser(user.id),
+                        api.getNotificationsForUser(user.id)
+                    ]);
+                    
+                    let msgCount = 0;
                     for (const convo of conversations) {
                         if (convo.lastMessage && convo.lastMessage.senderId !== user.id && !convo.lastMessage.isRead) {
-                            count++;
+                            msgCount++;
                         }
                     }
-                    setUnreadMessageCount(count);
-                } catch (e) {
-                    console.error("Failed to fetch unread message count", e);
+                    setUnreadMessageCount(msgCount);
+                    setUnreadNotificationCount(notifications.filter(n => !n.isRead).length);
+                } else {
+                    setUnreadMessageCount(0);
+                    setUnreadNotificationCount(0);
                 }
-            };
-            fetchUnreadCount();
-            intervals.push(window.setInterval(fetchUnreadCount, 15000)); // Check for new messages more frequently
-        } else {
-            setUnreadMessageCount(0);
-        }
+            } catch (error) {
+                console.error("Failed to fetch counts", error);
+            }
+        };
 
+        fetchCounts();
+        intervals.push(window.setInterval(fetchCounts, 30000));
 
         return () => {
             intervals.forEach(clearInterval);
@@ -152,9 +142,13 @@ const App: React.FC = () => {
         setUser(loggedInUser);
         if (loggedInUser.role === Role.PRINCIPAL_ADMIN) {
             setActiveView('principal-dashboard');
-        } else if (loggedInUser.role === Role.OPERATIVE || loggedInUser.role === Role.FOREMAN) {
+        } else if (loggedInUser.role === Role.ADMIN) {
+            setActiveView('dashboard');
+        } else if (loggedInUser.role === Role.FOREMAN) {
+            setActiveView('foreman-dashboard');
+        } else if (loggedInUser.role === Role.OPERATIVE) {
             setActiveView('my-day');
-        } else {
+        } else { // PMs default to projects view
             setActiveView('projects');
         }
     };
@@ -172,6 +166,23 @@ const App: React.FC = () => {
         setChatRecipient(recipient);
         setActiveView('chat');
     };
+    
+    const handleNotificationClick = async (notification: Notification) => {
+        try {
+            await api.markNotificationAsRead(notification.id, user!.id);
+            setUnreadNotificationCount(prev => Math.max(0, prev -1));
+            setActiveView(notification.link.view);
+            // Handle specific deep-linking logic here if needed
+            if (notification.link.view === 'chat' && notification.link.targetId) {
+                // The chat view needs to know which conversation to open.
+                // We handle this by passing an initial recipient when switching view,
+                // but for notifications, we might need a more robust context system.
+                // For now, switching to chat view is a good start.
+            }
+        } catch(e) {
+            addToast("Could not process notification.", "error");
+        }
+    };
 
     const renderView = () => {
         if (!user) return null;
@@ -184,6 +195,8 @@ const App: React.FC = () => {
                 return <Dashboard user={user!} addToast={addToast} activeView={activeView} setActiveView={setActiveView} onSelectProject={handleSelectProject} />;
             case 'my-day':
                 return <MyDayView user={user!} addToast={addToast} setActiveView={setActiveView} />;
+            case 'foreman-dashboard':
+                return <ForemanDashboard user={user!} addToast={addToast} />;
             case 'principal-dashboard':
                 return <PrincipalAdminDashboard user={user!} addToast={addToast} />;
             case 'projects':
@@ -197,7 +210,7 @@ const App: React.FC = () => {
             case 'time':
                 return <TimeTrackingView user={user!} addToast={addToast} setActiveView={setActiveView} />;
             case 'settings':
-                return <SettingsView user={user!} addToast={addToast} theme={theme} setTheme={setTheme} />;
+                return <SettingsView user={user!} onUserUpdate={setUser} addToast={addToast} theme={theme} setTheme={setTheme} />;
             case 'users':
                 return <TeamView user={user!} addToast={addToast} onStartChat={handleStartChat} />;
             case 'chat':
@@ -235,7 +248,15 @@ const App: React.FC = () => {
                 unreadMessageCount={unreadMessageCount}
             />
             <div className="flex-1 flex flex-col overflow-hidden">
-                <Header user={user} onLogout={handleLogout} onSearchClick={() => setIsAiSearchOpen(true)} onCommandPaletteClick={() => setIsCommandPaletteOpen(true)} />
+                <Header
+                    user={user}
+                    onLogout={handleLogout}
+                    onCommandPaletteClick={() => setIsCommandPaletteOpen(true)}
+                    unreadNotificationCount={unreadNotificationCount}
+                    addToast={addToast}
+                    onNotificationClick={handleNotificationClick}
+                    onMarkAllNotificationsAsRead={() => setUnreadNotificationCount(0)}
+                />
                  {!isOnline && (
                     <div className="bg-yellow-500 text-center text-white p-2 font-semibold flex-shrink-0">
                         You are currently offline. Changes are being saved locally.

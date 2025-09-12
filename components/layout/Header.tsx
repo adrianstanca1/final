@@ -1,25 +1,32 @@
-
-
 import React, { useState, useRef, useEffect } from 'react';
-// FIX: Corrected import path to be relative.
-import { User } from '../../types';
+import { User, Notification } from '../../types';
 import { Avatar } from '../ui/Avatar';
+import { NotificationDropdown } from './NotificationDropdown';
 
 interface HeaderProps {
   user: User;
   onLogout: () => void;
-  onSearchClick: () => void;
   onCommandPaletteClick: () => void;
+  unreadNotificationCount: number;
+  addToast: (message: string, type: 'success' | 'error') => void;
+  onNotificationClick: (notification: Notification) => void;
+  onMarkAllNotificationsAsRead: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ user, onLogout, onSearchClick, onCommandPaletteClick }) => {
+export const Header: React.FC<HeaderProps> = ({ user, onLogout, onCommandPaletteClick, unreadNotificationCount, addToast, onNotificationClick, onMarkAllNotificationsAsRead }) => {
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-    const dropdownRef = useRef<HTMLDivElement>(null);
+    const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+    
+    const userDropdownRef = useRef<HTMLDivElement>(null);
+    const notificationsRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+            if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
                 setIsDropdownOpen(false);
+            }
+             if (notificationsRef.current && !notificationsRef.current.contains(event.target as Node)) {
+                setIsNotificationsOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -42,16 +49,33 @@ export const Header: React.FC<HeaderProps> = ({ user, onLogout, onSearchClick, o
                 <span className="text-sm hidden md:block">Quick Search...</span>
                 <kbd className="hidden md:inline-flex items-center px-2 py-0.5 rounded text-xs font-sans font-semibold bg-slate-200 text-slate-600">⌘K</kbd>
             </button>
-             <button
-                onClick={() => { /* Placeholder for notifications */}}
-                className="p-2 rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors"
-                title="Notifications"
-            >
-                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-            </button>
-             <div className="relative" ref={dropdownRef}>
+            <div className="relative" ref={notificationsRef}>
+                 <button
+                    onClick={() => setIsNotificationsOpen(prev => !prev)}
+                    className="relative p-2 rounded-full text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors"
+                    title="Notifications"
+                >
+                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    {unreadNotificationCount > 0 && (
+                        <span className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+                    )}
+                </button>
+                {isNotificationsOpen && (
+                    <NotificationDropdown 
+                        user={user} 
+                        onClose={() => setIsNotificationsOpen(false)} 
+                        addToast={addToast} 
+                        onNotificationClick={(notification) => {
+                            onNotificationClick(notification);
+                            setIsNotificationsOpen(false);
+                        }}
+                        onMarkAllAsRead={onMarkAllNotificationsAsRead}
+                    />
+                )}
+            </div>
+             <div className="relative" ref={userDropdownRef}>
                 <button 
                     className="flex items-center gap-3 text-left"
                     onClick={() => setIsDropdownOpen(!isDropdownOpen)}

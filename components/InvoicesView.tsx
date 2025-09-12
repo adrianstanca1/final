@@ -75,7 +75,8 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
                             <td className="px-6 py-4 text-sm text-slate-600">{findProjectName(invoice.projectId)}</td>
                             <td className="px-6 py-4 text-sm"><InvoiceStatusBadge status={invoice.status} /></td>
                             <td className="px-6 py-4 text-sm text-slate-600">{new Date(invoice.dueAt).toLocaleDateString()}</td>
-                            <td className="px-6 py-4 text-sm text-right font-semibold text-slate-800">{formatCurrency(invoice.amountDue)}</td>
+                            {/* FIX: The 'Invoice' type does not have an 'amountDue' property. Changed to calculate the due amount from 'total' and 'amountPaid'. */}
+                            <td className="px-6 py-4 text-sm text-right font-semibold text-slate-800">{formatCurrency(invoice.total - invoice.amountPaid)}</td>
                             <td className="px-6 py-4 text-sm text-right text-slate-600">{formatCurrency(invoice.total)}</td>
                         </tr>
                     ))}

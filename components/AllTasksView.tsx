@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { User, Todo, Project, Permission, TodoStatus, TodoPriority, SubTask, Comment } from '../types';
 import { api } from '../services/mockApi';
@@ -345,14 +343,6 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
         }
     };
 
-    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.checked) {
-            setSelectedTasks(new Set(filteredTasks.map(t => t.id)));
-        } else {
-            setSelectedTasks(new Set());
-        }
-    };
-    
     const handleSelectTask = (taskId: number | string) => {
         setSelectedTasks(prev => {
             const newSet = new Set(prev);
@@ -370,16 +360,25 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
             addToast("No tasks selected for bulk update.", "error");
             return;
         }
-        setIsBulkUpdating(true);
+        
         const updates: Partial<Todo> = {};
         if (bulkStatus) updates.status = bulkStatus;
         if (bulkPriority) updates.priority = bulkPriority;
         if (bulkAssignee) updates.assigneeId = bulkAssignee === 'unassigned' ? null : parseInt(bulkAssignee);
 
+        if (Object.keys(updates).length === 0) {
+            addToast("Please select an action to apply.", "error");
+            return;
+        }
+
+        setIsBulkUpdating(true);
         try {
             await Promise.all(Array.from(selectedTasks).map(taskId => api.updateTodo(taskId, updates, user.id)));
-            addToast(`${selectedTasks.size} tasks updated.`, "success");
+            addToast(`${selectedTasks.size} tasks updated successfully.`, "success");
             setSelectedTasks(new Set());
+            setBulkStatus('');
+            setBulkPriority('');
+            setBulkAssignee('');
             fetchData(); // Refresh data
         } catch(error) {
             addToast("Failed to perform bulk update.", "error");
@@ -413,6 +412,14 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
             return matchesProject && matchesAssignee;
         });
     }, [openTasks, projectFilter, assigneeFilter]);
+
+    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked) {
+            setSelectedTasks(new Set(filteredTasks.map(t => t.id)));
+        } else {
+            setSelectedTasks(new Set());
+        }
+    };
 
     if (loading) return <Card><p>Loading tasks...</p></Card>;
 
@@ -449,7 +456,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                 </div>
                 
                 {canManage && selectedTasks.size > 0 && (
-                     <div className="p-4 bg-slate-100 rounded-lg mb-4 flex flex-col md:flex-row gap-4 items-center">
+                     <div className="p-4 bg-slate-100 rounded-lg mb-4 flex flex-col md:flex-row gap-4 items-center animate-card-enter">
                         <span className="font-semibold">{selectedTasks.size} tasks selected</span>
                         <select value={bulkStatus} onChange={e => setBulkStatus(e.target.value as TodoStatus | '')} className="p-2 border bg-white rounded-md"><option value="">Change Status...</option>{Object.values(TodoStatus).map(s => <option key={s} value={s}>{s}</option>)}</select>
                         <select value={bulkPriority} onChange={e => setBulkPriority(e.target.value as TodoPriority | '')} className="p-2 border bg-white rounded-md"><option value="">Change Priority...</option>{Object.values(TodoPriority).map(p => <option key={p} value={p}>{p}</option>)}</select>
@@ -473,11 +480,11 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {filteredTasks.map(task => {
-                                const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
+                                const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== TodoStatus.DONE;
                                 const taskDependencies = (task.dependsOn || []).map(depId => tasks.find(t => t.id === depId)).filter(Boolean) as Todo[];
                                 const isTaskBlocked = taskDependencies.some(dep => dep.status !== TodoStatus.DONE);
                                 return (
-                                <tr key={task.id} className={`hover:bg-slate-50 cursor-pointer ${isTaskBlocked ? 'opacity-60' : ''}`} onClick={() => setSelectedTask(task)}>
+                                <tr key={task.id} className={`hover:bg-slate-50 ${isTaskBlocked ? 'opacity-60' : 'cursor-pointer'}`} onClick={() => !isTaskBlocked && setSelectedTask(task)}>
                                     {canManage && <td className="px-6 py-4" onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedTasks.has(task.id)} onChange={() => handleSelectTask(task.id)} /></td>}
                                     <td className="px-6 py-4 font-medium">
                                         <div className="flex items-center gap-2">

@@ -28,6 +28,7 @@ import { api } from './services/mockApi';
 import { hasPermission } from './services/auth';
 import { ProjectsMapView } from './components/ProjectsMapView';
 import { PrincipalAdminDashboard } from './components/PrincipalAdminDashboard';
+import { ForemanDashboard } from './components/ForemanDashboard';
 
 interface Toast {
     id: number;
@@ -152,9 +153,13 @@ const App: React.FC = () => {
         setUser(loggedInUser);
         if (loggedInUser.role === Role.PRINCIPAL_ADMIN) {
             setActiveView('principal-dashboard');
-        } else if (loggedInUser.role === Role.OPERATIVE || loggedInUser.role === Role.FOREMAN) {
+        } else if (loggedInUser.role === Role.ADMIN) {
+            setActiveView('dashboard');
+        } else if (loggedInUser.role === Role.FOREMAN) {
+            setActiveView('foreman-dashboard');
+        } else if (loggedInUser.role === Role.OPERATIVE) {
             setActiveView('my-day');
-        } else {
+        } else { // PMs default to projects view
             setActiveView('projects');
         }
     };
@@ -184,6 +189,8 @@ const App: React.FC = () => {
                 return <Dashboard user={user!} addToast={addToast} activeView={activeView} setActiveView={setActiveView} onSelectProject={handleSelectProject} />;
             case 'my-day':
                 return <MyDayView user={user!} addToast={addToast} setActiveView={setActiveView} />;
+            case 'foreman-dashboard':
+                return <ForemanDashboard user={user!} addToast={addToast} />;
             case 'principal-dashboard':
                 return <PrincipalAdminDashboard user={user!} addToast={addToast} />;
             case 'projects':

@@ -115,9 +115,9 @@ const ClusterMapItems: React.FC<{ markers: MapMarker[] }> = ({ markers }) => {
                                 className: 'bg-transparent border-none',
                                 iconSize: [40, 40]
                             })}
-                            // FIX: Replaced 'eventHandlers' with 'onClick' to fix type error.
-                            // The 'eventHandlers' prop is not recognized by this version's types.
-                            onClick={() => {
+                            // FIX: Replaced `eventHandlers` prop with individual event props to align with modern react-leaflet API and fix type error.
+                            eventHandlers={{
+                                click: () => {
                                     if (!supercluster) return;
 
                                     const leaves = supercluster.getLeaves(cluster.id as number, 25);
@@ -161,7 +161,8 @@ const ClusterMapItems: React.FC<{ markers: MapMarker[] }> = ({ markers }) => {
                                         </div>
                                     );
                                     setClusterPopup({ lat: latitude, lng: longitude, content });
-                                }}
+                                }
+                            }}
                         />
                     );
                 }
@@ -188,9 +189,12 @@ const ClusterMapItems: React.FC<{ markers: MapMarker[] }> = ({ markers }) => {
              {clusterPopup && (
                 <Popup 
                     position={[clusterPopup.lat, clusterPopup.lng]} 
-                    // FIX: Replaced invalid 'onClose' prop with 'eventHandlers' using the 'remove' event,
-                    // which is the correct API for handling popup close events in this react-leaflet version.
-                    eventHandlers={{ remove: () => setClusterPopup(null) }}
+                    // FIX: The `onClose` prop is not available in this version of react-leaflet's types. Using the `remove` event via `eventHandlers` is the correct way to detect when the popup is closed.
+                    eventHandlers={{
+                        remove: () => {
+                            setClusterPopup(null);
+                        }
+                    }}
                 >
                     {clusterPopup.content}
                 </Popup>
