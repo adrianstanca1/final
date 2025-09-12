@@ -257,6 +257,9 @@ export const api = {
         });
 
         const jsonStr = response.text;
+        if (!jsonStr) {
+            throw new Error("Empty response from AI service");
+        }
         const result = JSON.parse(jsonStr);
         
         const originalIdTypes = new Map(tasks.map(t => [String(t.id), t.id]));
