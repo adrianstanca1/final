@@ -170,7 +170,7 @@ const TaskDetailModal: React.FC<{
                                     <select 
                                         multiple 
                                         value={(editableTask.dependsOn || []).map(String)} 
-                                        onChange={e => handleDependencyChange(Array.from(e.target.selectedOptions, option => option.value))}
+                                        onChange={e => handleDependencyChange(Array.from(e.target.selectedOptions, option => (option as HTMLOptionElement).value))}
                                         className="w-full p-2 border rounded-md bg-white h-24"
                                         disabled={isTaskDone}
                                     >
@@ -373,7 +373,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
 
         setIsBulkUpdating(true);
         try {
-            await Promise.all(Array.from(selectedTasks).map(taskId => api.updateTodo(taskId, updates, user.id)));
+            await Promise.all(Array.from(selectedTasks).map(taskId => api.updateTodo(taskId as string | number, updates, user.id)));
             addToast(`${selectedTasks.size} tasks updated successfully.`, "success");
             setSelectedTasks(new Set());
             setBulkStatus('');

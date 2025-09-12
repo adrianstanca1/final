@@ -220,7 +220,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ user, addToast, onStartChat 
                 const assignment = assignments.find(a => a.userId === member.id);
                 if (!assignment) return null;
                 
-                const project = projectMap.get(assignment.projectId);
+                const project = projectMap.get(assignment.projectId) as Project | undefined;
                 if (!project || !project.location) return null;
 
                 return {
