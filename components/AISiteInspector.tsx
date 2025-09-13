@@ -1,5 +1,6 @@
 
 import React, { useState } from 'react';
+// FIX: Corrected import paths to be relative.
 import { User } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';

@@ -1,91 +1,79 @@
+// full contents of components/ToolsView.tsx
+
 import React, { useState } from 'react';
-// FIX: Corrected import path to be relative.
-import { User, Permission } from '../types';
+import { User, View, Permission } from '../types';
+import { hasPermission } from '../services/auth';
 import { Card } from './ui/Card';
-import { Button } from './ui/Button';
-import { DailySummaryGenerator } from './DailySummaryGenerator';
-import { RiskBot } from './RiskBot';
-import { FundingBot } from './FundingBot';
+import { AIAdvisor } from './AIAdvisor';
 import { BidPackageGenerator } from './BidPackageGenerator';
 import { CostEstimator } from './CostEstimator';
+import { DailySummaryGenerator } from './DailySummaryGenerator';
+import { FundingBot } from './FundingBot';
+import { RiskBot } from './RiskBot';
 import { SafetyAnalysis } from './SafetyAnalysis';
+import { AISiteInspector } from './AISiteInspector';
 import { WorkforcePlanner } from './WorkforcePlanner';
-import { hasPermission } from '../services/auth';
-// import { AISiteInspector } from './AISiteInspector'; // Uncomment when component is ready
+import { ResourceScheduler } from './ResourceScheduler';
 
 interface ToolsViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
-  setActiveView: (view: any) => void;
+  setActiveView: (view: View) => void;
 }
 
-type Tool =
-  | 'summary'
-  | 'risk'
-  | 'funding'
-  | 'bid'
-  | 'cost'
-  | 'safety'
-  | 'planner';
-  // | 'inspector';
+type Tool = 'ai-advisor' | 'bid-generator' | 'cost-estimator' | 'daily-summary' | 'funding-bot' | 'risk-bot' | 'safety-analysis' | 'site-inspector' | 'workforce-planner' | 'resource-scheduler';
 
 interface ToolConfig {
-  id: Tool;
-  name: string;
-  description: string;
-  component: React.FC<any>;
-  permission: boolean;
+    id: Tool;
+    name: string;
+    description: string;
+    icon: React.ReactNode;
+    component: React.ReactNode;
+    permission: boolean;
 }
 
 export const ToolsView: React.FC<ToolsViewProps> = ({ user, addToast, setActiveView }) => {
-  const [activeTool, setActiveTool] = useState<Tool | null>(null);
+    const [activeTool, setActiveTool] = useState<Tool | null>(null);
 
-  const commonProps = { user, addToast, onBack: () => setActiveTool(null) };
+    const toolDefinitions: ToolConfig[] = [
+        { id: 'ai-advisor', name: 'AI Advisor', description: 'Chat with an AI expert on project management.', icon: '💬', component: <AIAdvisor user={user} addToast={addToast} onBack={() => setActiveTool(null)} />, permission: true },
+        { id: 'bid-generator', name: 'Bid Package Generator', description: 'Generate professional bid packages and cover letters.', icon: '📝', component: <BidPackageGenerator user={user} addToast={addToast} onBack={() => setActiveTool(null)} />, permission: true },
+        { id: 'cost-estimator', name: 'Cost Estimator', description: 'Estimate project costs based on specifications.', icon: '🧮', component: <CostEstimator user={user} addToast={addToast} onBack={() => setActiveTool(null)} />, permission: true },
+        { id: 'daily-summary', name: 'Daily Summary Generator', description: 'AI-powered daily progress reports.', icon: '📰', component: <DailySummaryGenerator user={user} addToast={addToast} onBack={() => setActiveTool(null)} />, permission: true },
+        { id: 'funding-bot', name: 'FundingBot', description: 'Discover grants and funding opportunities.', icon: '💰', component: <FundingBot user={user} addToast={addToast} onBack={() => setActiveTool(null)} />, permission: true },
+        { id: 'risk-bot', name: 'RiskBot', description: 'Analyze documents for compliance and financial risks.', icon: '⚠️', component: <RiskBot user={user} addToast={addToast} onBack={() => setActiveTool(null)} />, permission: true },
+        { id: 'safety-analysis', name: 'Safety Analysis', description: 'Identify trends from safety incident reports.', icon: '🛡️', component: <SafetyAnalysis user={user} addToast={addToast} />, permission: true },
+        { id: 'site-inspector', name: 'AI Site Inspector', description: 'Analyze site photos for progress and hazards.', icon: '📸', component: <AISiteInspector user={user} addToast={addToast} onBack={() => setActiveTool(null)} />, permission: true },
+        { id: 'workforce-planner', name: 'Workforce Planner', description: 'Plan and allocate personnel to projects.', icon: '👥', component: <WorkforcePlanner user={user} addToast={addToast} />, permission: hasPermission(user, Permission.MANAGE_TEAM) },
+        { id: 'resource-scheduler', name: 'Resource Scheduler', description: 'View team and equipment schedules.', icon: '🗓️', component: <ResourceScheduler user={user} />, permission: hasPermission(user, Permission.MANAGE_EQUIPMENT) },
+    ];
+    
+    const availableTools = toolDefinitions.filter(t => t.permission);
+    const currentTool = availableTools.find(t => t.id === activeTool);
 
-  // FIX: The array of tool definitions is now explicitly typed as ToolConfig[] before being filtered.
-  // This provides TypeScript with the necessary context to correctly type the 'id' property
-  // as the 'Tool' literal union type, resolving the assignment error.
-  const toolDefinitions: ToolConfig[] = [
-    { id: 'summary', name: 'Daily Summary Generator', description: 'AI-powered daily progress reports.', component: DailySummaryGenerator, permission: true },
-    { id: 'planner', name: 'Workforce Planner', description: 'Drag-and-drop operatives onto projects.', component: WorkforcePlanner, permission: hasPermission(user, Permission.MANAGE_TEAM) },
-    { id: 'risk', name: 'RiskBot', description: 'Analyze text for compliance and financial risks.', component: RiskBot, permission: true },
-    { id: 'funding', name: 'FundingBot', description: 'Discover grants and funding opportunities.', component: FundingBot, permission: true },
-    { id: 'bid', name: 'Bid Package Generator', description: 'Draft bid packages and cover letters.', component: BidPackageGenerator, permission: hasPermission(user, Permission.MANAGE_PROJECTS) },
-    { id: 'cost', name: 'Cost Estimator', description: 'Get high-level project cost estimates.', component: CostEstimator, permission: true },
-    { id: 'safety', name: 'Safety Analysis', description: 'Identify trends from safety incident data.', component: SafetyAnalysis, permission: hasPermission(user, Permission.VIEW_SAFETY_REPORTS) },
-    // { id: 'inspector', name: 'AI Site Inspector', description: 'Analyze site photos for progress and safety.', component: AISiteInspector, permission: true },
-  ];
-  
-  const tools = toolDefinitions.filter(t => t.permission);
+    if (currentTool) {
+        return (
+            <div>
+                 <button onClick={() => setActiveTool(null)} className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 mb-4">
+                    &larr; Back to all tools
+                </button>
+                {currentTool.component}
+            </div>
+        )
+    }
 
-  const ActiveToolComponent = tools.find(t => t.id === activeTool)?.component;
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        {activeTool && <Button variant="ghost" onClick={() => setActiveTool(null)}>&larr; All Tools</Button>}
-        <h2 className="text-3xl font-bold text-slate-800">
-          {activeTool ? tools.find(t => t.id === activeTool)?.name : 'AI Tools'}
-        </h2>
-      </div>
-
-      {ActiveToolComponent ? (
-        <ActiveToolComponent {...commonProps} />
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tools.map(tool => (
-            <Card key={tool.id} onClick={() => setActiveTool(tool.id)} className="cursor-pointer hover:shadow-lg hover:border-sky-500/50 transition-all flex flex-col">
-              <div className="flex-grow">
-                <h3 className="font-bold text-lg text-slate-800">{tool.name}</h3>
-                <p className="text-sm text-slate-500 mt-1">{tool.description}</p>
-              </div>
-              <div className="mt-4 pt-4 border-t text-right">
-                <span className="text-sm font-semibold text-sky-600">Launch Tool &rarr;</span>
-              </div>
-            </Card>
-          ))}
+    return (
+        <div className="space-y-6">
+            <h2 className="text-3xl font-bold text-slate-800">Tools</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {availableTools.map(tool => (
+                    <Card key={tool.id} onClick={() => setActiveTool(tool.id)} className="cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all">
+                        <div className="text-3xl mb-2">{tool.icon}</div>
+                        <h3 className="font-bold text-lg">{tool.name}</h3>
+                        <p className="text-sm text-slate-600">{tool.description}</p>
+                    </Card>
+                ))}
+            </div>
         </div>
-      )}
-    </div>
-  );
+    );
 };

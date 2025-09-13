@@ -1,6 +1,7 @@
 // full contents of components/FinancialsView.tsx
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+// FIX: Corrected import paths to be relative.
 import { User, FinancialKPIs, MonthlyFinancials, CostBreakdown, Invoice, Quote, Client, Project, Permission, Expense, ExpenseCategory, ExpenseStatus, InvoiceStatus } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';

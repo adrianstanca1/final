@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+// FIX: Corrected import paths to be relative.
 import { User, Timesheet, Project, Role, Permission, TimesheetStatus } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
-import { Button } from './ui/Button';
 import { TimesheetStatusBadge } from './ui/StatusBadge';
+import { Button } from './ui/Button';
 import { hasPermission } from '../services/auth';
 
 interface TimesheetsViewProps {

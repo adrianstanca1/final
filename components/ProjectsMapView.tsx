@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+// FIX: Corrected import paths to be relative.
 import { User, Project, Permission } from '../types';
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';

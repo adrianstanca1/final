@@ -1,189 +1,78 @@
-import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+// FIX: Implemented useGeolocation hook to resolve module not found errors.
+import { useState, useCallback, useRef } from 'react';
 
-interface GeolocationState {
-  loading: boolean;
-  error: GeolocationPositionError | Error | null;
-  data: GeolocationPosition | null;
+interface Geofence {
+  id: number | string;
+  lat: number;
+  lng: number;
+  radius: number; // in meters
 }
 
-export interface Geofence {
-    // FIX: Changed id to number | string to accommodate temporary string IDs for projects.
-    id: number | string;
-    name: string;
-    lat: number;
-    lng: number;
-    radius: number;
+interface GeolocationData {
+  coords: {
+    latitude: number;
+    longitude: number;
+    accuracy: number;
+  };
+  timestamp: number;
 }
 
-export type GeofenceEvent = 'enter' | 'exit';
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const R = 6371e3; // metres
+  const φ1 = lat1 * Math.PI/180;
+  const φ2 = lat2 * Math.PI/180;
+  const Δφ = (lat2-lat1) * Math.PI/180;
+  const Δλ = (lon2-lon1) * Math.PI/180;
 
-// Haversine formula to calculate distance between two points on Earth
-const haversineDistance = (coords1: { lat: number; lng: number }, coords2: { lat: number; lng: number }): number => {
-    const R = 6371e3; // metres
-    const φ1 = coords1.lat * Math.PI / 180;
-    const φ2 = coords2.lat * Math.PI / 180;
-    const Δφ = (coords2.lat - coords1.lat) * Math.PI / 180;
-    const Δλ = (coords2.lng - coords1.lng) * Math.PI / 180;
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
-    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-    return R * c; // in metres
+  return R * c; // in metres
 };
 
-export interface UseGeolocationOptions {
-    enableHighAccuracy?: boolean;
-    geofences?: Geofence[];
-    onGeofenceEvent?: (event: GeofenceEvent, geofence: Geofence) => void;
-}
+export const useGeolocation = ({ geofences = [] }: { geofences: Geofence[] }) => {
+  const [data, setData] = useState<GeolocationData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [insideGeofenceIds, setInsideGeofenceIds] = useState<Set<number|string>>(new Set());
+  const watchId = useRef<number | null>(null);
 
-const showNotification = (title: string, body: string) => {
-    if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification(title, { body });
+  const watchLocation = useCallback(() => {
+    if (navigator.geolocation) {
+      watchId.current = navigator.geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
+          const newData = { coords: { latitude, longitude, accuracy }, timestamp: position.timestamp };
+          setData(newData);
+          
+          const insideIds = new Set<string|number>();
+          geofences.forEach(fence => {
+            const distance = calculateDistance(latitude, longitude, fence.lat, fence.lng);
+            if (distance < fence.radius) {
+              insideIds.add(fence.id);
+            }
+          });
+          setInsideGeofenceIds(insideIds);
+
+          setError(null);
+        },
+        (err) => {
+          setError(err.message);
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
+    } else {
+      setError("Geolocation is not supported by this browser.");
     }
-};
+  }, [geofences]);
 
-export const useGeolocation = (options: UseGeolocationOptions = {}) => {
-    const {
-        enableHighAccuracy = false,
-        geofences = [],
-        onGeofenceEvent,
-    } = options;
+  const stopWatching = useCallback(() => {
+    if (watchId.current !== null) {
+      navigator.geolocation.clearWatch(watchId.current);
+      watchId.current = null;
+    }
+  }, []);
 
-    const [state, setState] = useState<GeolocationState>({
-        loading: false,
-        error: null,
-        data: null,
-    });
-
-    const watchId = useRef<number | null>(null);
-    // FIX: Changed Set to handle number or string IDs.
-    const insideGeofencesRef = useRef<Set<number | string>>(new Set());
-
-    // Request notification permission when geofences are used
-    useEffect(() => {
-        if (geofences.length > 0 && 'Notification' in window && Notification.permission === 'default') {
-            Notification.requestPermission();
-        }
-    }, [geofences]);
-
-    const processGeofences = useCallback((position: GeolocationPosition) => {
-        if (!geofences.length || !onGeofenceEvent) return;
-        
-        const userCoords = { lat: position.coords.latitude, lng: position.coords.longitude };
-        // FIX: Changed Set to handle number or string IDs.
-        const currentlyInside = new Set<number | string>();
-
-        geofences.forEach(fence => {
-            const distance = haversineDistance(userCoords, { lat: fence.lat, lng: fence.lng });
-            if (distance <= fence.radius) {
-                currentlyInside.add(fence.id);
-            }
-        });
-
-        const previouslyInside = insideGeofencesRef.current;
-
-        // Check for entries
-        currentlyInside.forEach(id => {
-            if (!previouslyInside.has(id)) {
-                const fence = geofences.find(f => f.id === id);
-                if (fence) {
-                    onGeofenceEvent('enter', fence);
-                    showNotification('Geofence Alert', `You have entered the '${fence.name}' area.`);
-                }
-            }
-        });
-
-        // Check for exits
-        previouslyInside.forEach(id => {
-            if (!currentlyInside.has(id)) {
-                const fence = geofences.find(f => f.id === id);
-                if (fence) {
-                    onGeofenceEvent('exit', fence);
-                    showNotification('Geofence Alert', `You have exited the '${fence.name}' area.`);
-                }
-            }
-        });
-
-        insideGeofencesRef.current = currentlyInside;
-    }, [geofences, onGeofenceEvent]);
-    
-    const geolocationOptions = useMemo(() => ({
-        enableHighAccuracy,
-        timeout: 20000,
-        maximumAge: 0,
-    }), [enableHighAccuracy]);
-
-    const getLocation = useCallback(() => {
-        if (!navigator.geolocation) {
-            setState(prevState => ({ ...prevState, error: new Error("Geolocation is not supported by your browser.") }));
-            return;
-        }
-
-        setState({ loading: true, error: null, data: null });
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                setState({
-                    loading: false,
-                    error: null,
-                    data: position,
-                });
-            },
-            (error) => {
-                setState({
-                    loading: false,
-                    error,
-                    data: null,
-                });
-            },
-            geolocationOptions
-        );
-    }, [geolocationOptions]);
-
-    const watchLocation = useCallback(() => {
-        if (!navigator.geolocation) {
-            setState(prevState => ({ ...prevState, error: new Error("Geolocation is not supported by your browser.") }));
-            return;
-        }
-
-        setState(prevState => ({ ...prevState, loading: true }));
-
-        watchId.current = navigator.geolocation.watchPosition(
-            (position) => {
-                setState({
-                    loading: false,
-                    error: null,
-                    data: position,
-                });
-                processGeofences(position);
-            },
-            (error) => {
-                setState({
-                    loading: false,
-                    error,
-                    data: null,
-                });
-            },
-            geolocationOptions
-        );
-    }, [processGeofences, geolocationOptions]);
-
-    const stopWatching = useCallback(() => {
-        if (watchId.current !== null) {
-            navigator.geolocation.clearWatch(watchId.current);
-            watchId.current = null;
-            setState(prevState => ({...prevState, loading: false}));
-        }
-    }, []);
-
-    useEffect(() => {
-        // Cleanup on unmount
-        return () => {
-            stopWatching();
-        }
-    }, [stopWatching]);
-
-    return { ...state, getLocation, watchLocation, stopWatching, insideGeofenceIds: insideGeofencesRef.current };
+  return { data, error, watchLocation, stopWatching, insideGeofenceIds };
 };

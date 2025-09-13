@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { api, processOfflineQueue } from '../services/mockApi';
+// FIX: Corrected import paths to be relative.
+import { processOfflineQueue } from '../services/mockApi';
 
 export const useOfflineSync = (addToast: (message: string, type: 'success' | 'error') => void) => {
     const [isOnline, setIsOnline] = useState<boolean>(navigator.onLine);

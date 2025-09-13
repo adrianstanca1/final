@@ -1,4 +1,5 @@
-import { User, Permission, RolePermissions } from '../types';
+// FIX: Corrected import paths to be relative.
+import { User, Permission, RolePermissions, Role } from '../types';
 
 /**
  * Checks if a user has a specific permission based on their role.
@@ -10,6 +11,10 @@ import { User, Permission, RolePermissions } from '../types';
 export const hasPermission = (user: User | null, permission: Permission): boolean => {
     if (!user) {
         return false;
+    }
+    // Principal admin has all permissions.
+    if (user.role === Role.PRINCIPAL_ADMIN) {
+        return true;
     }
     const userPermissions = RolePermissions[user.role];
     if (!userPermissions) {

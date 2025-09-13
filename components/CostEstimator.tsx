@@ -1,66 +1,81 @@
+// full contents of components/CostEstimator.tsx
+
 import React, { useState } from 'react';
 import { User } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
-import { GoogleGenAI, Type, GenerateContentResponse } from '@google/genai';
+import { api } from '../services/mockApi';
+import { GoogleGenAI, Type } from "@google/genai";
 
 interface CostEstimatorProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
+  onBack: () => void;
 }
 
 interface Estimate {
-    lowEstimate: number;
-    highEstimate: number;
-    contingencyPercentage: number;
+    totalEstimate: number;
+    breakdown: {
+        category: string;
+        cost: number;
+        details: string;
+    }[];
+    contingency: number;
     summary: string;
-    currency: string;
 }
 
-const formatCurrency = (amount: number, currency: string) => {
-    return new Intl.NumberFormat('en-GB', { style: 'currency', currency: currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
-};
+const formatCurrency = (amount: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 0 }).format(amount);
 
-export const CostEstimator: React.FC<CostEstimatorProps> = ({ user, addToast }) => {
+export const CostEstimator: React.FC<CostEstimatorProps> = ({ user, addToast, onBack }) => {
     const [description, setDescription] = useState('');
+    const [sqft, setSqft] = useState<number | ''>('');
+    const [quality, setQuality] = useState('standard');
     const [estimate, setEstimate] = useState<Estimate | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
     const handleEstimate = async () => {
-        if (!description.trim()) return;
+        if (!description.trim() || !sqft) {
+            addToast('Please provide a description and square footage.', 'error');
+            return;
+        }
         setIsLoading(true);
         setEstimate(null);
-        
+
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-            const response: GenerateContentResponse = await ai.models.generateContent({
-                // FIX: Updated deprecated model 'gemini-1.5-flash' to 'gemini-2.5-flash'.
-                model: 'gemini-2.5-flash',
-                contents: `Generate a high-level construction cost estimate in GBP for the following project scope: ${description}. Provide a low and high range, a recommended contingency percentage, and a brief summary.`,
+            const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
+            const result = await ai.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: `Provide a UK-based construction cost estimate for the following project: "${description}". Square footage: ${sqft} sq ft. Quality: ${quality}. Provide a JSON object with keys: "totalEstimate" (number), "breakdown" (array of objects with "category", "cost", "details"), "contingency" (number), "summary" (string).`,
                 config: {
                     responseMimeType: "application/json",
                     responseSchema: {
                         type: Type.OBJECT,
                         properties: {
-                            lowEstimate: { type: Type.NUMBER, description: 'The low-end of the estimated cost range.' },
-                            highEstimate: { type: Type.NUMBER, description: 'The high-end of the estimated cost range.' },
-                            contingencyPercentage: { type: Type.NUMBER, description: 'A recommended contingency percentage.' },
-                            summary: { type: Type.STRING, description: 'A brief summary of the estimate basis.' },
-                            currency: { type: Type.STRING, description: 'The currency of the estimate, e.g. GBP.' }
-                        },
-                        required: ['lowEstimate', 'highEstimate', 'contingencyPercentage', 'summary', 'currency']
+                            totalEstimate: { type: Type.NUMBER },
+                            breakdown: {
+                                type: Type.ARRAY,
+                                items: {
+                                    type: Type.OBJECT,
+                                    properties: {
+                                        category: { type: Type.STRING },
+                                        cost: { type: Type.NUMBER },
+                                        details: { type: Type.STRING },
+                                    }
+                                }
+                            },
+                            contingency: { type: Type.NUMBER },
+                            summary: { type: Type.STRING },
+                        }
                     }
                 }
             });
 
-            const jsonStr = response.text;
-            const parsedEstimate = JSON.parse(jsonStr) as Estimate;
-            setEstimate(parsedEstimate);
+            const jsonText = result.text.trim();
+            setEstimate(JSON.parse(jsonText));
             addToast("Cost estimate generated!", "success");
-
         } catch (error) {
             console.error(error);
-            addToast("Failed to generate estimate.", "error");
+            addToast("Failed to generate cost estimate.", "error");
         } finally {
             setIsLoading(false);
         }
@@ -68,49 +83,50 @@ export const CostEstimator: React.FC<CostEstimatorProps> = ({ user, addToast }) 
 
     return (
         <Card>
-            <h3 className="text-xl font-semibold mb-4">AI Cost Estimator</h3>
-            <div className="space-y-4">
-                <textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    rows={6}
-                    className="w-full p-2 border rounded-md"
-                    placeholder="Describe the project scope, e.g., '10-story office building, 50,000 sq ft, steel frame, central London'..."
-                    disabled={isLoading}
-                />
-                <Button onClick={handleEstimate} isLoading={isLoading} disabled={!description.trim()}>Generate Estimate</Button>
+            <h3 className="text-xl font-semibold text-slate-700 mb-2">AI Cost Estimator</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4 p-4 border rounded-lg bg-slate-50">
+                    <div>
+                        <label className="block text-sm font-medium">Project Description</label>
+                        <textarea value={description} onChange={e => setDescription(e.target.value)} rows={5} className="w-full p-2 border rounded" placeholder="e.g., Two-story office building with open-plan interior and glass facade."/>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium">Square Footage</label>
+                        <input type="number" value={sqft} onChange={e => setSqft(e.target.value === '' ? '' : parseInt(e.target.value))} className="w-full p-2 border rounded" placeholder="5000" />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium">Finish Quality</label>
+                        <select value={quality} onChange={e => setQuality(e.target.value)} className="w-full p-2 border rounded bg-white">
+                            <option value="basic">Basic</option>
+                            <option value="standard">Standard</option>
+                            <option value="high-end">High-End</option>
+                        </select>
+                    </div>
+                    <Button onClick={handleEstimate} isLoading={isLoading}>Estimate Costs</Button>
+                </div>
+                <div>
+                    {isLoading && <p>AI is calculating...</p>}
+                    {estimate && (
+                        <div className="space-y-4">
+                            <div className="p-4 bg-sky-100 rounded-lg text-center">
+                                <p className="text-sky-800 font-semibold">Total Estimated Cost</p>
+                                <p className="text-4xl font-bold text-sky-900">{formatCurrency(estimate.totalEstimate)}</p>
+                            </div>
+                            <div>
+                                <h4 className="font-semibold">Breakdown:</h4>
+                                <ul className="list-disc list-inside">
+                                    {estimate.breakdown.map((item, i) => <li key={i}>{item.category}: {formatCurrency(item.cost)}</li>)}
+                                </ul>
+                                <p className="mt-2 text-sm">Contingency: {formatCurrency(estimate.contingency)}</p>
+                            </div>
+                            <div>
+                                <h4 className="font-semibold">Summary:</h4>
+                                <p className="text-sm text-slate-600">{estimate.summary}</p>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
-            
-            {isLoading && (
-                <div className="text-center py-10">
-                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-slate-800"></div>
-                    <p className="mt-2 text-slate-600">AI is calculating your estimate...</p>
-                </div>
-            )}
-
-            {estimate && (
-                <div className="mt-6 pt-4 border-t animate-card-enter">
-                    <h4 className="font-semibold text-lg">AI-Generated Estimate:</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 text-center">
-                        <div className="bg-slate-50 p-4 rounded-lg">
-                            <p className="text-sm text-slate-500">Low Estimate</p>
-                            <p className="text-2xl font-bold">{formatCurrency(estimate.lowEstimate, estimate.currency)}</p>
-                        </div>
-                        <div className="bg-slate-50 p-4 rounded-lg">
-                            <p className="text-sm text-slate-500">High Estimate</p>
-                            <p className="text-2xl font-bold">{formatCurrency(estimate.highEstimate, estimate.currency)}</p>
-                        </div>
-                        <div className="bg-slate-50 p-4 rounded-lg">
-                            <p className="text-sm text-slate-500">Contingency</p>
-                            <p className="text-2xl font-bold">{estimate.contingencyPercentage}%</p>
-                        </div>
-                    </div>
-                    <div className="mt-4 p-3 bg-sky-50 border-l-4 border-sky-500 rounded-r-md">
-                        <p className="font-semibold text-sm">Summary:</p>
-                        <p className="text-slate-700 text-sm">{estimate.summary}</p>
-                    </div>
-                </div>
-            )}
         </Card>
     );
 };

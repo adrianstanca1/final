@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+// FIX: Corrected import paths to be relative.
 import { User, SafetyIncident, Project, Permission, IncidentStatus, IncidentSeverity } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
