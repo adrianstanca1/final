@@ -50,7 +50,7 @@ let todos: Todo[] = [
   // Project 101
   { id: 1, text: 'Finalize structural steel drawings', projectId: 101, assigneeId: 11, creatorId: 10, status: TodoStatus.DONE, priority: TodoPriority.HIGH, dueDate: new Date('2023-09-25'), completedAt: new Date('2023-09-24'), completedBy: 11 },
   { id: 2, text: 'Procure HVAC units', projectId: 101, assigneeId: 11, creatorId: 10, status: TodoStatus.IN_PROGRESS, priority: TodoPriority.HIGH, dueDate: new Date('2023-10-20'), dependsOn: [1] },
-  { id: 3, text: 'Install 1st floor exterior windows', projectId: 101, assigneeId: 12, creatorId: 11, status: TodoStatus.TODO, priority: TodoPriority.MEDIUM, dueDate: new Date('2023-10-15'), subTasks: [{id:1, text:'West wall', isCompleted:false}, {id:2, text:'East wall', isCompleted:false}], comments: [{id: 1, text:'Weather delay expected on Friday.', authorId: 12, timestamp: new Date()}] },
+  { id: 3, text: 'Install 1st floor exterior windows', projectId: 101, assigneeId: 12, creatorId: 11, status: TodoStatus.TODO, priority: TodoPriority.MEDIUM, dueDate: new Date('2023-10-15'), subTasks: [{id:1, text:'West wall', isCompleted:false}, {id:2, text:'East wall', isCompleted:false}], comments: [{id: 1, text:'Weather delay expected on Friday.', authorId: 12, timestamp: new Date()}], dependsOn: [2] },
   { id: 4, text: 'Daily site cleanup', projectId: 101, assigneeId: 13, creatorId: 12, status: TodoStatus.IN_PROGRESS, priority: TodoPriority.LOW, dueDate: null },
   { id: 5, text: 'Submit weekly progress report', projectId: 101, assigneeId: 11, creatorId: 10, status: TodoStatus.TODO, priority: TodoPriority.MEDIUM, dueDate: new Date(new Date().setDate(new Date().getDate() + 2))},
   // Project 103

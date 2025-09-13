@@ -1,5 +1,9 @@
 
 
+
+
+
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // FIX: Corrected import paths to be relative.
 import { User, Project, AISearchResult, Document as Doc, Role } from '../types';
@@ -74,11 +78,13 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({ user, currentProje
         e.preventDefault();
         if (!query.trim()) return;
         
-        let projectIdsToSearch: number[] = [];
+        // FIX: Changed type to (number | string)[] to match Project.id
+        let projectIdsToSearch: (string | number)[] = [];
         if (searchScope === 'all') {
             projectIdsToSearch = userProjects.map(p => p.id);
         } else {
-            projectIdsToSearch = [parseInt(searchScope, 10)];
+            // FIX: Use searchScope directly as it can be a temporary string ID. The API handles string conversion.
+            projectIdsToSearch = [searchScope];
         }
         
         if (projectIdsToSearch.length === 0) {
@@ -102,7 +108,8 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({ user, currentProje
         }
     };
     
-    const getDocumentById = (id: number): Doc | undefined => {
+    // FIX: Changed id parameter to number | string to match source data.
+    const getDocumentById = (id: number | string): Doc | undefined => {
         return allDocuments.find(d => d.id === id);
     }
 

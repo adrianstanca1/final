@@ -1,5 +1,9 @@
 
 
+
+
+
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 // FIX: Corrected import paths to be relative.
 import { User, Invoice, Quote, Client, Project, InvoiceStatus, QuoteStatus } from '../types';
@@ -51,7 +55,8 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
     }, [fetchData]);
 
     const findClientName = (id: number) => clients.find(c => c.id === id)?.name || 'Unknown Client';
-    const findProjectName = (id: number) => projects.find(p => p.id === id)?.name || 'Unknown Project';
+    // FIX: Changed id to number | string to match Project ID type.
+    const findProjectName = (id: number | string) => projects.find(p => p.id === id)?.name || 'Unknown Project';
 
     const renderInvoicesTable = () => (
         <div className="overflow-x-auto">

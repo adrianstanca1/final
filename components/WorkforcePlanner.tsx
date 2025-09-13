@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { User, Project, ResourceAssignment, Role } from '../types';
 import { api } from '../services/mockApi';
@@ -87,7 +88,8 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
         (e.currentTarget as HTMLDivElement).style.backgroundColor = '';
     };
 
-    const handleDrop = async (e: React.DragEvent, projectId: number, date: Date) => {
+    // FIX: Updated the 'handleDrop' function signature to accept a 'projectId' of type 'number | string' to match the 'Project.id' type and resolve the TypeScript error.
+    const handleDrop = async (e: React.DragEvent, projectId: number | string, date: Date) => {
         e.preventDefault();
         (e.currentTarget as HTMLDivElement).style.backgroundColor = '';
         const userId = parseInt(e.dataTransfer.getData('userId'), 10);

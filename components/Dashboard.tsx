@@ -142,7 +142,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
         }
     };
     
-    const handleUpdateExpenseStatus = async (expenseId: number, status: ExpenseStatus) => {
+    // FIX: Changed expenseId to accept number | string to match the type from PendingApproval.
+    const handleUpdateExpenseStatus = async (expenseId: number | string, status: ExpenseStatus) => {
         try {
             await api.updateExpenseStatus(expenseId, status, user.id, status === ExpenseStatus.REJECTED ? 'Rejected from dashboard' : undefined);
             addToast(`Expense ${status.toLowerCase()}.`, 'success');

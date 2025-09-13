@@ -188,7 +188,7 @@ const ClusterMapItems: React.FC<{ markers: MapMarker[] }> = ({ markers }) => {
              {clusterPopup && (
                 <Popup 
                     position={[clusterPopup.lat, clusterPopup.lng]} 
-                    // FIX: The `onClose` prop is not available in this version of react-leaflet's types. Using the `remove` event via `eventHandlers` is the correct way to detect when the popup is closed.
+                    // FIX: The `onClose` prop is not available in react-leaflet's types. Using the `remove` event via `eventHandlers` is the correct way to detect when the popup is closed.
                     eventHandlers={{
                         remove: () => {
                             setClusterPopup(null);

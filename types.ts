@@ -63,7 +63,7 @@ export interface Location {
 }
 
 export interface Project {
-  id: number;
+  id: number | string;
   companyId: number;
   name: string;
   location: Location;
@@ -105,7 +105,7 @@ export interface Comment {
 export interface Todo {
   id: number | string;
   text: string;
-  projectId: number;
+  projectId: number | string;
   assigneeId: number | null;
   creatorId: number;
   status: TodoStatus;
@@ -137,7 +137,7 @@ export enum DocumentCategory {
 
 export interface DocumentVersion {
     id: number;
-    documentId: number;
+    documentId: number | string;
     versionNumber: number;
     url: string;
     uploaderId: number;
@@ -148,9 +148,9 @@ export interface DocumentVersion {
 }
 
 export interface Document {
-  id: number;
+  id: number | string;
   name: string;
-  projectId: number;
+  projectId: number | string;
   folderId: number | null;
   category: DocumentCategory;
   latestVersionNumber: number;
@@ -161,7 +161,7 @@ export interface Document {
 export interface DocumentFolder {
     id: number;
     name: string;
-    projectId: number;
+    projectId: number | string;
     parentId: number | null;
     companyId: number;
 }
@@ -180,9 +180,9 @@ export enum IncidentStatus {
 }
 
 export interface SafetyIncident {
-  id: number;
+  id: number | string;
   description: string;
-  projectId: number;
+  projectId: number | string;
   reporterId: number;
   timestamp: Date;
   severity: IncidentSeverity;
@@ -202,7 +202,7 @@ export enum TimesheetStatus {
 export interface Timesheet {
   id: number;
   userId: number;
-  projectId: number;
+  projectId: number | string;
   clockIn: Date;
   clockOut: Date | null;
   status: TimesheetStatus;
@@ -226,7 +226,7 @@ export interface Equipment {
     name: string;
     type: string;
     status: EquipmentStatus;
-    projectId: number | null;
+    projectId: number | string | null;
     lastAssignedDate?: Date | null;
     maintenanceStartDate?: Date | null;
     estimatedAvailableDate?: Date | null;
@@ -244,13 +244,13 @@ export interface EquipmentHistory {
 export interface ProjectAssignment {
   id: number;
   userId: number;
-  projectId: number;
+  projectId: number | string;
 }
 
 export interface ResourceAssignment {
     id: number;
     companyId: number;
-    projectId: number;
+    projectId: number | string;
     resourceId: number;
     resourceType: 'user' | 'equipment';
     startDate: Date;
@@ -259,7 +259,7 @@ export interface ResourceAssignment {
 
 export interface ChatMessage {
     id: number;
-    conversationId: number;
+    conversationId: number | string;
     senderId: number;
     content: string;
     timestamp: Date;
@@ -269,10 +269,10 @@ export interface ChatMessage {
 }
 
 export interface Conversation {
-    id: number;
+    id: number | string;
     type: 'dm' | 'channel';
     name?: string; // For channels
-    projectId?: number; // For channels
+    projectId?: number | string; // For channels
     participants: number[];
     messages: ChatMessage[];
     lastMessage: ChatMessage | null;
@@ -282,7 +282,7 @@ export interface Conversation {
 export interface AISearchResult {
     summary: string;
     sources: {
-        documentId: number;
+        documentId: number | string;
         snippet: string;
     }[];
 }
@@ -406,7 +406,7 @@ export interface Invoice {
     id: number;
     invoiceNumber: string;
     clientId: number;
-    projectId: number;
+    projectId: number | string;
     status: InvoiceStatus;
     issuedAt: Date;
     dueAt: Date;
@@ -438,7 +438,7 @@ export interface Quote {
     id: number;
     quoteNumber: string;
     clientId: number;
-    projectId: number;
+    projectId: number | string;
     status: QuoteStatus;
     issuedAt: Date;
     validUntil: Date;
@@ -464,18 +464,18 @@ export enum ExpenseStatus {
 }
 
 export interface Expense {
-    id: number;
-    userId: number;
-    projectId: number;
-    amount: number;
-    currency: 'GBP' | 'USD' | 'EUR';
-    category: ExpenseCategory;
-    description: string;
-    status: ExpenseStatus;
-    submittedAt: Date;
-    approverId?: number | null;
-    approvedAt?: Date | null;
-    rejectionReason?: string;
+  id: number | string;
+  userId: number;
+  projectId: number | string;
+  amount: number;
+  currency: 'GBP' | 'USD' | 'EUR';
+  category: ExpenseCategory;
+  description: string;
+  status: ExpenseStatus;
+  submittedAt: Date;
+  approverId?: number | null;
+  approvedAt?: Date | null;
+  rejectionReason?: string;
 }
 
 export interface Payment {
@@ -517,7 +517,7 @@ export interface SafetyInspectionChecklistItem {
 
 export interface SafetyInspection {
     id: number;
-    projectId: number;
+    projectId: number | string;
     inspectorId: number;
     date: Date;
     status: 'Scheduled' | 'In Progress' | 'Completed' | 'Overdue';
@@ -526,11 +526,10 @@ export interface SafetyInspection {
 
 export interface RiskAssessment {
     id: number;
-    projectId: number;
+    projectId: number | string;
     description: string;
     severity: IncidentSeverity;
     probability: 'Low' | 'Medium' | 'High';
-    mitigationPlan: string;
     ownerId: number;
 }
 
@@ -567,7 +566,8 @@ export interface Notification {
 }
 
 
-export interface PendingApproval { id: number; type: 'Timesheet' | 'Invoice' | 'Expense'; description: string; timesheetId?: number; expenseId?: number; }
+// FIX: Changed id to number | string to accommodate temporary string IDs from offline-created expenses.
+export interface PendingApproval { id: number | string; type: 'Timesheet' | 'Invoice' | 'Expense'; description: string; timesheetId?: number; expenseId?: number | string; }
 export interface SystemHealth { status: 'OK' | 'DEGRADED' | 'DOWN'; message: string; }
 export interface UsageMetric { name: string; value: number; unit: string; }
 export interface PlatformSettings { maintenanceMode: boolean; }

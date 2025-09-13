@@ -30,6 +30,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({ todo, allTodos, onClick, ass
         return dependencies.some(dep => dep.status !== TodoStatus.DONE);
     }, [dependencies]);
 
+    const blockingTasksText = useMemo(() => {
+        if (!isBlocked) return '';
+        return dependencies
+            .filter(d => d.status !== TodoStatus.DONE)
+            .map(d => d.text)
+            .join(', ');
+    }, [dependencies, isBlocked]);
+
     return (
         <div
             onClick={isBlocked ? () => {} : onClick}
@@ -40,7 +48,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ todo, allTodos, onClick, ass
             }`}
         >
              {isBlocked && (
-                <div className="absolute top-2 left-2" title={`Blocked by: ${dependencies.map(d => d.text).join(', ')}`}>
+                <div className="absolute top-2 left-2" title={`Blocked by: ${blockingTasksText}`}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                     </svg>

@@ -132,7 +132,8 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
     const [allTodos, setAllTodos] = useState<Todo[]>([]);
     const [allAssignments, setAllAssignments] = useState<ProjectAssignment[]>([]);
     const [loading, setLoading] = useState(true);
-    const [healthData, setHealthData] = useState<Map<number, ProjectHealth>>(new Map());
+    // FIX: Changed Map key to number | string to match Project.id type.
+    const [healthData, setHealthData] = useState<Map<number | string, ProjectHealth>>(new Map());
     
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState<Project['status'] | 'all'>('Active');
@@ -167,7 +168,8 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
             setAllTodos(todos);
             setAllAssignments(assignments);
 
-            const statsMap = new Map<number, { overdueTaskCount: number }>();
+            // FIX: Changed Map key to number | string to match Project.id type.
+            const statsMap = new Map<number | string, { overdueTaskCount: number }>();
             const now = new Date();
             now.setHours(0, 0, 0, 0);
 
@@ -185,7 +187,8 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
             );
 
             const healthResults = await Promise.all(healthPromises);
-            const newHealthData = new Map<number, ProjectHealth>();
+            // FIX: Changed Map key to number | string to match Project.id type.
+            const newHealthData = new Map<number | string, ProjectHealth>();
             healthResults.forEach(result => {
                 newHealthData.set(result.projectId, result.health);
             });
@@ -203,7 +206,8 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
     }, [fetchData]);
 
     const projectStats = useMemo(() => {
-        const statsMap = new Map<number, { taskCount: number; memberCount: number; overdueTaskCount: number; upcomingMilestone: { name: string; date: Date } | null }>();
+        // FIX: Changed Map key to number | string to match Project.id type.
+        const statsMap = new Map<number | string, { taskCount: number; memberCount: number; overdueTaskCount: number; upcomingMilestone: { name: string; date: Date } | null }>();
         const now = new Date();
         now.setHours(0, 0, 0, 0); // For date-only comparison
 

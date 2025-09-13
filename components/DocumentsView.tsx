@@ -612,7 +612,8 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ user, addToast, is
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [documentToUpdate, setDocumentToUpdate] = useState<Document | null>(null);
     const [uploadLog, setUploadLog] = useState<UploadLogEntry[]>([]);
-    const [activeDocMenu, setActiveDocMenu] = useState<number | null>(null);
+    // FIX: Changed state to allow for string | number to match Document ID type.
+    const [activeDocMenu, setActiveDocMenu] = useState<number | string | null>(null);
     const menuRef = useRef<HTMLDivElement>(null);
     
     const canManage = hasPermission(user, Permission.MANAGE_DOCUMENTS);
@@ -652,14 +653,14 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ user, addToast, is
         };
     }, []);
 
-    const fetchFolderContents = useCallback(async (projectId: number, folderId: number | null) => {
+    const fetchFolderContents = useCallback(async (projectId: string | number, folderId: number | null) => {
         setLoading(true);
         try {
             let contents;
             if (folderId === null) {
                 const rootDocs = await api.getDocumentsByProjectIds([projectId]);
                 const rootFolders = await api.getFoldersByProject(projectId).then(f => f.filter(folder => folder.parentId === null));
-                contents = { documents: rootDocs, folders: rootFolders };
+                contents = { documents: rootDocs.filter(d => d.folderId === null), folders: rootFolders };
             } else {
                 contents = await api.getFolderContents(folderId);
             }

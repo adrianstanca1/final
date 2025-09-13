@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { User, Project, Todo, Timesheet, View, TodoStatus, ProjectAssignment } from '../types';
+import { User, Project, Todo, Timesheet, View, TodoStatus, ProjectAssignment, TodoPriority } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -69,7 +69,22 @@ export const MyDayView: React.FC<MyDayViewProps> = ({ user, addToast, setActiveV
                         setAiPrioritizedTasks(sortedTasks);
                     } catch (aiError) {
                         addToast("AI prioritization failed. Showing standard task list.", "error");
-                        setAiPrioritizedTasks(allUserTodos.slice(0,3));
+                        const priorityOrder = {
+                            [TodoPriority.HIGH]: 1,
+                            [TodoPriority.MEDIUM]: 2,
+                            [TodoPriority.LOW]: 3,
+                        };
+                        const fallbackSorted = [...allUserTodos].sort((a, b) => {
+                           const dueDateA = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+                           const dueDateB = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+                           
+                           if (dueDateA !== dueDateB) {
+                               return dueDateA - dueDateB;
+                           }
+                           
+                           return (priorityOrder[a.priority] || 99) - (priorityOrder[b.priority] || 99);
+                        });
+                        setAiPrioritizedTasks(fallbackSorted.slice(0,3));
                     }
                 } else {
                     setAiPrioritizedTasks([]);

@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User, Conversation, ChatMessage } from '../types';
 import { api } from '../services/mockApi';
@@ -16,7 +14,8 @@ interface ChatViewProps {
 export const ChatView: React.FC<ChatViewProps> = ({ user, addToast, initialRecipient }) => {
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
+    // FIX: Changed state type to allow for temporary string IDs for conversations created offline.
+    const [activeConversationId, setActiveConversationId] = useState<number | string | null>(null);
     const [companyUsers, setCompanyUsers] = useState<Map<number, User>>(new Map());
     const [loading, setLoading] = useState(true);
     const [newMessage, setNewMessage] = useState('');
@@ -48,7 +47,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ user, addToast, initialRecip
                 } else {
                     // Create a placeholder conversation
                     // FIX: Added the required 'type' property to the placeholder Conversation object.
-                    const placeholderConvo: Conversation = { id: Date.now(), type: 'dm', participants: [user.id, initialRecipient.id], messages: [], lastMessage: null };
+                    const placeholderConvo: Conversation = { id: `temp_${Date.now()}`, type: 'dm', participants: [user.id, initialRecipient.id], messages: [], lastMessage: null };
                     setConversations(prev => [placeholderConvo, ...prev]);
                     setActiveConversationId(placeholderConvo.id);
                 }

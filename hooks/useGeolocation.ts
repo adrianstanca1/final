@@ -7,7 +7,8 @@ interface GeolocationState {
 }
 
 export interface Geofence {
-    id: number;
+    // FIX: Changed id to number | string to accommodate temporary string IDs for projects.
+    id: number | string;
     name: string;
     lat: number;
     lng: number;
@@ -58,7 +59,8 @@ export const useGeolocation = (options: UseGeolocationOptions = {}) => {
     });
 
     const watchId = useRef<number | null>(null);
-    const insideGeofencesRef = useRef<Set<number>>(new Set());
+    // FIX: Changed Set to handle number or string IDs.
+    const insideGeofencesRef = useRef<Set<number | string>>(new Set());
 
     // Request notification permission when geofences are used
     useEffect(() => {
@@ -71,7 +73,8 @@ export const useGeolocation = (options: UseGeolocationOptions = {}) => {
         if (!geofences.length || !onGeofenceEvent) return;
         
         const userCoords = { lat: position.coords.latitude, lng: position.coords.longitude };
-        const currentlyInside = new Set<number>();
+        // FIX: Changed Set to handle number or string IDs.
+        const currentlyInside = new Set<number | string>();
 
         geofences.forEach(fence => {
             const distance = haversineDistance(userCoords, { lat: fence.lat, lng: fence.lng });

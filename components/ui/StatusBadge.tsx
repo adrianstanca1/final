@@ -5,8 +5,7 @@ import React from 'react';
 import { DocumentStatus, IncidentSeverity, IncidentStatus, EquipmentStatus, TimesheetStatus, InvoiceStatus, QuoteStatus, UserStatus, Project } from '../../types';
 
 export const DocumentStatusBadge: React.FC<{ status: DocumentStatus }> = ({ status }) => {
-    // FIX: The statusMap was using properties (UPLOADING, SCANNING, QUARANTINED) that do not exist on the DocumentStatus enum.
-    // It has been updated to correctly map all available statuses from the enum.
+    // FIX: The statusMap was using properties that do not exist on the DocumentStatus enum. It has been updated to correctly map all available statuses.
     const statusMap = {
         [DocumentStatus.APPROVED]: { text: 'Approved', color: 'bg-green-100 text-green-800' },
         [DocumentStatus.DRAFT]: { text: 'Draft', color: 'bg-slate-200 text-slate-800' },

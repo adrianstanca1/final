@@ -86,13 +86,16 @@ const App: React.FC = () => {
 
         const fetchCounts = async () => {
             try {
-                if (!user.companyId) return;
-                // Fetch pending timesheets for managers/admins
+                if (!user.companyId && user.role !== Role.PRINCIPAL_ADMIN) return;
+                
+                let companyId = user.companyId;
+                if(user.role === Role.PRINCIPAL_ADMIN) companyId = 0; // Not ideal, but for mock API
+
                 if (hasPermission(user, Permission.MANAGE_TIMESHEETS)) {
                     let timesheets: Timesheet[];
-                    if (user.role === Role.ADMIN) {
-                        timesheets = await api.getTimesheetsByCompany(user.companyId, user.id);
-                    } else { // PM
+                    if (user.role === Role.ADMIN && companyId) {
+                        timesheets = await api.getTimesheetsByCompany(companyId, user.id);
+                    } else {
                         timesheets = await api.getTimesheetsForManager(user.id);
                     }
                     setPendingTimesheetCount(timesheets.filter(ts => ts.status === TimesheetStatus.PENDING).length);
@@ -100,15 +103,13 @@ const App: React.FC = () => {
                     setPendingTimesheetCount(0);
                 }
 
-                // Fetch open safety incidents for relevant staff
-                if (hasPermission(user, Permission.MANAGE_SAFETY_REPORTS)) {
-                   const incidents = await api.getSafetyIncidentsByCompany(user.companyId);
+                if (hasPermission(user, Permission.MANAGE_SAFETY_REPORTS) && companyId) {
+                   const incidents = await api.getSafetyIncidentsByCompany(companyId);
                    setOpenIncidentCount(incidents.filter(i => i.status !== IncidentStatus.RESOLVED).length);
                 } else {
                     setOpenIncidentCount(0);
                 }
                 
-                // Fetch unread messages & notifications
                 if (hasPermission(user, Permission.VIEW_NOTIFICATIONS)) {
                     const [conversations, notifications] = await Promise.all([
                         api.getConversationsForUser(user.id),
@@ -161,18 +162,20 @@ const App: React.FC = () => {
             setActiveView('foreman-dashboard');
         } else if (loggedInUser.role === Role.OPERATIVE) {
             setActiveView('my-day');
-        } else { // PMs default to projects view
+        } else {
             setActiveView('projects');
         }
     };
 
     const handleLogout = () => {
         setUser(null);
+        setSelectedProject(null);
+        setSettings(null);
     };
 
     const handleSelectProject = (project: Project) => {
         setSelectedProject(project);
-        setActiveView('projects'); // This will trigger the detail view render
+        setActiveView('projects');
     };
     
     const handleStartChat = (recipient: User) => {
@@ -181,69 +184,74 @@ const App: React.FC = () => {
     };
     
     const handleNotificationClick = async (notification: Notification) => {
+        if (!user) return;
         try {
-            await api.markNotificationAsRead(notification.id, user!.id);
-            setUnreadNotificationCount(prev => Math.max(0, prev -1));
+            await api.markNotificationAsRead(notification.id, user.id);
+            setUnreadNotificationCount(prev => Math.max(0, prev - 1));
             setActiveView(notification.link.view);
-            // Handle specific deep-linking logic here if needed
-            if (notification.link.view === 'chat' && notification.link.targetId) {
-                // The chat view needs to know which conversation to open.
-                // We handle this by passing an initial recipient when switching view,
-                // but for notifications, we might need a more robust context system.
-                // For now, switching to chat view is a good start.
-            }
         } catch(e) {
             addToast("Could not process notification.", "error");
+        }
+    };
+
+    const handleMarkAllNotificationsRead = async () => {
+        if (!user) return;
+        try {
+            await api.markAllNotificationsAsRead(user.id);
+            setUnreadNotificationCount(0);
+            addToast("All notifications marked as read.", "success");
+        } catch (e) {
+            addToast("Failed to mark all notifications as read.", "error");
         }
     };
 
     const renderView = () => {
         if (!user) return null;
         if (selectedProject && activeView === 'projects') {
-            return <ProjectDetailView project={selectedProject} user={user!} onBack={() => setSelectedProject(null)} addToast={addToast} isOnline={isOnline} onStartChat={handleStartChat} />;
+            return <ProjectDetailView project={selectedProject} user={user} onBack={() => setSelectedProject(null)} addToast={addToast} isOnline={isOnline} onStartChat={handleStartChat} />;
         }
 
         switch (activeView) {
             case 'dashboard':
-                return <Dashboard user={user!} addToast={addToast} activeView={activeView} setActiveView={setActiveView} onSelectProject={handleSelectProject} />;
+                return <Dashboard user={user} addToast={addToast} activeView={activeView} setActiveView={setActiveView} onSelectProject={handleSelectProject} />;
             case 'my-day':
-                return <MyDayView user={user!} addToast={addToast} setActiveView={setActiveView} />;
+                return <MyDayView user={user} addToast={addToast} setActiveView={setActiveView} />;
             case 'foreman-dashboard':
-                return <ForemanDashboard user={user!} addToast={addToast} />;
+                return <ForemanDashboard user={user} addToast={addToast} />;
             case 'principal-dashboard':
-                return <PrincipalAdminDashboard user={user!} addToast={addToast} />;
+                return <PrincipalAdminDashboard user={user} addToast={addToast} />;
             case 'projects':
-                return <ProjectsView user={user!} addToast={addToast} onSelectProject={handleSelectProject} />;
+                return <ProjectsView user={user} addToast={addToast} onSelectProject={handleSelectProject} />;
             case 'documents':
-                return <DocumentsView user={user!} addToast={addToast} isOnline={isOnline} settings={settings} />;
+                return <DocumentsView user={user} addToast={addToast} isOnline={isOnline} settings={settings} />;
             case 'safety':
-                 return <SafetyView user={user!} addToast={addToast} />;
+                 return <SafetyView user={user} addToast={addToast} />;
             case 'timesheets':
-                return <TimesheetsView user={user!} addToast={addToast} />;
+                return <TimesheetsView user={user} addToast={addToast} />;
             case 'time':
-                return <TimeTrackingView user={user!} addToast={addToast} setActiveView={setActiveView} />;
+                return <TimeTrackingView user={user} addToast={addToast} setActiveView={setActiveView} />;
             case 'settings':
-                return <SettingsView user={user!} onUserUpdate={setUser} addToast={addToast} onSettingsUpdate={fetchSettings} />;
+                return <SettingsView user={user} settings={settings} onUserUpdate={setUser} addToast={addToast} onSettingsUpdate={setSettings} />;
             case 'users':
-                return <TeamView user={user!} addToast={addToast} onStartChat={handleStartChat} />;
+                return <TeamView user={user} addToast={addToast} onStartChat={handleStartChat} />;
             case 'chat':
-                return <ChatView user={user!} addToast={addToast} initialRecipient={chatRecipient} />;
+                return <ChatView user={user} addToast={addToast} initialRecipient={chatRecipient} />;
             case 'tools':
-                return <ToolsView user={user!} addToast={addToast} setActiveView={setActiveView} />;
+                return <ToolsView user={user} addToast={addToast} setActiveView={setActiveView} />;
             case 'financials':
-                 return <FinancialsView user={user!} addToast={addToast} />;
+                 return <FinancialsView user={user} addToast={addToast} />;
             case 'equipment':
-                return <EquipmentView user={user!} addToast={addToast} />;
+                return <EquipmentView user={user} addToast={addToast} />;
             case 'templates':
-                return <TemplatesView user={user!} addToast={addToast} />;
+                return <TemplatesView user={user} addToast={addToast} />;
             case 'all-tasks':
-                return <AllTasksView user={user!} addToast={addToast} isOnline={isOnline} />;
+                return <AllTasksView user={user} addToast={addToast} isOnline={isOnline} />;
             case 'map':
-                return <ProjectsMapView user={user!} addToast={addToast} />;
+                return <ProjectsMapView user={user} addToast={addToast} />;
             case 'audit-log':
-                return <AuditLogView user={user!} addToast={addToast} />;
+                return <AuditLogView user={user} addToast={addToast} />;
             default:
-                return <Dashboard user={user!} addToast={addToast} activeView={activeView} setActiveView={setActiveView} onSelectProject={handleSelectProject} />;
+                return <Dashboard user={user} addToast={addToast} activeView={activeView} setActiveView={setActiveView} onSelectProject={handleSelectProject} />;
         }
     };
 
@@ -270,7 +278,7 @@ const App: React.FC = () => {
                     unreadNotificationCount={unreadNotificationCount}
                     addToast={addToast}
                     onNotificationClick={handleNotificationClick}
-                    onMarkAllNotificationsAsRead={() => setUnreadNotificationCount(0)}
+                    onMarkAllNotificationsAsRead={handleMarkAllNotificationsRead}
                 />
                  {!isOnline && (
                     <div className="bg-yellow-500 text-center text-white p-2 font-semibold flex-shrink-0">
