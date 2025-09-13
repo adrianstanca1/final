@@ -131,6 +131,9 @@ export const MapView: React.FC<MapViewProps> = ({ markers, height }) => {
       } else {
         map.fitBounds(L.latLngBounds(bounds), { padding: [20, 20] });
       }
+    } else {
+      // Default to London if no markers
+      map.setView([51.505, -0.09], 10);
     }
 
     return () => {

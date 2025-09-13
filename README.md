@@ -12,9 +12,24 @@ View your app in AI Studio: https://ai.studio/apps/drive/1bxBJgk2nuKF5tvtdT-YfJQ
 
 **Prerequisites:**  Node.js
 
-
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+   ```bash
+   npm install
+   ```
+
+2. Configure environment variables:
+   - Copy the `.env.local` file and add your Gemini API key from [AI Studio](https://aistudio.google.com/app/apikey)
+   - The map functionality uses OpenStreetMap and works offline-capable
+
 3. Run the app:
-   `npm run dev`
+   ```bash
+   npm run dev
+   ```
+
+## Key Features
+
+🗺️ **Interactive Maps** - Full Leaflet integration with project locations and geofencing  
+🤖 **AI-Powered Tools** - Project management advisor, cost estimation, risk analysis  
+📍 **Location Tracking** - GPS-based time clock with project geofences  
+👥 **Multi-Tenant** - Role-based access for different construction team roles  
+📱 **Offline Support** - Sync functionality for remote construction sites
