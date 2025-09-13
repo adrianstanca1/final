@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Login } from './components/Login';
-import { User, View, Project, Timesheet, TimesheetStatus, Permission, SafetyIncident, IncidentStatus, Role, Notification } from './types';
+import { User, View, Project, Timesheet, TimesheetStatus, Permission, SafetyIncident, IncidentStatus, Role, Notification, CompanySettings } from './types';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { Dashboard } from './components/Dashboard';
@@ -29,6 +29,7 @@ import { hasPermission } from './services/auth';
 import { ProjectsMapView } from './components/ProjectsMapView';
 import { PrincipalAdminDashboard } from './components/PrincipalAdminDashboard';
 import { ForemanDashboard } from './components/ForemanDashboard';
+import { AuditLogView } from './components/AuditLogView';
 
 interface Toast {
     id: number;
@@ -40,7 +41,7 @@ const App: React.FC = () => {
     const [user, setUser] = useState<User | null>(null);
     const [activeView, setActiveView] = useState<View>('dashboard');
     const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-    const [theme, setTheme] = useState<'light' | 'dark'>('light');
+    const [settings, setSettings] = useState<CompanySettings | null>(null);
     const [toasts, setToasts] = useState<Toast[]>([]);
     const [isAiSearchOpen, setIsAiSearchOpen] = useState(false);
     const [pendingTimesheetCount, setPendingTimesheetCount] = useState(0);
@@ -53,23 +54,31 @@ const App: React.FC = () => {
     const { isOnline } = useOfflineSync(addToast);
     useReminderService(user);
     const { isCommandPaletteOpen, setIsCommandPaletteOpen } = useCommandPalette();
+    
+    const theme = settings?.theme || 'light';
 
     useEffect(() => {
         document.documentElement.classList.toggle('dark', theme === 'dark');
-    }, [theme]);
+        document.documentElement.classList.toggle('high-contrast', settings?.accessibility?.highContrast || false);
+    }, [theme, settings]);
+
+    const fetchSettings = useCallback(async (companyId: number) => {
+        try {
+            const settingsData = await api.getCompanySettings(companyId);
+            setSettings(settingsData);
+        } catch (err) {
+            console.error("Failed to load user settings.", err);
+            addToast("Could not load settings.", "error");
+        }
+    }, []);
 
     useEffect(() => {
-        if (user?.companyId) {
-            api.getCompanySettings(user.companyId)
-                .then(settings => {
-                    setTheme(settings.theme);
-                })
-                .catch(err => {
-                    console.error("Failed to load user theme setting.", err);
-                    addToast("Could not load theme settings.", "error");
-                });
+        if (user?.companyId || user?.companyId === 0) {
+            fetchSettings(user.companyId);
+        } else {
+            setSettings(null);
         }
-    }, [user]);
+    }, [user, fetchSettings]);
 
     useEffect(() => {
         if (!user) return;
@@ -77,11 +86,12 @@ const App: React.FC = () => {
 
         const fetchCounts = async () => {
             try {
+                if (!user.companyId) return;
                 // Fetch pending timesheets for managers/admins
                 if (hasPermission(user, Permission.MANAGE_TIMESHEETS)) {
                     let timesheets: Timesheet[];
                     if (user.role === Role.ADMIN) {
-                        timesheets = await api.getTimesheetsByCompany(user.companyId!, user.id);
+                        timesheets = await api.getTimesheetsByCompany(user.companyId, user.id);
                     } else { // PM
                         timesheets = await api.getTimesheetsForManager(user.id);
                     }
@@ -92,7 +102,7 @@ const App: React.FC = () => {
 
                 // Fetch open safety incidents for relevant staff
                 if (hasPermission(user, Permission.MANAGE_SAFETY_REPORTS)) {
-                   const incidents = await api.getSafetyIncidentsByCompany(user.companyId!);
+                   const incidents = await api.getSafetyIncidentsByCompany(user.companyId);
                    setOpenIncidentCount(incidents.filter(i => i.status !== IncidentStatus.RESOLVED).length);
                 } else {
                     setOpenIncidentCount(0);
@@ -140,6 +150,9 @@ const App: React.FC = () => {
 
     const handleLogin = (loggedInUser: User) => {
         setUser(loggedInUser);
+        if (loggedInUser.companyId) {
+            api.logAction(loggedInUser.companyId, loggedInUser.id, 'user_login');
+        }
         if (loggedInUser.role === Role.PRINCIPAL_ADMIN) {
             setActiveView('principal-dashboard');
         } else if (loggedInUser.role === Role.ADMIN) {
@@ -202,7 +215,7 @@ const App: React.FC = () => {
             case 'projects':
                 return <ProjectsView user={user!} addToast={addToast} onSelectProject={handleSelectProject} />;
             case 'documents':
-                return <DocumentsView user={user!} addToast={addToast} isOnline={isOnline} />;
+                return <DocumentsView user={user!} addToast={addToast} isOnline={isOnline} settings={settings} />;
             case 'safety':
                  return <SafetyView user={user!} addToast={addToast} />;
             case 'timesheets':
@@ -210,7 +223,7 @@ const App: React.FC = () => {
             case 'time':
                 return <TimeTrackingView user={user!} addToast={addToast} setActiveView={setActiveView} />;
             case 'settings':
-                return <SettingsView user={user!} onUserUpdate={setUser} addToast={addToast} theme={theme} setTheme={setTheme} />;
+                return <SettingsView user={user!} onUserUpdate={setUser} addToast={addToast} onSettingsUpdate={fetchSettings} />;
             case 'users':
                 return <TeamView user={user!} addToast={addToast} onStartChat={handleStartChat} />;
             case 'chat':
@@ -227,6 +240,8 @@ const App: React.FC = () => {
                 return <AllTasksView user={user!} addToast={addToast} isOnline={isOnline} />;
             case 'map':
                 return <ProjectsMapView user={user!} addToast={addToast} />;
+            case 'audit-log':
+                return <AuditLogView user={user!} addToast={addToast} />;
             default:
                 return <Dashboard user={user!} addToast={addToast} activeView={activeView} setActiveView={setActiveView} onSelectProject={handleSelectProject} />;
         }

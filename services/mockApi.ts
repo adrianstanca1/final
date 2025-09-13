@@ -29,7 +29,22 @@ const createNotification = (notification: Omit<Notification, 'id'>) => {
     db.notifications.unshift(newNotification);
 };
 
+const logAction = (companyId: number | null, actorId: number, action: string, target?: AuditLog['target']) => {
+    if (companyId === null) return;
+    const newLog: AuditLog = {
+        id: Date.now() + Math.random(),
+        companyId,
+        actorId,
+        action,
+        target,
+        timestamp: new Date(),
+    };
+    db.auditLogs.unshift(newLog);
+};
+
 export const api = {
+  // FIX: Exported logAction to make it accessible to components that need to log user actions.
+  logAction,
   // User & Auth
   getUsersByCompany: (companyId?: number): Promise<User[]> => {
     if (companyId === 0) return simulateNetwork(db.users.filter(u => u.role === Role.PRINCIPAL_ADMIN));
@@ -41,6 +56,7 @@ export const api = {
     if (userIndex === -1) throw new Error("User not found");
     const updatedUser = { ...db.users[userIndex], ...updates };
     db.users[userIndex] = updatedUser;
+    logAction(updatedUser.companyId, userId, 'updated_own_profile');
     return simulateNetwork(updatedUser);
   },
   updateUserAvatar: (userId: number, file: File): Promise<User> => {
@@ -48,20 +64,31 @@ export const api = {
     if (userIndex === -1) throw new Error("User not found");
     // In a real app, this would upload to a storage service. Here, we'll just assign a new random avatar.
     db.users[userIndex].avatarUrl = `https://i.pravatar.cc/150?u=${userId}&t=${Date.now()}`;
+    logAction(db.users[userIndex].companyId, userId, 'updated_avatar');
     return simulateNetwork(db.users[userIndex]);
   },
   changePassword: (userId: number, currentPassword: string, newPassword: string): Promise<{ success: boolean }> => {
     // This is a mock. In a real app, you'd have password hashing and validation.
     console.log(`Password change requested for user ${userId}. Current: ${currentPassword}, New: ${newPassword}`);
+    const user = db.users.find(u => u.id === userId);
+    if (user) {
+        logAction(user.companyId, userId, 'changed_password');
+    }
     return simulateNetwork({ success: true });
   },
 
   // Company
   getCompanies: (): Promise<Company[]> => simulateNetwork(db.companies),
-  getCompanySettings: (companyId: number): Promise<CompanySettings> => simulateNetwork(db.companySettings.find(cs => cs.companyId === companyId)!),
+  getCompanySettings: (companyId: number): Promise<CompanySettings | null> => simulateNetwork(db.companySettings.find(cs => cs.companyId === companyId) || null),
   updateCompanySettings: (companyId: number, settings: CompanySettings, actorId: number): Promise<CompanySettings> => {
     const index = db.companySettings.findIndex(cs => cs.companyId === companyId);
-    db.companySettings[index] = settings;
+    if (index !== -1) {
+      db.companySettings[index] = settings;
+    } else {
+      // If no settings exist, create them. This makes the system more robust.
+      db.companySettings.push(settings);
+    }
+    logAction(companyId, actorId, 'updated_company_settings');
     return simulateNetwork(settings);
   },
     getCompanyHealthStats: (companyId: number): Promise<CompanyHealthStats> => {
@@ -150,6 +177,7 @@ export const api = {
         status: 'Active',
     };
     db.projects.push(newProject);
+    logAction(actor.companyId, actorId, 'created_project', { type: 'Project', id: newProject.id, name: newProject.name });
 
     if (templateId) {
         const template = db.projectTemplates.find(t => t.id === templateId);
@@ -182,6 +210,8 @@ export const api = {
     if (updates.status === TodoStatus.DONE && originalTask.status !== TodoStatus.DONE) {
         finalUpdates.completedBy = actorId;
         finalUpdates.completedAt = new Date();
+        const actor = db.users.find(u=>u.id === actorId);
+        logAction(actor?.companyId, actorId, 'completed_task', { type: 'Todo', id: todoId, name: originalTask.text });
     }
     
     const updatedTodo = { ...originalTask, ...finalUpdates };
@@ -298,6 +328,8 @@ export const api = {
   uploadDocument: (name: string, projectId: number, category: DocumentCategory, uploaderId: number, folderId: number | null): Promise<Document> => {
         const docId = Date.now();
         const now = new Date();
+        const uploader = db.users.find(u => u.id === uploaderId);
+
         const newDoc: Document = {
             id: docId,
             name,
@@ -322,6 +354,7 @@ export const api = {
         };
         db.documentVersions.push(newVersion);
 
+        logAction(uploader?.companyId, uploaderId, 'uploaded_document', {type: 'Document', id: docId, name: name});
         return simulateNetwork(newDoc);
   },
   uploadNewVersion: (documentId: number, uploaderId: number, changeNotes: string): Promise<DocumentVersion> => {
@@ -347,6 +380,9 @@ export const api = {
       document.latestVersionNumber = newVersionNumber;
       document.status = DocumentStatus.DRAFT;
       document.updatedAt = now;
+      
+      const uploader = db.users.find(u => u.id === uploaderId);
+      logAction(uploader?.companyId, uploaderId, 'uploaded_new_version', {type: 'Document', id: documentId, name: document.name});
 
       return simulateNetwork(newVersion);
   },
@@ -363,6 +399,8 @@ export const api = {
           if(doc.latestVersionNumber === version.versionNumber) {
               doc.status = status;
           }
+           const actor = db.users.find(u => u.id === actorId);
+           logAction(actor?.companyId, actorId, `${status.toLowerCase()}_document_version`, {type: 'Document', id: doc.id, name: doc.name});
       }
 
       return simulateNetwork(version);
@@ -447,6 +485,13 @@ export const api = {
 
         const updatedTimesheet = { ...db.timesheets[index], ...updates };
         db.timesheets[index] = updatedTimesheet;
+        
+        const actor = db.users.find(u => u.id === actorId);
+        const targetUser = db.users.find(u => u.id === updatedTimesheet.userId);
+        if (targetUser) {
+            logAction(actor?.companyId, actorId, `${status.toLowerCase()}_timesheet`, { type: 'User', id: targetUser.id, name: targetUser.name });
+        }
+
         return simulateNetwork(updatedTimesheet);
     },
     
@@ -719,8 +764,27 @@ export const api = {
   getProjectTemplates: (companyId: number): Promise<ProjectTemplate[]> => simulateNetwork(db.projectTemplates.filter(t => t.companyId === companyId)),
   
   // Audit & Dashboard
-  getAuditLogsByActorId: (actorId: number): Promise<AuditLog[]> => simulateNetwork(db.auditLogs.filter(log => log.actorId === actorId)),
-  getDashboardActivityLogs: (companyId: number): Promise<AuditLog[]> => simulateNetwork(db.auditLogs.slice(0, 10)),
+  getAuditLogsByCompany: (companyId: number): Promise<AuditLog[]> => {
+    const settings = db.companySettings.find(s => s.companyId === companyId);
+    const retentionDays = settings?.dataRetention.retentionPeriodDays || -1;
+    
+    if (retentionDays === -1) {
+        return simulateNetwork(db.auditLogs.filter(log => log.companyId === companyId));
+    }
+    
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+    
+    const filteredLogs = db.auditLogs.filter(log => log.companyId === companyId && new Date(log.timestamp) >= cutoffDate);
+    return simulateNetwork(filteredLogs);
+  },
+  // FIX: Added missing getAuditLogsByActorId function required by the TeamView component.
+  getAuditLogsByActorId: (actorId: number): Promise<AuditLog[]> => {
+    return simulateNetwork(db.auditLogs.filter(log => log.actorId === actorId));
+  },
+  getDashboardActivityLogs: (companyId: number): Promise<AuditLog[]> => {
+    return simulateNetwork(db.auditLogs.filter(log => log.companyId === companyId).slice(0, 10));
+  },
 
   // AI & GenAI Tools
    searchAcrossDocuments: async (query: string, projectIds: number[], userId: number): Promise<AISearchResult> => {

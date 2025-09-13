@@ -34,6 +34,7 @@ export const CostEstimator: React.FC<CostEstimatorProps> = ({ user, addToast }) 
         try {
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
             const response: GenerateContentResponse = await ai.models.generateContent({
+                // FIX: Updated deprecated model 'gemini-1.5-flash' to 'gemini-2.5-flash'.
                 model: 'gemini-2.5-flash',
                 contents: `Generate a high-level construction cost estimate in GBP for the following project scope: ${description}. Provide a low and high range, a recommended contingency percentage, and a brief summary.`,
                 config: {

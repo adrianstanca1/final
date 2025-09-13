@@ -1,7 +1,7 @@
 // full contents of components/Dashboard.tsx
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { User, Project, Permission, View, Timesheet, TimesheetStatus, AuditLog, Role, CompanyHealthStats, PendingApproval } from '../types';
+import { User, Project, Permission, View, Timesheet, TimesheetStatus, AuditLog, Role, CompanyHealthStats, PendingApproval, ExpenseStatus } from '../types';
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
 import { Card } from './ui/Card';
@@ -142,6 +142,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
         }
     };
     
+    const handleUpdateExpenseStatus = async (expenseId: number, status: ExpenseStatus) => {
+        try {
+            await api.updateExpenseStatus(expenseId, status, user.id, status === ExpenseStatus.REJECTED ? 'Rejected from dashboard' : undefined);
+            addToast(`Expense ${status.toLowerCase()}.`, 'success');
+            fetchData(); // Refresh data after action
+        } catch(e) {
+            addToast('Failed to update expense status.', 'error');
+        }
+    };
+
     const availableTools = useMemo(() => {
     return [
       { view: 'projects', label: 'Projects', icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>, permission: hasPermission(user, Permission.VIEW_ASSIGNED_PROJECTS) || hasPermission(user, Permission.VIEW_ALL_PROJECTS) },
@@ -184,8 +194,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                                     <div key={item.id} className="p-3 bg-slate-50 rounded-lg flex justify-between items-center">
                                         <p className="text-sm">{item.description}</p>
                                         <div className="flex gap-2">
-                                            <Button size="sm" variant="success" onClick={() => handleUpdateTimesheetStatus(item.timesheetId!, TimesheetStatus.APPROVED)}>Approve</Button>
-                                            <Button size="sm" variant="danger" onClick={() => handleUpdateTimesheetStatus(item.timesheetId!, TimesheetStatus.REJECTED)}>Reject</Button>
+                                            {item.type === 'Timesheet' && item.timesheetId && (
+                                                <>
+                                                    <Button size="sm" variant="success" onClick={() => handleUpdateTimesheetStatus(item.timesheetId!, TimesheetStatus.APPROVED)}>Approve</Button>
+                                                    <Button size="sm" variant="danger" onClick={() => handleUpdateTimesheetStatus(item.timesheetId!, TimesheetStatus.REJECTED)}>Reject</Button>
+                                                </>
+                                            )}
+                                            {item.type === 'Expense' && item.expenseId && (
+                                                 <>
+                                                    <Button size="sm" variant="success" onClick={() => handleUpdateExpenseStatus(item.expenseId!, ExpenseStatus.APPROVED)}>Approve</Button>
+                                                    <Button size="sm" variant="danger" onClick={() => handleUpdateExpenseStatus(item.expenseId!, ExpenseStatus.REJECTED)}>Reject</Button>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 ))}

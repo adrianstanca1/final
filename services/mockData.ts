@@ -33,9 +33,9 @@ let companies: Company[] = [
 ];
 
 let companySettings: CompanySettings[] = [
-  { companyId: 1, theme: 'light', notificationPreferences: { projectUpdates: true, timeReminders: true, photoRequirements: false }, locationPreferences: { backgroundTracking: true, gpsAccuracy: 'high' }, localization: { timezone: 'Europe/London', language: 'en-GB', dateFormat: 'DD/MM/YYYY' } },
-  { companyId: 2, theme: 'dark', notificationPreferences: { projectUpdates: true, timeReminders: false, photoRequirements: true }, locationPreferences: { backgroundTracking: false, gpsAccuracy: 'standard' }, localization: { timezone: 'America/New_York', language: 'en-US', dateFormat: 'MM/DD/YYYY' } },
-  { companyId: 3, theme: 'light', notificationPreferences: { projectUpdates: false, timeReminders: false, photoRequirements: false }, locationPreferences: { backgroundTracking: true, gpsAccuracy: 'high' }, localization: { timezone: 'Europe/London', language: 'en-GB', dateFormat: 'DD/MM/YYYY' } },
+  { companyId: 1, theme: 'light', notificationPreferences: { projectUpdates: true, timeReminders: true, photoRequirements: false }, locationPreferences: { backgroundTracking: true, gpsAccuracy: 'high' }, localization: { timezone: 'Europe/London', language: 'en-GB', dateFormat: 'DD/MM/YYYY' }, uploadPreferences: { autoStart: false }, accessibility: { highContrast: false }, developer: { accessibilityAudit: false }, dataRetention: { retentionPeriodDays: 365 } },
+  { companyId: 2, theme: 'dark', notificationPreferences: { projectUpdates: true, timeReminders: false, photoRequirements: true }, locationPreferences: { backgroundTracking: false, gpsAccuracy: 'standard' }, localization: { timezone: 'America/New_York', language: 'en-US', dateFormat: 'MM/DD/YYYY' }, uploadPreferences: { autoStart: true }, accessibility: { highContrast: false }, developer: { accessibilityAudit: false }, dataRetention: { retentionPeriodDays: 90 } },
+  { companyId: 3, theme: 'light', notificationPreferences: { projectUpdates: false, timeReminders: false, photoRequirements: false }, locationPreferences: { backgroundTracking: true, gpsAccuracy: 'high' }, localization: { timezone: 'Europe/London', language: 'en-GB', dateFormat: 'DD/MM/YYYY' }, uploadPreferences: { autoStart: false }, accessibility: { highContrast: false }, developer: { accessibilityAudit: false }, dataRetention: { retentionPeriodDays: -1 } },
 ];
 
 let projects: Project[] = [
@@ -94,11 +94,14 @@ let invoices: Invoice[] = [];
 let quotes: Quote[] = [];
 let projectTemplates: ProjectTemplate[] = [];
 let auditLogs: AuditLog[] = [
-    { id: 1, actorId: 12, action: 'completed_task', target: { type: 'Todo', id: 1, name: 'Finalize structural steel drawings' }, timestamp: new Date('2023-09-24T14:00:00Z') },
-    { id: 2, actorId: 10, action: 'uploaded_document', target: { type: 'Document', id: 1, name: 'Q4 Financial Report' }, timestamp: new Date(Date.now() - 3600000 * 2) }, // 2 hours ago
-    { id: 3, actorId: 22, action: 'reported_safety_incident', target: { type: 'SafetyIncident', id: 1, name: 'Minor slip on wet surface' }, timestamp: new Date(Date.now() - 3600000 * 5) },
-    { id: 4, actorId: 11, action: 'approved_timesheet', target: { type: 'Timesheet', id: 1, name: 'Diana Operative - 8.5hrs' }, timestamp: new Date(Date.now() - 3600000 * 24) },
-    { id: 5, actorId: 10, action: 'created_project', target: { type: 'Project', id: 103, name: 'City General Hospital Wing' }, timestamp: new Date(Date.now() - 3600000 * 72) },
+    { id: 1, actorId: 12, companyId: 1, action: 'completed_task', target: { type: 'Todo', id: 1, name: 'Finalize structural steel drawings' }, timestamp: new Date('2023-09-24T14:00:00Z') },
+    { id: 2, actorId: 10, companyId: 1, action: 'uploaded_document', target: { type: 'Document', id: 1, name: 'Q4 Financial Report' }, timestamp: new Date(Date.now() - 3600000 * 2) }, // 2 hours ago
+    { id: 3, actorId: 22, companyId: 2, action: 'reported_safety_incident', target: { type: 'SafetyIncident', id: 1, name: 'Minor slip on wet surface' }, timestamp: new Date(Date.now() - 3600000 * 5) },
+    { id: 4, actorId: 11, companyId: 1, action: 'approved_timesheet', target: { type: 'Timesheet', id: 1, name: 'Diana Operative - 8.5hrs' }, timestamp: new Date(Date.now() - 3600000 * 24) },
+    { id: 5, actorId: 10, companyId: 1, action: 'created_project', target: { type: 'Project', id: 103, name: 'City General Hospital Wing' }, timestamp: new Date(Date.now() - 3600000 * 72) },
+    { id: 6, actorId: 20, companyId: 2, action: 'user_login', timestamp: new Date(Date.now() - 60000 * 15)},
+    { id: 7, actorId: 10, companyId: 1, action: 'user_login', timestamp: new Date(Date.now() - 60000 * 5)},
+    { id: 8, actorId: 10, companyId: 1, action: 'updated_profile', target: { type: 'User', id: 13, name: 'Diana Operative' }, timestamp: new Date(Date.now() - 3600000 * 8)},
 ];
 let expenses: Expense[] = [];
 let payments: Payment[] = [];

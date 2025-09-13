@@ -18,7 +18,8 @@ export type View =
   | 'all-tasks'
   | 'map'
   | 'principal-dashboard'
-  | 'foreman-dashboard';
+  | 'foreman-dashboard'
+  | 'audit-log';
 
 export enum Role {
   PRINCIPAL_ADMIN = 'Principal Admin',
@@ -323,12 +324,32 @@ export interface LocalizationPreferences {
     dateFormat: 'DD/MM/YYYY' | 'MM/DD/YYYY';
 }
 
+export interface UploadPreferences {
+    autoStart: boolean;
+}
+
+export interface AccessibilityPreferences {
+    highContrast: boolean;
+}
+
+export interface DeveloperPreferences {
+    accessibilityAudit: boolean;
+}
+
+export interface DataRetentionPreferences {
+    retentionPeriodDays: 90 | 180 | 365 | -1; // -1 for forever
+}
+
 export interface CompanySettings {
     companyId: number;
     theme: 'light' | 'dark';
     notificationPreferences: NotificationPreferences;
     locationPreferences: LocationPreferences;
     localization: LocalizationPreferences;
+    uploadPreferences: UploadPreferences;
+    accessibility: AccessibilityPreferences;
+    developer: DeveloperPreferences;
+    dataRetention: DataRetentionPreferences;
 }
 
 export interface Grant {
@@ -484,6 +505,7 @@ export interface AuditLog {
         name: string;
     };
     timestamp: Date;
+    companyId: number;
 }
 
 export interface SafetyInspectionChecklistItem {
@@ -587,6 +609,7 @@ export enum Permission {
     ACCESS_ALL_TOOLS = 'ACCESS_ALL_TOOLS',
     SEND_DIRECT_MESSAGE = 'SEND_DIRECT_MESSAGE',
     VIEW_NOTIFICATIONS = 'VIEW_NOTIFICATIONS',
+    VIEW_AUDIT_LOG = 'VIEW_AUDIT_LOG',
 }
 
 export interface ProjectHealth {
@@ -623,6 +646,7 @@ export const RolePermissions: Record<Role, Set<Permission>> = {
         Permission.ACCESS_ALL_TOOLS,
         Permission.SEND_DIRECT_MESSAGE,
         Permission.VIEW_NOTIFICATIONS,
+        Permission.VIEW_AUDIT_LOG,
     ]),
     [Role.PM]: new Set([
         Permission.VIEW_DASHBOARD,

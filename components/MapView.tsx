@@ -115,54 +115,53 @@ const ClusterMapItems: React.FC<{ markers: MapMarker[] }> = ({ markers }) => {
                                 className: 'bg-transparent border-none',
                                 iconSize: [40, 40]
                             })}
-                            // FIX: Replaced `eventHandlers` prop with individual event props to align with modern react-leaflet API and fix type error.
+                            // FIX: Replaced direct `onClick` prop with `eventHandlers` to align with react-leaflet API and fix type error.
                             eventHandlers={{
                                 click: () => {
-                                    if (!supercluster) return;
+                                if (!supercluster) return;
 
-                                    const leaves = supercluster.getLeaves(cluster.id as number, 25);
-                                    const totalLeaves = properties.point_count;
-                                    
-                                    const content = (
-                                        <div className="p-1 max-w-xs">
-                                            <h4 className="font-bold mb-2 border-b pb-1 text-slate-800 dark:text-slate-200">
-                                                {totalLeaves} items in this area
-                                            </h4>
-                                            <ul className="list-none p-0 m-0 max-h-48 overflow-y-auto space-y-1 text-sm">
-                                                {leaves.map((leaf, index) => {
-                                                    const markerData = leaf.properties.markerData as MapMarker;
-                                                    return (
-                                                        <li key={index} className="p-1.5 rounded-md bg-slate-50 dark:bg-slate-700/50">
-                                                            {markerData.popupContent}
-                                                        </li>
-                                                    );
-                                                })}
-                                                {totalLeaves > leaves.length && (
-                                                    <li className="p-1.5 text-center text-xs text-slate-500">
-                                                        ...and {totalLeaves - leaves.length} more.
+                                const leaves = supercluster.getLeaves(cluster.id as number, 25);
+                                const totalLeaves = properties.point_count;
+                                
+                                const content = (
+                                    <div className="p-1 max-w-xs">
+                                        <h4 className="font-bold mb-2 border-b pb-1 text-slate-800 dark:text-slate-200">
+                                            {totalLeaves} items in this area
+                                        </h4>
+                                        <ul className="list-none p-0 m-0 max-h-48 overflow-y-auto space-y-1 text-sm">
+                                            {leaves.map((leaf, index) => {
+                                                const markerData = leaf.properties.markerData as MapMarker;
+                                                return (
+                                                    <li key={index} className="p-1.5 rounded-md bg-slate-50 dark:bg-slate-700/50">
+                                                        {markerData.popupContent}
                                                     </li>
-                                                )}
-                                            </ul>
-                                            <Button 
-                                                size="sm" 
-                                                variant="secondary" 
-                                                className="w-full mt-2"
-                                                onClick={() => {
-                                                    const expansionZoom = Math.min(
-                                                        supercluster.getClusterExpansionZoom(cluster.id as number),
-                                                        20
-                                                    );
-                                                    map.setView([latitude, longitude], expansionZoom, { animate: true });
-                                                    setClusterPopup(null);
-                                                }}
-                                            >
-                                                Zoom In
-                                            </Button>
-                                        </div>
-                                    );
-                                    setClusterPopup({ lat: latitude, lng: longitude, content });
-                                }
-                            }}
+                                                );
+                                            })}
+                                            {totalLeaves > leaves.length && (
+                                                <li className="p-1.5 text-center text-xs text-slate-500">
+                                                    ...and {totalLeaves - leaves.length} more.
+                                                </li>
+                                            )}
+                                        </ul>
+                                        <Button 
+                                            size="sm" 
+                                            variant="secondary" 
+                                            className="w-full mt-2"
+                                            onClick={() => {
+                                                const expansionZoom = Math.min(
+                                                    supercluster.getClusterExpansionZoom(cluster.id as number),
+                                                    20
+                                                );
+                                                map.setView([latitude, longitude], expansionZoom, { animate: true });
+                                                setClusterPopup(null);
+                                            }}
+                                        >
+                                            Zoom In
+                                        </Button>
+                                    </div>
+                                );
+                                setClusterPopup({ lat: latitude, lng: longitude, content });
+                            }}}
                         />
                     );
                 }

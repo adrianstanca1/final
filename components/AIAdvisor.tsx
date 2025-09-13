@@ -30,6 +30,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ user, addToast }) => {
             }
             aiRef.current = new GoogleGenAI({ apiKey: process.env.API_KEY });
             chatRef.current = aiRef.current.chats.create({
+                // FIX: Updated deprecated model 'gemini-1.5-flash' to 'gemini-2.5-flash'.
                 model: 'gemini-2.5-flash',
                 config: {
                     systemInstruction: 'You are an expert advisor for the construction industry. Provide clear, concise, and actionable advice. Format your responses with markdown.',
