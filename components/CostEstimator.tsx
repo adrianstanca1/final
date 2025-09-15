@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { User } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
+// FIX: Corrected API import
 import { api } from '../services/mockApi';
 import { GoogleGenAI, Type } from "@google/genai";
 
@@ -60,12 +61,16 @@ export const CostEstimator: React.FC<CostEstimatorProps> = ({ user, addToast, on
                                         category: { type: Type.STRING },
                                         cost: { type: Type.NUMBER },
                                         details: { type: Type.STRING },
-                                    }
+                                    },
+                                    // FIX: Added required property to satisfy schema
+                                    required: ['category', 'cost', 'details'],
                                 }
                             },
                             contingency: { type: Type.NUMBER },
                             summary: { type: Type.STRING },
-                        }
+                        },
+                         // FIX: Added required property to satisfy schema
+                        required: ['totalEstimate', 'breakdown', 'contingency', 'summary'],
                     }
                 }
             });

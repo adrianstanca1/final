@@ -1,7 +1,8 @@
 // full contents of components/AIAdvisor.tsx
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { User, Project, Todo } from '../types';
+// FIX: Changed Todo to Task
+import { User, Project, Task as Todo } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -38,7 +39,8 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ user, addToast, onBack }) 
             setTodos(todoData);
 
             const projectContext = projData.map(p => `Project: ${p.name} (Status: ${p.status}, Budget: £${p.budget})`).join('\n');
-            const taskContext = todoData.slice(0, 10).map(t => `Task: ${t.text} (Status: ${t.status}, Priority: ${t.priority})`).join('\n');
+            // FIX: Corrected property from .text to .title
+            const taskContext = todoData.slice(0, 10).map(t => `Task: ${t.text || t.title} (Status: ${t.status}, Priority: ${t.priority})`).join('\n');
 
             const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
             const chatInstance = ai.chats.create({

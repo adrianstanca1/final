@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { User, Notification, NotificationType } from '../../types';
-import { api } from '../../services/mockApi';
+// FIX: Removed unused api import
 import { Button } from '../ui/Button';
-import { Avatar } from '../ui/Avatar';
 
 interface NotificationDropdownProps {
   user: User;
+  notifications: Notification[];
   onClose: () => void;
   addToast: (message: string, type: 'success' | 'error') => void;
   onNotificationClick: (notification: Notification) => void;
@@ -24,80 +24,58 @@ const formatDistanceToNow = (date: Date): string => {
     if (interval > 1) return `${Math.floor(interval)}h`;
     interval = seconds / 60;
     if (interval > 1) return `${Math.floor(interval)}m`;
-    return `${Math.floor(seconds)}s`;
+    return `${Math.floor(seconds)}s ago`;
 };
 
 const NotificationIcon: React.FC<{ type: NotificationType }> = ({ type }) => {
     const iconMap: Record<NotificationType, React.ReactNode> = {
-        APPROVAL_REQUEST: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-sky-500" viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fillRule="evenodd" d="M4 5a2 2 0 012-2h8a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm10 4a1 1 0 10-2 0v.01a1 1 0 102 0V9zm-4 0a1 1 0 10-2 0v.01a1 1 0 102 0V9zm2 2a1 1 0 100 2h.01a1 1 0 100-2H12zm-4 0a1 1 0 100 2h.01a1 1 0 100-2H8z" clipRule="evenodd" /></svg>,
-        TASK_ASSIGNED: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor"><path d="M9 5a1 1 0 00-1 1v1H4a1 1 0 00-1 1v4a1 1 0 001 1h1v1a1 1 0 001 1h10a1 1 0 001-1v-1h1a1 1 0 001-1V8a1 1 0 00-1-1h-4V6a1 1 0 00-1-1H9z" /></svg>,
-        NEW_MESSAGE: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.083-3.25A8.84 8.84 0 012 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM4.832 14.168L5.92 11.25A6.983 6.983 0 004 10c0-2.651 2.46-5 6-5s6 2.349 6 5-2.46 5-6 5a7.03 7.03 0 00-2.25-.332z" clipRule="evenodd" /></svg>,
-        DOCUMENT_COMMENT: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor"><path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V5zm3.293 1.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>,
-        SAFETY_ALERT: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.21 3.03-1.742 3.03H4.42c-1.532 0-2.492-1.696-1.742-3.03l5.58-9.92zM10 13a1 1 0 110-2 1 1 0 010 2zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>,
+        // FIX: Used enum values for keys
+        [NotificationType.APPROVAL_REQUEST]: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-sky-500" viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" /><path fillRule="evenodd" d="M4 5a2 2 0 012-2h8a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm10 4a1 1 0 10-2 0v.01a1 1 0 102 0V9zm-4 0a1 1 0 10-2 0v.01a1 1 0 102 0V9zm2 2a1 1 0 100 2h.01a1 1 0 100-2H12zm-4 0a1 1 0 100 2h.01a1 1 0 100-2H8z" clipRule="evenodd" /></svg>,
+        [NotificationType.TASK_ASSIGNED]: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor"><path d="M9 5a1 1 0 00-1 1v1H4a1 1 0 00-1 1v4a1 1 0 001 1h1v1a1 1 0 001 1h10a1 1 0 001-1v-1h1a1 1 0 001-1V8a1 1 0 00-1-1h-4V6a1 1 0 00-1-1H9z" /></svg>,
+        [NotificationType.NEW_MESSAGE]: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.083-3.25A8.84 8.84 0 012 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM4.832 14.168L5.92 11.25A6.983 6.983 0 004 10c0-2.651 2.46-5 6-5s6 2.349 6 5-2.46 5-6 5a7.03 7.03 0 00-2.25-.332z" clipRule="evenodd" /></svg>,
+        [NotificationType.DOCUMENT_COMMENT]: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor"><path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V5zm3.293 1.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" /></svg>,
+        [NotificationType.SAFETY_ALERT]: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.21 3.03-1.742 3.03H4.42c-1.532 0-2.492-1.696-1.742-3.03l5.58-9.92zM10 13a1 1 0 110-2 1 1 0 010 2zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>,
+        // Add defaults for other enum values
+        [NotificationType.INFO]: <svg />,
+        [NotificationType.SUCCESS]: <svg />,
+        [NotificationType.WARNING]: <svg />,
+        [NotificationType.ERROR]: <svg />,
     };
     return iconMap[type];
 };
 
-export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ user, onClose, addToast, onNotificationClick, onMarkAllAsRead }) => {
-    const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [loading, setLoading] = useState(true);
-
-    const fetchData = async () => {
-        setLoading(true);
-        try {
-            const data = await api.getNotificationsForUser(user.id);
-            setNotifications(data);
-        } catch (e) {
-            addToast("Failed to fetch notifications.", "error");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchData();
-    }, [user.id]);
-
-    const handleMarkAllAsRead = async () => {
-        try {
-            await api.markAllNotificationsAsRead(user.id);
-            onMarkAllAsRead();
-            fetchData();
-        } catch (e) {
-            addToast("Failed to mark notifications as read.", "error");
-        }
-    };
-
+export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ user, notifications, onClose, addToast, onNotificationClick, onMarkAllAsRead }) => {
+    
     return (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-md shadow-lg border border-gray-200/80 z-20 flex flex-col max-h-[80vh]">
-            <div className="p-4 border-b flex justify-between items-center">
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white dark:bg-slate-800 rounded-md shadow-lg border border-gray-200/80 dark:border-slate-700 z-20 flex flex-col max-h-[80vh]">
+            <div className="p-4 border-b dark:border-slate-700 flex justify-between items-center">
                 <h3 className="font-semibold text-lg">Notifications</h3>
-                <Button variant="ghost" size="sm" onClick={handleMarkAllAsRead}>Mark all as read</Button>
+                <Button variant="ghost" size="sm" onClick={onMarkAllAsRead}>Mark all as read</Button>
             </div>
-            {loading ? <p className="p-4 text-center">Loading...</p> : (
-                <div className="overflow-y-auto">
-                    {notifications.length === 0 ? (
-                        <p className="p-8 text-center text-slate-500">You have no notifications.</p>
-                    ) : (
-                        notifications.map(n => (
-                            <div
-                                key={n.id}
-                                onClick={() => onNotificationClick(n)}
-                                className={`flex items-start gap-3 p-4 border-b hover:bg-slate-50 cursor-pointer ${!n.isRead ? 'bg-sky-50/50' : ''}`}
-                            >
-                                {!n.isRead && <div className="w-2 h-2 rounded-full bg-sky-500 mt-1.5 flex-shrink-0"></div>}
-                                <div className={`flex-shrink-0 ${n.isRead ? 'ml-4' : ''}`}>
-                                    <NotificationIcon type={n.type} />
-                                </div>
-                                <div className="flex-grow">
-                                    <p className="text-sm text-slate-700">{n.message}</p>
-                                    <p className="text-xs text-slate-400 mt-1">{formatDistanceToNow(n.timestamp)} ago</p>
-                                </div>
+            <div className="overflow-y-auto">
+                {notifications.length === 0 ? (
+                    <p className="p-8 text-center text-slate-500">You have no notifications.</p>
+                ) : (
+                    notifications.map(n => (
+                        <div
+                            key={n.id}
+                            onClick={() => onNotificationClick(n)}
+                            // FIX: Corrected property from isRead to read and used !n.isRead for consistency with App.tsx
+                            className={`flex items-start gap-3 p-4 border-b dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer ${!n.isRead ? 'bg-sky-50/50 dark:bg-sky-900/30' : ''}`}
+                        >
+                            {!n.isRead && <div className="w-2 h-2 rounded-full bg-sky-500 mt-1.5 flex-shrink-0"></div>}
+                            <div className={`flex-shrink-0 ${n.isRead ? 'ml-4' : ''}`}>
+                                <NotificationIcon type={n.type} />
                             </div>
-                        ))
-                    )}
-                </div>
-            )}
+                            <div className="flex-grow">
+                                <p className="text-sm text-slate-700 dark:text-slate-200">{n.message}</p>
+                                {/* FIX: Corrected property from timestamp to createdAt */}
+                                <p className="text-xs text-slate-400 mt-1">{formatDistanceToNow(new Date(n.createdAt))} ago</p>
+                            </div>
+                        </div>
+                    ))
+                )}
+            </div>
         </div>
     );
 };

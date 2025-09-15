@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Corrected import paths to be relative.
 import { User, Project, SafetyIncident, Permission } from '../types';
@@ -54,7 +55,7 @@ export const SafetyAnalysis: React.FC<SafetyAnalysisProps> = ({ user, addToast }
         setIsLoading(true);
         setReport(null);
         try {
-            const result = await api.generateSafetyAnalysis(projectIncidents, parseInt(selectedProjectId), user.id);
+            const result = await api.generateSafetyAnalysis(projectIncidents, parseInt(selectedProjectId, 10), user.id);
             setReport(result.report);
             addToast("Safety analysis generated!", "success");
         } catch (error) {

@@ -1,13 +1,14 @@
-// full contents of components/Dashboard.tsx
-
-import React from 'react';
-import { User, View, Project, Timesheet, Expense, TimesheetStatus, ExpenseStatus, Permission } from '../types';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { User, View, Project, Todo, Equipment, AuditLog, ResourceAssignment, Role, Permission, TodoStatus, AvailabilityStatus } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
+// FIX: Corrected API import from mockApi
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
-import { TimesheetStatusBadge } from './ui/StatusBadge';
-import { format } from 'date-fns';
+import { Avatar } from './ui/Avatar';
+import { EquipmentStatusBadge } from './ui/StatusBadge';
+import { Tag } from './ui/Tag';
+import { format, startOfWeek, eachDayOfInterval, isWithinInterval, parseISO } from 'date-fns';
 
 interface DashboardProps {
   user: User;
@@ -19,57 +20,73 @@ interface DashboardProps {
 
 const KpiCard: React.FC<{ title: string; value: string; subtext?: string; icon: React.ReactNode }> = ({ title, value, subtext, icon }) => (
     <Card className="flex items-center gap-4 animate-card-enter">
-        <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200">
+        <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-muted text-muted-foreground">
             {icon}
         </div>
         <div>
-            <h3 className="font-semibold text-slate-600 dark:text-slate-300">{title}</h3>
-            <p className="text-3xl font-bold text-slate-800 dark:text-slate-100">{value}</p>
-            {subtext && <p className="text-sm text-slate-500">{subtext}</p>}
+            <h3 className="font-semibold text-muted-foreground">{title}</h3>
+            <p className="text-3xl font-bold text-foreground">{value}</p>
+            {subtext && <p className="text-sm text-muted-foreground">{subtext}</p>}
         </div>
     </Card>
 );
 
-const ProjectHealthIndicator: React.FC<{ project: Project }> = ({ project }) => {
-    const budgetUtilization = (project.actualCost / project.budget) * 100;
-    let color = 'text-green-500';
-    let text = 'On Track';
-    if (budgetUtilization > 100) {
-        color = 'text-red-500';
-        text = 'Over Budget';
-    } else if (budgetUtilization > 85) {
-        color = 'text-yellow-500';
-        text = 'At Risk';
-    }
-    return <span className={`font-semibold ${color}`}>{text}</span>;
+const BarChart: React.FC<{ data: { label: string, value: number }[], barColor: string }> = ({ data, barColor }) => {
+    const maxValue = Math.max(...data.map(d => d.value), 1); // Ensure maxValue is at least 1 to avoid division by zero
+    return (
+        <div className="w-full h-48 flex items-end justify-around gap-2 p-2">
+            {data.map((item, index) => (
+                <div key={index} className="flex flex-col items-center justify-end h-full w-full group">
+                     <div className="text-xs font-bold text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{item.value}</div>
+                    <div className={`${barColor} w-full rounded-t-sm group-hover:opacity-80 transition-opacity`} style={{ height: `${(item.value / maxValue) * 90}%` }} title={`${item.label}: ${item.value}`}></div>
+                    <span className="text-xs mt-1 text-muted-foreground">{item.label}</span>
+                </div>
+            ))}
+        </div>
+    );
+};
+
+const availabilityTagColor: Record<AvailabilityStatus, 'green' | 'blue' | 'gray'> = {
+    [AvailabilityStatus.AVAILABLE]: 'green',
+    [AvailabilityStatus.ON_PROJECT]: 'blue',
+    [AvailabilityStatus.ON_LEAVE]: 'gray',
 };
 
 export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveView, onSelectProject }) => {
-    const [loading, setLoading] = React.useState(true);
-    const [projects, setProjects] = React.useState<Project[]>([]);
-    const [pendingTimesheets, setPendingTimesheets] = React.useState<Timesheet[]>([]);
-    const [pendingExpenses, setPendingExpenses] = React.useState<Expense[]>([]);
-    const [personnel, setPersonnel] = React.useState<User[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [team, setTeam] = useState<User[]>([]);
+    const [equipment, setEquipment] = useState<Equipment[]>([]);
+    const [tasks, setTasks] = useState<Todo[]>([]);
+    const [activityLog, setActivityLog] = useState<AuditLog[]>([]);
 
-    const fetchData = React.useCallback(async () => {
+    const fetchData = useCallback(async () => {
         setLoading(true);
         try {
             if (!user.companyId) return;
-            const [projData, usersData] = await Promise.all([
-                api.getProjectsByCompany(user.companyId),
-                api.getUsersByCompany(user.companyId)
+            const [projData, usersData, equipData, assignmentsData, logsData] = await Promise.all([
+                api.getProjectsByManager(user.id),
+                api.getUsersByCompany(user.companyId),
+                api.getEquipmentByCompany(user.companyId),
+                api.getResourceAssignments(user.companyId),
+                api.getAuditLogsByCompany(user.companyId)
             ]);
+            
             setProjects(projData);
-            setPersonnel(usersData);
+            setTeam(usersData.filter(u => u.role !== Role.PRINCIPAL_ADMIN));
+            
+            // FIX: Use uppercase 'ACTIVE' for ProjectStatus enum comparison.
+            const activeProjectIds = new Set(projData.filter(p => p.status === 'ACTIVE').map(p => p.id));
+            const tasksData = await api.getTodosByProjectIds(Array.from(activeProjectIds));
+            setTasks(tasksData);
 
-            if (hasPermission(user, Permission.MANAGE_TIMESHEETS)) {
-                const tsData = await api.getTimesheetsByCompany(user.companyId, user.id);
-                setPendingTimesheets(tsData.filter(t => t.status === TimesheetStatus.PENDING));
-            }
-            if (hasPermission(user, Permission.MANAGE_EXPENSES)) {
-                const exData = await api.getExpensesByCompany(user.companyId);
-                setPendingExpenses(exData.filter(e => e.status === ExpenseStatus.PENDING));
-            }
+            const assignedEquipmentIds = new Set(assignmentsData
+                .filter(a => a.resourceType === 'equipment' && activeProjectIds.has(a.projectId))
+                .map(a => a.resourceId));
+            setEquipment(equipData.filter(e => assignedEquipmentIds.has(e.id)));
+
+            setActivityLog(logsData.filter(l => l.action.includes('task')).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+
         } catch (error) {
             addToast("Failed to load dashboard data.", 'error');
         } finally {
@@ -77,101 +94,110 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
         }
     }, [user, addToast]);
 
-    React.useEffect(() => {
+    useEffect(() => {
         fetchData();
     }, [fetchData]);
-
-    const activeProjects = projects.filter(p => p.status === 'Active').length;
-    const totalBudget = projects.reduce((acc, p) => acc + p.budget, 0);
-    const pendingApprovalsCount = pendingTimesheets.length + pendingExpenses.length;
     
-    const userMap = React.useMemo(() => new Map(personnel.map(u => [u.id, u.name])), [personnel]);
+    const userMap = useMemo(() => new Map(team.map(u => [u.id, u])), [team]);
 
-    const handleUpdateTimesheetStatus = async (timesheetId: number, status: TimesheetStatus) => {
-        // This logic can be expanded with a rejection reason prompt if needed
-        try {
-            await api.updateTimesheetStatus(timesheetId, status, user.id);
-            addToast(`Timesheet ${status.toLowerCase()}.`, 'success');
-            fetchData(); // Refresh data
-        } catch (error) {
-            addToast("Failed to update timesheet.", 'error');
+    const kpiData = useMemo(() => {
+        // FIX: Use uppercase 'ACTIVE' for ProjectStatus enum comparison.
+        const activeProjects = projects.filter(p => p.status === 'ACTIVE');
+        const budgetData = activeProjects.reduce((acc, p) => {
+            acc.total += p.budget;
+            acc.spent += p.actualCost;
+            return acc;
+        }, { total: 0, spent: 0 });
+        const budgetUtilization = budgetData.total > 0 ? (budgetData.spent / budgetData.total) * 100 : 0;
+        return {
+            activeProjectsCount: activeProjects.length,
+            teamSize: team.length,
+            budgetUtilization: budgetUtilization.toFixed(0),
         }
-    };
+    }, [projects, team]);
 
-    // FIX: Changed expenseId type to `number | string` to match the Expense type and fix TypeScript error.
-    const handleUpdateExpenseStatus = async (expenseId: number | string, status: ExpenseStatus) => {
-        try {
-            await api.updateExpenseStatus(expenseId, status, user.id);
-            addToast(`Expense ${status.toLowerCase()}.`, 'success');
-            fetchData(); // Refresh data
-        } catch (error) {
-            addToast("Failed to update expense.", 'error');
-        }
-    };
+    const weeklyTaskData = useMemo(() => {
+        const now = new Date();
+        const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+        const weekInterval = { start: weekStart, end: now };
+        const daysOfWeek = eachDayOfInterval(weekInterval);
+
+        return daysOfWeek.map(day => ({
+            label: format(day, 'E'),
+            value: tasks.filter(t => t.completedAt && isWithinInterval(new Date(t.completedAt), {start: day, end: new Date(day).setHours(23,59,59,999)})).length
+        }));
+    }, [tasks]);
+    
+
+    if (loading) return <Card>Loading Project Manager Dashboard...</Card>;
 
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Welcome back, {user.name.split(' ')[0]}!</h1>
+            {/* FIX: Replaced user.name with user.firstName for correct property access. */}
+            <h1 className="text-3xl font-bold text-foreground">Welcome back, {user.firstName}!</h1>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <KpiCard title="Active Projects" value={activeProjects.toString()} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>} />
-                <KpiCard title="Total Budget" value={`£${(totalBudget / 1_000_000).toFixed(1)}M`} subtext="Across all projects" icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} />
-                <KpiCard title="Pending Approvals" value={pendingApprovalsCount.toString()} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>} />
+                <KpiCard title="Active Projects" value={kpiData.activeProjectsCount.toString()} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>} />
+                <KpiCard title="Team Size" value={kpiData.teamSize.toString()} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656-.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} />
+                <KpiCard title="Budget Utilization" value={`${kpiData.budgetUtilization}%`} subtext="Across active projects" icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <Card className="lg:col-span-2">
-                    <h2 className="font-semibold text-lg mb-4">Projects Overview</h2>
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
-                            <thead className="bg-slate-50 dark:bg-slate-800">
-                                <tr>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Project Name</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase">Health</th>
-                                    <th className="px-4 py-2 text-right text-xs font-medium text-slate-500 uppercase">Budget Used</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-slate-700">
-                                {projects.map(p => (
-                                    <tr key={p.id} onClick={() => onSelectProject(p)} className="hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer">
-                                        <td className="px-4 py-3 font-medium">{p.name}</td>
-                                        <td className="px-4 py-3 text-sm text-slate-600">{p.status}</td>
-                                        <td className="px-4 py-3 text-sm"><ProjectHealthIndicator project={p} /></td>
-                                        <td className="px-4 py-3 text-right text-sm">{(p.actualCost / p.budget * 100).toFixed(0)}%</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+                <Card className="lg:col-span-3">
+                     <h2 className="font-semibold text-lg mb-2 text-foreground">Tasks Completed This Week</h2>
+                     <BarChart data={weeklyTaskData} barColor="bg-primary" />
+                </Card>
+                 <Card className="lg:col-span-2">
+                    <h2 className="font-semibold text-lg mb-2 text-foreground">Team Assignments</h2>
+                    <div className="space-y-3 max-h-56 overflow-y-auto pr-2">
+                       {team.map(member => (
+                           <div key={member.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-accent">
+                               {/* FIX: Replaced member.name and member.avatarUrl with correct properties. */}
+                               <Avatar name={`${member.firstName} ${member.lastName}`} imageUrl={member.avatar} className="w-9 h-9" />
+                               <div className="flex-grow">
+                                   {/* FIX: Replaced member.name with correct properties. */}
+                                   <p className="font-semibold text-sm text-foreground">{`${member.firstName} ${member.lastName}`}</p>
+                                   <p className="text-xs text-muted-foreground">{member.role}</p>
+                               </div>
+                               <Tag label={member.availability || 'Unknown'} color={availabilityTagColor[member.availability || AvailabilityStatus.AVAILABLE]}/>
+                           </div>
+                       ))}
                     </div>
                 </Card>
+            </div>
 
+             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
-                    <h2 className="font-semibold text-lg mb-4">Approvals Queue</h2>
-                    {pendingApprovalsCount === 0 ? <p className="text-slate-500 text-center py-8">No pending items.</p> : (
-                        <div className="space-y-3">
-                            {pendingTimesheets.map(ts => (
-                                <div key={`ts-${ts.id}`} className="p-2 border-b dark:border-slate-700">
-                                    <p className="text-sm font-medium">{userMap.get(ts.userId)}</p>
-                                    <p className="text-xs text-slate-500">Timesheet - {format(new Date(ts.clockIn), 'MMM d, yyyy')}</p>
-                                    <div className="flex justify-end gap-2 mt-1">
-                                        <Button size="sm" variant="success" onClick={() => handleUpdateTimesheetStatus(ts.id, TimesheetStatus.APPROVED)}>Approve</Button>
-                                        <Button size="sm" variant="danger" onClick={() => handleUpdateTimesheetStatus(ts.id, TimesheetStatus.REJECTED)}>Reject</Button>
-                                    </div>
+                    <h2 className="font-semibold text-lg mb-2 text-foreground">Equipment Summary</h2>
+                     <div className="space-y-2 max-h-52 overflow-y-auto pr-2">
+                        {equipment.map(item => (
+                            <div key={item.id} className="flex justify-between items-center p-2 rounded-md hover:bg-accent">
+                                <span className="font-medium text-sm">{item.name}</span>
+                                <EquipmentStatusBadge status={item.status} />
+                            </div>
+                        ))}
+                    </div>
+                </Card>
+                <Card>
+                    <h2 className="font-semibold text-lg mb-2 text-foreground">Task Activity Log</h2>
+                    <div className="space-y-3 max-h-52 overflow-y-auto pr-2">
+                        {activityLog.slice(0, 10).map(log => {
+                             const actor = userMap.get(log.actorId);
+                             const actorName = actor ? `${actor.firstName} ${actor.lastName}` : '?';
+                             return (
+                             <div key={log.id} className="flex items-start gap-3">
+                                <Avatar name={actorName} className="w-8 h-8 text-xs mt-1" />
+                                <div>
+                                    <p className="text-sm">
+                                        {/* FIX: Replaced userMap.get(...).name with a constructed name string. */}
+                                        <span className="font-semibold">{actorName}</span>
+                                        {' '}{log.action.replace(/_/g, ' ')}: "{log.target?.name}"
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">{new Date(log.timestamp).toLocaleString()}</p>
                                 </div>
-                            ))}
-                             {pendingExpenses.map(ex => (
-                                <div key={`ex-${ex.id}`} className="p-2 border-b dark:border-slate-700">
-                                    <p className="text-sm font-medium">{userMap.get(ex.userId)}</p>
-                                    <p className="text-xs text-slate-500">Expense - £{ex.amount}</p>
-                                    <div className="flex justify-end gap-2 mt-1">
-                                        <Button size="sm" variant="success" onClick={() => handleUpdateExpenseStatus(ex.id, ExpenseStatus.APPROVED)}>Approve</Button>
-                                        <Button size="sm" variant="danger" onClick={() => handleUpdateExpenseStatus(ex.id, ExpenseStatus.REJECTED)}>Reject</Button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                            </div>
+                        )})}
+                    </div>
                 </Card>
             </div>
         </div>

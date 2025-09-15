@@ -32,7 +32,7 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c; // in metres
 };
 
-export const useGeolocation = ({ geofences = [] }: { geofences: Geofence[] }) => {
+export const useGeolocation = ({ geofences = [] }: { geofences?: Geofence[] }) => {
   const [data, setData] = useState<GeolocationData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [insideGeofenceIds, setInsideGeofenceIds] = useState<Set<number|string>>(new Set());

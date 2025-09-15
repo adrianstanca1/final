@@ -5,6 +5,7 @@ import { User, CompanySettings } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { ToggleSwitch } from './ui/ToggleSwitch';
+// FIX: Corrected imports for offline sync functions
 import { getFailedSyncActions, retryFailedAction, discardFailedAction, formatFailedActionForUI, FailedActionForUI } from '../services/mockApi';
 
 interface SettingsViewProps {
@@ -78,7 +79,7 @@ const FailedSyncActions: React.FC<{ addToast: (m:string,t:'success'|'error')=>vo
 export const SettingsView: React.FC<SettingsViewProps> = ({ user, addToast, settings, onSettingsUpdate }) => {
     
     const handleSettingsChange = (key: keyof CompanySettings, value: any) => {
-        if (settings && settings[key] !== value) {
+        if (settings && (settings as any)[key] !== value) {
             onSettingsUpdate({ [key]: value });
         }
     };

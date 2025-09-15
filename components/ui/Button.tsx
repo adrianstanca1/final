@@ -9,8 +9,6 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   isLoading?: boolean;
 }
 
-// Moved Spinner outside the Button component to ensure a stable component identity,
-// which helps prevent violations of the Rules of Hooks in complex scenarios.
 const Spinner: React.FC<{ size: 'sm' | 'md' | 'lg' }> = ({ size }) => {
     const spinnerSizeClasses = {
         sm: 'h-4 w-4',
@@ -26,18 +24,18 @@ const Spinner: React.FC<{ size: 'sm' | 'md' | 'lg' }> = ({ size }) => {
 };
 
 export const Button: React.FC<ButtonProps> = ({ children, variant = 'primary', size = 'md', className = '', isLoading = false, ...props }) => {
-  const baseClasses = 'inline-flex items-center justify-center rounded-lg font-semibold focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200';
+  const baseClasses = 'inline-flex items-center justify-center rounded-md font-semibold focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]';
   
   const variantClasses = {
-    primary: 'bg-sky-600 hover:bg-sky-700 focus:ring-sky-500 text-white shadow-sm',
-    secondary: 'bg-slate-100 hover:bg-slate-200 focus:ring-slate-400 text-slate-800 border border-slate-200',
+    primary: 'bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm',
+    secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border',
     success: 'bg-green-600 hover:bg-green-700 focus:ring-green-500 text-white shadow-sm',
-    danger: 'bg-red-600 hover:bg-red-700 focus:ring-red-500 text-white shadow-sm',
-    ghost: 'bg-transparent hover:bg-slate-100 focus:ring-slate-400 text-slate-600',
+    danger: 'bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm',
+    ghost: 'bg-transparent hover:bg-accent focus:ring-ring text-accent-foreground',
   };
 
   const sizeClasses = {
-      sm: 'px-3 py-1.5 text-xs h-8',
+      sm: 'px-3 py-1.5 text-xs h-9',
       md: 'px-5 py-2 text-sm h-10',
       lg: 'px-6 py-3 text-base h-12',
   };

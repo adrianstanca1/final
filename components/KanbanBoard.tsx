@@ -43,9 +43,9 @@ const KanbanColumn: React.FC<{
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`flex-1 p-3 bg-slate-100 dark:bg-slate-800 rounded-lg transition-colors ${isOver ? 'bg-sky-100 dark:bg-sky-900' : ''}`}
+            className={`flex-1 p-3 bg-muted rounded-lg transition-colors ${isOver ? 'bg-primary/20' : ''}`}
         >
-            <h3 className="font-semibold mb-4 text-slate-700 dark:text-slate-200">{title} ({todos.length})</h3>
+            <h3 className="font-semibold mb-4 text-foreground">{title} ({todos.length})</h3>
             <div className="space-y-3 h-full overflow-y-auto pr-1">
                 {todos.map(todo => (
                     <TaskCard 

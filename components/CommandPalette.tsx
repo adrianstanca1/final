@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 // FIX: Corrected import paths to be relative.
+// FIX: Imported missing types
 import { User, View, Project, Role } from '../types';
+// FIX: Corrected API import
 import { api } from '../services/mockApi';
 
 interface CommandPaletteProps {
@@ -53,6 +55,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ user, onClose, s
             title: p.name,
             category: 'Projects',
             action: () => console.log('Navigate to project', p.id), // Replace with actual navigation
+            // FIX: Corrected property access for project location
             keywords: p.location.address,
             icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
         }));
@@ -73,7 +76,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ user, onClose, s
         setActiveIndex(0);
     }, [filteredCommands]);
 
-    const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (e.key === 'ArrowDown') {
             e.preventDefault();
             setActiveIndex(i => (i + 1) % filteredCommands.length);
@@ -90,8 +93,9 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ user, onClose, s
 
 
     useEffect(() => {
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
+        const cb = (e: KeyboardEvent) => handleKeyDown(e as any);
+        window.addEventListener('keydown', cb);
+        return () => window.removeEventListener('keydown', cb);
     }, [handleKeyDown]);
 
     const handleSelect = (command: Command) => {

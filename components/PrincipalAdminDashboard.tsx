@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Corrected import paths to be relative.
 import { User, Company, SystemHealth, UsageMetric } from '../types';
@@ -66,15 +64,20 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
-            const [companiesData, allUsers, metricsData] = await Promise.all([
+            // FIX: Refactored logic to correctly fetch all users from all companies.
+            const [companiesData, metricsData] = await Promise.all([
                 api.getCompanies(),
-                api.getUsersByCompany(), // Fetch all users in the system
                 api.getPlatformUsageMetrics(),
             ]);
             
-            const tenantCompanies = companiesData.filter(c => c.id !== 0);
-            setCompanies(tenantCompanies);
-            setTotalUsers(allUsers.filter(u => u.companyId !== 0).length);
+            const usersByCompany = await Promise.all(companiesData.map(c => api.getUsersByCompany(c.id)));
+            const allUsers = usersByCompany.flat();
+            
+            // FIX: Changed number comparison to string comparison for IDs.
+            const tenantCompanies = companiesData.filter(c => c.id !== '0');
+            setCompanies(tenantCompanies as Company[]);
+            // FIX: Changed number comparison to string comparison for IDs.
+            setTotalUsers(allUsers.filter(u => u.companyId !== '0').length);
             setMetrics(metricsData);
 
         } catch (error) {

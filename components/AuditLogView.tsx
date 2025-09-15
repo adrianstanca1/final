@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+// FIX: Imported AuditLog type
 import { User, AuditLog } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
@@ -59,7 +60,8 @@ const downloadCsv = (data: any[], filename: string) => {
 
 export const AuditLogView: React.FC<AuditLogViewProps> = ({ user, addToast }) => {
     const [logs, setLogs] = useState<AuditLog[]>([]);
-    const [users, setUsers] = useState<Map<number, User>>(new Map());
+    // FIX: Changed map key to string to match user.id type
+    const [users, setUsers] = useState<Map<string, User>>(new Map());
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({
         user: 'all',
@@ -110,15 +112,19 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ user, addToast }) =>
             return;
         }
         
-        const dataToExport = filteredLogs.map(log => ({
-            timestamp: new Date(log.timestamp).toISOString(),
-            actorId: log.actorId,
-            actorName: users.get(log.actorId)?.name || 'Unknown',
-            action: log.action,
-            targetType: log.target?.type || '',
-            targetId: log.target?.id || '',
-            targetName: log.target?.name || ''
-        }));
+        const dataToExport = filteredLogs.map(log => {
+            const actor = users.get(log.actorId);
+            const actorName = actor ? `${actor.firstName} ${actor.lastName}` : 'Unknown';
+            return {
+                timestamp: new Date(log.timestamp).toISOString(),
+                actorId: log.actorId,
+                actorName: actorName,
+                action: log.action,
+                targetType: log.target?.type || '',
+                targetId: log.target?.id || '',
+                targetName: log.target?.name || ''
+            }
+        });
         
         const filename = `audit-log-${new Date().toISOString().split('T')[0]}.csv`;
         downloadCsv(dataToExport, filename);
@@ -144,53 +150,6 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ user, addToast }) =>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4 pb-4 border-b">
                     <select value={filters.user} onChange={e => setFilters(f => ({ ...f, user: e.target.value }))} className="w-full p-2 border bg-white rounded-md">
                         <option value="all">All Users</option>
-                        {Array.from(users.values()).map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                        {Array.from(users.values()).map(u => <option key={u.id} value={u.id}>{`${u.firstName} ${u.lastName}`}</option>)}
                     </select>
-                    <select value={filters.action} onChange={e => setFilters(f => ({ ...f, action: e.target.value }))} className="w-full p-2 border bg-white rounded-md">
-                        <option value="all">All Actions</option>
-                        {uniqueActionTypes.map(action => <option key={action} value={action}>{action.replace(/_/g, ' ')}</option>)}
-                    </select>
-                    <input type="date" value={filters.startDate} onChange={e => setFilters(f => ({ ...f, startDate: e.target.value }))} className="w-full p-2 border rounded-md" />
-                    <input type="date" value={filters.endDate} onChange={e => setFilters(f => ({ ...f, endDate: e.target.value }))} className="w-full p-2 border rounded-md" />
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-slate-50">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Actor</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Action</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Target</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Timestamp</th>
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                            {filteredLogs.map(log => {
-                                const actor = users.get(log.actorId);
-                                return (
-                                    <tr key={log.id}>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            {actor ? (
-                                                <div className="flex items-center gap-2">
-                                                    <Avatar name={actor.name} className="w-8 h-8 text-xs" />
-                                                    <span>{actor.name}</span>
-                                                </div>
-                                            ) : `User #${log.actorId}`}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap capitalize text-sm">{log.action.replace(/_/g, ' ')}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
-                                            {log.target ? `${log.target.type}: "${log.target.name}"` : 'N/A'}
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-slate-500" title={new Date(log.timestamp).toLocaleString()}>
-                                            {formatDistanceToNow(log.timestamp)}
-                                        </td>
-                                    </tr>
-                                )
-                            })}
-                        </tbody>
-                    </table>
-                     {filteredLogs.length === 0 && <p className="text-center py-10 text-slate-500">No logs found matching your criteria.</p>}
-                </div>
-            </Card>
-        </div>
-    );
-};
+                    <select value={filters.action} onChange={e => setFilters(f => ({ ...f, action: e.target.value }))} className="w-full p-2 border bg-white

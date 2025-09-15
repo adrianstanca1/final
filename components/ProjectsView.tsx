@@ -6,7 +6,7 @@ import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
-import { CreateProjectModal } from './CreateProjectModal';
+import { ProjectModal } from './CreateProjectModal';
 
 interface ProjectsViewProps {
   user: User;
@@ -74,7 +74,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
         return projects.filter(p => p.status === filter);
     }, [projects, filter]);
 
-    const handleProjectCreated = (newProject: Project) => {
+    const handleSuccess = (newProject: Project) => {
         setProjects(prev => [...prev, newProject]);
         onSelectProject(newProject);
     };
@@ -84,10 +84,10 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
     return (
         <div className="space-y-6">
             {isCreateModalOpen && (
-                <CreateProjectModal 
+                <ProjectModal 
                     user={user} 
                     onClose={() => setIsCreateModalOpen(false)}
-                    onProjectCreated={handleProjectCreated}
+                    onSuccess={handleSuccess}
                     addToast={addToast}
                 />
             )}

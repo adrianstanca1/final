@@ -55,7 +55,8 @@ export const MyDayView: React.FC<MyDayViewProps> = ({ user, addToast }) => {
     
     const handleTaskStatusChange = async (taskId: string | number, newStatus: TodoStatus) => {
         try {
-            const updatedTodo = await api.updateTodo(taskId, { status: newStatus }, user.id);
+            // FIX: Ensure taskId is a string for the API call.
+            const updatedTodo = await api.updateTodo(String(taskId), { status: newStatus }, user.id);
             setTodos(prev => prev.map(t => t.id === taskId ? updatedTodo : t));
             setAllTodos(prev => prev.map(t => t.id === taskId ? updatedTodo : t)); // Also update the global list for dependencies
             addToast(`Task moved to ${newStatus}.`, 'success');
@@ -83,7 +84,8 @@ export const MyDayView: React.FC<MyDayViewProps> = ({ user, addToast }) => {
             const { prioritizedTaskIds } = await api.prioritizeTasks(openTasks, projects, user.id);
             setTodos(prev => {
                 const taskMap = new Map(prev.map(t => [t.id, t]));
-                const prioritized = prioritizedTaskIds.map(id => taskMap.get(id)).filter((t): t is Todo => !!t);
+                // FIX: Ensure ID is a string when accessing the map.
+                const prioritized = prioritizedTaskIds.map(id => taskMap.get(String(id))).filter((t): t is Todo => !!t);
                 const remaining = prev.filter(t => !prioritizedTaskIds.includes(t.id));
                 return [...prioritized, ...remaining];
             });
@@ -95,14 +97,15 @@ export const MyDayView: React.FC<MyDayViewProps> = ({ user, addToast }) => {
         }
     };
 
-    const activeProject = useMemo(() => projects.find(p => p.status === 'Active'), [projects]);
+    // FIX: Use uppercase 'ACTIVE' for ProjectStatus enum comparison.
+    const activeProject = useMemo(() => projects.find(p => p.status === 'ACTIVE'), [projects]);
     const activeTimesheet = useMemo(() => timesheets.find(ts => ts.clockOut === null), [timesheets]);
 
     if(loading) return <Card>Loading your day...</Card>;
 
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-slate-800 dark:text-slate-100">My Day</h1>
+            <h1 className="text-3xl font-bold text-foreground">My Day</h1>
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <Card className="lg:col-span-1">
@@ -128,7 +131,7 @@ export const MyDayView: React.FC<MyDayViewProps> = ({ user, addToast }) => {
             
             <div>
                 <div className="flex justify-between items-center mb-4">
-                     <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">My Tasks</h2>
+                     <h2 className="text-xl font-bold text-foreground">My Tasks</h2>
                      <Button onClick={handleAIPrioritization} isLoading={isPrioritizing}>
                         ✨ Prioritize with AI
                     </Button>

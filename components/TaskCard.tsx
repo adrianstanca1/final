@@ -1,13 +1,12 @@
-// full contents of components/TaskCard.tsx
-
 import React from 'react';
-import { Todo, User, TodoStatus } from '../types';
+// FIX: Replaced Todo with Task
+import { Task, User, TodoStatus, TodoPriority } from '../types';
 import { Avatar } from './ui/Avatar';
 import { PriorityDisplay } from './ui/PriorityDisplay';
 
 interface TaskCardProps {
-    todo: Todo;
-    allTodos: Todo[];
+    todo: Task;
+    allTodos: Task[];
     user: User;
     personnel: User[];
     isSelected: boolean;
@@ -16,24 +15,27 @@ interface TaskCardProps {
 }
 
 export const TaskCard: React.FC<TaskCardProps> = ({ todo, allTodos, user, personnel, isSelected, onSelectionChange, onDragStart }) => {
-    const assignee = React.useMemo(() => personnel.find(p => p.id === todo.assigneeId), [personnel, todo.assigneeId]);
+    // FIX: Corrected assignee lookup property
+    const assignee = React.useMemo(() => personnel.find(p => p.id === (todo as any).assigneeId), [personnel, todo]);
 
     const isBlocked = React.useMemo(() => {
-        if (!todo.dependsOn || todo.dependsOn.length === 0) return false;
-        return todo.dependsOn.some(depId => {
+        const dependsOn = (todo as any).dependsOn;
+        if (!dependsOn || dependsOn.length === 0) return false;
+        return dependsOn.some((depId: any) => {
             const dependency = allTodos.find(t => t.id == depId); // Use loose equality for mixed types
             return dependency && dependency.status !== TodoStatus.DONE;
         });
-    }, [todo.dependsOn, allTodos]);
+    }, [todo, allTodos]);
 
     const blockerTasks = React.useMemo(() => {
-        if (!isBlocked || !todo.dependsOn) return '';
-        return todo.dependsOn
-            .map(depId => allTodos.find(t => t.id == depId)) // Use loose equality
-            .filter((t): t is Todo => !!t && t.status !== TodoStatus.DONE)
-            .map(t => `#${t.id} - ${t.text}`)
+        const dependsOn = (todo as any).dependsOn;
+        if (!isBlocked || !dependsOn) return '';
+        return dependsOn
+            .map((depId: any) => allTodos.find(t => t.id == depId)) // Use loose equality
+            .filter((t): t is Task => !!t && t.status !== TodoStatus.DONE)
+            .map((t: any) => `#${t.id.toString().substring(0, 5)} - ${t.text || t.title}`)
             .join('\n');
-    }, [isBlocked, todo.dependsOn, allTodos]);
+    }, [isBlocked, todo, allTodos]);
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
         if (e.key === ' ' || e.key === 'Enter') {
@@ -43,6 +45,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({ todo, allTodos, user, person
             }
         }
     };
+    
+    const text = (todo as any).text || todo.title;
     
     return (
         <div
@@ -54,16 +58,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({ todo, allTodos, user, person
             role="button"
             aria-pressed={isSelected}
             aria-disabled={isBlocked}
-            className={`bg-white dark:bg-slate-900 p-3 rounded-md border-l-4 shadow-sm transition-all ${
-                isSelected ? 'ring-2 ring-sky-500' : 'hover:shadow-md'
-            } ${isBlocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
-            style={{ borderColor: todo.priority === 'High' ? '#ef4444' : todo.priority === 'Medium' ? '#f59e0b' : '#3b82f6' }}
+            className={`p-3 rounded-md border-l-4 shadow-sm transition-all ${
+                isBlocked
+                ? 'bg-slate-100 dark:bg-slate-800/60 cursor-not-allowed opacity-70'
+                // FIX: Use enum for priority comparison
+                : `bg-white dark:bg-slate-900 cursor-pointer ${isSelected ? 'ring-2 ring-sky-500' : 'hover:shadow-md'}`
+            }`}
+            style={{ borderColor: todo.priority === TodoPriority.HIGH ? '#ef4444' : todo.priority === TodoPriority.MEDIUM ? '#f59e0b' : '#3b82f6' }}
         >
             <div className="flex justify-between items-start">
-                <p className="font-medium text-sm text-slate-800 dark:text-slate-100 pr-2">{todo.text}</p>
+                <p className="font-medium text-sm text-slate-800 dark:text-slate-100 pr-2">{text}</p>
                 <div className="flex items-center flex-shrink-0">
                     {isBlocked && (
-                        <div className="mr-2 text-slate-400" title={`Blocked by:\n${blockerTasks}`}>
+                        <div className="mr-2 text-slate-400 dark:text-slate-500" title={`Blocked by:\n${blockerTasks}`}>
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                                 <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                             </svg>
@@ -80,7 +87,19 @@ export const TaskCard: React.FC<TaskCardProps> = ({ todo, allTodos, user, person
             </div>
             <div className="flex justify-between items-center mt-3">
                 <PriorityDisplay priority={todo.priority} />
-                {assignee && <Avatar name={assignee.name} imageUrl={assignee.avatarUrl} className="w-6 h-6 text-xs" />}
+                {assignee && <Avatar name={`${assignee.firstName} ${assignee.lastName}`} imageUrl={assignee.avatar} className="w-6 h-6 text-xs" />}
+            </div>
+            <div className="mt-3">
+                <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs font-medium text-slate-500">Progress</span>
+                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{(todo as any).progress ?? 0}%</span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-1.5 dark:bg-slate-700">
+                    <div
+                        className="bg-sky-600 h-1.5 rounded-full transition-all duration-300"
+                        style={{ width: `${(todo as any).progress ?? 0}%` }}
+                    ></div>
+                </div>
             </div>
         </div>
     );

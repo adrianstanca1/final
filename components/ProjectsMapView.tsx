@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 // FIX: Corrected import paths to be relative.
-import { User, Project, Permission } from '../types';
+import { User, Project, Permission, ProjectStatus } from '../types';
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
 import { Card } from './ui/Card';
-import { MapView, MapMarker } from './MapView';
+// FIX: Corrected the import from './MapView' to use the exported 'MapMarkerData' interface.
+import { MapView, MapMarkerData } from './MapView';
 
 interface ProjectsMapViewProps {
     user: User;
@@ -39,14 +40,17 @@ export const ProjectsMapView: React.FC<ProjectsMapViewProps> = ({ user, addToast
         fetchData();
     }, [user, addToast]);
 
-    const markers: MapMarker[] = useMemo(() => {
+    const markers: MapMarkerData[] = useMemo(() => {
+        const toPascalCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
         return projects
             .filter(p => p.location && p.location.lat && p.location.lng)
             .map(p => ({
+                id: p.id,
                 lat: p.location.lat,
                 lng: p.location.lng,
                 radius: p.geofenceRadius,
-                status: p.status,
+                // FIX: Convert project status to PascalCase for the map marker type.
+                status: toPascalCase(p.status) as MapMarkerData['status'],
                 popupContent: (
                     <div>
                         <h4 className="font-bold">{p.name}</h4>

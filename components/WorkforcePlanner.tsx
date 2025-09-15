@@ -1,7 +1,7 @@
 // full contents of components/WorkforcePlanner.tsx
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { User, Project } from '../types';
+import { User, Project, ProjectAssignment } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Avatar } from './ui/Avatar';
@@ -13,7 +13,7 @@ interface WorkforcePlannerProps {
 
 interface AssignedUser extends User {
     // FIX: Changed projectId to allow string for temporary IDs.
-    projectId: number | string | null;
+    projectId: string | null;
 }
 
 export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToast }) => {
@@ -25,14 +25,14 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
         setLoading(true);
         try {
             if (!user.companyId) return;
-            const [usersData, projectsData, assignmentsData] = await Promise.all([
+            const [usersData, assignmentsData, projectsData] = await Promise.all([
                 api.getUsersByCompany(user.companyId),
+                api.getProjectAssignmentsByCompany(user.companyId),
                 api.getProjectsByCompany(user.companyId),
-                api.getProjectAssignmentsByCompany(user.companyId)
             ]);
 
             // FIX: Changed map value type to support string IDs.
-            const userToProjectMap = new Map<number, number | string>();
+            const userToProjectMap = new Map<string, string>();
             assignmentsData.forEach(a => userToProjectMap.set(a.userId, a.projectId));
 
             const assignedUsers: AssignedUser[] = usersData.map(u => ({
@@ -41,6 +41,7 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
             }));
 
             setUsers(assignedUsers);
+            // FIX: Corrected state update from assignmentsData to projectsData
             setProjects(projectsData);
         } catch (error) {
             addToast("Failed to load workforce data.", "error");
@@ -53,14 +54,14 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
         fetchData();
     }, [fetchData]);
 
-    const handleDragStart = (e: React.DragEvent<HTMLDivElement>, userId: number) => {
-        e.dataTransfer.setData("userId", userId.toString());
+    const handleDragStart = (e: React.DragEvent<HTMLDivElement>, userId: string) => {
+        e.dataTransfer.setData("userId", userId);
     };
 
     // FIX: Changed projectId type to support string IDs from projects.
-    const handleDrop = (e: React.DragEvent<HTMLDivElement>, projectId: number | string | null) => {
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>, projectId: string | null) => {
         e.preventDefault();
-        const userId = parseInt(e.dataTransfer.getData("userId"));
+        const userId = e.dataTransfer.getData("userId");
         setUsers(prevUsers => prevUsers.map(u => u.id === userId ? { ...u, projectId } : u));
         // In a real app, you would call an API to save this change.
         addToast("Assignment updated (local simulation).", "success");
@@ -93,8 +94,8 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
                     <div className="space-y-2">
                         {unassignedUsers.map(u => (
                             <div key={u.id} draggable onDragStart={(e) => handleDragStart(e, u.id)} className="p-2 bg-white rounded shadow-sm cursor-grab flex items-center gap-2">
-                                <Avatar name={u.name} className="w-6 h-6 text-xs" />
-                                <span className="text-sm">{u.name}</span>
+                                <Avatar name={`${u.firstName} ${u.lastName}`} className="w-6 h-6 text-xs" />
+                                <span className="text-sm">{`${u.firstName} ${u.lastName}`}</span>
                             </div>
                         ))}
                     </div>
@@ -114,8 +115,8 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
                                 <div className="space-y-2">
                                      {assigned.map(u => (
                                         <div key={u.id} draggable onDragStart={(e) => handleDragStart(e, u.id)} className="p-2 bg-white rounded shadow-sm cursor-grab flex items-center gap-2">
-                                             <Avatar name={u.name} className="w-6 h-6 text-xs" />
-                                             <span className="text-sm">{u.name}</span>
+                                             <Avatar name={`${u.firstName} ${u.lastName}`} className="w-6 h-6 text-xs" />
+                                             <span className="text-sm">{`${u.firstName} ${u.lastName}`}</span>
                                         </div>
                                     ))}
                                 </div>

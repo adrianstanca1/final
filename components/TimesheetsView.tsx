@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 // FIX: Corrected import paths to be relative.
 import { User, Timesheet, Project, Role, Permission, TimesheetStatus } from '../types';
+// FIX: Corrected API import
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { TimesheetStatusBadge } from './ui/StatusBadge';
@@ -41,7 +42,8 @@ const LogTimeModal: React.FC<{
         try {
             if (timesheetToEdit) {
                  await api.updateTimesheetEntry(timesheetToEdit.id, {
-                    projectId: parseInt(projectId),
+                    // FIX: Removed parseInt as projectId is a string
+                    projectId: projectId,
                     clockIn,
                     clockOut,
                     notes,
@@ -50,7 +52,8 @@ const LogTimeModal: React.FC<{
             } else {
                  await api.submitTimesheet({
                     userId: user.id,
-                    projectId: parseInt(projectId),
+                    // FIX: Removed parseInt as projectId is a string
+                    projectId: projectId,
                     clockIn,
                     clockOut,
                     notes,
@@ -148,10 +151,12 @@ export const TimesheetsView: React.FC<TimesheetsViewProps> = ({ user, addToast }
         fetchData();
     }, [fetchData]);
     
-    const userMap = useMemo(() => new Map(users.map(u => [u.id, u.name])), [users]);
+    // FIX: Correctly map user ID to full name.
+    const userMap = useMemo(() => new Map(users.map(u => [u.id, `${u.firstName} ${u.lastName}`])), [users]);
     const projectMap = useMemo(() => new Map(projects.map(p => [p.id, p.name])), [projects]);
 
-    const handleUpdateStatus = async (id: number, status: TimesheetStatus) => {
+    // FIX: Changed id type from number to string to match Timesheet type.
+    const handleUpdateStatus = async (id: string, status: TimesheetStatus) => {
         try {
             let reason: string | undefined;
             if (status === TimesheetStatus.REJECTED) {

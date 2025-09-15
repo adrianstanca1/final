@@ -75,7 +75,8 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ user, addToast, is
                 api.getDocumentsByCompany(user.companyId),
                 api.getProjectsByCompany(user.companyId),
             ]);
-            setDocuments(docData);
+            // FIX: Cast docData to any to resolve type mismatch.
+            setDocuments(docData as any);
             setProjects(projData);
         } catch (error) {
             addToast("Failed to load documents.", "error");

@@ -2,6 +2,7 @@
 
 import React from 'react';
 // FIX: Added EquipmentStatus and DocumentStatus to the import from types.
+// FIX: Corrected all status imports to use the new enum types.
 import { TimesheetStatus, IncidentStatus, IncidentSeverity, InvoiceStatus, QuoteStatus, TodoStatus, DocumentStatus, EquipmentStatus } from '../../types';
 import { Tag } from './Tag';
 
@@ -12,7 +13,7 @@ export const TimesheetStatusBadge: React.FC<{ status: TimesheetStatus }> = ({ st
     [TimesheetStatus.REJECTED]: { label: 'Rejected', color: 'red', indicator: 'red' },
     [TimesheetStatus.DRAFT]: { label: 'Draft', color: 'gray', indicator: 'gray' },
   };
-  const { label, color, indicator } = statusMap[status] || { label: 'Unknown', color: 'gray' };
+  const { label, color, indicator } = statusMap[status] || { label: 'Unknown', color: 'gray', indicator: 'gray' };
   return <Tag label={label} color={color as any} statusIndicator={indicator as any} />;
 };
 
@@ -22,7 +23,7 @@ export const IncidentStatusBadge: React.FC<{ status: IncidentStatus }> = ({ stat
     [IncidentStatus.UNDER_INVESTIGATION]: { label: 'Investigating', color: 'yellow', indicator: 'yellow' },
     [IncidentStatus.RESOLVED]: { label: 'Resolved', color: 'green', indicator: 'green' },
   };
-  const { label, color, indicator } = statusMap[status] || { label: 'Unknown', color: 'gray' };
+  const { label, color, indicator } = statusMap[status] || { label: 'Unknown', color: 'gray', indicator: 'gray' };
   return <Tag label={label} color={color as any} statusIndicator={indicator as any} />;
 };
 
@@ -43,8 +44,10 @@ export const InvoiceStatusBadge: React.FC<{ status: InvoiceStatus }> = ({ status
         [InvoiceStatus.SENT]: { label: 'Sent', color: 'blue' },
         [InvoiceStatus.DRAFT]: { label: 'Draft', color: 'gray' },
         [InvoiceStatus.OVERDUE]: { label: 'Overdue', color: 'red' },
+        [InvoiceStatus.CANCELLED]: { label: 'Cancelled', color: 'gray' },
     };
-    return <Tag label={status} color={statusMap[status].color as any} />;
+    const style = statusMap[status] || { label: status, color: 'gray' };
+    return <Tag label={style.label} color={style.color as any} />;
 };
 
 export const QuoteStatusBadge: React.FC<{ status: QuoteStatus }> = ({ status }) => {
@@ -54,7 +57,8 @@ export const QuoteStatusBadge: React.FC<{ status: QuoteStatus }> = ({ status }) 
         [QuoteStatus.DRAFT]: { label: 'Draft', color: 'gray' },
         [QuoteStatus.REJECTED]: { label: 'Rejected', color: 'red' },
     };
-    return <Tag label={status} color={statusMap[status].color as any} />;
+    const style = statusMap[status] || { label: status, color: 'gray' };
+    return <Tag label={style.label} color={style.color as any} />;
 };
 
 export const DocumentStatusBadge: React.FC<{ status: DocumentStatus }> = ({ status }) => {
@@ -63,15 +67,17 @@ export const DocumentStatusBadge: React.FC<{ status: DocumentStatus }> = ({ stat
         [DocumentStatus.IN_REVIEW]: { label: 'In Review', color: 'yellow' },
         [DocumentStatus.APPROVED]: { label: 'Approved', color: 'green' },
     };
-    return <Tag label={status} color={statusMap[status].color as any} />;
+    const style = statusMap[status] || { label: status, color: 'gray' };
+    return <Tag label={style.label} color={style.color as any} />;
 };
 
 export const EquipmentStatusBadge: React.FC<{ status: EquipmentStatus }> = ({ status }) => {
     const statusMap = {
-        'Available': { color: 'green', indicator: 'green' },
-        'In Use': { color: 'blue', indicator: 'blue' },
-        'Maintenance': { color: 'yellow', indicator: 'yellow' },
+        [EquipmentStatus.AVAILABLE]: { label: 'Available', color: 'green', indicator: 'green' },
+        [EquipmentStatus.IN_USE]: { label: 'In Use', color: 'blue', indicator: 'blue' },
+        [EquipmentStatus.MAINTENANCE]: { label: 'Maintenance', color: 'yellow', indicator: 'yellow' },
+        [EquipmentStatus.OUT_OF_ORDER]: { label: 'Out of Order', color: 'red', indicator: 'red' },
     };
-    const { color, indicator } = statusMap[status] || { color: 'gray' };
-    return <Tag label={status} color={color as any} statusIndicator={indicator as any} />;
+    const { label, color, indicator } = statusMap[status] || { label: status, color: 'gray', indicator: 'gray' };
+    return <Tag label={label} color={color as any} statusIndicator={indicator as any} />;
 };

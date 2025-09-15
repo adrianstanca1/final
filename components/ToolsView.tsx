@@ -1,7 +1,8 @@
 // full contents of components/ToolsView.tsx
 
 import React, { useState } from 'react';
-import { User, View, Permission } from '../types';
+// FIX: Imported correct types
+import { User, View, Permission, Role } from '../types';
 import { hasPermission } from '../services/auth';
 import { Card } from './ui/Card';
 import { AIAdvisor } from './AIAdvisor';
@@ -44,8 +45,9 @@ export const ToolsView: React.FC<ToolsViewProps> = ({ user, addToast, setActiveV
         { id: 'risk-bot', name: 'RiskBot', description: 'Analyze documents for compliance and financial risks.', icon: '⚠️', component: <RiskBot user={user} addToast={addToast} onBack={() => setActiveTool(null)} />, permission: true },
         { id: 'safety-analysis', name: 'Safety Analysis', description: 'Identify trends from safety incident reports.', icon: '🛡️', component: <SafetyAnalysis user={user} addToast={addToast} />, permission: true },
         { id: 'site-inspector', name: 'AI Site Inspector', description: 'Analyze site photos for progress and hazards.', icon: '📸', component: <AISiteInspector user={user} addToast={addToast} onBack={() => setActiveTool(null)} />, permission: true },
+        // FIX: Used Permission enum for checks
         { id: 'workforce-planner', name: 'Workforce Planner', description: 'Plan and allocate personnel to projects.', icon: '👥', component: <WorkforcePlanner user={user} addToast={addToast} />, permission: hasPermission(user, Permission.MANAGE_TEAM) },
-        { id: 'resource-scheduler', name: 'Resource Scheduler', description: 'View team and equipment schedules.', icon: '🗓️', component: <ResourceScheduler user={user} />, permission: hasPermission(user, Permission.MANAGE_EQUIPMENT) },
+        { id: 'resource-scheduler', name: 'Resource Scheduler', description: 'View team and equipment schedules.', icon: '🗓️', component: <ResourceScheduler user={user} addToast={addToast} />, permission: hasPermission(user, Permission.MANAGE_EQUIPMENT) },
     ];
     
     const availableTools = toolDefinitions.filter(t => t.permission);
