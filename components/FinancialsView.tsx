@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { User, FinancialKPIs, MonthlyFinancials, CostBreakdown, Invoice, Quote, Client, Project, Permission, Expense, ExpenseCategory, ExpenseStatus, InvoiceStatus, QuoteStatus, LineItem, Payment, InvoiceLineItem } from '../types';
 import { api } from '../services/mockApi';
@@ -338,7 +336,6 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
 
     const renderDashboard = () => (
         <div className="space-y-6">
-            {/* Key Financial KPIs Display */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card><p className="text-sm text-slate-500">Profitability</p><p className="text-3xl font-bold">{data.kpis?.profitability || 0}%</p></Card>
                 <Card><p className="text-sm text-slate-500">Avg. Project Margin</p><p className="text-3xl font-bold">{data.kpis?.projectMargin || 0}%</p></Card>
@@ -371,7 +368,7 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
                             {data.invoices.map(invoice => {
                                 const { total, balance } = getInvoiceFinancials(invoice);
                                 const derivedStatus = getDerivedStatus(invoice, balance);
-                                const isReadOnly = !canManageFinances || invoice.status === InvoiceStatus.PAID || invoice.status === InvoiceStatus.CANCELLED;
+                                
                                 return (
                                 <tr key={invoice.id} className="hover:bg-accent">
                                     <td className="px-4 py-3 font-medium">{invoice.invoiceNumber}</td>
@@ -434,8 +431,8 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
                                 <td className="px-4 py-3">{projectMap.get(exp.projectId)}</td>
                                 <td className="px-4 py-3">{exp.description}</td>
                                 <td className="px-4 py-3 text-right">{formatCurrency(exp.amount)}</td>
-                                <td className="px-4 py-3"><Tag label={exp.status} color={exp.status === ExpenseStatus.APPROVED ? 'green' : exp.status === ExpenseStatus.REJECTED ? 'red' : 'yellow'} /></td>
-                                <td className="px-4 py-3 text-right">{exp.status === ExpenseStatus.REJECTED && <Button size="sm" variant="secondary" onClick={() => { setSelectedItem(exp); setModal('expense'); }}>Edit & Resubmit</Button>}</td>
+                                <td className="px-4 py-3"><Tag label={exp.status} color={exp.status === 'APPROVED' ? 'green' : exp.status === 'REJECTED' ? 'red' : 'yellow'} /></td>
+                                <td className="px-4 py-3 text-right">{exp.status === 'REJECTED' && <Button size="sm" variant="secondary" onClick={() => { setSelectedItem(exp); setModal('expense'); }}>Edit & Resubmit</Button>}</td>
                             </tr>
                         ))}
                     </tbody>

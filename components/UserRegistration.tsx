@@ -24,6 +24,7 @@ const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password =
         if (password.length >= 8) score++;
         if (/[A-Z]/.test(password)) score++;
         if (/[a-z]/.test(password)) score++;
+        // FIX: Corrected invalid regex from `/\d]/` to `/\d/`
         if (/\d/.test(password)) score++;
         if (/[^A-Za-z0-9]/.test(password)) score++;
         return score;
@@ -72,7 +73,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                  if (!formData.role) newErrors.role = "Please select a role.";
                 break;
             case 'verify':
-                 if (!formData.verificationCode || formData.verificationCode.length !== 6) newErrors.verificationCode = "Enter the 6-digit code.";
+                 if (formData.verificationCode !== '123456') newErrors.verificationCode = "Enter the mock code: 123456.";
                 break;
             case 'terms':
                 if (!formData.termsAccepted) newErrors.termsAccepted = "You must accept the terms.";
@@ -136,6 +137,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                 </>
             );
             case 'company': 
+                // FIX: Used a static array as CompanyType is a type alias, not an enum.
                 const companyTypeOptions = [
                     { value: 'GENERAL_CONTRACTOR', label: 'General Contractor' },
                     { value: 'SUBCONTRACTOR', label: 'Subcontractor' },
@@ -160,7 +162,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                     )}
                      {formData.companySelection === 'join' && (
                         <Card className="mt-4 bg-muted animate-card-enter">
-                             <InputField label="Invite Code" name="inviteToken" value={formData.inviteToken} onChange={handleChange} error={errors.inviteToken} />
+                             <InputField label="Invite Code (use JOIN-CONSTRUCTCO)" name="inviteToken" value={formData.inviteToken} onChange={handleChange} error={errors.inviteToken} />
                         </Card>
                     )}
                 </>
@@ -179,6 +181,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                             <h4 className="font-semibold mb-2">Role Permissions Preview</h4>
                             {formData.role ? (
                                 <ul className="text-sm space-y-1 list-disc list-inside max-h-60 overflow-y-auto">
+                                    {/* FIX: Ensured key is a string */}
                                     {Array.from(selectedRolePermissions).map(p => <li key={p as string} className="capitalize">{String(p).replace(/_/g, ' ').toLowerCase()}</li>)}
                                 </ul>
                             ) : <p className="text-sm text-muted-foreground">Select a role to see its permissions.</p>}
@@ -188,7 +191,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
             case 'verify': return (
                 <div className="text-center">
                     <h3 className="font-semibold">Verify Your Email</h3>
-                    <p className="text-muted-foreground text-sm mt-1 mb-4">We've sent a 6-digit code to {formData.email}. Please enter it below.</p>
+                    <p className="text-muted-foreground text-sm mt-1 mb-4">We've "sent" a 6-digit code to {formData.email}. For this demo, please enter <strong>123456</strong>.</p>
                      <InputField label="Verification Code" name="verificationCode" value={formData.verificationCode} onChange={(name: string, val: string) => handleChange(name as keyof typeof formData, val.replace(/\D/g, ''))} error={errors.verificationCode} maxLength={6} inputClassName="text-center tracking-[0.5em] text-2xl" isLabelSrOnly />
                 </div>
             );
@@ -285,7 +288,7 @@ const SelectField = ({ label, name, value, onChange, error, options }: {label: s
     </div>
 );
 
-const RadioCard = ({ name, value, label, description, checked, onChange }: { name: string, value: string | CompanyType, label: string, description: string, checked: boolean, onChange: any }) => (
+const RadioCard = ({ name, value, label, description, checked, onChange }: { name: string, value: string | CompanyType | Role, label: string, description: string, checked: boolean, onChange: any }) => (
     <label className={`block p-4 border rounded-md cursor-pointer transition-all ${checked ? 'bg-primary/10 border-primary ring-2 ring-primary' : 'hover:bg-accent'}`}>
         <input type="radio" name={name} value={value} checked={checked} onChange={e => onChange(name, e.target.value)} className="sr-only"/>
         <p className="font-semibold">{label}</p>
