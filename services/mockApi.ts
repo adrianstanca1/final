@@ -1,16 +1,9 @@
-// full contents of services/mockApi.ts
-
 // A mock API using localStorage to simulate a backend.
 // Supports offline queuing for write operations.
 
-// FIX: Renamed SafetyIncidentSeverity to IncidentSeverity.
-// FIX: Renamed UserRole to Role.
-// FIX: Added many more missing type imports to support new API functions.
 import { initialData } from './mockData';
-// FIX: Corrected import from SafetyIncidentSeverity to IncidentSeverity
-import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegisterCredentials, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType } from '../types';
+import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegisterCredentials, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority } from '../types';
 
-// FIX: Added a delay function to simulate network latency.
 const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
 
 const JWT_SECRET = 'your-super-secret-key-for-mock-jwt';
@@ -38,7 +31,6 @@ const decodeToken = (token: string): any => {
     }
 };
 
-// --- Data Hydration ---
 const hydrateData = <T extends { [key: string]: any }>(key: string, defaultData: T[]): T[] => {
     try {
         const stored = localStorage.getItem(`asagents_${key}`);
@@ -64,7 +56,6 @@ let db: {
     siteUpdates: Partial<SiteUpdate>[];
     projectMessages: Partial<ProjectMessage>[];
     notifications: Partial<Notification>[];
-    // FIX: Added missing db tables
     quotes: Partial<Quote>[];
     auditLogs: Partial<AuditLog>[];
     resourceAssignments: Partial<ResourceAssignment>[];
@@ -87,9 +78,7 @@ let db: {
     expenses: hydrateData('expenses', initialData.expenses),
     siteUpdates: hydrateData('siteUpdates', initialData.siteUpdates),
     projectMessages: hydrateData('projectMessages', initialData.projectMessages),
-    // FIX: Added notifications to the db type definition.
-    notifications: hydrateData('notifications', initialData.notifications || []),
-    // FIX: Initialized missing db tables
+    notifications: hydrateData('notifications', (initialData as any).notifications || []),
     quotes: hydrateData('quotes', (initialData as any).quotes || []),
     auditLogs: hydrateData('auditLogs', []),
     resourceAssignments: hydrateData('resourceAssignments', []),
@@ -98,7 +87,6 @@ let db: {
     projectAssignments: hydrateData('projectAssignments', []),
     projectTemplates: hydrateData('projectTemplates', []),
     whiteboardNotes: hydrateData('whiteboardNotes', []),
-    // FIX: Added documents table
     documents: hydrateData('documents', []),
 };
 
@@ -108,17 +96,25 @@ const saveDb = () => {
     });
 };
 
-// --- AUTHENTICATION API ---
+const addAuditLog = (actorId: string, action: string, target?: { type: string, id: string, name: string }) => {
+    const newLog: AuditLog = {
+        id: String(Date.now() + Math.random()),
+        actorId,
+        action,
+        target,
+        timestamp: new Date().toISOString(),
+    };
+    db.auditLogs.push(newLog);
+};
+
 export const authApi = {
     register: async (credentials: Partial<RegisterCredentials & { companyName?: string; companyType?: CompanyType; companySelection?: 'create' | 'join', role?: Role }>): Promise<any> => {
-        // FIX: Added delay to simulate network request.
         await delay();
         if (db.users.some(u => u.email === credentials.email)) {
             throw new Error("An account with this email already exists.");
         }
 
         let companyId: string;
-        // FIX: Ensured role from credentials is used.
         let userRole = credentials.role || Role.OPERATIVE;
 
         if (credentials.companySelection === 'create') {
@@ -129,18 +125,15 @@ export const authApi = {
                 status: 'Active',
                 subscriptionPlan: 'FREE',
                 storageUsageGB: 0,
-                // Add other default company fields
             };
             db.companies.push(newCompany);
             companyId = newCompany.id!;
-            // The creator of a company becomes the Owner
             userRole = Role.OWNER;
         } else if (credentials.companySelection === 'join') {
-            // In a real app, you'd validate the invite token
             if (credentials.inviteToken !== 'JOIN-CONSTRUCTCO') {
                  throw new Error("Invalid invite token.");
             }
-            companyId = '1'; // Hardcoded to join ConstructCo for demo
+            companyId = '1';
         } else {
             throw new Error("Invalid company selection.");
         }
@@ -150,12 +143,12 @@ export const authApi = {
             firstName: credentials.firstName,
             lastName: credentials.lastName,
             email: credentials.email,
-            password: credentials.password, // Passwords would be hashed
+            password: credentials.password,
             phone: credentials.phone,
             role: userRole,
             companyId,
             isActive: true,
-            isEmailVerified: true, // Auto-verified for mock
+            isEmailVerified: true, // Mocking verification for simplicity
             createdAt: new Date().toISOString(),
         };
         db.users.push(newUser);
@@ -169,8 +162,6 @@ export const authApi = {
         
         return { success: true, token, refreshToken, user, company };
     },
-    // FIX: Completed the mock API by adding all missing functions and exporting them.
-    // This is a simplified multi-step login for demo purposes
     login: async (credentials: LoginCredentials): Promise<any> => {
         await delay(200);
         const user = db.users.find(u => u.email === credentials.email && u.password === credentials.password);
@@ -180,12 +171,11 @@ export const authApi = {
         if (user.mfaEnabled) {
             return { success: true, mfaRequired: true, userId: user.id };
         }
-        // If no MFA, finalize login immediately
         return authApi.finalizeLogin(user.id as string);
     },
     verifyMfa: async (userId: string, code: string): Promise<any> => {
         await delay(200);
-        if (code !== '123456') { // Mock MFA code
+        if (code !== '123456') {
             throw new Error("Invalid MFA code.");
         }
         return authApi.finalizeLogin(userId);
@@ -195,6 +185,7 @@ export const authApi = {
         const user = db.users.find(u => u.id === userId) as User;
         if (!user) throw new Error("User not found during finalization.");
         const company = db.companies.find(c => c.id === user.companyId) as Company;
+        if (!company) throw new Error("Company not found for user.");
 
         const token = createToken({ userId: user.id, companyId: company.id, role: user.role }, MOCK_ACCESS_TOKEN_LIFESPAN);
         const refreshToken = createToken({ userId: user.id }, MOCK_REFRESH_TOKEN_LIFESPAN);
@@ -221,8 +212,6 @@ export const authApi = {
     },
 };
 
-// --- OFFLINE QUEUE (Simplified) ---
-// In a real app, use a robust library like Redux Persist with an offline extension.
 type OfflineAction = { id: number, type: string, payload: any, retries: number, error?: string };
 let offlineQueue: OfflineAction[] = JSON.parse(localStorage.getItem('asagents_offline_queue') || '[]');
 let failedSyncActions: OfflineAction[] = JSON.parse(localStorage.getItem('asagents_failed_sync_actions') || '[]');
@@ -247,8 +236,6 @@ export const processOfflineQueue = async () => {
     
     for (const action of processingQueue) {
         try {
-            // In a real app, you'd map action.type to an actual API call.
-            // Here, we just simulate success.
             await delay(100); 
             console.log(`Successfully synced action: ${action.type}`, action.payload);
             successCount++;
@@ -259,7 +246,7 @@ export const processOfflineQueue = async () => {
                 failedSyncActions.push(action);
                 movedToFailedCount++;
             } else {
-                offlineQueue.push(action); // Put back for another retry
+                offlineQueue.push(action);
             }
         }
     }
@@ -275,7 +262,7 @@ export const retryFailedAction = async (id: number) => {
         action.retries = 0;
         offlineQueue.push(action);
         saveQueues();
-        await processOfflineQueue(); // Immediately try to process it
+        await processOfflineQueue();
     }
 };
 export const discardFailedAction = (id: number) => {
@@ -290,13 +277,9 @@ export const formatFailedActionForUI = (action: OfflineAction): FailedActionForU
     timestamp: new Date(action.id).toLocaleString(),
 });
 
-// --- MAIN API OBJECT ---
-// This will hold all the data-related API calls.
 export const api = {
-    // Implement all the missing API calls here
     getCompanySettings: async (companyId: string): Promise<CompanySettings> => {
         await delay();
-        // Mock settings
         return {
             theme: 'light',
             accessibility: { highContrast: false },
@@ -399,9 +382,6 @@ export const api = {
         saveDb();
         return newEquipment as Equipment;
     },
-    // Add more functions as needed...
-    // This is just a sample of the many functions that would be needed.
-    // I'll add the ones that are causing errors in other files.
     createResourceAssignment: async (data: any, userId: string): Promise<ResourceAssignment> => {
         const newAssignment = { ...data, id: String(Date.now()) };
         db.resourceAssignments.push(newAssignment);
@@ -442,6 +422,10 @@ export const api = {
         await delay(1500);
         return { summary: 'Executive summary...', coverLetter: 'Dear Sir/Madam...', checklist: ['Form A', 'Form B'] };
     },
+    generateSafetyAnalysis: async (incidents: SafetyIncident[], projectId: string, userId: string): Promise<{ report: string }> => {
+        await delay(1500);
+        return { report: `Analysis for project #${projectId}:\n- Common issue: Slips on wet surfaces (${incidents.length} incidents).\n- Recommendation: Increase signage and regular clean-up patrols.` };
+    },
     getCompanies: async (): Promise<Company[]> => {
         return db.companies as Company[];
     },
@@ -470,7 +454,7 @@ export const api = {
         saveDb();
         return db.timeEntries[index] as Timesheet;
     },
-    generateDailySummary: async (projectId: number, date: Date, userId: string): Promise<string> => {
+    generateDailySummary: async (projectId: string, date: Date, userId: string): Promise<string> => {
         await delay(1000);
         return `Summary for ${date.toDateString()}:\n- Task A completed.\n- Task B in progress.`;
     },
@@ -492,27 +476,48 @@ export const api = {
         saveDb();
         return newClient as Client;
     },
-    updateInvoice: async (id:string, data:any, userId:string): Promise<Invoice> => {
-         const index = db.invoices.findIndex(i=>i.id === id);
-        db.invoices[index] = {...db.invoices[index], ...data};
+    updateInvoice: async (id: string, data: any, userId: string): Promise<Invoice> => {
+        await delay();
+        const index = db.invoices.findIndex(i => i.id === id);
+        if (index === -1) throw new Error("Invoice not found");
+        const oldStatus = db.invoices[index]?.status;
+        db.invoices[index] = { ...db.invoices[index], ...data };
+        if (oldStatus !== data.status) {
+            addAuditLog(userId, `UPDATE_INVOICE_STATUS: ${oldStatus} -> ${data.status}`, { type: 'Invoice', id: id, name: data.invoiceNumber });
+        } else {
+            addAuditLog(userId, 'UPDATE_INVOICE', { type: 'Invoice', id: id, name: data.invoiceNumber });
+        }
         saveDb();
         return db.invoices[index] as Invoice;
     },
-    createInvoice: async (data:any, userId:string): Promise<Invoice> => {
-        const newInvoice = {...data, id: String(Date.now())};
+    createInvoice: async (data: any, userId: string): Promise<Invoice> => {
+        await delay();
+        const companyId = db.users.find(u => u.id === userId)?.companyId;
+        const newInvoice = { ...data, id: String(Date.now()), companyId };
         db.invoices.push(newInvoice);
+        addAuditLog(userId, 'CREATE_INVOICE', { type: 'Invoice', id: newInvoice.id, name: newInvoice.invoiceNumber });
         saveDb();
         return newInvoice as Invoice;
     },
-    recordPaymentForInvoice: async (id:string, data:any, userId:string): Promise<Invoice> => {
-        const index = db.invoices.findIndex(i=>i.id === id);
+    recordPaymentForInvoice: async (id: string, data: any, userId: string): Promise<Invoice> => {
+        await delay();
+        const index = db.invoices.findIndex(i => i.id === id);
+        if (index === -1) throw new Error("Invoice not found");
         const inv = db.invoices[index]!;
-        if(!inv.payments) inv.payments = [];
-        inv.payments.push({ ...data, id: String(Date.now()), createdBy: userId, date: new Date().toISOString(), invoiceId: id });
+        if (!inv.payments) inv.payments = [];
+        const newPayment = { ...data, id: String(Date.now()), createdBy: userId, date: new Date().toISOString(), invoiceId: id };
+        inv.payments.push(newPayment);
         inv.amountPaid = (inv.amountPaid || 0) + data.amount;
         const balance = (inv.total || 0) - (inv.amountPaid || 0);
         inv.balance = balance;
-        if (balance <= 0) inv.status = InvoiceStatus.PAID;
+
+        if (balance <= 0 && inv.status !== InvoiceStatus.CANCELLED) {
+            inv.status = InvoiceStatus.PAID;
+            addAuditLog(userId, `RECORD_PAYMENT (amount: ${data.amount})`, { type: 'Invoice', id: id, name: inv.invoiceNumber });
+            addAuditLog(userId, `UPDATE_INVOICE_STATUS: ${InvoiceStatus.SENT} -> ${InvoiceStatus.PAID}`, { type: 'Invoice', id: id, name: inv.invoiceNumber });
+        } else {
+            addAuditLog(userId, `RECORD_PAYMENT (amount: ${data.amount})`, { type: 'Invoice', id: id, name: inv.invoiceNumber });
+        }
         saveDb();
         return inv as Invoice;
     },
@@ -592,11 +597,20 @@ export const api = {
         saveDb();
         return newUser as User;
     },
-    updateUser: async (id: string, data: any, projectIds: (string|number)[], userId: string): Promise<User> => {
+    updateUser: async (id: string, data: Partial<User>, projectIds: (string|number)[] | undefined, userId: string): Promise<User> => {
         const index = db.users.findIndex(u=>u.id === id);
+        if (index === -1) throw new Error("User not found");
+        
+        // Merge existing user data with updates
         db.users[index] = { ...db.users[index], ...data };
-        db.projectAssignments = db.projectAssignments.filter(pa => pa.userId !== id);
-        projectIds.forEach(pid => db.projectAssignments.push({userId: id, projectId: String(pid)}));
+        
+        // Only update project assignments if the projectIds array is explicitly passed
+        // This allows for profile-only updates by omitting the projectIds argument
+        if (projectIds !== undefined) {
+            db.projectAssignments = db.projectAssignments.filter(pa => pa.userId !== id);
+            projectIds.forEach(pid => db.projectAssignments.push({userId: id, projectId: String(pid)}));
+        }
+        
         saveDb();
         return db.users[index] as User;
     },

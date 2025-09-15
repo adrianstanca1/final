@@ -23,7 +23,8 @@ const EquipmentModal: React.FC<{
 }> = ({ equipmentToEdit, projects, assignments, user, onClose, onSuccess, addToast, currentAssignment }) => {
     const [name, setName] = useState('');
     // This state holds the *persistent* status ('Available' or 'Maintenance'), which is the value we want to save.
-    const [persistentStatus, setPersistentStatus] = useState<EquipmentStatus>('Available');
+// FIX: Used EquipmentStatus enum for useState initial value.
+    const [persistentStatus, setPersistentStatus] = useState<EquipmentStatus>(EquipmentStatus.AVAILABLE);
     const [isSaving, setIsSaving] = useState(false);
     const isCurrentlyInUse = !!currentAssignment;
 
@@ -35,12 +36,14 @@ const EquipmentModal: React.FC<{
             // The form should reflect the underlying, persistent status.
             // A derived 'In Use' status from the schedule should not be the editable value.
             // If the database has a stale 'In Use', we treat it as 'Available'.
-            const underlyingStatus = equipmentToEdit.status === 'In Use' ? 'Available' : equipmentToEdit.status;
+// FIX: Used EquipmentStatus enum for comparison and value.
+            const underlyingStatus = equipmentToEdit.status === EquipmentStatus.IN_USE ? EquipmentStatus.AVAILABLE : equipmentToEdit.status;
             setPersistentStatus(underlyingStatus);
         } else {
             // Reset for "Add Equipment" mode
             setName('');
-            setPersistentStatus('Available');
+// FIX: Used EquipmentStatus enum for state update.
+            setPersistentStatus(EquipmentStatus.AVAILABLE);
         }
     }, [equipmentToEdit]);
 
@@ -93,8 +96,8 @@ const EquipmentModal: React.FC<{
                             </div>
                         )}
                         <select value={persistentStatus} onChange={e => setPersistentStatus(e.target.value as EquipmentStatus)} className="w-full p-2 border bg-white rounded mt-2 dark:bg-slate-800 dark:border-slate-600" disabled={isSaving}>
-                            <option value="Available">Available</option>
-                            <option value="Maintenance">Maintenance</option>
+                            <option value={EquipmentStatus.AVAILABLE}>Available</option>
+                            <option value={EquipmentStatus.MAINTENANCE}>Maintenance</option>
                         </select>
                     </div>
 
@@ -171,7 +174,8 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) 
     const projectMap = useMemo(() => new Map(projects.map(p => [p.id, p.name])), [projects]);
 
     const currentAssignments = useMemo(() => {
-        const map = new Map<number, ResourceAssignment>();
+// FIX: Changed Map key from number to string to match resourceId type.
+        const map = new Map<string, ResourceAssignment>();
         const today = new Date();
         today.setHours(0, 0, 0, 0); 
         assignments.forEach(a => {
@@ -191,11 +195,13 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) 
     const getDerivedStatus = (item: Equipment): EquipmentStatus => {
         // If there's an active assignment for today, the status is always 'In Use'.
         if (currentAssignments.has(item.id)) {
-            return 'In Use';
+// FIX: Used EquipmentStatus enum member.
+            return EquipmentStatus.IN_USE;
         }
         // Otherwise, it's the status set in the database ('Available' or 'Maintenance').
         // We safeguard against a stale 'In Use' status in the DB.
-        return item.status === 'In Use' ? 'Available' : item.status;
+// FIX: Used EquipmentStatus enum for comparison and value.
+        return item.status === EquipmentStatus.IN_USE ? EquipmentStatus.AVAILABLE : item.status;
     };
     
     const openModal = (item: Equipment | null = null) => {

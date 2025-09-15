@@ -8,7 +8,8 @@ import { hasPermission } from '../services/auth';
 import { Avatar } from './ui/Avatar';
 import { EquipmentStatusBadge } from './ui/StatusBadge';
 import { Tag } from './ui/Tag';
-import { format, startOfWeek, eachDayOfInterval, isWithinInterval, parseISO } from 'date-fns';
+// FIX: Removed `startOfWeek` from import and added a local implementation to resolve the module export error.
+import { format, eachDayOfInterval, isWithinInterval } from 'date-fns';
 
 interface DashboardProps {
   user: User;
@@ -50,6 +51,17 @@ const availabilityTagColor: Record<AvailabilityStatus, 'green' | 'blue' | 'gray'
     [AvailabilityStatus.AVAILABLE]: 'green',
     [AvailabilityStatus.ON_PROJECT]: 'blue',
     [AvailabilityStatus.ON_LEAVE]: 'gray',
+};
+
+// FIX: Local implementation of startOfWeek to resolve module export error.
+const startOfWeek = (date: Date, options?: { weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6 }): Date => {
+    const weekStartsOn = options?.weekStartsOn ?? 0;
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = (day < weekStartsOn ? day + 7 : day) - weekStartsOn;
+    d.setDate(d.getDate() - diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
 };
 
 export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveView, onSelectProject }) => {

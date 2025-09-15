@@ -612,7 +612,7 @@ export type View = 'dashboard' | 'my-day' | 'foreman-dashboard' | 'principal-das
 
 export interface Quote {
     id: string;
-    // ... other properties
+    status: QuoteStatus;
 }
 
 export interface Grant {

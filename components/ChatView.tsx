@@ -32,8 +32,9 @@ const NewChatModal: React.FC<{
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                     {availableUsers.length > 0 ? availableUsers.map(p => (
                         <button key={p.id} onClick={() => onStartConversation(p)} className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-slate-100">
-                            <Avatar name={p.name} imageUrl={p.avatarUrl} className="w-10 h-10"/>
-                            <div>{p.name}</div>
+                            {/* FIX: Replaced name and avatarUrl with correct properties. */}
+                            <Avatar name={`${p.firstName} ${p.lastName}`} imageUrl={p.avatar} className="w-10 h-10"/>
+                            <div>{`${p.firstName} ${p.lastName}`}</div>
                         </button>
                     )) : <p className="text-slate-500 text-center py-4">No new people to message.</p>}
                 </div>
@@ -163,7 +164,8 @@ export const ChatView: React.FC<ChatViewProps> = ({ user, addToast, initialRecip
     
     const getOtherParticipant = (convo: Conversation) => {
         const otherId = convo.participantIds.find(id => id !== user.id);
-        return userMap.get(otherId || 0);
+// FIX: Corrected map lookup to use a default string to avoid type errors.
+        return userMap.get(otherId || '');
     };
 
     return (
@@ -183,9 +185,10 @@ export const ChatView: React.FC<ChatViewProps> = ({ user, addToast, initialRecip
                             return (
                                 <button key={convo.id} onClick={() => setActiveConversationId(convo.id)} className={`w-full text-left p-4 flex gap-3 items-center relative ${activeConversationId === convo.id ? 'bg-sky-50 dark:bg-sky-900/50' : 'hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
                                     {isUnread && <div className="absolute left-2 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-sky-500"></div>}
-                                    <Avatar name={otherUser.name} imageUrl={otherUser.avatarUrl} className="w-10 h-10" />
+                                    {/* FIX: Replaced name and avatarUrl with correct properties. */}
+                                    <Avatar name={`${otherUser.firstName} ${otherUser.lastName}`} imageUrl={otherUser.avatar} className="w-10 h-10" />
                                     <div className="flex-grow overflow-hidden">
-                                        <p className={`font-semibold ${isUnread ? 'text-slate-900 dark:text-slate-50' : ''}`}>{otherUser.name}</p>
+                                        <p className={`font-semibold ${isUnread ? 'text-slate-900 dark:text-slate-50' : ''}`}>{`${otherUser.firstName} ${otherUser.lastName}`}</p>
                                         <p className="text-sm text-slate-500 dark:text-slate-400 truncate">{convo.lastMessage?.content}</p>
                                     </div>
                                 </button>
@@ -197,13 +200,15 @@ export const ChatView: React.FC<ChatViewProps> = ({ user, addToast, initialRecip
                     {activeConversation ? (
                         <>
                             <div className="p-4 border-b dark:border-slate-700 flex items-center gap-3">
-                                <Avatar name={getOtherParticipant(activeConversation)?.name || ''} imageUrl={getOtherParticipant(activeConversation)?.avatarUrl} className="w-8 h-8" />
-                                <h3 className="font-semibold">{getOtherParticipant(activeConversation)?.name}</h3>
+                                {/* FIX: Replaced name and avatarUrl with correct properties. */}
+                                <Avatar name={`${getOtherParticipant(activeConversation)?.firstName} ${getOtherParticipant(activeConversation)?.lastName}` || ''} imageUrl={getOtherParticipant(activeConversation)?.avatar} className="w-8 h-8" />
+                                <h3 className="font-semibold">{`${getOtherParticipant(activeConversation)?.firstName} ${getOtherParticipant(activeConversation)?.lastName}`}</h3>
                             </div>
                             <div className="flex-grow p-4 overflow-y-auto space-y-4">
                                 {messages.map(msg => (
                                     <div key={msg.id} className={`flex gap-3 ${msg.senderId === user.id ? 'justify-end' : 'justify-start'}`}>
-                                        {msg.senderId !== user.id && <Avatar name={getOtherParticipant(activeConversation)?.name || ''} imageUrl={getOtherParticipant(activeConversation)?.avatarUrl} className="w-8 h-8 self-end"/>}
+                                        {/* FIX: Replaced name and avatarUrl with correct properties. */}
+                                        {msg.senderId !== user.id && <Avatar name={`${getOtherParticipant(activeConversation)?.firstName} ${getOtherParticipant(activeConversation)?.lastName}` || ''} imageUrl={getOtherParticipant(activeConversation)?.avatar} className="w-8 h-8 self-end"/>}
                                         <div className={`p-3 rounded-lg max-w-lg ${msg.senderId === user.id ? 'bg-sky-600 text-white' : 'bg-slate-100 dark:bg-slate-700'} ${msg.isSending ? 'opacity-70' : ''}`}>
                                             {msg.content}
                                             {msg.error && <span className="text-xs text-red-300 block mt-1">{msg.error}</span>}

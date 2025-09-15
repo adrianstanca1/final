@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, LoginCredentials } from '../types';
-import { authApi } from '../services/mockApi';
+import { LoginCredentials } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
+import { useAuth } from '../contexts/AuthContext';
 
 interface LoginProps {
-  onLogin: (user: User) => void;
   onSwitchToRegister: () => void;
 }
 
@@ -13,20 +12,24 @@ type LoginStep = 'credentials' | 'mfa';
 
 const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-export const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => {
+export const Login: React.FC<LoginProps> = ({ onSwitchToRegister }) => {
+    const { login, verifyMfaAndFinalize, error: authError, loading: isLoading } = useAuth();
     const [step, setStep] = useState<LoginStep>('credentials');
-    const [email, setEmail] = useState('david@constructco.com');
+    const [email, setEmail] = useState('admin@ascladding.com');
     const [password, setPassword] = useState('password123');
     const [mfaCode, setMfaCode] = useState('');
     const [rememberMe, setRememberMe] = useState(false);
     
-    const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [validationErrors, setValidationErrors] = useState<{ email?: string; password?: string, mfa?: string }>({});
     
     const [userId, setUserId] = useState<string | null>(null);
 
     const mfaInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        setError(authError);
+    }, [authError]);
 
     useEffect(() => {
       if (step === 'mfa') {
@@ -45,26 +48,15 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => 
         setValidationErrors(newErrors);
         if (Object.keys(newErrors).length > 0) return;
         
-        setIsLoading(true);
         try {
-            // FIX: Corrected API call to use the exported authApi object.
-            const res = await authApi.login({ email, password });
-            if (res.success && res.userId) {
-                if (res.mfaRequired) {
-                    setUserId(res.userId);
-                    setStep('mfa');
-                } else {
-                    // This path is not implemented in mock data, as we need a user object.
-                    // A real API would return the user object here.
-                    setError("Login successful, but user data could not be retrieved.");
-                }
-            } else {
-                setError(res.message);
+            const res = await login({ email, password, rememberMe });
+            if (res.mfaRequired && res.userId) {
+                setUserId(res.userId);
+                setStep('mfa');
             }
+            // If not MFA, the AuthProvider handles the redirect and state change.
         } catch (err) {
-            setError(err instanceof Error ? err.message : "An unexpected error occurred.");
-        } finally {
-            setIsLoading(false);
+            // Error is handled and set by the AuthContext, no need to set it here.
         }
     };
     
@@ -76,20 +68,12 @@ export const Login: React.FC<LoginProps> = ({ onLogin, onSwitchToRegister }) => 
             return;
         }
         
-        setIsLoading(true);
         try {
             if (!userId) throw new Error("User ID not found");
-            // FIX: Corrected API call to use the exported authApi object.
-            const res = await authApi.verifyMfa(userId, mfaCode);
-            if (res.success && res.user) {
-                onLogin(res.user);
-            } else {
-                setError(res.message);
-            }
+            await verifyMfaAndFinalize(userId, mfaCode);
+            // On success, AuthProvider will handle redirect.
         } catch (err) {
-            setError(err instanceof Error ? err.message : "An unexpected error occurred during MFA verification.");
-        } finally {
-            setIsLoading(false);
+             // Error is handled and set by the AuthContext
         }
     };
     

@@ -2,14 +2,15 @@ import React, { createContext, useState, useContext, useEffect, useCallback, Rea
 import { User, Company, LoginCredentials, RegisterCredentials, AuthState, Permission } from '../types';
 import { authApi } from '../services/mockApi';
 import { hasPermission as checkPermission } from '../services/auth';
+import { api } from '../services/mockApi';
 
 interface AuthContextType extends AuthState {
-    login: (credentials: LoginCredentials) => Promise<void>;
+    login: (credentials: LoginCredentials) => Promise<{ mfaRequired: boolean; userId?: string }>;
     register: (credentials: Partial<RegisterCredentials>) => Promise<void>;
     logout: () => void;
     hasPermission: (permission: Permission) => boolean;
-    // Add the ability to finalize login after an external check like MFA
-    finalizeLogin: (userId: string) => Promise<void>;
+    verifyMfaAndFinalize: (userId: string, code: string) => Promise<void>;
+    updateUserProfile: (updates: Partial<User>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,7 +23,6 @@ const parseJwt = (token: string) => {
     }
 };
 
-// FIX: Changed NodeJS.Timeout to ReturnType<typeof setTimeout> for browser compatibility.
 let tokenRefreshTimeout: ReturnType<typeof setTimeout> | null = null;
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -63,7 +63,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     const storedRefreshToken = localStorage.getItem('refreshToken');
                     if (storedRefreshToken) {
                         try {
-                            // FIX: Corrected API call to use authApi.refreshToken
                             const { token: newToken } = await authApi.refreshToken(storedRefreshToken);
                             localStorage.setItem('token', newToken);
                             setAuthState(prev => ({ ...prev, token: newToken }));
@@ -75,10 +74,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     }
                 }, expiresIn);
             } else {
-                logout(); // Token already expired
+                logout();
             }
         }
     }, [logout]);
+    
+    const finalizeLogin = useCallback((data: { token: string, refreshToken: string, user: User, company: Company }) => {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('refreshToken', data.refreshToken);
+        setAuthState({
+            isAuthenticated: true,
+            token: data.token,
+            refreshToken: data.refreshToken,
+            user: data.user,
+            company: data.company,
+            loading: false,
+            error: null,
+        });
+        scheduleTokenRefresh(data.token);
+    }, [scheduleTokenRefresh]);
 
     const initAuth = useCallback(async () => {
         const token = localStorage.getItem('token');
@@ -87,34 +101,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             try {
                 const decoded = parseJwt(token);
                 if (decoded && decoded.exp * 1000 > Date.now()) {
-                    // FIX: Corrected API call to use authApi.me
                     const { user, company } = await authApi.me(token);
-                    setAuthState({
-                        isAuthenticated: true,
-                        token,
-                        refreshToken,
-                        user,
-                        company,
-                        loading: false,
-                        error: null,
-                    });
-                    scheduleTokenRefresh(token);
+                    finalizeLogin({ token, refreshToken, user, company });
                 } else {
-                    // FIX: Corrected API call to use authApi.refreshToken
                     const { token: newToken } = await authApi.refreshToken(refreshToken);
-                    localStorage.setItem('token', newToken);
-                    // FIX: Corrected API call to use authApi.me
                     const { user, company } = await authApi.me(newToken);
-                     setAuthState({
-                        isAuthenticated: true,
-                        token: newToken,
-                        refreshToken,
-                        user,
-                        company,
-                        loading: false,
-                        error: null,
-                    });
-                    scheduleTokenRefresh(newToken);
+                    finalizeLogin({ token: newToken, refreshToken, user, company });
                 }
             } catch (error) {
                 console.error("Auth init failed", error);
@@ -123,7 +115,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         } else {
             setAuthState(prev => ({ ...prev, loading: false }));
         }
-    }, [scheduleTokenRefresh, logout]);
+    }, [finalizeLogin, logout]);
 
     useEffect(() => {
         initAuth();
@@ -131,56 +123,59 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             if (tokenRefreshTimeout) clearTimeout(tokenRefreshTimeout);
         }
     }, [initAuth]);
-    
-    const performLogin = async (loginMethod: () => Promise<any>) => {
+
+    const login = async (credentials: LoginCredentials): Promise<{ mfaRequired: boolean; userId?: string }> => {
         setAuthState(prev => ({ ...prev, loading: true, error: null }));
         try {
-            const { token, refreshToken, user, company } = await loginMethod();
-            localStorage.setItem('token', token);
-            localStorage.setItem('refreshToken', refreshToken);
-            setAuthState({
-                isAuthenticated: true,
-                token,
-                refreshToken,
-                user,
-                company,
-                loading: false,
-                error: null,
-            });
-            scheduleTokenRefresh(token);
+            const response = await authApi.login(credentials);
+            if (response.mfaRequired) {
+                setAuthState(prev => ({ ...prev, loading: false }));
+                return { mfaRequired: true, userId: response.userId };
+            }
+            
+            finalizeLogin(response);
+            return { mfaRequired: false };
+
         } catch (error: any) {
-             const newAuthState: AuthState = {
-                isAuthenticated: false,
-                token: null,
-                refreshToken: null,
-                user: null,
-                company: null,
-                loading: false,
-                error: error.message || 'Login failed',
-            };
-            setAuthState(newAuthState);
+            setAuthState(prev => ({ ...prev, token: null, refreshToken: null, user: null, company: null, isAuthenticated: false, loading: false, error: error.message || 'Login failed' }));
+            throw error;
+        }
+    };
+    
+    const verifyMfaAndFinalize = async (userId: string, code: string) => {
+        setAuthState(prev => ({ ...prev, loading: true, error: null }));
+         try {
+            const response = await authApi.verifyMfa(userId, code);
+            finalizeLogin(response);
+        } catch (error: any) {
+            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'MFA verification failed'}));
+            throw error;
+        }
+    }
+
+    const register = async (credentials: Partial<RegisterCredentials>) => {
+        setAuthState(prev => ({ ...prev, loading: true, error: null }));
+        try {
+            const response = await authApi.register(credentials);
+            finalizeLogin(response);
+        } catch (error: any) {
+             setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Registration failed'}));
             throw error;
         }
     };
 
-    const login = async (credentials: LoginCredentials) => {
-        // FIX: Corrected API call to use authApi.login
-        await performLogin(() => authApi.login(credentials));
-    };
-    
-    // FIX: Implemented finalizeLogin to complete the authentication flow.
-    const finalizeLogin = async (userId: string) => {
-        // FIX: Corrected API call to use authApi.finalizeLogin
-        await performLogin(() => authApi.finalizeLogin(userId));
-    }
-
-    const register = async (credentials: Partial<RegisterCredentials>) => {
-        // FIX: Corrected API call to use authApi.register
-        await performLogin(() => authApi.register(credentials));
-    };
-
     const hasPermission = (permission: Permission): boolean => {
         return checkPermission(authState.user, permission);
+    };
+
+    const updateUserProfile = async (updates: Partial<User>) => {
+        if (!authState.user) throw new Error("Not authenticated");
+        // Pass undefined for projectIds to avoid triggering assignment updates
+        const updatedUser = await api.updateUser(authState.user.id, updates, undefined, authState.user.id);
+        setAuthState(prev => ({
+            ...prev,
+            user: { ...prev.user, ...updatedUser } as User,
+        }));
     };
     
     const value = {
@@ -189,7 +184,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         register,
         logout,
         hasPermission,
-        finalizeLogin,
+        verifyMfaAndFinalize,
+        updateUserProfile,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

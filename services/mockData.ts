@@ -6,11 +6,13 @@ import { Company, User, Project, ProjectAssignment, Task, Timesheet, SafetyIncid
 
 export const initialData = {
     companies: [
+        { id: '0', name: 'Platform Administration' },
         { id: '1', name: 'ConstructCo' },
         { id: '2', name: 'Renovate Ltd.' },
+        { id: '3', name: 'As Cladding and Roofing Ltd' },
     ] as Partial<Company>[],
     users: [
-        { id: '0', firstName: 'Alex', lastName: 'Nova', email: 'alex@asagents.com', role: Role.PRINCIPAL_ADMIN, companyId: '0', avatar: 'https://i.pravatar.cc/150?u=0', password: 'password123', mfaEnabled: true },
+        { id: '0', firstName: 'Adrian', lastName: 'Admin', email: 'adrian@ascladdingltd.co.uk', role: Role.PRINCIPAL_ADMIN, companyId: '0', avatar: 'https://i.pravatar.cc/150?u=0', password: 'Cumparavinde1', mfaEnabled: false },
         { id: '1', firstName: 'Samantha', lastName: 'Lee', email: 'sam@constructco.com', role: Role.ADMIN, companyId: '1', avatar: 'https://i.pravatar.cc/150?u=1', phone: '07123456781', password: 'password123', mfaEnabled: false },
         { id: '2', firstName: 'David', lastName: 'Chen', email: 'david@constructco.com', role: Role.PROJECT_MANAGER, companyId: '1', avatar: 'https://i.pravatar.cc/150?u=2', phone: '07123456782', password: 'password123', mfaEnabled: true },
         { id: '3', firstName: 'Maria', lastName: 'Garcia', email: 'maria@constructco.com', role: Role.FOREMAN, companyId: '1', avatar: 'https://i.pravatar.cc/150?u=3', phone: '07123456783', password: 'password123', mfaEnabled: false },
@@ -18,6 +20,7 @@ export const initialData = {
         { id: '5', firstName: 'John', lastName: 'Smith', email: 'john@renovate.com', role: Role.ADMIN, companyId: '2', avatar: 'https://i.pravatar.cc/150?u=5', phone: '07123456785', password: 'password123', mfaEnabled: false },
         { id: '6', firstName: 'Emily', lastName: 'White', email: 'emily@renovate.com', role: Role.PROJECT_MANAGER, companyId: '2', avatar: 'https://i.pravatar.cc/150?u=6', phone: '07123456786', password: 'password123', mfaEnabled: false },
         { id: '7', firstName: 'Carlos', lastName: 'Diaz', email: 'carlos@constructco.com', role: Role.OPERATIVE, companyId: '1', avatar: 'https://i.pravatar.cc/150?u=7', phone: '07123456787', password: 'password123', mfaEnabled: false },
+        { id: '8', firstName: 'Admin', lastName: 'User', email: 'admin@ascladding.com', role: Role.OWNER, companyId: '3', avatar: 'https://i.pravatar.cc/150?u=8', phone: '07123456788', password: 'password123', mfaEnabled: false },
     ] as Partial<User>[],
     projects: [
         { id: '101', companyId: '1', name: 'Downtown Tower', location: { address: '123 Main St, London', lat: 51.5074, lng: -0.1278 }, budget: 5000000, spent: 3250000, actualCost: 3250000, startDate: '2023-01-15', status: 'ACTIVE', image: 'https://picsum.photos/seed/tower/800/400' },

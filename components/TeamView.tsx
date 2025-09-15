@@ -15,7 +15,6 @@ interface TeamViewProps {
   onStartChat: (recipient: User) => void;
 }
 
-// FIX: Added an explicit type to ensure values are not widened to `string`, resolving a type error with the Tag component.
 const availabilityTagColor: Record<AvailabilityStatus, 'green' | 'blue' | 'gray'> = {
     [AvailabilityStatus.AVAILABLE]: 'green',
     [AvailabilityStatus.ON_PROJECT]: 'blue',
@@ -40,6 +39,7 @@ const UserModal: React.FC<{
     const [activeTab, setActiveTab] = useState<'details' | 'performance' | 'assignments'>('details');
     const [newSkill, setNewSkill] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [projectSearch, setProjectSearch] = useState('');
 
     const isAddMode = !member;
     const canManage = hasPermission(loggedInUser, Permission.MANAGE_TEAM);
@@ -106,20 +106,21 @@ const UserModal: React.FC<{
     const renderDetailsTab = () => (
         <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {renderFormField('Name', 'text', 'name')}
+                {renderFormField('First Name', 'text', 'firstName')}
+                {renderFormField('Last Name', 'text', 'lastName')}
                 {renderFormField('Email', 'email', 'email', isAddMode)}
                 {renderFormField('Phone', 'tel', 'phone')}
                 {renderSelectField('Role', 'role', Object.values(Role).filter(r => r !== Role.PRINCIPAL_ADMIN))}
                 {renderSelectField('Availability', 'availability', Object.values(AvailabilityStatus))}
             </div>
             <div className="mt-4">
-                <label className="block text-sm font-medium">Skills</label>
+                <label className="block text-sm font-medium text-muted-foreground">Skills</label>
                 <div className="flex flex-wrap gap-2 mt-1">
                     {formData.skills?.map(skill => <Tag key={skill} label={skill} onDoubleClick={canManage ? () => handleSkillRemove(skill) : undefined} />)}
                 </div>
                 {canManage && (
                     <div className="flex gap-2 mt-2">
-                        <input value={newSkill} onChange={e => setNewSkill(e.target.value)} placeholder="Add a skill" className="flex-grow p-1 border rounded"/>
+                        <input value={newSkill} onChange={e => setNewSkill(e.target.value)} placeholder="Add a skill" className="flex-grow p-1 border rounded bg-background"/>
                         <Button type="button" size="sm" variant="secondary" onClick={handleSkillAdd}>Add</Button>
                     </div>
                 )}
@@ -129,24 +130,24 @@ const UserModal: React.FC<{
     
     const renderFormField = (label: string, type: string, field: keyof User, forceEditable = true) => (
         <div>
-            <label className="block text-sm font-medium">{label}</label>
+            <label className="block text-sm font-medium text-muted-foreground">{label}</label>
             {canManage && forceEditable ? (
-                <input type={type} value={(formData[field] as string) || ''} onChange={e => handleInputChange(field, e.target.value)} className="w-full p-2 border rounded"/>
+                <input type={type} value={String(formData[field] || '')} onChange={e => handleInputChange(field, e.target.value)} className="w-full p-2 border rounded bg-background"/>
             ) : (
-                <p className="p-2 text-slate-700">{formData[field] || 'N/A'}</p>
+                <p className="p-2 text-foreground">{String(formData[field] || 'N/A')}</p>
             )}
         </div>
     );
     
     const renderSelectField = (label: string, field: keyof User, options: string[]) => (
          <div>
-            <label className="block text-sm font-medium">{label}</label>
+            <label className="block text-sm font-medium text-muted-foreground">{label}</label>
             {canManage ? (
-                <select value={formData[field]} onChange={e => handleInputChange(field, e.target.value)} className="w-full p-2 border rounded bg-white">
-                    {options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                <select value={String(formData[field] || '')} onChange={e => handleInputChange(field, e.target.value)} className="w-full p-2 border rounded bg-background">
+                    {options.map(opt => <option key={opt} value={opt}>{opt.replace(/_/g, ' ')}</option>)}
                 </select>
             ) : (
-                <p className="p-2 text-slate-700">{formData[field] || 'N/A'}</p>
+                <p className="p-2 text-foreground">{String(formData[field] || 'N/A').replace(/_/g, ' ')}</p>
             )}
         </div>
     );
@@ -160,20 +161,55 @@ const UserModal: React.FC<{
         </div>
     );
 
-    const renderAssignmentsTab = () => (
-        <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-            {projects.map(p => (
-                <div key={p.id} className="flex items-center justify-between p-2 rounded hover:bg-slate-50">
-                    <label htmlFor={`proj-${p.id}`} className="font-medium">{p.name}</label>
-                    {canManage ? (
-                        <input type="checkbox" id={`proj-${p.id}`} checked={assignedProjectIds.has(p.id)} onChange={() => handleProjectToggle(p.id)} />
+    const renderAssignmentsTab = () => {
+        const assignedProjects = projects.filter(p => assignedProjectIds.has(p.id));
+
+        const filteredProjectsForEditing = projects.filter(p =>
+            p.name.toLowerCase().includes(projectSearch.toLowerCase())
+        );
+
+        return (
+            <div className="space-y-4">
+                <div>
+                    <h4 className="font-semibold text-muted-foreground mb-2">Currently Assigned Projects</h4>
+                    {assignedProjects.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                            {assignedProjects.map(p => <Tag key={p.id} label={p.name} color="blue" />)}
+                        </div>
                     ) : (
-                       assignedProjectIds.has(p.id) && <span className="text-green-600">✓ Assigned</span>
+                        <p className="text-sm text-muted-foreground">Not assigned to any projects.</p>
                     )}
                 </div>
-            ))}
-        </div>
-    );
+                
+                {canManage && (
+                    <div className="pt-4 border-t">
+                        <h4 className="font-semibold text-muted-foreground mb-2">Edit Assignments</h4>
+                        <input
+                            type="text"
+                            placeholder="Search projects to assign..."
+                            value={projectSearch}
+                            onChange={e => setProjectSearch(e.target.value)}
+                            className="w-full p-2 border rounded bg-background mb-2"
+                        />
+                        <div className="space-y-2 max-h-48 overflow-y-auto pr-2">
+                            {filteredProjectsForEditing.map(p => (
+                                <div key={p.id} className="flex items-center justify-between p-2 rounded hover:bg-accent">
+                                    <label htmlFor={`proj-${p.id}`} className="font-medium cursor-pointer flex-grow">{p.name}</label>
+                                    <input
+                                        type="checkbox"
+                                        id={`proj-${p.id}`}
+                                        checked={assignedProjectIds.has(p.id)}
+                                        onChange={() => handleProjectToggle(p.id)}
+                                        className="h-4 w-4 text-primary focus:ring-ring border-border rounded"
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
 
 
     return (
@@ -182,20 +218,20 @@ const UserModal: React.FC<{
                 <Card>
                     <div className="flex gap-6">
                         <div className="w-1/3 text-center">
-                            <Avatar name={formData.name || '?'} imageUrl={formData.avatarUrl} className="w-32 h-32 mx-auto mb-4 text-4xl"/>
+                            <Avatar name={`${formData.firstName || ''} ${formData.lastName || ''}`.trim() || '?'} imageUrl={formData.avatar} className="w-32 h-32 mx-auto mb-4 text-4xl"/>
                             {canManage && <Button type="button" variant="secondary" size="sm">Upload Photo</Button>}
-                            <h3 className="font-bold text-2xl mt-4">{formData.name}</h3>
-                            <p className="text-slate-500">{formData.email}</p>
-                            {!isAddMode && loggedInUser.id !== member.id && hasPermission(loggedInUser, Permission.SEND_DIRECT_MESSAGE) && (
-                                <Button size="sm" className="mt-4 w-full" onClick={() => onStartChat(member)}>Message</Button>
+                            <h3 className="font-bold text-2xl mt-4">{`${formData.firstName || ''} ${formData.lastName || ''}`.trim()}</h3>
+                            <p className="text-muted-foreground">{formData.email}</p>
+                            {!isAddMode && loggedInUser.id !== member!.id && hasPermission(loggedInUser, Permission.SEND_DIRECT_MESSAGE) && (
+                                <Button size="sm" className="mt-4 w-full" onClick={() => onStartChat(member!)}>Message</Button>
                             )}
                         </div>
                         <div className="w-2/3">
                              <div className="border-b">
                                 <nav className="-mb-px flex space-x-4">
-                                    <button type="button" onClick={() => setActiveTab('details')} className={`py-2 px-1 border-b-2 text-sm ${activeTab==='details' ? 'border-sky-500 text-sky-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Details</button>
-                                    {!isAddMode && <button type="button" onClick={() => setActiveTab('performance')} className={`py-2 px-1 border-b-2 text-sm ${activeTab==='performance' ? 'border-sky-500 text-sky-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Performance</button>}
-                                    {!isAddMode && <button type="button" onClick={() => setActiveTab('assignments')} className={`py-2 px-1 border-b-2 text-sm ${activeTab==='assignments' ? 'border-sky-500 text-sky-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>Assignments</button>}
+                                    <button type="button" onClick={() => setActiveTab('details')} className={`py-2 px-1 border-b-2 text-sm ${activeTab==='details' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>Details</button>
+                                    {!isAddMode && <button type="button" onClick={() => setActiveTab('performance')} className={`py-2 px-1 border-b-2 text-sm ${activeTab==='performance' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>Performance</button>}
+                                    {!isAddMode && <button type="button" onClick={() => setActiveTab('assignments')} className={`py-2 px-1 border-b-2 text-sm ${activeTab==='assignments' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>Assignments</button>}
                                 </nav>
                             </div>
                             <div className="pt-4">
@@ -267,21 +303,24 @@ export const TeamView: React.FC<TeamViewProps> = ({ user, addToast, onStartChat 
             )}
 
             <div className="flex justify-between items-center">
-                <h2 className="text-3xl font-bold text-slate-800">Team Members</h2>
+                <h2 className="text-3xl font-bold text-foreground">Team Members</h2>
                 {canManageTeam && <Button onClick={() => setModalState({ mode: 'add' })}>Add Member</Button>}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {team.filter(member => member.role !== Role.PRINCIPAL_ADMIN).map(member => (
-                    <Card key={member.id} onClick={() => setModalState({ mode: 'edit', member })} className="text-center animate-card-enter cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-transform">
-                        <Avatar name={member.name} imageUrl={member.avatarUrl} className="w-24 h-24 mx-auto mb-4" />
-                        <h3 className="font-bold text-lg">{member.name}</h3>
-                        <p className="text-sm text-slate-500">{member.role}</p>
-                        <div className="mt-2">
-                             <Tag label={member.availability || 'Unknown'} color={availabilityTagColor[member.availability || AvailabilityStatus.AVAILABLE]}/>
-                        </div>
-                    </Card>
-                ))}
+                {team.filter(member => member.role !== Role.PRINCIPAL_ADMIN).map(member => {
+                    const memberName = `${member.firstName} ${member.lastName}`;
+                    return (
+                        <Card key={member.id} onClick={() => setModalState({ mode: 'edit', member })} className="text-center animate-card-enter cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-transform">
+                            <Avatar name={memberName} imageUrl={member.avatar} className="w-24 h-24 mx-auto mb-4" />
+                            <h3 className="font-bold text-lg">{memberName}</h3>
+                            <p className="text-sm text-muted-foreground">{member.role.replace(/_/g, ' ')}</p>
+                            <div className="mt-2">
+                                 <Tag label={(member.availability || 'Unknown').replace(/_/g, ' ')} color={availabilityTagColor[member.availability || AvailabilityStatus.AVAILABLE]}/>
+                            </div>
+                        </Card>
+                    );
+                })}
             </div>
         </div>
     );

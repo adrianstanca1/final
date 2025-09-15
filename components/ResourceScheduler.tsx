@@ -23,8 +23,9 @@ const dateToYMD = (date: Date) => date.toISOString().split('T')[0];
 const AssignmentModal: React.FC<{
     assignment: ResourceAssignment | null,
     onClose: () => void,
-    onSave: (data: Omit<ResourceAssignment, 'id' | 'companyId'>) => void,
-    onDelete: (id: number | string) => void,
+    onSave: (data: Omit<ResourceAssignment, 'id'>) => void,
+// FIX: Changed id type from number | string to string.
+    onDelete: (id: string) => void,
     projects: Project[],
     users: User[],
     equipment: Equipment[],
@@ -38,12 +39,13 @@ const AssignmentModal: React.FC<{
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!resourceId || !projectId || !startDate || !endDate) return;
+// FIX: Corrected payload to match ResourceAssignment type (string IDs, string dates).
         onSave({
             resourceType,
-            resourceId: parseInt(resourceId),
-            projectId: parseInt(projectId),
-            startDate: new Date(startDate),
-            endDate: new Date(endDate),
+            resourceId: resourceId,
+            projectId: projectId,
+            startDate: startDate,
+            endDate: endDate,
         });
     };
 
@@ -60,7 +62,8 @@ const AssignmentModal: React.FC<{
                     </select>
                     <select value={resourceId} onChange={e => setResourceId(e.target.value)} className="w-full p-2 border rounded bg-white" required>
                         <option value="">Select {resourceType}...</option>
-                        {resourceList.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+{/* FIX: Combined firstName and lastName for User display name. */}
+                        {resourceList.map(r => <option key={r.id} value={r.id}>{resourceType === 'user' ? `${(r as User).firstName} ${(r as User).lastName}` : (r as Equipment).name}</option>)}
                     </select>
                     <select value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full p-2 border rounded bg-white" required>
                         <option value="">Select project...</option>
@@ -124,7 +127,7 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
         setIsModalOpen(true);
     };
 
-    const handleSave = async (data: Omit<ResourceAssignment, 'id' | 'companyId'>) => {
+    const handleSave = async (data: Omit<ResourceAssignment, 'id'>) => {
         try {
             if (editingAssignment) {
                 const updated = await api.updateResourceAssignment(editingAssignment.id, data, user.id);
@@ -141,7 +144,8 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
         }
     };
     
-    const handleDelete = async (id: number | string) => {
+// FIX: Changed id type from number | string to string.
+    const handleDelete = async (id: string) => {
         try {
             await api.deleteResourceAssignment(id, user.id);
             setAssignments(prev => prev.filter(a => a.id !== id));
@@ -213,11 +217,14 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
                     ))}
                     
                     {/* Rows */}
-                    {resources.map((resource, rowIndex) => (
+                    {resources.map((resource, rowIndex) => {
+// FIX: Combined firstName and lastName for User display name.
+                        const resourceName = resource.type === 'user' ? `${(resource as User).firstName} ${(resource as User).lastName}` : (resource as Equipment).name;
+                        return (
                         <React.Fragment key={`${resource.type}-${resource.id}`}>
                             <div className={`p-2 font-medium border-b border-r break-words sticky left-0 z-10 flex items-center gap-2 ${rowIndex % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
-                                {resource.type === 'user' && <Avatar name={resource.name} className="w-6 h-6 text-xs" />}
-                                <span className="text-sm">{resource.name}</span>
+                                {resource.type === 'user' && <Avatar name={resourceName} className="w-6 h-6 text-xs" />}
+                                <span className="text-sm">{resourceName}</span>
                             </div>
                             <div className="col-span-7 border-b relative grid grid-cols-7">
                                 {[...Array(7)].map((_, dayIndex) => (
@@ -259,7 +266,7 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
                                 })}
                             </div>
                         </React.Fragment>
-                    ))}
+                    )})}
                 </div>
             </div>
         </Card>

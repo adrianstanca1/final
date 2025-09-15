@@ -1,5 +1,3 @@
-// full contents of components/layout/Header.tsx
-
 import React, { useState } from 'react';
 import { User, Notification } from '../../types';
 import { Avatar } from '../ui/Avatar';
@@ -19,7 +17,6 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ user, onLogout, onSearchClick, onCommandPaletteClick, unreadNotificationCount, notifications, onNotificationClick, onMarkAllNotificationsAsRead }) => {
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
-    // FIX: Combine firstName and lastName for display
     const userName = `${user.firstName} ${user.lastName}`;
 
     return (
@@ -39,11 +36,10 @@ export const Header: React.FC<HeaderProps> = ({ user, onLogout, onSearchClick, o
             </div>
             <div className="relative">
                 <button onClick={() => setIsUserMenuOpen(prev => !prev)} className="flex items-center gap-2">
-                    {/* FIX: Corrected property access for name and avatar */}
                     <Avatar name={userName} imageUrl={user.avatar} className="w-9 h-9" />
                     <div className="hidden md:block text-left">
                         <p className="text-sm font-semibold text-foreground">{userName}</p>
-                        <p className="text-xs text-muted-foreground">{user.role}</p>
+                        <p className="text-xs text-muted-foreground">{user.role.replace(/_/g, ' ')}</p>
                     </div>
                 </button>
                 {isUserMenuOpen && (

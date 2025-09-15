@@ -89,7 +89,7 @@ const IncidentDetailModal: React.FC<{ incident: SafetyIncident; project?: Projec
                 <h3 className="text-xl font-bold mb-2">Incident Details</h3>
                 <div className="space-y-3 text-sm">
                     <p><strong>Project:</strong> {project?.name || 'N/A'}</p>
-                    <p><strong>Reported By:</strong> {user?.name || 'N/A'}</p>
+                    <p><strong>Reported By:</strong> {user ? `${user.firstName} ${user.lastName}` : 'N/A'}</p>
                     <p><strong>Date:</strong> {new Date(incident.timestamp).toLocaleString()}</p>
                     <div className="flex gap-4">
                         <p><strong>Severity:</strong> <IncidentSeverityBadge severity={incident.severity} /></p>

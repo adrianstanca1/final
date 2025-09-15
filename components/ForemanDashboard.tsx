@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { User, Project, Todo, Equipment, Permission, Role, TodoStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, SafetyIncident, Timesheet } from '../types';
+import { User, Project, Todo, Equipment, Permission, Role, TodoStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, SafetyIncident, Timesheet, TodoPriority } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Avatar } from './ui/Avatar';
@@ -178,7 +178,7 @@ const DailyAssignmentsCard: React.FC<{ tasks: Todo[]; onTaskReorder: (tasks: Tod
     );
 };
 
-const SiteUpdatesCard: React.FC<{ project: Project; user: User; addToast: (m:string,t:'success'|'error')=>void; onUpdate: ()=>void; siteUpdates: SiteUpdate[]; userMap: Map<number, User> }> = ({ project, user, addToast, onUpdate, siteUpdates, userMap }) => {
+const SiteUpdatesCard: React.FC<{ project: Project; user: User; addToast: (m:string,t:'success'|'error')=>void; onUpdate: ()=>void; siteUpdates: SiteUpdate[]; userMap: Map<string, User> }> = ({ project, user, addToast, onUpdate, siteUpdates, userMap }) => {
     const [text, setText] = useState('');
     const [photo, setPhoto] = useState<File|null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -204,13 +204,16 @@ const SiteUpdatesCard: React.FC<{ project: Project; user: User; addToast: (m:str
         <Card className="h-full flex flex-col">
             <h2 className="font-semibold text-lg mb-2">Job Site Updates</h2>
             <div className="flex-grow space-y-3 overflow-y-auto mb-4 pr-2">
-                {siteUpdates.map(update => (
+                {siteUpdates.map(update => {
+                    const author = userMap.get(update.userId);
+                    const authorName = author ? `${author.firstName} ${author.lastName}` : 'Unknown User';
+                    return (
                     <div key={update.id} className="p-2 bg-background rounded">
                         <p className="text-sm">{update.text}</p>
                         {update.imageUrl && <img src={update.imageUrl} className="mt-2 rounded-md" alt="Site update"/>}
-                        <p className="text-xs text-muted-foreground mt-1">{userMap.get(update.userId)?.name} - {new Date(update.timestamp).toLocaleTimeString()}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{authorName} - {new Date(update.timestamp).toLocaleTimeString()}</p>
                     </div>
-                ))}
+                )})}
             </div>
             <form onSubmit={handleSubmit} className="mt-auto space-y-2 pt-2 border-t">
                  <textarea value={text} onChange={e=>setText(e.target.value)} rows={2} placeholder="Post an update..." className="w-full p-2 border rounded-md"/>
@@ -223,7 +226,7 @@ const SiteUpdatesCard: React.FC<{ project: Project; user: User; addToast: (m:str
     );
 };
 
-const TeamChatCard: React.FC<{ project: Project; user: User; onUpdate: ()=>void; messages: ProjectMessage[]; userMap: Map<number, User> }> = ({ project, user, onUpdate, messages, userMap }) => {
+const TeamChatCard: React.FC<{ project: Project; user: User; onUpdate: ()=>void; messages: ProjectMessage[]; userMap: Map<string, User> }> = ({ project, user, onUpdate, messages, userMap }) => {
     const [content, setContent] = useState('');
     const [isSending, setIsSending] = useState(false);
     const chatEndRef = useRef<HTMLDivElement>(null);
@@ -247,14 +250,17 @@ const TeamChatCard: React.FC<{ project: Project; user: User; onUpdate: ()=>void;
         <Card className="h-full flex flex-col">
             <h2 className="font-semibold text-lg mb-2">Team Broadcast</h2>
             <div className="flex-grow space-y-3 overflow-y-auto mb-2 pr-2">
-                {messages.map(msg => (
+                {messages.map(msg => {
+                    const sender = userMap.get(msg.senderId);
+                    const senderName = sender ? `${sender.firstName} ${sender.lastName}` : '?';
+                    return (
                     <div key={msg.id} className={`flex items-start gap-2 ${msg.senderId === user.id ? 'flex-row-reverse' : ''}`}>
-                        <Avatar name={userMap.get(msg.senderId)?.name || '?'} className="w-6 h-6 text-xs flex-shrink-0" />
+                        <Avatar name={senderName} className="w-6 h-6 text-xs flex-shrink-0" />
                         <div className={`p-2 rounded-lg max-w-xs text-sm ${msg.senderId === user.id ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
                             {msg.content}
                         </div>
                     </div>
-                ))}
+                )})}
                 <div ref={chatEndRef}></div>
             </div>
             <div className="mt-auto pt-2 border-t flex gap-2">
@@ -292,7 +298,7 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
             ]);
             setAllUsers(allCompanyUsers);
             setActiveTimesheet(tsData.find(ts => ts.clockOut === null));
-            const activeProject = userProjects.find(p => p.status === 'Active');
+            const activeProject = userProjects.find(p => p.status === 'ACTIVE');
             setCurrentProject(activeProject || null);
 
             if (activeProject) {
@@ -305,7 +311,7 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
                     api.getWeatherForLocation(activeProject.location.lat, activeProject.location.lng)
                 ]);
 
-                setMyTasks(allProjectTasks.filter(t => t.assigneeId === user.id && t.status !== TodoStatus.DONE).sort((a,b) => (b.priority === 'High' ? 1 : -1) - (a.priority === 'High' ? 1 : -1)));
+                setMyTasks(allProjectTasks.filter(t => t.assigneeId === user.id && t.status !== TodoStatus.DONE).sort((a,b) => (b.priority === TodoPriority.HIGH ? 1 : -1) - (a.priority === TodoPriority.HIGH ? 1 : -1)));
                 
                 const crewIds = new Set(allAssignments.filter(a => a.projectId === activeProject.id && a.resourceType === 'user').map(a => a.resourceId));
                 setCrew(allCompanyUsers.filter(u => crewIds.has(u.id) && u.id !== user.id));
@@ -371,12 +377,15 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
                          <Card>
                              <h2 className="font-semibold text-lg mb-2">Crew Status</h2>
                              <div className="space-y-3 max-h-40 overflow-y-auto pr-2">
-                                {crew.map(member => (
-                                    <div key={member.id} className="flex items-center gap-4">
-                                        <Avatar name={member.name} imageUrl={member.avatarUrl}/>
-                                        <p className="font-semibold">{member.name}</p>
-                                    </div>
-                                ))}
+                                {crew.map(member => {
+                                    const memberName = `${member.firstName} ${member.lastName}`;
+                                    return (
+                                        <div key={member.id} className="flex items-center gap-4">
+                                            <Avatar name={memberName} imageUrl={member.avatar}/>
+                                            <p className="font-semibold">{memberName}</p>
+                                        </div>
+                                    );
+                                })}
                             </div>
                          </Card>
                          <Card>

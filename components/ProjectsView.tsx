@@ -23,8 +23,9 @@ const ProjectCard: React.FC<{ project: Project; onSelect: () => void; }> = ({ pr
             <p className="text-sm text-slate-500">{project.location.address}</p>
             <div className="flex justify-between items-center mt-4 text-sm">
                 <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-                    project.status === 'Active' ? 'bg-green-100 text-green-800' :
-                    project.status === 'Completed' ? 'bg-sky-100 text-sky-800' : 'bg-yellow-100 text-yellow-800'
+// FIX: Changed status strings to uppercase to match type definitions.
+                    project.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
+                    project.status === 'COMPLETED' ? 'bg-sky-100 text-sky-800' : 'bg-yellow-100 text-yellow-800'
                 }`}>{project.status}</span>
                 <span>Budget: £{(project.budget/1000).toFixed(0)}k</span>
             </div>

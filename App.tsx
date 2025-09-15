@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { User, View, Project, Role, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
-// FIX: Corrected API import
 import { api } from './services/mockApi';
 import { Login } from './components/Login';
 import { Sidebar } from './components/layout/Sidebar';
@@ -30,11 +29,11 @@ import { CommandPalette } from './components/CommandPalette';
 import { useOfflineSync } from './hooks/useOfflineSync';
 import { useCommandPalette } from './hooks/useCommandPalette';
 import { useReminderService } from './hooks/useReminderService';
-// FIX: Imported ClientsView and InvoicesView to resolve 'Cannot find name' errors.
 import { ClientsView } from './components/ClientsView';
 import { InvoicesView } from './components/InvoicesView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { UserRegistration } from './components/UserRegistration';
+import { useAuth } from './contexts/AuthContext';
 
 interface Toast {
   id: number;
@@ -88,7 +87,7 @@ const ToastMessage: React.FC<{ toast: Toast; onDismiss: (id: number) => void }> 
 
 
 function App() {
-  const [user, setUser] = useState<User | null>(null);
+  const { isAuthenticated, user, loading, logout } = useAuth();
   const [authView, setAuthView] = useState<'login' | 'register'>('login');
   const [activeView, setActiveView] = useState<View>('dashboard');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -128,6 +127,17 @@ function App() {
       document.documentElement.classList.toggle('dark', companySettings.theme === 'dark');
     }
   }, [companySettings]);
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+        let defaultView: View = 'dashboard';
+        if (user.role === Role.OPERATIVE) defaultView = 'my-day';
+        if (user.role === Role.FOREMAN) defaultView = 'foreman-dashboard';
+        if (user.role === Role.PRINCIPAL_ADMIN) defaultView = 'principal-dashboard';
+        setActiveView(defaultView);
+    }
+  }, [isAuthenticated, user]);
+
 
   const updateBadgeCounts = useCallback(async (user: User) => {
     if (!user.companyId) return;
@@ -179,17 +189,8 @@ function App() {
     return () => clearInterval(interval);
   }, [user, updateBadgeCounts]);
 
-  const handleLogin = (loggedInUser: User) => {
-    setUser(loggedInUser);
-    let defaultView: View = 'dashboard';
-    if (loggedInUser.role === Role.OPERATIVE) defaultView = 'my-day';
-    if (loggedInUser.role === Role.FOREMAN) defaultView = 'foreman-dashboard';
-    if (loggedInUser.role === Role.PRINCIPAL_ADMIN) defaultView = 'principal-dashboard';
-    setActiveView(defaultView);
-  };
-
   const handleLogout = () => {
-    setUser(null);
+    logout();
     setAuthView('login');
     setActiveView('dashboard');
     setSelectedProject(null);
@@ -197,6 +198,7 @@ function App() {
 
   const handleSelectProject = (project: Project) => {
     setSelectedProject(project);
+    setActiveView('project-detail');
   };
   
   const handleStartChat = (recipient: User) => {
@@ -206,8 +208,8 @@ function App() {
 
   const renderView = () => {
     if (!user) return null;
-    if (selectedProject) {
-      return <ProjectDetailView project={selectedProject} user={user} onBack={() => setSelectedProject(null)} addToast={addToast} isOnline={isOnline} onStartChat={handleStartChat}/>;
+    if (activeView === 'project-detail' && selectedProject) {
+      return <ProjectDetailView project={selectedProject} user={user} onBack={() => { setSelectedProject(null); setActiveView('projects'); }} addToast={addToast} isOnline={isOnline} onStartChat={handleStartChat}/>;
     }
 
     switch (activeView) {
@@ -236,9 +238,17 @@ function App() {
     }
   };
 
-  if (!user) {
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-background text-foreground">
+        <p>Loading application...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
     if (authView === 'login') {
-      return <Login onLogin={handleLogin} onSwitchToRegister={() => setAuthView('register')} />;
+      return <Login onSwitchToRegister={() => setAuthView('register')} />;
     }
     return <UserRegistration onSwitchToLogin={() => setAuthView('login')} />;
   }
@@ -248,7 +258,7 @@ function App() {
       <Sidebar
         user={user}
         activeView={activeView}
-        setActiveView={(v) => { setSelectedProject(null); setActiveView(v); }}
+        setActiveView={(v) => { if(v !== 'project-detail') setSelectedProject(null); setActiveView(v); }}
         onLogout={handleLogout}
         pendingTimesheetCount={pendingTimesheetCount}
         openIncidentCount={openIncidentCount}

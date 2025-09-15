@@ -1,8 +1,7 @@
-// full contents of components/FinancialsView.tsx
+
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { User, FinancialKPIs, MonthlyFinancials, CostBreakdown, Invoice, Quote, Client, Project, Permission, Expense, ExpenseCategory, ExpenseStatus, InvoiceStatus, QuoteStatus, LineItem, Payment, InvoiceLineItem } from '../types';
-// FIX: Corrected API import
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -14,7 +13,7 @@ import { ExpenseModal } from './ExpenseModal';
 type FinancialsTab = 'dashboard' | 'invoices' | 'expenses' | 'clients';
 
 const formatCurrency = (amount: number, currency: string = 'GBP') => {
-    return new Intl.NumberFormat('en-GB', { style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+    return new Intl.NumberFormat('en-GB', { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
 };
 
 // --- Modals ---
@@ -65,7 +64,7 @@ const ClientModal: React.FC<{ clientToEdit?: Client | null, onClose: () => void,
     );
 };
 
-const InvoiceModal: React.FC<{ invoiceToEdit?: Invoice | null, onClose: () => void, onSuccess: () => void, user: User, clients: Client[], projects: Project[], addToast: (m:string,t:'success'|'error')=>void }> = ({ invoiceToEdit, onClose, onSuccess, user, clients, projects, addToast }) => {
+const InvoiceModal: React.FC<{ invoiceToEdit?: Invoice | null, isReadOnly?: boolean, onClose: () => void, onSuccess: () => void, user: User, clients: Client[], projects: Project[], addToast: (m:string,t:'success'|'error')=>void }> = ({ invoiceToEdit, isReadOnly = false, onClose, onSuccess, user, clients, projects, addToast }) => {
     const [clientId, setClientId] = useState<string>(invoiceToEdit?.clientId.toString() || '');
     const [projectId, setProjectId] = useState<string>(invoiceToEdit?.projectId.toString() || '');
     const [issuedAt, setIssuedAt] = useState(new Date(invoiceToEdit?.issuedAt || new Date()).toISOString().split('T')[0]);
@@ -143,13 +142,13 @@ const InvoiceModal: React.FC<{ invoiceToEdit?: Invoice | null, onClose: () => vo
     return (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
             <Card className="w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e=>e.stopPropagation()}>
-                <h3 className="text-lg font-bold mb-4">{invoiceToEdit ? `Edit Invoice ${invoiceToEdit.invoiceNumber}` : 'Create Invoice'}</h3>
+                <h3 className="text-lg font-bold mb-4">{invoiceToEdit ? `${isReadOnly ? 'View' : 'Edit'} Invoice ${invoiceToEdit.invoiceNumber}` : 'Create Invoice'}</h3>
                 <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto pr-2 flex-grow">
                     <div className="grid grid-cols-2 gap-4">
-                        <select value={clientId} onChange={e=>setClientId(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-800" required><option value="">Select Client</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
-                        <select value={projectId} onChange={e=>setProjectId(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-800" required><option value="">Select Project</option>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
-                        <div><label className="text-xs">Issued Date</label><input type="date" value={issuedAt} onChange={e=>setIssuedAt(e.target.value)} className="w-full p-2 border rounded"/></div>
-                        <div><label className="text-xs">Due Date</label><input type="date" value={dueAt} onChange={e=>setDueAt(e.target.value)} className="w-full p-2 border rounded"/></div>
+                        <select value={clientId} onChange={e=>setClientId(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-800" required disabled={isReadOnly}><option value="">Select Client</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
+                        <select value={projectId} onChange={e=>setProjectId(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-800" required disabled={isReadOnly}><option value="">Select Project</option>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
+                        <div><label className="text-xs">Issued Date</label><input type="date" value={issuedAt} onChange={e=>setIssuedAt(e.target.value)} className="w-full p-2 border rounded" disabled={isReadOnly}/></div>
+                        <div><label className="text-xs">Due Date</label><input type="date" value={dueAt} onChange={e=>setDueAt(e.target.value)} className="w-full p-2 border rounded" disabled={isReadOnly}/></div>
                     </div>
                     <div className="border-t pt-2">
                         <h4 className="font-semibold">Line Items</h4>
@@ -161,26 +160,26 @@ const InvoiceModal: React.FC<{ invoiceToEdit?: Invoice | null, onClose: () => vo
                         </div>
                         {lineItems.map((item, i) => (
                             <div key={item.id} className="grid grid-cols-[1fr,90px,130px,130px,40px] gap-2 items-center mt-2">
-                                <input type="text" value={item.description} onChange={e=>handleLineItemChange(i, 'description', e.target.value)} placeholder="Item or service description" className="p-1 border rounded"/>
-                                <input type="number" value={item.quantity} onChange={e=>handleLineItemChange(i, 'quantity', Number(e.target.value))} placeholder="1" className="p-1 border rounded text-right"/>
-                                <input type="number" value={item.unitPrice} onChange={e=>handleLineItemChange(i, 'unitPrice', Number(e.target.value))} placeholder="0.00" className="p-1 border rounded text-right"/>
+                                <input type="text" value={item.description} onChange={e=>handleLineItemChange(i, 'description', e.target.value)} placeholder="Item or service description" className="p-1 border rounded" disabled={isReadOnly}/>
+                                <input type="number" value={item.quantity} onChange={e=>handleLineItemChange(i, 'quantity', Number(e.target.value))} placeholder="1" className="p-1 border rounded text-right" disabled={isReadOnly}/>
+                                <input type="number" value={item.unitPrice} onChange={e=>handleLineItemChange(i, 'unitPrice', Number(e.target.value))} placeholder="0.00" className="p-1 border rounded text-right" disabled={isReadOnly}/>
                                 <span className="p-1 text-right font-medium">{formatCurrency((item.quantity || 0) * (item.unitPrice || 0))}</span>
-                                <Button type="button" variant="danger" size="sm" onClick={() => removeLineItem(i)}>&times;</Button>
+                                {!isReadOnly && <Button type="button" variant="danger" size="sm" onClick={() => removeLineItem(i)}>&times;</Button>}
                             </div>
                         ))}
-                        <Button type="button" variant="secondary" size="sm" className="mt-2" onClick={addLineItem}>+ Add Item</Button>
+                        {!isReadOnly && <Button type="button" variant="secondary" size="sm" className="mt-2" onClick={addLineItem}>+ Add Item</Button>}
                     </div>
                     <div className="border-t pt-4 grid grid-cols-2 gap-8">
                         <div>
                              <h4 className="font-semibold mb-2">Notes</h4>
-                            <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Payment details, terms and conditions..." rows={6} className="p-2 border rounded w-full"/>
+                            <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Payment details, terms and conditions..." rows={6} className="p-2 border rounded w-full" disabled={isReadOnly}/>
                         </div>
                         <div className="space-y-2">
                              <h4 className="font-semibold mb-2">Totals</h4>
                             <div className="flex justify-between items-center"><span className="text-sm">Subtotal:</span><span className="font-medium">{formatCurrency(subtotal)}</span></div>
-                            <div className="flex justify-between items-center"><label htmlFor="taxRate" className="text-sm">Tax (%):</label><input id="taxRate" type="number" value={taxRate} onChange={e=>setTaxRate(e.target.value === '' ? '' : Number(e.target.value))} className="w-24 p-1 border rounded text-right"/></div>
+                            <div className="flex justify-between items-center"><label htmlFor="taxRate" className="text-sm">Tax (%):</label><input id="taxRate" type="number" value={taxRate} onChange={e=>setTaxRate(e.target.value === '' ? '' : Number(e.target.value))} className="w-24 p-1 border rounded text-right" disabled={isReadOnly}/></div>
                              <div className="flex justify-between items-center"><span className="text-sm text-muted-foreground">Tax Amount:</span><span>{formatCurrency(taxAmount)}</span></div>
-                             <div className="flex justify-between items-center"><label htmlFor="retentionRate" className="text-sm">Retention (%):</label><input id="retentionRate" type="number" value={retentionRate} onChange={e=>setRetentionRate(e.target.value === '' ? '' : Number(e.target.value))} className="w-24 p-1 border rounded text-right"/></div>
+                             <div className="flex justify-between items-center"><label htmlFor="retentionRate" className="text-sm">Retention (%):</label><input id="retentionRate" type="number" value={retentionRate} onChange={e=>setRetentionRate(e.target.value === '' ? '' : Number(e.target.value))} className="w-24 p-1 border rounded text-right" disabled={isReadOnly}/></div>
                             <div className="flex justify-between items-center"><span className="text-sm text-red-600">Retention Held:</span><span className="text-red-600 font-medium">-{formatCurrency(retentionAmount)}</span></div>
                             <div className="flex justify-between items-center font-bold text-lg pt-2 border-t"><span >Total Due:</span><span>{formatCurrency(total)}</span></div>
                             {invoiceToEdit && (
@@ -193,8 +192,8 @@ const InvoiceModal: React.FC<{ invoiceToEdit?: Invoice | null, onClose: () => vo
                     </div>
                 </form>
                 <div className="flex justify-end gap-2 pt-4 border-t mt-4 flex-shrink-0">
-                    <Button variant="secondary" onClick={onClose}>Cancel</Button>
-                    <Button type="submit" isLoading={isSaving} onClick={handleSubmit}>Save Invoice</Button>
+                    <Button variant="secondary" onClick={onClose}>{isReadOnly ? 'Close' : 'Cancel'}</Button>
+                    {!isReadOnly && <Button type="submit" isLoading={isSaving} onClick={handleSubmit}>Save Invoice</Button>}
                 </div>
             </Card>
         </div>
@@ -305,7 +304,7 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
     }), [data.projects, data.clients, data.users]);
 
     const getInvoiceFinancials = (invoice: Invoice) => {
-        const subtotal = (invoice.lineItems || []).reduce((acc, item) => acc + (item.quantity || 0) * (item.unitPrice || 0), 0);
+        const subtotal = (invoice.lineItems || []).reduce((acc, item) => acc + (item.quantity || 0) * (item.unitPrice || item.rate || 0), 0);
         const taxAmount = subtotal * (invoice.taxRate || 0);
         const retentionAmount = subtotal * (invoice.retentionRate || 0);
         const total = subtotal + taxAmount - retentionAmount;
@@ -313,8 +312,33 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
         return { total, paid, balance: total - paid };
     }
 
+    const getDerivedStatus = (invoice: Invoice, balance: number): InvoiceStatus => {
+        if (invoice.status === InvoiceStatus.SENT && new Date(invoice.dueAt) < new Date() && balance > 0) {
+            return InvoiceStatus.OVERDUE;
+        }
+        return invoice.status;
+    };
+
+    const handleUpdateInvoiceStatus = async (invoiceId: string, status: InvoiceStatus) => {
+        if (status === InvoiceStatus.CANCELLED) {
+            if (!window.confirm("Are you sure you want to cancel this invoice? This action cannot be undone.")) {
+                return;
+            }
+        }
+        try {
+            const invoice = data.invoices.find(i => i.id === invoiceId);
+            if (!invoice) throw new Error("Invoice not found");
+            await api.updateInvoice(invoiceId, { ...invoice, status }, user.id);
+            addToast(`Invoice marked as ${status.toLowerCase()}.`, 'success');
+            fetchData();
+        } catch (error) {
+            addToast("Failed to update invoice status.", "error");
+        }
+    };
+
     const renderDashboard = () => (
         <div className="space-y-6">
+            {/* Key Financial KPIs Display */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card><p className="text-sm text-slate-500">Profitability</p><p className="text-3xl font-bold">{data.kpis?.profitability || 0}%</p></Card>
                 <Card><p className="text-sm text-slate-500">Avg. Project Margin</p><p className="text-3xl font-bold">{data.kpis?.projectMargin || 0}%</p></Card>
@@ -346,10 +370,126 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
                         <tbody className="bg-card divide-y divide-border">
                             {data.invoices.map(invoice => {
                                 const { total, balance } = getInvoiceFinancials(invoice);
+                                const derivedStatus = getDerivedStatus(invoice, balance);
+                                const isReadOnly = !canManageFinances || invoice.status === InvoiceStatus.PAID || invoice.status === InvoiceStatus.CANCELLED;
                                 return (
                                 <tr key={invoice.id} className="hover:bg-accent">
                                     <td className="px-4 py-3 font-medium">{invoice.invoiceNumber}</td>
                                     <td className="px-4 py-3">{clientMap.get(invoice.clientId)}</td>
                                     <td className="px-4 py-3">{projectMap.get(invoice.projectId)}</td>
                                     <td className="px-4 py-3 text-right">{formatCurrency(total)}</td>
-                                    <td className="
+                                    <td className="px-4 py-3 text-right font-semibold">{formatCurrency(balance)}</td>
+                                    <td className="px-4 py-3"><InvoiceStatusBadge status={derivedStatus} /></td>
+                                    <td className="px-4 py-3 text-right space-x-2">
+                                        {canManageFinances && invoice.status === InvoiceStatus.DRAFT && (
+                                            <>
+                                                <Button size="sm" variant="success" onClick={() => handleUpdateInvoiceStatus(invoice.id, InvoiceStatus.SENT)}>Send</Button>
+                                                <Button size="sm" variant="secondary" onClick={() => { setSelectedItem(invoice); setModal('invoice'); }}>Edit</Button>
+                                            </>
+                                        )}
+                                        {canManageFinances && (invoice.status === InvoiceStatus.SENT || derivedStatus === InvoiceStatus.OVERDUE) && (
+                                             <>
+                                                <Button size="sm" onClick={() => { setSelectedItem(invoice); setModal('payment'); }}>Record Payment</Button>
+                                                <Button size="sm" variant="danger" onClick={() => handleUpdateInvoiceStatus(invoice.id, InvoiceStatus.CANCELLED)}>Cancel</Button>
+                                            </>
+                                        )}
+                                        {invoice.status === InvoiceStatus.PAID || invoice.status === InvoiceStatus.CANCELLED ? (
+                                            <Button size="sm" variant="secondary" onClick={() => { setSelectedItem(invoice); setModal('invoice'); }}>View</Button>
+                                        ) : null}
+                                    </td>
+                                </tr>
+                            )})}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
+             <Card>
+                <h3 className="font-semibold text-lg mb-4">Quotes</h3>
+                 <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-border">
+                         <thead className="bg-muted"><tr><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Client</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Project</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Status</th></tr></thead>
+                          <tbody className="bg-card divide-y divide-border">
+                            {data.quotes.map(quote => (<tr key={quote.id}><td className="px-4 py-3">Client Name</td><td className="px-4 py-3">Project Name</td><td className="px-4 py-3"><QuoteStatusBadge status={quote.status} /></td></tr>))}
+                          </tbody>
+                    </table>
+                 </div>
+            </Card>
+        </div>
+    );
+
+    const renderExpenses = () => (
+        <Card>
+             <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold text-lg">Expenses</h3>
+                <Button onClick={() => { setSelectedItem(null); setModal('expense'); }}>Submit Expense</Button>
+            </div>
+            <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-border">
+                    <thead className="bg-muted"><tr><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Date</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Submitted By</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Project</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Description</th><th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Amount</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Status</th><th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Actions</th></tr></thead>
+                    <tbody className="bg-card divide-y divide-border">
+                        {data.expenses.map(exp => (
+                            <tr key={exp.id}>
+                                <td className="px-4 py-3">{new Date(exp.submittedAt).toLocaleDateString()}</td>
+                                <td className="px-4 py-3">{userMap.get(exp.userId)}</td>
+                                <td className="px-4 py-3">{projectMap.get(exp.projectId)}</td>
+                                <td className="px-4 py-3">{exp.description}</td>
+                                <td className="px-4 py-3 text-right">{formatCurrency(exp.amount)}</td>
+                                <td className="px-4 py-3"><Tag label={exp.status} color={exp.status === ExpenseStatus.APPROVED ? 'green' : exp.status === ExpenseStatus.REJECTED ? 'red' : 'yellow'} /></td>
+                                <td className="px-4 py-3 text-right">{exp.status === ExpenseStatus.REJECTED && <Button size="sm" variant="secondary" onClick={() => { setSelectedItem(exp); setModal('expense'); }}>Edit & Resubmit</Button>}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </Card>
+    );
+
+    const renderClients = () => (
+        <div>
+            <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold">Clients</h2>
+                {canManageFinances && <Button onClick={() => { setSelectedItem(null); setModal('client');}}>Add Client</Button>}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {data.clients.map(client => (
+                    <Card key={client.id} className="cursor-pointer hover:shadow-lg" onClick={() => { setSelectedItem(client); setModal('client');}}>
+                        <h3 className="text-lg font-semibold">{client.name}</h3>
+                        <p className="text-sm text-muted-foreground">{client.contactEmail}</p>
+                    </Card>
+                ))}
+            </div>
+        </div>
+    );
+
+
+    if (loading) return <Card>Loading financials...</Card>;
+
+    const selectedInvoice = modal === 'invoice' || modal === 'payment' ? (selectedItem as Invoice) : null;
+    const isInvoiceReadOnly = !canManageFinances || selectedInvoice?.status === InvoiceStatus.PAID || selectedInvoice?.status === InvoiceStatus.CANCELLED;
+
+    return (
+        <div className="space-y-6">
+            {modal === 'client' && <ClientModal clientToEdit={selectedItem as Client} onClose={() => setModal(null)} onSuccess={fetchData} user={user} addToast={addToast} />}
+            {modal === 'invoice' && <InvoiceModal invoiceToEdit={selectedInvoice} isReadOnly={isInvoiceReadOnly} onClose={() => setModal(null)} onSuccess={fetchData} user={user} clients={data.clients} projects={data.projects} addToast={addToast} />}
+            {modal === 'payment' && selectedInvoice && <PaymentModal invoice={selectedInvoice} balance={getInvoiceFinancials(selectedInvoice).balance} onClose={() => setModal(null)} onSuccess={fetchData} user={user} addToast={addToast} />}
+            {modal === 'expense' && <ExpenseModal expenseToEdit={selectedItem as Expense} onClose={() => setModal(null)} onSuccess={fetchData} user={user} projects={data.projects} addToast={addToast} />}
+            
+            <div className="flex justify-between items-center">
+                <h2 className="text-3xl font-bold">Financials</h2>
+            </div>
+             <div className="border-b border-border">
+                <nav className="-mb-px flex space-x-6 overflow-x-auto">
+                    {(['dashboard', 'invoices', 'expenses', 'clients'] as FinancialsTab[]).map(tab => (
+                         <button key={tab} onClick={() => setActiveTab(tab)} className={`capitalize whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+                            {tab}
+                        </button>
+                    ))}
+                </nav>
+            </div>
+            {activeTab === 'dashboard' && renderDashboard()}
+            {activeTab === 'invoices' && renderInvoicesAndQuotes()}
+            {activeTab === 'expenses' && renderExpenses()}
+            {activeTab === 'clients' && renderClients()}
+        </div>
+    );
+};

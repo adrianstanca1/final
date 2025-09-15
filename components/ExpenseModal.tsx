@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { User, Project, Expense, ExpenseCategory } from '../types';
 import { api } from '../services/mockApi';
@@ -51,7 +52,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ expenseToEdit, onClo
         setIsSaving(true);
         try {
             const expenseData = {
-                projectId: parseInt(projectId),
+                projectId: projectId,
                 amount: Number(amount),
                 currency: 'GBP',
                 description,

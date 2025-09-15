@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-// FIX: Added verificationCode and termsAccepted to the RegisterCredentials type extension.
 import { Role, Permission, RolePermissions, CompanyType, RegisterCredentials } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { Card } from './ui/Card';
@@ -41,13 +40,15 @@ const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password =
 };
 
 export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLogin }) => {
-    const { register } = useAuth();
+    const { register, error: authError, loading: isLoading } = useAuth();
     const [step, setStep] = useState<Step>('personal');
-    // FIX: Added missing properties to the formData type.
     const [formData, setFormData] = useState<Partial<RegisterCredentials & { companyName?: string; companyType?: CompanyType; companySelection?: 'create' | 'join', role?: Role, verificationCode?: string, termsAccepted?: boolean }>>({});
     const [errors, setErrors] = useState<Record<string, string>>({});
-    const [isLoading, setIsLoading] = useState(false);
     const [generalError, setGeneralError] = useState<string | null>(null);
+
+    useEffect(() => {
+        setGeneralError(authError);
+    }, [authError]);
 
     const validateStep = (currentStep: Step): boolean => {
         const newErrors: Record<string, string> = {};
@@ -110,15 +111,12 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
     
     const handleSubmit = async () => {
         if (!validateStep('terms')) return;
-        setIsLoading(true);
         setGeneralError(null);
         try {
-            await register(formData as RegisterCredentials);
+            await register(formData);
             // On success, the AuthProvider will handle navigation.
         } catch (error: any) {
-            setGeneralError(error.message || "Registration failed. Please try again.");
-        } finally {
-            setIsLoading(false);
+            // Error is handled by the context and set via useEffect
         }
     };
 
@@ -137,7 +135,15 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                     <InputField label="Confirm Password" name="confirmPassword" type="password" value={formData.confirmPassword} onChange={handleChange} error={errors.confirmPassword} />
                 </>
             );
-            case 'company': return (
+            case 'company': 
+                const companyTypeOptions = [
+                    { value: 'GENERAL_CONTRACTOR', label: 'General Contractor' },
+                    { value: 'SUBCONTRACTOR', label: 'Subcontractor' },
+                    { value: 'SUPPLIER', label: 'Supplier' },
+                    { value: 'CONSULTANT', label: 'Consultant' },
+                    { value: 'CLIENT', label: 'Client' },
+                ];
+                return (
                 <>
                    <div className="space-y-2">
                         <RadioCard name="companySelection" value="create" label="Create a new company" description="Set up a new workspace for your team." checked={formData.companySelection === 'create'} onChange={handleChange} />
@@ -145,16 +151,17 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                         {errors.companySelection && <p className="text-xs text-destructive mt-1">{errors.companySelection}</p>}
                     </div>
                     {formData.companySelection === 'create' && (
-                        <div className="space-y-4 mt-4 p-4 border rounded-md">
-                            <InputField label="Company Name" name="companyName" value={formData.companyName} onChange={handleChange} error={errors.companyName} />
-                            {/* FIX: Correctly map over CompanyType enum values. */}
-                            <SelectField label="Company Type" name="companyType" value={formData.companyType} onChange={handleChange} error={errors.companyType} options={Object.values(CompanyType).map(ct => ({ value: ct, label: (ct as string).replace(/_/g, ' ') }))}/>
-                        </div>
+                        <Card className="mt-4 bg-muted animate-card-enter">
+                           <div className="space-y-4">
+                                <InputField label="Company Name" name="companyName" value={formData.companyName} onChange={handleChange} error={errors.companyName} />
+                                <SelectField label="Company Type" name="companyType" value={formData.companyType} onChange={handleChange} error={errors.companyType} options={companyTypeOptions}/>
+                           </div>
+                        </Card>
                     )}
                      {formData.companySelection === 'join' && (
-                        <div className="mt-4 p-4 border rounded-md">
+                        <Card className="mt-4 bg-muted animate-card-enter">
                              <InputField label="Invite Code" name="inviteToken" value={formData.inviteToken} onChange={handleChange} error={errors.inviteToken} />
-                        </div>
+                        </Card>
                     )}
                 </>
             );
@@ -164,7 +171,6 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                          <div className="space-y-2">
                              {[Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE].map(role => (
-                                // FIX: Added a placeholder description to satisfy the RadioCard props.
                                 <RadioCard key={role} name="role" value={role} label={role.replace(/_/g, ' ')} description="" checked={formData.role === role} onChange={handleChange} />
                             ))}
                             {errors.role && <p className="text-xs text-destructive mt-1">{errors.role}</p>}
@@ -172,9 +178,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                          <Card className="bg-muted">
                             <h4 className="font-semibold mb-2">Role Permissions Preview</h4>
                             {formData.role ? (
-                                <ul className="text-sm space-y-1 list-disc list-inside">
-                                    {/* FIX: Correctly map over permission enum values. */}
-                                    {Array.from(selectedRolePermissions).map(p => <li key={p as string}>{(p as string).replace(/_/g, ' ').toLowerCase()}</li>)}
+                                <ul className="text-sm space-y-1 list-disc list-inside max-h-60 overflow-y-auto">
+                                    {Array.from(selectedRolePermissions).map(p => <li key={p as string} className="capitalize">{String(p).replace(/_/g, ' ').toLowerCase()}</li>)}
                                 </ul>
                             ) : <p className="text-sm text-muted-foreground">Select a role to see its permissions.</p>}
                          </Card>
@@ -184,7 +189,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                 <div className="text-center">
                     <h3 className="font-semibold">Verify Your Email</h3>
                     <p className="text-muted-foreground text-sm mt-1 mb-4">We've sent a 6-digit code to {formData.email}. Please enter it below.</p>
-                     <InputField label="Verification Code" name="verificationCode" value={formData.verificationCode} onChange={(name: string, val: string) => handleChange(name, val.replace(/\D/g, ''))} error={errors.verificationCode} maxLength={6} inputClassName="text-center tracking-[0.5em] text-2xl" isLabelSrOnly />
+                     <InputField label="Verification Code" name="verificationCode" value={formData.verificationCode} onChange={(name: string, val: string) => handleChange(name as keyof typeof formData, val.replace(/\D/g, ''))} error={errors.verificationCode} maxLength={6} inputClassName="text-center tracking-[0.5em] text-2xl" isLabelSrOnly />
                 </div>
             );
             case 'terms': return (
@@ -259,17 +264,16 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
 
 
 // --- Form Field Components ---
-// FIX: Made maxLength prop optional.
-const InputField = ({ label, name, type = 'text', value = '', onChange, error, maxLength, inputClassName = '', isLabelSrOnly = false }: { label: any; name: any; type?: string; value?: string; onChange: any; error: any; maxLength?: number; inputClassName?: string; isLabelSrOnly?: boolean; }) => (
+const InputField = ({ label, name, type = 'text', value = '', onChange, error, maxLength, inputClassName = '', isLabelSrOnly = false }: { label: string; name: string; type?: string; value?: string; onChange: (name: string, value: string) => void; error?: string; maxLength?: number; inputClassName?: string; isLabelSrOnly?: boolean; }) => (
     <div>
         <label htmlFor={name} className={isLabelSrOnly ? 'sr-only' : 'block text-sm font-medium text-muted-foreground'}>{label}</label>
-        <input id={name} name={name} type={type} value={value} maxLength={maxLength} onChange={e => onChange(name, e.target.value)} required 
+        <input id={name} name={name} type={type} value={value} maxLength={maxLength} onChange={e => onChange(name, e.target.value)}
                 className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm ${error ? 'border-destructive' : 'border-border'} ${inputClassName}`} />
         {error && <p className="text-xs text-destructive mt-1">{error}</p>}
     </div>
 );
 
-const SelectField = ({ label, name, value, onChange, error, options }: {label: string, name: string, value: any, onChange: any, error: string, options: {value:string, label:string}[]}) => (
+const SelectField = ({ label, name, value, onChange, error, options }: {label: string, name: string, value: any, onChange: any, error?: string, options: {value:string, label:string}[]}) => (
     <div>
         <label htmlFor={name} className="block text-sm font-medium text-muted-foreground">{label}</label>
         <select id={name} name={name} value={value} onChange={e => onChange(name, e.target.value)} required
@@ -281,7 +285,7 @@ const SelectField = ({ label, name, value, onChange, error, options }: {label: s
     </div>
 );
 
-const RadioCard = ({ name, value, label, description, checked, onChange }: { name: string, value: string, label: string, description: string, checked: boolean, onChange: any }) => (
+const RadioCard = ({ name, value, label, description, checked, onChange }: { name: string, value: string | CompanyType, label: string, description: string, checked: boolean, onChange: any }) => (
     <label className={`block p-4 border rounded-md cursor-pointer transition-all ${checked ? 'bg-primary/10 border-primary ring-2 ring-primary' : 'hover:bg-accent'}`}>
         <input type="radio" name={name} value={value} checked={checked} onChange={e => onChange(name, e.target.value)} className="sr-only"/>
         <p className="font-semibold">{label}</p>
