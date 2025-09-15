@@ -34,6 +34,9 @@ import { InvoicesView } from './components/InvoicesView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { UserRegistration } from './components/UserRegistration';
 import { useAuth } from './contexts/AuthContext';
+import { ForgotPassword } from './components/auth/ForgotPassword';
+import { ResetPassword } from './components/auth/ResetPassword';
+
 
 interface Toast {
   id: number;
@@ -88,7 +91,8 @@ const ToastMessage: React.FC<{ toast: Toast; onDismiss: (id: number) => void }> 
 
 function App() {
   const { isAuthenticated, user, loading, logout } = useAuth();
-  const [authView, setAuthView] = useState<'login' | 'register'>('login');
+  const [authView, setAuthView] = useState<'login' | 'register' | 'forgot-password' | 'reset-password'>('login');
+  const [resetToken, setResetToken] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<View>('dashboard');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -111,6 +115,16 @@ function App() {
   const dismissToast = (id: number) => {
     setToasts(currentToasts => currentToasts.filter(toast => toast.id !== id));
   };
+
+  // Check for password reset token in URL on initial load
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (token) {
+        setResetToken(token);
+        setAuthView('reset-password');
+    }
+  }, []);
 
   const { isOnline } = useOfflineSync(addToast);
   const { isCommandPaletteOpen, setIsCommandPaletteOpen } = useCommandPalette();
@@ -247,10 +261,22 @@ function App() {
   }
 
   if (!isAuthenticated || !user) {
-    if (authView === 'login') {
-      return <Login onSwitchToRegister={() => setAuthView('register')} />;
+    switch(authView) {
+        case 'login':
+            return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
+        case 'register':
+            return <UserRegistration onSwitchToLogin={() => setAuthView('login')} />;
+        case 'forgot-password':
+            return <ForgotPassword onSwitchToLogin={() => setAuthView('login')} />;
+        case 'reset-password':
+            if (resetToken) {
+                return <ResetPassword token={resetToken} onSuccess={() => { setAuthView('login'); setResetToken(null); window.history.pushState({}, '', window.location.pathname); }} />;
+            }
+            // Fallback to login if no token
+            return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
+        default:
+             return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
     }
-    return <UserRegistration onSwitchToLogin={() => setAuthView('login')} />;
   }
 
   return (

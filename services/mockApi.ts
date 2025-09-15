@@ -9,6 +9,10 @@ const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
 const JWT_SECRET = 'your-super-secret-key-for-mock-jwt';
 const MOCK_ACCESS_TOKEN_LIFESPAN = 15 * 60 * 1000; // 15 minutes
 const MOCK_REFRESH_TOKEN_LIFESPAN = 7 * 24 * 60 * 60 * 1000; // 7 days
+const MOCK_RESET_TOKEN_LIFESPAN = 60 * 60 * 1000; // 1 hour
+
+// In-memory store for password reset tokens for this mock implementation
+const passwordResetTokens = new Map<string, { userId: string, expires: number }>();
 
 const createToken = (payload: object, expiresIn: number): string => {
     const header = { alg: 'HS256', typ: 'JWT' };
@@ -19,14 +23,21 @@ const createToken = (payload: object, expiresIn: number): string => {
     return `${encodedHeader}.${encodedPayload}.${signature}`;
 };
 
+/**
+ * Decodes a token and validates its expiration.
+ * @param token The JWT to decode.
+ * @returns The decoded payload if the token is valid and not expired, otherwise null.
+ */
 const decodeToken = (token: string): any => {
     try {
         const payload = JSON.parse(atob(token.split('.')[1]));
+        // This check ensures the token has not expired.
         if (payload.exp * 1000 < Date.now()) {
             throw new Error("Token expired");
         }
         return payload;
     } catch (e) {
+        console.error("Token decode/validation failed:", e);
         return null;
     }
 };
@@ -108,7 +119,7 @@ const addAuditLog = (actorId: string, action: string, target?: { type: string, i
 };
 
 export const authApi = {
-    register: async (credentials: Partial<RegisterCredentials & { companyName?: string; companyType?: CompanyType; companySelection?: 'create' | 'join', role?: Role }>): Promise<any> => {
+    register: async (credentials: Partial<RegisterCredentials & { companyName?: string; companyType?: CompanyType; companyEmail?: string; companyPhone?: string; companyWebsite?: string; companySelection?: 'create' | 'join', role?: Role }>): Promise<any> => {
         await delay();
         if (db.users.some(u => u.email === credentials.email)) {
             throw new Error("An account with this email already exists.");
@@ -122,6 +133,9 @@ export const authApi = {
                 id: String(Date.now()),
                 name: credentials.companyName,
                 type: credentials.companyType || 'GENERAL_CONTRACTOR',
+                email: credentials.companyEmail,
+                phone: credentials.companyPhone,
+                website: credentials.companyWebsite,
                 status: 'Active',
                 subscriptionPlan: 'FREE',
                 storageUsageGB: 0,
@@ -201,14 +215,45 @@ export const authApi = {
         const token = createToken({ userId: user.id, companyId: user.companyId, role: user.role }, MOCK_ACCESS_TOKEN_LIFESPAN);
         return { token };
     },
+    /**
+     * Gets user and company info from a token.
+     * This function validates the token, including its expiration.
+     * The client (`AuthContext`) is responsible for catching an expiry error and using the refresh token.
+     */
     me: async (token: string): Promise<{ user: User, company: Company }> => {
         await delay();
         const decoded = decodeToken(token);
-        if (!decoded) throw new Error("Invalid token");
+        if (!decoded) throw new Error("Invalid or expired token");
         const user = db.users.find(u => u.id === decoded.userId) as User;
         const company = db.companies.find(c => c.id === decoded.companyId) as Company;
         if (!user || !company) throw new Error("User or company not found");
         return { user, company };
+    },
+    requestPasswordReset: async (email: string): Promise<{ success: boolean }> => {
+        await delay(300);
+        const user = db.users.find(u => u.email === email);
+        if (user) {
+            const token = `reset-${Date.now()}-${Math.random()}`;
+            passwordResetTokens.set(token, { userId: user.id!, expires: Date.now() + MOCK_RESET_TOKEN_LIFESPAN });
+            console.log(`Password reset for ${email}. Token: ${token}`); // Simulate sending email
+        }
+        // Always return success to prevent user enumeration attacks
+        return { success: true };
+    },
+    resetPassword: async (token: string, newPassword: string): Promise<{ success: boolean }> => {
+        await delay(300);
+        const tokenData = passwordResetTokens.get(token);
+        if (!tokenData || tokenData.expires < Date.now()) {
+            throw new Error("Invalid or expired password reset token.");
+        }
+        const userIndex = db.users.findIndex(u => u.id === tokenData.userId);
+        if (userIndex === -1) {
+            throw new Error("User not found.");
+        }
+        db.users[userIndex].password = newPassword;
+        saveDb();
+        passwordResetTokens.delete(token);
+        return { success: true };
     },
 };
 

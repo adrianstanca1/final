@@ -145,7 +145,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
 
     return (
         <div className="space-y-6">
-            {/* FIX: Replaced user.name with user.firstName for correct property access. */}
             <h1 className="text-3xl font-bold text-foreground">Welcome back, {user.firstName}!</h1>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -164,10 +163,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                     <div className="space-y-3 max-h-56 overflow-y-auto pr-2">
                        {team.map(member => (
                            <div key={member.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-accent">
-                               {/* FIX: Replaced member.name and member.avatarUrl with correct properties. */}
                                <Avatar name={`${member.firstName} ${member.lastName}`} imageUrl={member.avatar} className="w-9 h-9" />
                                <div className="flex-grow">
-                                   {/* FIX: Replaced member.name with correct properties. */}
                                    <p className="font-semibold text-sm text-foreground">{`${member.firstName} ${member.lastName}`}</p>
                                    <p className="text-xs text-muted-foreground">{member.role}</p>
                                </div>
@@ -201,7 +198,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                                 <Avatar name={actorName} className="w-8 h-8 text-xs mt-1" />
                                 <div>
                                     <p className="text-sm">
-                                        {/* FIX: Replaced userMap.get(...).name with a constructed name string. */}
                                         <span className="font-semibold">{actorName}</span>
                                         {' '}{log.action.replace(/_/g, ' ')}: "{log.target?.name}"
                                     </p>

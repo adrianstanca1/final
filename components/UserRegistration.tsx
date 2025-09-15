@@ -24,7 +24,7 @@ const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password =
         if (password.length >= 8) score++;
         if (/[A-Z]/.test(password)) score++;
         if (/[a-z]/.test(password)) score++;
-        // FIX: Corrected invalid regex from `/\d]/` to `/\d/`
+        // FIX: Corrected regex to check for digits.
         if (/\d/.test(password)) score++;
         if (/[^A-Za-z0-9]/.test(password)) score++;
         return score;
@@ -40,12 +40,68 @@ const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password =
     );
 };
 
+const CreateCompanyModal: React.FC<{
+    onClose: () => void;
+    onSave: (data: { name: string; type: CompanyType; email: string; phone: string; website: string; }) => void;
+    initialData: { name?: string; type?: CompanyType; email?: string; phone?: string; website?: string; };
+}> = ({ onClose, onSave, initialData }) => {
+    const [name, setName] = useState(initialData.name || '');
+    const [type, setType] = useState<CompanyType | ''>(initialData.type || '');
+    const [email, setEmail] = useState(initialData.email || '');
+    const [phone, setPhone] = useState(initialData.phone || '');
+    const [website, setWebsite] = useState(initialData.website || '');
+    const [errors, setErrors] = useState<Record<string, string>>({});
+    
+    const companyTypeOptions = [
+        { value: 'GENERAL_CONTRACTOR', label: 'General Contractor' },
+        { value: 'SUBCONTRACTOR', label: 'Subcontractor' },
+        { value: 'SUPPLIER', label: 'Supplier' },
+        { value: 'CONSULTANT', label: 'Consultant' },
+        { value: 'CLIENT', label: 'Client' },
+    ];
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        const newErrors: Record<string, string> = {};
+        if (!name.trim()) newErrors.name = "Company name is required.";
+        if (!type) newErrors.type = "Company type is required.";
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = "A valid company email is required.";
+        if (!phone.trim()) newErrors.phone = "Company phone number is required.";
+        
+        setErrors(newErrors);
+        
+        if (Object.keys(newErrors).length === 0) {
+            onSave({ name, type: type as CompanyType, email, phone, website });
+        }
+    };
+
+    return (
+         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <Card className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
+                <h3 className="text-lg font-bold mb-4">Create Your Company</h3>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                     <InputField label="Company Name" name="name" value={name} onChange={(_, val) => setName(val)} error={errors.name} />
+                     <SelectField label="Company Type" name="type" value={type} onChange={(_, val) => setType(val)} error={errors.type} options={companyTypeOptions}/>
+                     <InputField label="Company Email" name="email" type="email" value={email} onChange={(_, val) => setEmail(val)} error={errors.email} />
+                     <InputField label="Company Phone" name="phone" type="tel" value={phone} onChange={(_, val) => setPhone(val)} error={errors.phone} />
+                     <InputField label="Company Website (Optional)" name="website" type="url" value={website} onChange={(_, val) => setWebsite(val)} />
+                     <div className="flex justify-end gap-2 pt-4 border-t">
+                        <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+                        <Button type="submit">Save Company</Button>
+                    </div>
+                </form>
+            </Card>
+        </div>
+    );
+};
+
 export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLogin }) => {
     const { register, error: authError, loading: isLoading } = useAuth();
     const [step, setStep] = useState<Step>('personal');
-    const [formData, setFormData] = useState<Partial<RegisterCredentials & { companyName?: string; companyType?: CompanyType; companySelection?: 'create' | 'join', role?: Role, verificationCode?: string, termsAccepted?: boolean }>>({});
+    const [formData, setFormData] = useState<Partial<RegisterCredentials & { companyName?: string; companyType?: CompanyType; companyEmail?: string; companyPhone?: string; companyWebsite?: string; companySelection?: 'create' | 'join', role?: Role, verificationCode?: string, termsAccepted?: boolean }>>({});
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [generalError, setGeneralError] = useState<string | null>(null);
+    const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
 
     useEffect(() => {
         setGeneralError(authError);
@@ -64,7 +120,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
             case 'company':
                 if (!formData.companySelection) newErrors.companySelection = "Please choose an option.";
                 else if (formData.companySelection === 'create' && (!formData.companyName || !formData.companyType)) {
-                    newErrors.companyName = "Company details are required.";
+                    newErrors.companyName = "Company details are required. Please create or edit your company.";
                 } else if (formData.companySelection === 'join' && !formData.inviteToken) {
                     newErrors.inviteToken = "An invite token is required.";
                 }
@@ -100,11 +156,27 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
     };
     
     const handleChange = (field: keyof typeof formData, value: any) => {
+        if (field === 'companySelection' && value === 'create') {
+            setIsCompanyModalOpen(true);
+        }
         setFormData(prev => ({ ...prev, [field]: value }));
         if (errors[field]) {
             setErrors(prev => {
                 const newErrors = { ...prev };
                 delete newErrors[field];
+                return newErrors;
+            });
+        }
+    };
+
+    const handleCompanySave = ({ name, type, email, phone, website }: { name: string; type: CompanyType; email: string; phone: string; website: string; }) => {
+        setFormData(prev => ({ ...prev, companyName: name, companyType: type, companyEmail: email, companyPhone: phone, companyWebsite: website, companySelection: 'create' }));
+        setIsCompanyModalOpen(false);
+        // Clear potential validation error after saving
+        if (errors.companyName) {
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors.companyName;
                 return newErrors;
             });
         }
@@ -126,43 +198,41 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
             case 'personal': return (
                 <>
                     <div className="grid grid-cols-2 gap-4">
-                        <InputField label="First Name" name="firstName" value={formData.firstName} onChange={handleChange} error={errors.firstName} />
-                        <InputField label="Last Name" name="lastName" value={formData.lastName} onChange={handleChange} error={errors.lastName} />
+                        <InputField label="First Name" name="firstName" value={formData.firstName || ''} onChange={handleChange} error={errors.firstName} />
+                        <InputField label="Last Name" name="lastName" value={formData.lastName || ''} onChange={handleChange} error={errors.lastName} />
                     </div>
-                    <InputField label="Email" name="email" type="email" value={formData.email} onChange={handleChange} error={errors.email} />
-                    <InputField label="Phone (Optional)" name="phone" type="tel" value={formData.phone} onChange={handleChange} error={errors.phone} />
-                    <InputField label="Password" name="password" type="password" value={formData.password} onChange={handleChange} error={errors.password} />
+                    <InputField label="Email" name="email" type="email" value={formData.email || ''} onChange={handleChange} error={errors.email} />
+                    <InputField label="Phone (Optional)" name="phone" type="tel" value={formData.phone || ''} onChange={handleChange} error={errors.phone} />
+                    <InputField label="Password" name="password" type="password" value={formData.password || ''} onChange={handleChange} error={errors.password} />
                     <PasswordStrengthIndicator password={formData.password} />
-                    <InputField label="Confirm Password" name="confirmPassword" type="password" value={formData.confirmPassword} onChange={handleChange} error={errors.confirmPassword} />
+                    <InputField label="Confirm Password" name="confirmPassword" type="password" value={formData.confirmPassword || ''} onChange={handleChange} error={errors.confirmPassword} />
                 </>
             );
-            case 'company': 
-                // FIX: Used a static array as CompanyType is a type alias, not an enum.
-                const companyTypeOptions = [
-                    { value: 'GENERAL_CONTRACTOR', label: 'General Contractor' },
-                    { value: 'SUBCONTRACTOR', label: 'Subcontractor' },
-                    { value: 'SUPPLIER', label: 'Supplier' },
-                    { value: 'CONSULTANT', label: 'Consultant' },
-                    { value: 'CLIENT', label: 'Client' },
-                ];
-                return (
+            case 'company': return (
                 <>
                    <div className="space-y-2">
                         <RadioCard name="companySelection" value="create" label="Create a new company" description="Set up a new workspace for your team." checked={formData.companySelection === 'create'} onChange={handleChange} />
-                        <RadioCard name="companySelection" value="join" label="Join an existing company" description="Use an invite code to join a team." checked={formData.companySelection === 'join'} onChange={handleChange} />
+                        <RadioCard name="companySelection" value="join" label="Join an existing company" description="You'll need an invite token from the company." checked={formData.companySelection === 'join'} onChange={handleChange} />
                         {errors.companySelection && <p className="text-xs text-destructive mt-1">{errors.companySelection}</p>}
                     </div>
-                    {formData.companySelection === 'create' && (
+                    {formData.companySelection === 'create' && formData.companyName && (
                         <Card className="mt-4 bg-muted animate-card-enter">
-                           <div className="space-y-4">
-                                <InputField label="Company Name" name="companyName" value={formData.companyName} onChange={handleChange} error={errors.companyName} />
-                                <SelectField label="Company Type" name="companyType" value={formData.companyType} onChange={handleChange} error={errors.companyType} options={companyTypeOptions}/>
+                           <div className="flex justify-between items-start">
+                                <div>
+                                    <p className="font-semibold">{formData.companyName}</p>
+                                    <p className="text-sm text-muted-foreground">{formData.companyType?.replace(/_/g, ' ')}</p>
+                                    <p className="text-sm text-muted-foreground">{formData.companyEmail}</p>
+                                    <p className="text-sm text-muted-foreground">{formData.companyPhone}</p>
+                                    {formData.companyWebsite && <p className="text-sm text-muted-foreground">{formData.companyWebsite}</p>}
+                                </div>
+                                <Button variant="secondary" size="sm" onClick={() => setIsCompanyModalOpen(true)}>Edit</Button>
                            </div>
                         </Card>
                     )}
+                    {errors.companyName && <p className="text-xs text-destructive mt-1">{errors.companyName}</p>}
                      {formData.companySelection === 'join' && (
                         <Card className="mt-4 bg-muted animate-card-enter">
-                             <InputField label="Invite Code (use JOIN-CONSTRUCTCO)" name="inviteToken" value={formData.inviteToken} onChange={handleChange} error={errors.inviteToken} />
+                             <InputField label="Company Invite Token" name="inviteToken" value={formData.inviteToken || ''} onChange={handleChange} error={errors.inviteToken} placeholder="Enter the token provided to you" />
                         </Card>
                     )}
                 </>
@@ -181,7 +251,6 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                             <h4 className="font-semibold mb-2">Role Permissions Preview</h4>
                             {formData.role ? (
                                 <ul className="text-sm space-y-1 list-disc list-inside max-h-60 overflow-y-auto">
-                                    {/* FIX: Ensured key is a string */}
                                     {Array.from(selectedRolePermissions).map(p => <li key={p as string} className="capitalize">{String(p).replace(/_/g, ' ').toLowerCase()}</li>)}
                                 </ul>
                             ) : <p className="text-sm text-muted-foreground">Select a role to see its permissions.</p>}
@@ -192,7 +261,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                 <div className="text-center">
                     <h3 className="font-semibold">Verify Your Email</h3>
                     <p className="text-muted-foreground text-sm mt-1 mb-4">We've "sent" a 6-digit code to {formData.email}. For this demo, please enter <strong>123456</strong>.</p>
-                     <InputField label="Verification Code" name="verificationCode" value={formData.verificationCode} onChange={(name: string, val: string) => handleChange(name as keyof typeof formData, val.replace(/\D/g, ''))} error={errors.verificationCode} maxLength={6} inputClassName="text-center tracking-[0.5em] text-2xl" isLabelSrOnly />
+                     <InputField label="Verification Code" name="verificationCode" value={formData.verificationCode || ''} onChange={(name: string, val: string) => handleChange(name as keyof typeof formData, val.replace(/\D/g, ''))} error={errors.verificationCode} maxLength={6} inputClassName="text-center tracking-[0.5em] text-2xl" isLabelSrOnly />
                 </div>
             );
             case 'terms': return (
@@ -211,66 +280,75 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
     const currentStepIndex = STEPS.findIndex(s => s.id === step);
 
     return (
-        <div className="min-h-screen bg-background flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-            <div className="sm:mx-auto sm:w-full sm:max-w-3xl">
-                <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center gap-2 mb-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="w-10 h-10 text-primary"><path fill="currentColor" d="M12 2L2 22h20L12 2z"/></svg>
-                        <h1 className="text-3xl font-bold text-foreground">AS Agents</h1>
+        <>
+            {isCompanyModalOpen && (
+                <CreateCompanyModal 
+                    onClose={() => setIsCompanyModalOpen(false)} 
+                    onSave={handleCompanySave}
+                    initialData={{ name: formData.companyName, type: formData.companyType, email: formData.companyEmail, phone: formData.companyPhone, website: formData.companyWebsite }}
+                />
+            )}
+            <div className="min-h-screen bg-background flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+                <div className="sm:mx-auto sm:w-full sm:max-w-3xl">
+                    <div className="text-center mb-8">
+                        <div className="inline-flex items-center justify-center gap-2 mb-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="w-10 h-10 text-primary"><path fill="currentColor" d="M12 2L2 22h20L12 2z"/></svg>
+                            <h1 className="text-3xl font-bold text-foreground">AS Agents</h1>
+                        </div>
+                        <h2 className="text-muted-foreground">Create your account</h2>
                     </div>
-                    <h2 className="text-muted-foreground">Create your account</h2>
-                </div>
 
-                <div className="mb-8 px-4">
-                    <div className="flex items-center">
-                        {STEPS.map((s, index) => (
-                            <React.Fragment key={s.id}>
-                                <div className="flex flex-col items-center">
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${index <= currentStepIndex ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
-                                        {index < currentStepIndex ? '✓' : index + 1}
+                    <div className="mb-8 px-4">
+                        <div className="flex items-center">
+                            {STEPS.map((s, index) => (
+                                <React.Fragment key={s.id}>
+                                    <div className="flex flex-col items-center">
+                                        <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${index <= currentStepIndex ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                                            {index < currentStepIndex ? '✓' : index + 1}
+                                        </div>
+                                        <p className={`text-xs mt-1 text-center ${index <= currentStepIndex ? 'font-semibold text-primary' : 'text-muted-foreground'}`}>{s.name}</p>
                                     </div>
-                                    <p className={`text-xs mt-1 text-center ${index <= currentStepIndex ? 'font-semibold text-primary' : 'text-muted-foreground'}`}>{s.name}</p>
-                                </div>
-                                {index < STEPS.length - 1 && <div className={`flex-grow h-0.5 transition-colors ${index < currentStepIndex ? 'bg-primary' : 'bg-muted'}`}></div>}
-                            </React.Fragment>
-                        ))}
+                                    {index < STEPS.length - 1 && <div className={`flex-grow h-0.5 transition-colors ${index < currentStepIndex ? 'bg-primary' : 'bg-muted'}`}></div>}
+                                </React.Fragment>
+                            ))}
+                        </div>
                     </div>
-                </div>
 
-                <Card>
-                    {generalError && <div className="mb-4 p-3 bg-destructive/10 text-destructive text-sm rounded-md">{generalError}</div>}
-                    <div className="space-y-6">
-                        {renderStepContent()}
-                    </div>
-                    <div className="mt-8 flex justify-between items-center">
-                        {step !== 'personal' ? (
-                            <Button variant="secondary" onClick={handleBack}>Back</Button>
-                        ) : <div></div>}
-                        
-                        {step === 'terms' ? (
-                            <Button onClick={handleSubmit} isLoading={isLoading} disabled={!formData.termsAccepted}>Complete Registration</Button>
-                        ) : (
-                            <Button onClick={handleNext}>Next</Button>
-                        )}
-                    </div>
-                </Card>
-                <p className="mt-6 text-center text-sm text-muted-foreground">
-                    Already have an account?{' '}
-                    <button onClick={onSwitchToLogin} className="font-semibold text-primary hover:text-primary/80">
-                        Sign in
-                    </button>
-                </p>
+                    <Card>
+                        {generalError && <div className="mb-4 p-3 bg-destructive/10 text-destructive text-sm rounded-md">{generalError}</div>}
+                        <div className="space-y-6">
+                            {renderStepContent()}
+                        </div>
+                        <div className="mt-8 flex justify-between items-center">
+                            {step !== 'personal' ? (
+                                <Button variant="secondary" onClick={handleBack}>Back</Button>
+                            ) : <div></div>}
+                            
+                            {step === 'terms' ? (
+                                <Button onClick={handleSubmit} isLoading={isLoading} disabled={!formData.termsAccepted}>Complete Registration</Button>
+                            ) : (
+                                <Button onClick={handleNext}>Next</Button>
+                            )}
+                        </div>
+                    </Card>
+                    <p className="mt-6 text-center text-sm text-muted-foreground">
+                        Already have an account?{' '}
+                        <button onClick={onSwitchToLogin} className="font-semibold text-primary hover:text-primary/80">
+                            Sign in
+                        </button>
+                    </p>
+                </div>
             </div>
-        </div>
+        </>
     );
 };
 
 
 // --- Form Field Components ---
-const InputField = ({ label, name, type = 'text', value = '', onChange, error, maxLength, inputClassName = '', isLabelSrOnly = false }: { label: string; name: string; type?: string; value?: string; onChange: (name: string, value: string) => void; error?: string; maxLength?: number; inputClassName?: string; isLabelSrOnly?: boolean; }) => (
+const InputField = ({ label, name, type = 'text', value = '', onChange, error, maxLength, inputClassName = '', isLabelSrOnly = false, placeholder }: { label: string; name: string; type?: string; value?: string; onChange: (name: string, value: string) => void; error?: string; maxLength?: number; inputClassName?: string; isLabelSrOnly?: boolean; placeholder?: string }) => (
     <div>
         <label htmlFor={name} className={isLabelSrOnly ? 'sr-only' : 'block text-sm font-medium text-muted-foreground'}>{label}</label>
-        <input id={name} name={name} type={type} value={value} maxLength={maxLength} onChange={e => onChange(name, e.target.value)}
+        <input id={name} name={name} type={type} value={value} maxLength={maxLength} onChange={e => onChange(name, e.target.value)} placeholder={placeholder}
                 className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm ${error ? 'border-destructive' : 'border-border'} ${inputClassName}`} />
         {error && <p className="text-xs text-destructive mt-1">{error}</p>}
     </div>

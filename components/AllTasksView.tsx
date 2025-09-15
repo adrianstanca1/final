@@ -155,7 +155,6 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                          <select onChange={e => setBulkAction({ type: 'assignee', value: e.target.value })} className="p-2 border rounded bg-white dark:bg-slate-800">
                             <option value="">Change Assignee...</option>
                             <option value="unassigned">Unassigned</option>
-                            {/* FIX: Replaced p.name with correct properties. */}
                             {personnel.map(p => <option key={p.id} value={p.id}>{`${p.firstName} ${p.lastName}`}</option>)}
                         </select>
                          <select onChange={e => setBulkAction({ type: 'priority', value: e.target.value })} className="p-2 border rounded bg-white dark:bg-slate-800">

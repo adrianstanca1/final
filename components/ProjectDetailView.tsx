@@ -149,7 +149,6 @@ const TaskItem: React.FC<{
                 )}
             </div>
              <div className="flex justify-start md:justify-center">
-                {/* FIX: Replaced name and avatarUrl with correct properties */}
                 {assignee && <Avatar name={`${assignee.firstName} ${assignee.lastName}`} imageUrl={assignee.avatar} className="w-8 h-8 text-xs" />}
             </div>
             <div className="md:col-span-2 flex items-center gap-2">
@@ -275,7 +274,6 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project: i
     
     const renderTeam = () => (
          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {/* FIX: Replaced name and avatarUrl with correct properties */}
             {team.map(member => (<Card key={member.id} className="text-center"><Avatar name={`${member.firstName} ${member.lastName}`} imageUrl={member.avatar} className="w-20 h-20 mx-auto mb-4" /><h4 className="font-semibold">{`${member.firstName} ${member.lastName}`}</h4><p className="text-sm text-muted-foreground">{member.role}</p>{user.id !== member.id && hasPermission(user, Permission.SEND_DIRECT_MESSAGE) && (<Button variant="ghost" size="sm" className="mt-2" onClick={() => onStartChat(member)}>Message</Button>)}</Card>))}
         </div>
     );
@@ -322,7 +320,6 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project: i
             <ProjectHealthSummary project={project} tasks={tasks} />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card><h3 className="font-semibold mb-2">Budget</h3><p className="text-3xl font-bold">{formatCurrency(project.actualCost)}</p><p className="text-sm text-muted-foreground">of {formatCurrency(project.budget)} used</p><div className="w-full bg-muted rounded-full h-2.5 mt-2"><div className="bg-green-600 h-2.5 rounded-full" style={{ width: `${(project.actualCost / project.budget) * 100}%` }}></div></div></Card>
-                {/* FIX: Replaced name with correct properties. */}
                 <Card><h3 className="font-semibold mb-2">Team Members</h3><div className="flex -space-x-2">{team.map(member => <Avatar key={member.id} name={`${member.firstName} ${member.lastName}`} imageUrl={member.avatar} className="w-10 h-10 border-2 border-card" />)}</div></Card>
                 <Card><h3 className="font-semibold mb-2">Key Info</h3><p className="text-sm">Start: {new Date(project.startDate).toLocaleDateString()}</p>{project.geofenceRadius && <p className="text-sm">Geofence: {project.geofenceRadius}m</p>}</Card>
             </div>

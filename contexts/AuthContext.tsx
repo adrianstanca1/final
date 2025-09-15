@@ -11,6 +11,8 @@ interface AuthContextType extends AuthState {
     hasPermission: (permission: Permission) => boolean;
     verifyMfaAndFinalize: (userId: string, code: string) => Promise<void>;
     updateUserProfile: (updates: Partial<User>) => Promise<void>;
+    requestPasswordReset: (email: string) => Promise<void>;
+    resetPassword: (token: string, newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -51,29 +53,37 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         });
     }, []);
 
+    /**
+     * Proactively schedules a token refresh before the current access token expires.
+     * This improves UX by preventing the user from being logged out during an active session.
+     */
     const scheduleTokenRefresh = useCallback((token: string) => {
         if (tokenRefreshTimeout) {
             clearTimeout(tokenRefreshTimeout);
         }
         const decoded = parseJwt(token);
         if (decoded && decoded.exp) {
-            const expiresIn = (decoded.exp * 1000) - Date.now() - 60000; // Refresh 1 minute before expiry
+            // Refresh 1 minute before expiry to be safe
+            const expiresIn = (decoded.exp * 1000) - Date.now() - 60000;
             if (expiresIn > 0) {
                 tokenRefreshTimeout = setTimeout(async () => {
                     const storedRefreshToken = localStorage.getItem('refreshToken');
                     if (storedRefreshToken) {
                         try {
+                            console.log("Proactively refreshing token...");
                             const { token: newToken } = await authApi.refreshToken(storedRefreshToken);
                             localStorage.setItem('token', newToken);
                             setAuthState(prev => ({ ...prev, token: newToken }));
-                            scheduleTokenRefresh(newToken);
+                            scheduleTokenRefresh(newToken); // Schedule the next refresh
                         } catch (error) {
-                            console.error("Token refresh failed", error);
+                            console.error("Proactive token refresh failed", error);
                             logout();
                         }
                     }
                 }, expiresIn);
             } else {
+                // Token already expired or about to, attempt a reactive refresh or log out.
+                console.warn("Token is already expired or has less than a minute left. Logging out.");
                 logout();
             }
         }
@@ -94,23 +104,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         scheduleTokenRefresh(data.token);
     }, [scheduleTokenRefresh]);
 
+    /**
+     * Initializes authentication state on app load.
+     * It checks for stored tokens and attempts to validate the session.
+     * If the access token is expired, it reactively tries to use the refresh token.
+     */
     const initAuth = useCallback(async () => {
         const token = localStorage.getItem('token');
         const refreshToken = localStorage.getItem('refreshToken');
         if (token && refreshToken) {
             try {
-                const decoded = parseJwt(token);
-                if (decoded && decoded.exp * 1000 > Date.now()) {
-                    const { user, company } = await authApi.me(token);
-                    finalizeLogin({ token, refreshToken, user, company });
-                } else {
+                // First, try to authenticate with the existing access token.
+                const { user, company } = await authApi.me(token);
+                finalizeLogin({ token, refreshToken, user, company });
+            } catch (error) {
+                // If authApi.me fails (e.g., token expired), attempt to refresh the token.
+                console.log("Access token invalid, attempting reactive refresh...");
+                try {
                     const { token: newToken } = await authApi.refreshToken(refreshToken);
                     const { user, company } = await authApi.me(newToken);
                     finalizeLogin({ token: newToken, refreshToken, user, company });
+                } catch (refreshError) {
+                    console.error("Auth init with refresh token failed, logging out.", refreshError);
+                    logout();
                 }
-            } catch (error) {
-                console.error("Auth init failed", error);
-                logout();
             }
         } else {
             setAuthState(prev => ({ ...prev, loading: false }));
@@ -177,6 +194,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             user: { ...prev.user, ...updatedUser } as User,
         }));
     };
+
+    const requestPasswordReset = async (email: string) => {
+        setAuthState(prev => ({ ...prev, loading: true, error: null }));
+        try {
+            await authApi.requestPasswordReset(email);
+            setAuthState(prev => ({ ...prev, loading: false }));
+        } catch (error: any) {
+            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Request failed'}));
+            throw error;
+        }
+    };
+
+    const resetPassword = async (token: string, newPassword: string) => {
+        setAuthState(prev => ({ ...prev, loading: true, error: null }));
+        try {
+            await authApi.resetPassword(token, newPassword);
+            setAuthState(prev => ({ ...prev, loading: false }));
+        } catch (error: any) {
+            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Password reset failed'}));
+            throw error;
+        }
+    };
     
     const value = {
         ...authState,
@@ -186,6 +225,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         hasPermission,
         verifyMfaAndFinalize,
         updateUserProfile,
+        requestPasswordReset,
+        resetPassword,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

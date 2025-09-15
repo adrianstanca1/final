@@ -6,13 +6,14 @@ import { useAuth } from '../contexts/AuthContext';
 
 interface LoginProps {
   onSwitchToRegister: () => void;
+  onSwitchToForgotPassword: () => void;
 }
 
 type LoginStep = 'credentials' | 'mfa';
 
 const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-export const Login: React.FC<LoginProps> = ({ onSwitchToRegister }) => {
+export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForgotPassword }) => {
     const { login, verifyMfaAndFinalize, error: authError, loading: isLoading } = useAuth();
     const [step, setStep] = useState<LoginStep>('credentials');
     const [email, setEmail] = useState('admin@ascladding.com');
@@ -97,7 +98,7 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister }) => {
                 <label htmlFor="remember-me" className="ml-2 block text-sm text-muted-foreground">Remember me</label>
             </div>
             <div className="text-sm">
-                <a href="#" className="font-medium text-primary hover:text-primary/90">Forgot your password?</a>
+                <button type="button" onClick={onSwitchToForgotPassword} className="font-medium text-primary hover:text-primary/90">Forgot your password?</button>
             </div>
         </div>
         <div>
