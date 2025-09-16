@@ -498,6 +498,9 @@ export const api = {
         const userIds = new Set(assignments.map(a => a.userId));
         return db.users.filter(u => userIds.has(u.id!)) as User[];
     },
+
+    getProjectInsights: async (projectId: string): Promise<ProjectInsight[]> => {
+
     getProjectInsights: async (projectId: string, options?: RequestOptions): Promise<ProjectInsight[]> => {
         ensureNotAborted(options?.signal);
         await delay();
