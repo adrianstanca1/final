@@ -666,7 +666,6 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
         | { name?: string }
         | undefined;
 
-      ]);
       if (controller.signal.aborted) return;
  
       setData({
@@ -700,6 +699,26 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
       abortControllerRef.current?.abort();
     };
   }, [fetchData]);
+
+  const handleUpdateInvoiceStatus = useCallback(
+    async (invoiceId: string, status: InvoiceStatus) => {
+      if (status === InvoiceStatus.CANCELLED) {
+        if (!window.confirm('Are you sure you want to cancel this invoice? This action cannot be undone.')) {
+          return;
+        }
+      }
+      try {
+        const invoice = data.invoices.find(i => i.id === invoiceId);
+        if (!invoice) throw new Error('Invoice not found');
+        await api.updateInvoice(invoiceId, { ...invoice, status }, user.id);
+        addToast(`Invoice marked as ${status.toLowerCase()}.`, 'success');
+        fetchData();
+      } catch (error) {
+        addToast('Failed to update invoice status.', 'error');
+      }
+    },
+    [data.invoices, user.id, addToast, fetchData],
+  );
 
   const { projectMap, clientMap, userMap } = useMemo(
     () => ({
@@ -990,26 +1009,9 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
           )}
         </div>
       </Card>
-
-  const handleUpdateInvoiceStatus = useCallback(
-    async (invoiceId: string, status: InvoiceStatus) => {
-      if (status === InvoiceStatus.CANCELLED) {
-        if (!window.confirm('Are you sure you want to cancel this invoice? This action cannot be undone.')) {
-          return;
-        }
-      }
-      try {
-        const invoice = data.invoices.find(i => i.id === invoiceId);
-        if (!invoice) throw new Error('Invoice not found');
-        await api.updateInvoice(invoiceId, { ...invoice, status }, user.id);
-        addToast(`Invoice marked as ${status.toLowerCase()}.`, 'success');
-        fetchData();
-      } catch (error) {
-        addToast('Failed to update invoice status.', 'error');
-      }
-    },
-    [data.invoices, user.id, addToast, fetchData],
+    </div>
   );
+};
 
   const handleGenerateForecast = useCallback(
     async (horizonMonths: number) => {
