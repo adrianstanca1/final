@@ -16,6 +16,8 @@ import {
   IncidentStatus,
   ExpenseStatus,
   ProjectPortfolioSummary,
+  OperationalInsights,
+
 } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -115,6 +117,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     const [activityLog, setActivityLog] = useState<AuditLog[]>([]);
     const [incidents, setIncidents] = useState<SafetyIncident[]>([]);
     const [expenses, setExpenses] = useState<Expense[]>([]);
+    const [operationalInsights, setOperationalInsights] = useState<OperationalInsights | null>(null);
+
     const [aiSelectedProjectId, setAiSelectedProjectId] = useState<string | null>(null);
     const [aiSummary, setAiSummary] = useState<ProjectHealthSummaryResult | null>(null);
     const [aiSummaryProjectId, setAiSummaryProjectId] = useState<string | null>(null);
@@ -130,12 +134,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
         setLoading(true);
         try {
             if (!user.companyId) return;
-            const [projData, usersData, equipData, assignmentsData, logsData] = await Promise.all([
+            const [projData, usersData, equipData, assignmentsData, logsData, insightsData] = await Promise.all([
                 api.getProjectsByManager(user.id, { signal: controller.signal }),
                 api.getUsersByCompany(user.companyId, { signal: controller.signal }),
                 api.getEquipmentByCompany(user.companyId, { signal: controller.signal }),
                 api.getResourceAssignments(user.companyId, { signal: controller.signal }),
-                api.getAuditLogsByCompany(user.companyId, { signal: controller.signal })
+                api.getAuditLogsByCompany(user.companyId, { signal: controller.signal }),
+                api.getOperationalInsights(user.companyId, { signal: controller.signal }),
             ]);
 
             if (controller.signal.aborted) return;
@@ -158,6 +163,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
 
             if (controller.signal.aborted) return;
             setActivityLog(logsData.filter(l => l.action.includes('task')).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+
+            if (controller.signal.aborted) return;
+            setOperationalInsights(insightsData);
+
 
             const [incidentsData, expensesData] = await Promise.all([
                 api.getSafetyIncidentsByCompany(user.companyId),
@@ -212,11 +221,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
             .slice(0, 4);
     }, [activeProjects, portfolioSummary.upcomingDeadlines]);
 
+    const fallbackOpenIncidents = useMemo(
+
     const openIncidents = useMemo(
         () => incidents.filter(incident => incident.status !== IncidentStatus.RESOLVED),
         [incidents],
     );
 
+    const fallbackHighSeverityIncidents = useMemo(
+        () => fallbackOpenIncidents.filter(incident => incident.severity === 'HIGH' || incident.severity === 'CRITICAL'),
+        [fallbackOpenIncidents],
+    );
+
+    const fallbackApprovedExpenseTotal = useMemo(
+        () => expenses
+            .filter(expense => expense.status === ExpenseStatus.APPROVED || expense.status === ExpenseStatus.PAID)
+            .reduce((sum, expense) => sum + (expense.amount ?? 0), 0),
+        [expenses],
+    );
     const highSeverityIncidents = useMemo(
         () => openIncidents.filter(incident => incident.severity === 'HIGH' || incident.severity === 'CRITICAL'),
         [openIncidents],
@@ -275,6 +297,38 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
         [tasks],
     );
 
+    const insight = operationalInsights;
+    const operationalCurrency = insight?.financial.currency ?? 'GBP';
+    const complianceRate = clampPercentage(insight?.workforce.complianceRate ?? 0);
+    const openIncidentsCount = insight?.safety.openIncidents ?? fallbackOpenIncidents.length;
+    const highSeverityCount = insight?.safety.highSeverity ?? fallbackHighSeverityIncidents.length;
+    const pendingApprovals = insight?.workforce.pendingApprovals ?? 0;
+    const approvedExpenseThisMonth = insight?.financial.approvedExpensesThisMonth ?? fallbackApprovedExpenseTotal;
+    const burnPerProject = insight?.financial.burnRatePerActiveProject ?? 0;
+    const overtimeHours = insight?.workforce.overtimeHours ?? 0;
+    const averageHours = insight?.workforce.averageHours ?? 0;
+    const tasksDueSoon = insight?.schedule.tasksDueSoon ?? 0;
+    const overdueTasks = insight?.schedule.overdueTasks ?? 0;
+    const scheduleInProgress = insight?.schedule.tasksInProgress ?? tasksInProgress;
+    const operationalAlerts = insight?.alerts ?? [];
+
+    const kpiData = useMemo(() => {
+        const budgetData = activeProjects.reduce((acc, p) => {
+            acc.total += p.budget ?? 0;
+            acc.spent += p.actualCost ?? p.spent ?? 0;
+            return acc;
+        }, { total: 0, spent: 0 });
+        const budgetUtilization = budgetData.total > 0 ? (budgetData.spent / budgetData.total) * 100 : 0;
+        return {
+            activeProjectsCount: activeProjects.length,
+            teamSize: team.length,
+            budgetUtilization: budgetUtilization.toFixed(0),
+            atRisk: portfolioSummary.atRiskProjects,
+            openIncidents: openIncidentsCount,
+        };
+    }, [activeProjects, team, portfolioSummary.atRiskProjects, openIncidentsCount]);
+
+
     const handleGenerateProjectBrief = useCallback(async () => {
         if (!aiSelectedProjectId) {
             setAiError('Select a project to analyse.');
@@ -292,8 +346,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
 
         try {
             const projectTasks = tasks.filter(task => task.projectId === project.id);
+            const projectIncidents = fallbackOpenIncidents.filter(incident => incident.projectId === project.id);
+            const projectExpenses = expenses.filter(
+                expense =>
+                    expense.projectId === project.id &&
+                    (expense.status === ExpenseStatus.APPROVED || expense.status === ExpenseStatus.PAID),
+            );
+
             const projectIncidents = openIncidents.filter(incident => incident.projectId === project.id);
             const projectExpenses = approvedExpenses.filter(expense => expense.projectId === project.id);
+ 
 
             const summary = await generateProjectHealthSummary({
                 project,
@@ -311,7 +373,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
         } finally {
             setIsGeneratingAiSummary(false);
         }
+    }, [aiSelectedProjectId, projects, tasks, fallbackOpenIncidents, expenses, addToast]);
+
     }, [aiSelectedProjectId, projects, tasks, openIncidents, approvedExpenses, addToast]);
+ 
     
 
     if (loading) return <Card>Loading project manager dashboard…</Card>;
@@ -371,6 +436,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                 />
                 <KpiCard
                     title="Approved spend"
+                    value={formatCurrency(approvedExpenseThisMonth, operationalCurrency)}
+                    subtext="Approved or paid this month"
+
                     value={formatCurrency(approvedExpenseTotal)}
                     subtext="Approved or paid expenses"
                     icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M9 6h6m-3-2v2m0 12v2m7-5a9 9 0 11-14 0" /></svg>}
@@ -453,6 +521,60 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                     <div className="space-y-3 text-sm">
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Open incidents</span>
+                            <span className="font-semibold text-foreground">
+                                {openIncidentsCount}
+                                {highSeverityCount > 0 && (
+                                    <span className="text-xs font-medium text-destructive"> • {highSeverityCount} high</span>
+                                )}
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Tasks due next 7 days</span>
+                            <span className={`font-semibold ${tasksDueSoon > 5 ? 'text-amber-600' : 'text-foreground'}`}>{tasksDueSoon}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Overdue tasks</span>
+                            <span className={`font-semibold ${overdueTasks > 0 ? 'text-destructive' : 'text-foreground'}`}>{overdueTasks}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Active tasks</span>
+                            <span className="font-semibold text-foreground">{scheduleInProgress}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Pending approvals</span>
+                            <span className="font-semibold text-foreground">{pendingApprovals}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Avg hours / shift</span>
+                            <span className="font-semibold text-foreground">{averageHours.toFixed(1)}h</span>
+                        </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                        Burn per active project {formatCurrency(burnPerProject, operationalCurrency)}
+                        {overtimeHours > 0 ? ` • ${overtimeHours.toFixed(1)} overtime hrs` : ''}
+                    </p>
+                    {operationalAlerts.length > 0 && (
+                        <div className="space-y-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Alerts</p>
+                            <ul className="space-y-1 text-sm text-muted-foreground">
+                                {operationalAlerts.slice(0, 3).map(alert => (
+                                    <li key={alert.id} className="flex items-start gap-2">
+                                        <span
+                                            className={`mt-1 h-2 w-2 rounded-full ${
+                                                alert.severity === 'critical'
+                                                    ? 'bg-destructive'
+                                                    : alert.severity === 'warning'
+                                                    ? 'bg-amber-500'
+                                                    : 'bg-primary'
+                                            }`}
+                                        />
+                                        <span>{alert.message}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+
                             <span className="font-semibold text-foreground">{openIncidents.length}</span>
                         </div>
                         <div className="flex items-center justify-between">
@@ -519,6 +641,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                         </div>
                         <Button variant="ghost" size="sm" onClick={() => setActiveView('users')}>Manage team</Button>
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                        {complianceRate}% timesheets approved • {pendingApprovals} pending
+                    </p>
+
                     <div className="space-y-3 text-sm">
                         {Object.entries(availabilityBreakdown).map(([status, count]) => (
                             <div key={status} className="flex items-center justify-between">

@@ -53,7 +53,9 @@ const formatCurrency = (amount: number, currency: string = 'GBP') =>
   }).format(amount);
 
 
-const formatSignedPercentage = (value: number) => {
+
+
+ const formatSignedPercentage = (value: number) => {
   if (!Number.isFinite(value)) {
     return '0%';
   }
@@ -61,6 +63,8 @@ const formatSignedPercentage = (value: number) => {
   const prefix = rounded > 0 ? '+' : '';
   return `${prefix}${rounded}%`;
 };
+
+ 
 
 
 
@@ -1060,7 +1064,7 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
                  </div>
             </Card>
         </div>
-=======
+
   const handleUpdateInvoiceStatus = useCallback(
     async (invoiceId: string, status: InvoiceStatus) => {
       if (status === InvoiceStatus.CANCELLED) {
@@ -1298,6 +1302,7 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
     </div>
   );
 };
+
 
 
 

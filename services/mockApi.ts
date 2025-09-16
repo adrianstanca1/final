@@ -54,9 +54,11 @@ import {
     ExpenseStatus,
     TodoStatus,
     TodoPriority,
+    OperationalAlert,
+    OperationalInsights,
 } from '../types';
 import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
-
+import { getInvoiceFinancials } from '../utils/finance';
 const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
 
 type RequestOptions = { signal?: AbortSignal };
@@ -76,12 +78,32 @@ const MOCK_RESET_TOKEN_LIFESPAN = 60 * 60 * 1000; // 1 hour
 // In-memory store for password reset tokens for this mock implementation
 const passwordResetTokens = new Map<string, { userId: string, expires: number }>();
 
+const encodeBase64 = (value: string): string => {
+    if (typeof btoa === 'function') {
+        return btoa(value);
+    }
+    if (typeof Buffer !== 'undefined') {
+        return Buffer.from(value, 'binary').toString('base64');
+    }
+    throw new Error('Base64 encoding is not supported in this environment.');
+};
+
+const decodeBase64 = (value: string): string => {
+    if (typeof atob === 'function') {
+        return atob(value);
+    }
+    if (typeof Buffer !== 'undefined') {
+        return Buffer.from(value, 'base64').toString('binary');
+    }
+    throw new Error('Base64 decoding is not supported in this environment.');
+};
+
 const createToken = (payload: object, expiresIn: number): string => {
     const header = { alg: 'HS256', typ: 'JWT' };
     const extendedPayload = { ...payload, iat: Date.now(), exp: Math.floor((Date.now() + expiresIn) / 1000) };
-    const encodedHeader = btoa(JSON.stringify(header));
-    const encodedPayload = btoa(JSON.stringify(extendedPayload));
-    const signature = btoa(JWT_SECRET);
+    const encodedHeader = encodeBase64(JSON.stringify(header));
+    const encodedPayload = encodeBase64(JSON.stringify(extendedPayload));
+    const signature = encodeBase64(JWT_SECRET);
     return `${encodedHeader}.${encodedPayload}.${signature}`;
 };
 
@@ -92,7 +114,7 @@ const createToken = (payload: object, expiresIn: number): string => {
  */
 const decodeToken = (token: string): any => {
     try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
+        const payload = JSON.parse(decodeBase64(token.split('.')[1]));
         // This check ensures the token has not expired.
         if (payload.exp * 1000 < Date.now()) {
             throw new Error("Token expired");
@@ -103,6 +125,35 @@ const decodeToken = (token: string): any => {
         return null;
     }
 };
+
+const safeNumber = (value: unknown): number => {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+    }
+    if (typeof value === 'string') {
+        const parsed = Number(value.trim());
+        if (Number.isFinite(parsed)) {
+            return parsed;
+        }
+    }
+    return 0;
+};
+
+const parseDate = (value: unknown): Date | null => {
+    if (!value) {
+        return null;
+    }
+    const parsed = value instanceof Date ? value : new Date(String(value));
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const getMonthKey = (date: Date): string => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+const getMonthLabel = (date: Date): string =>
+    date.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+
+const MILLISECONDS_PER_HOUR = 1000 * 60 * 60;
+const MILLISECONDS_PER_DAY = MILLISECONDS_PER_HOUR * 24;
 
 const hydrateData = <T extends { [key: string]: any }>(key: string, defaultData: T[]): T[] => {
     try {
@@ -165,6 +216,76 @@ let db: {
     documents: hydrateData('documents', []),
     projectInsights: hydrateData('projectInsights', (initialData as any).projectInsights || []),
     financialForecasts: hydrateData('financialForecasts', (initialData as any).financialForecasts || []),
+};
+
+const findProjectById = (projectId: unknown): Partial<Project> | undefined => {
+    if (projectId == null) {
+        return undefined;
+    }
+    return db.projects.find(project => project.id != null && String(project.id) === String(projectId));
+};
+
+const resolveCompanyIdFromProject = (projectId: unknown): string | null => {
+    const project = findProjectById(projectId);
+    return project?.companyId != null ? String(project.companyId) : null;
+};
+
+const resolveCompanyIdFromUser = (userId: unknown): string | null => {
+    if (userId == null) {
+        return null;
+    }
+    const user = db.users.find(candidate => candidate.id != null && String(candidate.id) === String(userId));
+    return user?.companyId != null ? String(user.companyId) : null;
+};
+
+const resolveCompanyIdForInvoice = (invoice: Partial<Invoice>): string | null => {
+    const directCompany = (invoice as any).companyId;
+    if (directCompany != null) {
+        return String(directCompany);
+    }
+
+    const projectCompany = resolveCompanyIdFromProject(invoice.projectId);
+    if (projectCompany) {
+        return projectCompany;
+    }
+
+    if (invoice.clientId != null) {
+        const client = db.clients.find(candidate => candidate.id != null && String(candidate.id) === String(invoice.clientId));
+        if (client?.companyId != null) {
+            return String(client.companyId);
+        }
+    }
+
+    return null;
+};
+
+const resolveCompanyIdForExpense = (expense: Partial<Expense>): string | null => {
+    const directCompany = (expense as any).companyId;
+    if (directCompany != null) {
+        return String(directCompany);
+    }
+    const projectCompany = resolveCompanyIdFromProject(expense.projectId);
+    if (projectCompany) {
+        return projectCompany;
+    }
+    const userCompany = resolveCompanyIdFromUser(expense.userId);
+    if (userCompany) {
+        return userCompany;
+    }
+    return null;
+};
+
+const getCompanyCurrency = (companyId: string): string => {
+    const company = db.companies.find(entry => entry.id != null && String(entry.id) === String(companyId));
+    const directCurrency = (company as any)?.currency;
+    if (typeof directCurrency === 'string' && directCurrency.trim().length > 0) {
+        return directCurrency;
+    }
+    const settingsCurrency = (company as any)?.settings?.currency;
+    if (typeof settingsCurrency === 'string' && settingsCurrency.trim().length > 0) {
+        return settingsCurrency;
+    }
+    return 'GBP';
 };
 
 const saveDb = () => {
@@ -744,15 +865,461 @@ export const api = {
     },
     getFinancialKPIsForCompany: async (companyId: string, options?: RequestOptions): Promise<FinancialKPIs> => {
         ensureNotAborted(options?.signal);
-        return { profitability: 15, projectMargin: 22, cashFlow: 120000, currency: 'GBP' };
+        await delay();
+        ensureNotAborted(options?.signal);
+
+        const currency = getCompanyCurrency(companyId);
+
+        const invoices = db.invoices.filter(invoice => resolveCompanyIdForInvoice(invoice) === companyId);
+        const invoiceTotals = invoices.reduce(
+            (acc, invoice) => {
+                const total = safeNumber((invoice as Invoice).total ?? (invoice as any).amount ?? 0);
+                const amountPaid = safeNumber((invoice as Invoice).amountPaid ?? 0);
+                const explicitBalance = (invoice as Invoice).balance;
+                const balance = explicitBalance != null ? safeNumber(explicitBalance) : Math.max(total - amountPaid, 0);
+
+                acc.pipeline += total;
+                acc.collected += amountPaid > 0 ? Math.min(total, amountPaid) : total - balance;
+                acc.outstanding += balance;
+                return acc;
+            },
+            { pipeline: 0, collected: 0, outstanding: 0 },
+        );
+
+        const approvedExpenseStatuses = new Set<ExpenseStatus>([ExpenseStatus.APPROVED, ExpenseStatus.PAID]);
+        const expenses = db.expenses.filter(expense => {
+            if (resolveCompanyIdForExpense(expense) !== companyId) {
+                return false;
+            }
+            if (!expense.status) {
+                return false;
+            }
+            const status = String(expense.status) as ExpenseStatus;
+            return approvedExpenseStatuses.has(status);
+        });
+
+        const expenseTotal = expenses.reduce((sum, expense) => sum + safeNumber(expense.amount), 0);
+
+        const profitabilityRaw = invoiceTotals.collected > 0
+            ? ((invoiceTotals.collected - expenseTotal) / invoiceTotals.collected) * 100
+            : 0;
+        const profitability = Math.round(Math.max(-100, Math.min(100, profitabilityRaw)) * 10) / 10;
+
+        const companyProjects = db.projects.filter(project => project.companyId === companyId);
+        const marginValues = companyProjects
+            .map(project => {
+                const budget = safeNumber(project.budget);
+                if (budget <= 0) {
+                    return null;
+                }
+                const actual = safeNumber(project.actualCost ?? (project as any).spent ?? 0);
+                const margin = ((budget - actual) / budget) * 100;
+                return Math.max(-100, Math.min(100, margin));
+            })
+            .filter((value): value is number => value !== null);
+
+        const projectMargin = marginValues.length
+            ? Math.round((marginValues.reduce((sum, value) => sum + value, 0) / marginValues.length) * 10) / 10
+            : 0;
+
+        const cashFlow = Math.round((invoiceTotals.collected - expenseTotal) * 100) / 100;
+
+        return {
+            profitability,
+            projectMargin,
+            cashFlow,
+            currency,
+        };
     },
     getMonthlyFinancials: async (companyId: string, options?: RequestOptions): Promise<MonthlyFinancials[]> => {
         ensureNotAborted(options?.signal);
-        return [{month: 'Jan', revenue: 50000, profit: 8000}, {month: 'Feb', revenue: 75000, profit: 12000}];
+        await delay();
+        ensureNotAborted(options?.signal);
+
+        const monthlyMap = new Map<string, { label: string; date: Date; revenue: number; expense: number }>();
+
+        const registerMonth = (date: Date) => {
+            const key = getMonthKey(date);
+            if (!monthlyMap.has(key)) {
+                const monthStart = new Date(date.getFullYear(), date.getMonth(), 1);
+                monthlyMap.set(key, {
+                    label: getMonthLabel(date),
+                    date: monthStart,
+                    revenue: 0,
+                    expense: 0,
+                });
+            }
+            return monthlyMap.get(key)!;
+        };
+
+        for (const invoice of db.invoices) {
+            if (resolveCompanyIdForInvoice(invoice) !== companyId) {
+                continue;
+            }
+            const issuedDate = parseDate((invoice as Invoice).issueDate ?? (invoice as any).issuedAt ?? (invoice as any).createdAt);
+            if (!issuedDate) {
+                continue;
+            }
+            const monthBucket = registerMonth(issuedDate);
+            monthBucket.revenue += safeNumber((invoice as Invoice).total ?? (invoice as any).amount ?? 0);
+        }
+
+        const approvedExpenseStatuses = new Set<ExpenseStatus>([ExpenseStatus.APPROVED, ExpenseStatus.PAID]);
+        for (const expense of db.expenses) {
+            if (resolveCompanyIdForExpense(expense) !== companyId) {
+                continue;
+            }
+            if (!expense.status || !approvedExpenseStatuses.has(String(expense.status) as ExpenseStatus)) {
+                continue;
+            }
+            const expenseDate = parseDate(expense.date ?? (expense as any).createdAt ?? (expense as any).submittedAt);
+            if (!expenseDate) {
+                continue;
+            }
+            const monthBucket = registerMonth(expenseDate);
+            monthBucket.expense += safeNumber(expense.amount);
+        }
+
+        return Array.from(monthlyMap.values())
+            .sort((a, b) => a.date.getTime() - b.date.getTime())
+            .map(entry => ({
+                month: entry.label,
+                revenue: Math.round(entry.revenue * 100) / 100,
+                profit: Math.round((entry.revenue - entry.expense) * 100) / 100,
+            }));
     },
     getCostBreakdown: async (companyId: string, options?: RequestOptions): Promise<CostBreakdown[]> => {
         ensureNotAborted(options?.signal);
-        return [{category: 'Labor', amount: 40000}, {category: 'Materials', amount: 30000}];
+        await delay();
+        ensureNotAborted(options?.signal);
+
+        const approvedExpenseStatuses = new Set<ExpenseStatus>([ExpenseStatus.APPROVED, ExpenseStatus.PAID]);
+        const totals = new Map<string, number>();
+
+        for (const expense of db.expenses) {
+            if (resolveCompanyIdForExpense(expense) !== companyId) {
+                continue;
+            }
+            if (!expense.status || !approvedExpenseStatuses.has(String(expense.status) as ExpenseStatus)) {
+                continue;
+            }
+            const category = (expense.category ?? 'Uncategorised').toString();
+            const amount = safeNumber(expense.amount);
+            if (amount <= 0) {
+                continue;
+            }
+            totals.set(category, (totals.get(category) ?? 0) + amount);
+        }
+
+        return Array.from(totals.entries())
+            .map(([category, amount]) => ({ category, amount: Math.round(amount * 100) / 100 }))
+            .sort((a, b) => b.amount - a.amount);
+    },
+    getOperationalInsights: async (companyId: string, options?: RequestOptions): Promise<OperationalInsights> => {
+        ensureNotAborted(options?.signal);
+        await delay();
+        ensureNotAborted(options?.signal);
+
+        const now = new Date();
+        const isoNow = now.toISOString();
+        const nowTime = now.getTime();
+
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        startOfMonth.setHours(0, 0, 0, 0);
+
+        const weekStart = new Date(now);
+        weekStart.setHours(0, 0, 0, 0);
+        const weekday = weekStart.getDay();
+        const isoWeekday = weekday === 0 ? 6 : weekday - 1;
+        weekStart.setDate(weekStart.getDate() - isoWeekday);
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 7);
+
+        const companyCurrency = getCompanyCurrency(companyId);
+
+        const projects = db.projects.filter(project => project.companyId === companyId);
+        const projectIds = new Set<string>();
+        for (const project of projects) {
+            if (project.id != null) {
+                projectIds.add(String(project.id));
+            }
+        }
+
+        const companyUsers = db.users.filter(user => user.companyId === companyId);
+        const userIds = new Set<string>();
+        for (const user of companyUsers) {
+            if (user.id != null) {
+                userIds.add(String(user.id));
+            }
+        }
+
+        const relevantTodos = db.todos.filter(todo => {
+            const projectId = (todo as Todo).projectId ?? (todo as any).projectId;
+            if (projectId != null && projectIds.has(String(projectId))) {
+                return true;
+            }
+            const assignee = (todo as Todo).assignedTo ?? (todo as any).assigneeId;
+            return assignee != null && userIds.has(String(assignee));
+        });
+
+        const relevantTimesheets = db.timeEntries.filter(entry => {
+            const projectCompany = resolveCompanyIdFromProject(entry.projectId);
+            if (projectCompany === companyId) {
+                return true;
+            }
+            const userCompany = resolveCompanyIdFromUser(entry.userId);
+            return userCompany === companyId;
+        });
+
+        const safetyIncidents = db.safetyIncidents.filter(
+            incident => resolveCompanyIdFromProject(incident.projectId) === companyId,
+        );
+        const invoices = db.invoices.filter(invoice => resolveCompanyIdForInvoice(invoice) === companyId);
+        const expenses = db.expenses.filter(expense => resolveCompanyIdForExpense(expense) === companyId);
+
+        const normaliseTodoStatus = (value: unknown): TodoStatus | null => {
+            if (!value) {
+                return null;
+            }
+            const status = String(value).toUpperCase();
+            return Object.values(TodoStatus).includes(status as TodoStatus) ? (status as TodoStatus) : null;
+        };
+
+        const normaliseTimesheetStatus = (value: unknown): TimesheetStatus | null => {
+            if (!value) {
+                return null;
+            }
+            const status = String(value).toUpperCase();
+            return Object.values(TimesheetStatus).includes(status as TimesheetStatus)
+                ? (status as TimesheetStatus)
+                : null;
+        };
+
+        const isApprovedExpense = (value: unknown): boolean => {
+            if (!value) {
+                return false;
+            }
+            const status = String(value).toUpperCase();
+            return status === ExpenseStatus.APPROVED || status === ExpenseStatus.PAID;
+        };
+
+        const getTimesheetHours = (entry: Partial<Timesheet>): number => {
+            const start = parseDate(entry.startTime ?? (entry as any).clockIn);
+            const end = parseDate(entry.endTime ?? (entry as any).clockOut);
+            if (start && end) {
+                return Math.max(0, (end.getTime() - start.getTime()) / MILLISECONDS_PER_HOUR);
+            }
+            const recorded = safeNumber((entry as any).duration ?? entry.duration);
+            if (recorded <= 0) {
+                return 0;
+            }
+            if (recorded > 48) {
+                return recorded / 60;
+            }
+            return recorded;
+        };
+
+        const submittedTimesheets = relevantTimesheets.filter(entry => {
+            const status = normaliseTimesheetStatus(entry.status);
+            return status !== null && status !== TimesheetStatus.DRAFT;
+        });
+
+        const approvedTimesheets = submittedTimesheets.filter(
+            entry => normaliseTimesheetStatus(entry.status) === TimesheetStatus.APPROVED,
+        );
+
+        const pendingApprovals = submittedTimesheets.filter(
+            entry => normaliseTimesheetStatus(entry.status) === TimesheetStatus.PENDING,
+        ).length;
+
+        const activeTimesheets = relevantTimesheets.filter(entry => {
+            const status = normaliseTimesheetStatus(entry.status);
+            if (status !== TimesheetStatus.PENDING) {
+                return false;
+            }
+            const hasEnded = entry.endTime != null || (entry as any).clockOut != null;
+            return !hasEnded;
+        }).length;
+
+        const complianceRate = submittedTimesheets.length
+            ? (approvedTimesheets.length / submittedTimesheets.length) * 100
+            : 0;
+
+        const hoursLogged = submittedTimesheets
+            .map(entry => getTimesheetHours(entry))
+            .filter(hours => hours > 0);
+        const totalHoursLogged = hoursLogged.reduce((sum, hours) => sum + hours, 0);
+        const averageHours = hoursLogged.length ? totalHoursLogged / hoursLogged.length : 0;
+        const overtimeHours = hoursLogged.reduce((sum, hours) => sum + Math.max(0, hours - 8), 0);
+
+        const approvedThisWeek = approvedTimesheets.filter(entry => {
+            const completionDate = parseDate(
+                entry.updatedAt ?? entry.endTime ?? (entry as any).clockOut ?? (entry as any).approvedAt,
+            );
+            if (!completionDate) {
+                return false;
+            }
+            return completionDate >= weekStart && completionDate < weekEnd;
+        }).length;
+
+        const tasksWithDueDates = relevantTodos.filter(todo => parseDate((todo as Todo).dueDate ?? (todo as any).due_at));
+
+        const tasksDueSoon = tasksWithDueDates.filter(todo => {
+            const due = parseDate((todo as Todo).dueDate ?? (todo as any).due_at);
+            if (!due) {
+                return false;
+            }
+            const time = due.getTime();
+            return time >= nowTime && time <= nowTime + 7 * MILLISECONDS_PER_DAY;
+        }).length;
+
+        const overdueTasks = tasksWithDueDates.filter(todo => {
+            const due = parseDate((todo as Todo).dueDate ?? (todo as any).due_at);
+            if (!due) {
+                return false;
+            }
+            const status = normaliseTodoStatus((todo as Todo).status ?? (todo as any).status);
+            return due.getTime() < nowTime && status !== TodoStatus.DONE;
+        }).length;
+
+        const tasksInProgress = relevantTodos.filter(
+            todo => normaliseTodoStatus((todo as Todo).status ?? (todo as any).status) === TodoStatus.IN_PROGRESS,
+        ).length;
+
+        const openIncidents = safetyIncidents.filter(incident => {
+            const status = incident.status ? String(incident.status).toUpperCase() : null;
+            return status !== IncidentStatus.RESOLVED;
+        });
+
+        const highSeverity = openIncidents.filter(incident => {
+            const severity = incident.severity ? String(incident.severity).toUpperCase() : null;
+            return severity === IncidentSeverity.HIGH || severity === IncidentSeverity.CRITICAL;
+        }).length;
+
+        const lastIncidentDate = safetyIncidents.reduce<Date | null>((latest, incident) => {
+            const date = parseDate(incident.incidentDate ?? incident.timestamp ?? incident.createdAt);
+            if (!date) {
+                return latest;
+            }
+            if (!latest || date.getTime() > latest.getTime()) {
+                return date;
+            }
+            return latest;
+        }, null);
+
+        const daysSinceLastIncident = lastIncidentDate
+            ? Math.max(0, Math.floor((nowTime - lastIncidentDate.getTime()) / MILLISECONDS_PER_DAY))
+            : null;
+
+        const portfolioSummary = computeProjectPortfolioSummary(projects);
+        const activeProjects = portfolioSummary.activeProjects > 0
+            ? portfolioSummary.activeProjects
+            : projects.filter(project => String(project.status).toUpperCase() === 'ACTIVE').length;
+
+        const atRiskActiveProjects = projects.reduce((count, project) => {
+            const status = project.status ? String(project.status).toUpperCase() : null;
+            if (status === 'COMPLETED' || status === 'CANCELLED') {
+                return count;
+            }
+            const budget = safeNumber(project.budget);
+            if (budget <= 0) {
+                return count;
+            }
+            const actual = safeNumber(project.actualCost ?? (project as any).spent ?? 0);
+            return actual > budget * 1.05 ? count + 1 : count;
+        }, 0);
+
+        const approvedExpensesThisMonth = expenses.reduce((sum, expense) => {
+            if (!isApprovedExpense(expense.status)) {
+                return sum;
+            }
+            const expenseDate = parseDate(expense.date ?? (expense as any).submittedAt ?? (expense as any).createdAt);
+            if (!expenseDate || expenseDate < startOfMonth) {
+                return sum;
+            }
+            return sum + safeNumber(expense.amount);
+        }, 0);
+
+        const burnRatePerActiveProject = activeProjects > 0
+            ? approvedExpensesThisMonth / activeProjects
+            : approvedExpensesThisMonth;
+
+        const outstandingReceivables = invoices.reduce((sum, invoice) => {
+            const financials = getInvoiceFinancials(invoice as Invoice);
+            return sum + financials.balance;
+        }, 0);
+
+        const alerts: OperationalAlert[] = [];
+        const formatCurrencyForAlert = (value: number) =>
+            new Intl.NumberFormat('en-GB', {
+                style: 'currency',
+                currency: companyCurrency,
+                maximumFractionDigits: 0,
+            }).format(Math.round(value));
+
+        if (submittedTimesheets.length > 0 && complianceRate < 85) {
+            alerts.push({
+                id: 'low-timesheet-compliance',
+                severity: complianceRate < 60 ? 'critical' : 'warning',
+                message: `Timesheet approvals are at ${Math.round(complianceRate)}%. Clear pending entries to restore compliance.`,
+            });
+        }
+
+        if (highSeverity > 0) {
+            alerts.push({
+                id: 'high-severity-incidents',
+                severity: 'critical',
+                message: `${highSeverity} high-severity incident${highSeverity === 1 ? ' requires' : 's require'} immediate action.`,
+            });
+        }
+
+        if (overdueTasks > 0) {
+            alerts.push({
+                id: 'overdue-field-tasks',
+                severity: 'warning',
+                message: `${overdueTasks} task${overdueTasks === 1 ? ' is' : 's are'} past due. Rebalance crew priorities.`,
+            });
+        }
+
+        if (outstandingReceivables > 0) {
+            alerts.push({
+                id: 'outstanding-receivables',
+                severity: outstandingReceivables > 100000 ? 'warning' : 'info',
+                message: `${formatCurrencyForAlert(outstandingReceivables)} outstanding in receivables.`,
+            });
+        }
+
+        return {
+            updatedAt: isoNow,
+            safety: {
+                openIncidents: openIncidents.length,
+                highSeverity,
+                daysSinceLastIncident,
+            },
+            workforce: {
+                complianceRate: Math.round(complianceRate * 10) / 10,
+                approvedThisWeek,
+                overtimeHours: Math.round(overtimeHours * 10) / 10,
+                averageHours: Math.round(averageHours * 10) / 10,
+                activeTimesheets,
+                pendingApprovals,
+            },
+            schedule: {
+                atRiskProjects: atRiskActiveProjects,
+                overdueProjects: portfolioSummary.overdueProjects,
+                tasksDueSoon,
+                overdueTasks,
+                tasksInProgress,
+                averageProgress: Math.round(portfolioSummary.averageProgress * 10) / 10,
+            },
+            financial: {
+                currency: companyCurrency,
+                approvedExpensesThisMonth: Math.round(approvedExpensesThisMonth * 100) / 100,
+                burnRatePerActiveProject: Math.round(burnRatePerActiveProject * 100) / 100,
+                outstandingReceivables: Math.round(outstandingReceivables * 100) / 100,
+            },
+            alerts,
+        };
     },
     getInvoicesByCompany: async (companyId: string, options?: RequestOptions): Promise<Invoice[]> => {
         ensureNotAborted(options?.signal);

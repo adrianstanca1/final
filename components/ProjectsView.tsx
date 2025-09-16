@@ -242,6 +242,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
     const baseProjects = filter === 'ALL' ? projects : projects.filter((project) => project.status === filter);
 
 
+
     const baseProjects = filter === 'ALL' ? projects : projects.filter(p => p.status === filter);
     const query = searchQuery.trim().toLowerCase();
 
@@ -353,6 +354,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
   };
  
 
+    
   const upcomingDeadlines = summaryForDisplay.upcomingDeadlines;
 
   const handleSuccess = useCallback(

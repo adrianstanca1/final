@@ -731,6 +731,46 @@ export interface CostBreakdown {
     amount: number;
 }
 
+export type OperationalAlertSeverity = 'info' | 'warning' | 'critical';
+
+export interface OperationalAlert {
+    id: string;
+    severity: OperationalAlertSeverity;
+    message: string;
+}
+
+export interface OperationalInsights {
+    updatedAt: string;
+    safety: {
+        openIncidents: number;
+        highSeverity: number;
+        daysSinceLastIncident: number | null;
+    };
+    workforce: {
+        complianceRate: number;
+        approvedThisWeek: number;
+        overtimeHours: number;
+        averageHours: number;
+        activeTimesheets: number;
+        pendingApprovals: number;
+    };
+    schedule: {
+        atRiskProjects: number;
+        overdueProjects: number;
+        tasksDueSoon: number;
+        overdueTasks: number;
+        tasksInProgress: number;
+        averageProgress: number;
+    };
+    financial: {
+        currency: string;
+        approvedExpensesThisMonth: number;
+        burnRatePerActiveProject: number;
+        outstandingReceivables: number;
+    };
+    alerts: OperationalAlert[];
+}
+
 export interface ProjectTemplate {
     id: string;
     name: string;
