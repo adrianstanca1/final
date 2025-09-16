@@ -1,12 +1,5 @@
-// full contents of components/ProjectsView.tsx
-
- codex/add-abort-feature-to-fetchdata
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { User, Project, Permission } from '../types';
-
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { User, Project, Permission, ProjectStatus } from '../types';
- main
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
 import { Card } from './ui/Card';

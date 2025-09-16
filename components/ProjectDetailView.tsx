@@ -263,12 +263,10 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project: i
     const [taskToEdit, setTaskToEdit] = useState<Todo | null>(null);
     const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
     const [taskForReminder, setTaskForReminder] = useState<Todo | null>(null);
- codex/add-abort-feature-to-fetchdata
     const abortControllerRef = useRef<AbortController | null>(null);
 
     const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
     const [insightError, setInsightError] = useState<string | null>(null);
- main
 
     const fetchData = useCallback(async () => {
         const controller = new AbortController();
@@ -278,20 +276,12 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project: i
         setLoading(true);
         try {
             if (!user.companyId) return;
- codex/add-abort-feature-to-fetchdata
-            const [taskData, docData, teamData, allIncidents, allExpenses] = await Promise.all([
+            const [taskData, docData, teamData, allIncidents, allExpenses, insightData] = await Promise.all([
                 api.getTodosByProjectIds([project.id], { signal: controller.signal }),
                 api.getDocumentsByProject(project.id, { signal: controller.signal }),
                 api.getUsersByProject(project.id, { signal: controller.signal }),
-                api.getSafetyIncidentsByCompany(user.companyId, { signal: controller.signal }),
-                api.getExpensesByCompany(user.companyId, { signal: controller.signal }),
-
-            const [taskData, docData, teamData, allIncidents, allExpenses, insightData] = await Promise.all([
-                api.getTodosByProjectIds([project.id]),
-                api.getDocumentsByProject(project.id),
-                api.getUsersByProject(project.id),
                 api.getSafetyIncidentsByCompany(user.companyId),
-                api.getExpensesByCompany(user.companyId),
+                api.getExpensesByCompany(user.companyId, { signal: controller.signal }),
                 api.getProjectInsights(project.id),
             ]);
             if (controller.signal.aborted) return;
@@ -304,6 +294,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project: i
             setIncidents(allIncidents.filter(i => i.projectId == project.id));
             if (controller.signal.aborted) return;
             setExpenses(allExpenses.filter(e => e.projectId == project.id));
+            if (controller.signal.aborted) return;
             setInsights(insightData);
             setInsightError(null);
         } catch (error) {
