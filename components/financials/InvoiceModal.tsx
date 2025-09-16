@@ -46,7 +46,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
         value: string | number
     ) => {
         const newItems = [...lineItems];
-        (newItems[index] as any)[field] = value;
+        newItems[index] = { ...newItems[index], [field]: value };
         setLineItems(newItems);
     };
 
