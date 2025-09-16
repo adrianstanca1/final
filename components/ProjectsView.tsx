@@ -1,7 +1,7 @@
 // full contents of components/ProjectsView.tsx
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { User, Project, Permission } from '../types';
+import { User, Project, Permission, ProjectStatus } from '../types';
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
 import { Card } from './ui/Card';
@@ -14,25 +14,60 @@ interface ProjectsViewProps {
   onSelectProject: (project: Project) => void;
 }
 
+const STATUS_BADGE_STYLES: Record<ProjectStatus, string> = {
+    PLANNING: 'bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-200',
+    ACTIVE: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200',
+    ON_HOLD: 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-200',
+    COMPLETED: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200',
+    CANCELLED: 'bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-200',
+};
+
+const STATUS_FILTERS = [
+    { label: 'All projects', value: 'ALL' },
+    { label: 'Active', value: 'ACTIVE' },
+    { label: 'Planning', value: 'PLANNING' },
+    { label: 'Completed', value: 'COMPLETED' },
+    { label: 'On hold', value: 'ON_HOLD' },
+    { label: 'Cancelled', value: 'CANCELLED' },
+] as const;
+
+type StatusFilterValue = typeof STATUS_FILTERS[number]['value'];
+
+const formatStatusLabel = (status: ProjectStatus) =>
+    status
+        .toLowerCase()
+        .split('_')
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+
 const ProjectCard: React.FC<{ project: Project; onSelect: () => void; }> = ({ project, onSelect }) => {
-    const budgetUtilization = (project.actualCost / project.budget) * 100;
+    const actualCost = typeof project.actualCost === 'number' ? project.actualCost : project.spent ?? 0;
+    const budget = typeof project.budget === 'number' ? project.budget : 0;
+    const utilisationRaw = budget > 0 ? (actualCost / budget) * 100 : 0;
+    const utilisation = Number.isFinite(utilisationRaw) ? Math.max(0, utilisationRaw) : 0;
+    const utilisationClass = utilisation > 100 ? 'bg-red-500' : 'bg-emerald-600';
+    const heroImage = project.imageUrl || project.image || `https://picsum.photos/seed/${project.id}/800/400`;
+    const budgetDisplay = budget > 0 ? Math.round(budget / 1000).toLocaleString() : '0';
+
     return (
-        <Card onClick={onSelect} className="cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all animate-card-enter">
-            <img src={project.imageUrl} alt={project.name} className="w-full h-40 object-cover rounded-lg mb-4" />
-            <h3 className="font-bold text-lg truncate">{project.name}</h3>
-            <p className="text-sm text-slate-500">{project.location.address}</p>
+        <Card
+            onClick={onSelect}
+            className="cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all animate-card-enter"
+        >
+            <img src={heroImage} alt={project.name} className="w-full h-40 object-cover rounded-lg mb-4" />
+            <h3 className="font-bold text-lg truncate text-foreground">{project.name}</h3>
+            <p className="text-sm text-muted-foreground">{project.location?.address ?? 'Location pending'}</p>
             <div className="flex justify-between items-center mt-4 text-sm">
-                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-// FIX: Changed status strings to uppercase to match type definitions.
-                    project.status === 'ACTIVE' ? 'bg-green-100 text-green-800' :
-                    project.status === 'COMPLETED' ? 'bg-sky-100 text-sky-800' : 'bg-yellow-100 text-yellow-800'
-                }`}>{project.status}</span>
-                <span>Budget: £{(project.budget/1000).toFixed(0)}k</span>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_BADGE_STYLES[project.status]}`}>
+                    {formatStatusLabel(project.status)}
+                </span>
+                <span className="text-muted-foreground">Budget: £{budgetDisplay}k</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
-                <div 
-                    className={`${budgetUtilization > 100 ? 'bg-red-500' : 'bg-green-600'}`}
-                    style={{ width: `${Math.min(100, budgetUtilization)}%`, height: '100%', borderRadius: 'inherit' }}
+            <div className="w-full bg-muted rounded-full h-1.5 mt-3">
+                <div
+                    className={`${utilisationClass}`}
+                    style={{ width: `${Math.min(100, Math.round(utilisation))}%`, height: '100%', borderRadius: 'inherit' }}
+                    aria-hidden
                 ></div>
             </div>
         </Card>
@@ -42,7 +77,7 @@ const ProjectCard: React.FC<{ project: Project; onSelect: () => void; }> = ({ pr
 export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSelectProject }) => {
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState('All');
+    const [filter, setFilter] = useState<StatusFilterValue>('ALL');
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
     const canCreate = hasPermission(user, Permission.CREATE_PROJECT);
@@ -71,7 +106,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
     }, [fetchData]);
     
     const filteredProjects = useMemo(() => {
-        if (filter === 'All') return projects;
+        if (filter === 'ALL') return projects;
         return projects.filter(p => p.status === filter);
     }, [projects, filter]);
 
@@ -97,13 +132,28 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
                 {canCreate && <Button onClick={() => setIsCreateModalOpen(true)}>Create Project</Button>}
             </div>
             
-            <div className="flex gap-2">
-                {['All', 'Active', 'Planning', 'Completed', 'On Hold'].map(f => (
-                    <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1 text-sm rounded-full ${filter === f ? 'bg-sky-600 text-white' : 'bg-white hover:bg-slate-100'}`}>{f}</button>
+            <div className="flex flex-wrap gap-2">
+                {STATUS_FILTERS.map(option => (
+                    <button
+                        key={option.value}
+                        onClick={() => setFilter(option.value)}
+                        className={`px-3 py-1 text-sm rounded-full border transition ${
+                            filter === option.value
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-card hover:bg-muted border-border text-muted-foreground'
+                        }`}
+                    >
+                        {option.label}
+                    </button>
                 ))}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredProjects.length === 0 && (
+                    <Card className="col-span-full text-center py-16">
+                        <p className="text-muted-foreground">No projects match this filter yet.</p>
+                    </Card>
+                )}
                 {filteredProjects.map(project => (
                     <ProjectCard key={project.id} project={project} onSelect={() => onSelectProject(project)} />
                 ))}
