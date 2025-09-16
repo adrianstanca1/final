@@ -6,6 +6,7 @@ import {
     User,
     Company,
     Project,
+    ProjectPortfolioSummary,
     Task,
     TimeEntry,
     SafetyIncident,
@@ -54,10 +55,12 @@ import {
     TodoStatus,
     TodoPriority,
 } from '../types';
+import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
 
 const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
 
 type RequestOptions = { signal?: AbortSignal };
+type ProjectSummaryOptions = RequestOptions & { projectIds?: string[] };
 
 const ensureNotAborted = (signal?: AbortSignal) => {
     if (signal?.aborted) {
@@ -662,6 +665,29 @@ export const api = {
     getProjectsByCompany: async (companyId: string, options?: RequestOptions): Promise<Project[]> => {
         ensureNotAborted(options?.signal);
         return db.projects.filter(p => p.companyId === companyId) as Project[];
+    },
+    getProjectPortfolioSummary: async (
+        companyId: string,
+        options?: ProjectSummaryOptions
+    ): Promise<ProjectPortfolioSummary> => {
+        ensureNotAborted(options?.signal);
+        await delay();
+        ensureNotAborted(options?.signal);
+
+        const scopedIds = options?.projectIds?.map(String);
+        const idFilter = scopedIds && scopedIds.length > 0 ? new Set(scopedIds) : null;
+
+        const scopedProjects = db.projects.filter(project => {
+            if (project.companyId !== companyId) {
+                return false;
+            }
+            if (idFilter) {
+                return project.id != null && idFilter.has(String(project.id));
+            }
+            return true;
+        });
+
+        return computeProjectPortfolioSummary(scopedProjects);
     },
     findGrants: async (keywords: string, location: string): Promise<Grant[]> => {
         await delay(1000);
