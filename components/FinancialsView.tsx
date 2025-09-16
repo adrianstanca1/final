@@ -1197,17 +1197,10 @@ const renderInvoicesAndQuotes = () => (
 
   return (
     <div className="space-y-6">
-      {modal === 'client' && (
-        <ClientModal
-          clientToEdit={selectedItem as Client}
-          onClose={() => setModal(null)}
-          onSuccess={fetchData}
-          user={user}
-          addToast={addToast}
-        />
-      )}
-      {modal === 'invoice' && (
-        <InvoiceModal
+      <p>FinancialsView - TODO: restore content</p>
+    </div>
+  );
+};
           invoiceToEdit={selectedInvoice}
           isReadOnly={isInvoiceReadOnly}
           onClose={() => setModal(null)}
