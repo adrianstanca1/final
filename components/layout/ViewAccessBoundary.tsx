@@ -26,6 +26,42 @@ const humanise = (value: string): string =>
     .map((segment) => segment.charAt(0) + segment.slice(1).toLowerCase())
     .join(' ');
 
+const PermissionRequirements: React.FC<{ permissions: Permission[]; anyGroups: Permission[][] }> = ({ permissions, anyGroups }) => {
+  const uniquePermissions = Array.from(new Set(permissions));
+  const sanitizedAnyGroups = anyGroups
+    .map((group) => Array.from(new Set(group)))
+    .filter((group) => group.length > 0);
+
+  if (uniquePermissions.length === 0 && sanitizedAnyGroups.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-4">
+      {uniquePermissions.length > 0 ? (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Requires all of</p>
+          <div className="flex flex-wrap gap-2">
+            {uniquePermissions.map((permission) => (
+              <Tag key={permission} label={humanise(permission)} color="red" statusIndicator="red" />
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {sanitizedAnyGroups.map((group, index) => (
+        <div key={`${group.join('-')}-${index}`} className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {sanitizedAnyGroups.length > 1 ? `Requires any of (option ${index + 1})` : 'Requires any of'}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {group.map((permission) => (
+              <Tag key={permission} label={humanise(permission)} color="yellow" statusIndicator="yellow" />
+            ))}
+          </div>
+        </div>
+      ))}
+
 const PermissionList: React.FC<{ permissions: Permission[] }> = ({ permissions }) => {
   const uniquePermissions = Array.from(new Set(permissions));
 
@@ -39,6 +75,7 @@ const PermissionList: React.FC<{ permissions: Permission[] }> = ({ permissions }
           <Tag key={permission} label={humanise(permission)} color="red" statusIndicator="red" />
         ))}
       </div>
+ main
     </div>
   );
 };
@@ -108,6 +145,8 @@ export const ViewAccessBoundary: React.FC<ViewAccessBoundaryProps> = ({
               </p>
             </div>
           </div>
+
+          <PermissionRequirements permissions={access.missingPermissions} anyGroups={access.missingAnyPermissionGroups} />
 
           <PermissionList permissions={access.missingPermissions} />
           <AllowedRoleList roles={access.allowedRoles} />
