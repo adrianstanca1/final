@@ -2,7 +2,7 @@
 // Supports offline queuing for write operations.
 
 import { initialData } from './mockData';
-import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegisterCredentials, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority } from '../types';
+import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegisterCredentials, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority } from '../types';
 
 const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
 
@@ -76,6 +76,7 @@ let db: {
     projectTemplates: Partial<ProjectTemplate>[];
     whiteboardNotes: Partial<WhiteboardNote>[];
     documents: Partial<Document>[];
+    projectInsights: Partial<ProjectInsight>[];
 } = {
     companies: hydrateData('companies', initialData.companies),
     users: hydrateData('users', initialData.users),
@@ -99,6 +100,7 @@ let db: {
     projectTemplates: hydrateData('projectTemplates', []),
     whiteboardNotes: hydrateData('whiteboardNotes', []),
     documents: hydrateData('documents', []),
+    projectInsights: hydrateData('projectInsights', (initialData as any).projectInsights || []),
 };
 
 const saveDb = () => {
@@ -386,6 +388,51 @@ export const api = {
     getDocumentsByProject: async (projectId: string): Promise<Document[]> => {
         await delay();
         return db.documents.filter(d => d.projectId === projectId) as Document[];
+    },
+    getProjectInsights: async (projectId: string): Promise<ProjectInsight[]> => {
+        await delay();
+        return db.projectInsights
+            .filter(insight => insight.projectId === projectId)
+            .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+            .map(insight => ({
+                id: insight.id!,
+                projectId: insight.projectId!,
+                summary: insight.summary || '',
+                type: (insight.type as ProjectInsight['type']) || 'CUSTOM',
+                createdAt: insight.createdAt || new Date().toISOString(),
+                createdBy: insight.createdBy || 'system',
+                model: insight.model,
+                metadata: insight.metadata,
+            }));
+    },
+    createProjectInsight: async (
+        data: { projectId: string; summary: string; type?: ProjectInsight['type']; metadata?: Record<string, unknown>; model?: string },
+        userId: string
+    ): Promise<ProjectInsight> => {
+        await delay();
+        if (!data.projectId) {
+            throw new Error('projectId is required to create an insight.');
+        }
+        if (!data.summary.trim()) {
+            throw new Error('summary is required to create an insight.');
+        }
+
+        const newInsight: ProjectInsight = {
+            id: String(Date.now() + Math.random()),
+            projectId: data.projectId,
+            summary: data.summary,
+            type: data.type || 'CUSTOM',
+            createdAt: new Date().toISOString(),
+            createdBy: userId,
+            model: data.model,
+            metadata: data.metadata,
+        };
+
+        db.projectInsights.push(newInsight);
+        const project = db.projects.find(p => p.id === data.projectId);
+        addAuditLog(userId, 'generated_project_insight', project ? { type: 'project', id: project.id!, name: project.name || '' } : undefined);
+        saveDb();
+        return newInsight;
     },
     getUsersByProject: async (projectId: string): Promise<User[]> => {
         await delay();

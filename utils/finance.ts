@@ -35,8 +35,6 @@ const getDueDateValue = (invoice: Invoice): number | null =>
 
 export const getInvoiceFinancials = (invoice: Invoice): InvoiceFinancials => {
   const lineItems = invoice.lineItems || [];
-
-  const subtotal = lineItems.reduce((acc, item) => {
   const hasLineItems = lineItems.length > 0;
 
   const computedSubtotal = lineItems.reduce((acc, item) => {
@@ -44,13 +42,6 @@ export const getInvoiceFinancials = (invoice: Invoice): InvoiceFinancials => {
     const rate = toNumber(item.unitPrice ?? item.rate);
     return acc + quantity * rate;
   }, 0);
-
-  const taxRate = toNumber(invoice.taxRate);
-  const retentionRate = toNumber(invoice.retentionRate);
-
-  const taxAmount = subtotal * taxRate;
-  const retentionAmount = subtotal * retentionRate;
-  const total = subtotal + taxAmount - retentionAmount;
 
   const storedSubtotal = toNumber(invoice.subtotal);
   const subtotal = hasLineItems ? computedSubtotal : storedSubtotal || computedSubtotal;
@@ -73,9 +64,7 @@ export const getInvoiceFinancials = (invoice: Invoice): InvoiceFinancials => {
   const payments = invoice.payments || [];
   const paidFromPayments = payments.reduce((acc, payment) => acc + toNumber(payment.amount), 0);
   const recordedPaidAmount = toNumber(invoice.amountPaid);
- 
-  const amountPaid = Math.max(recordedPaidAmount, paidFromPayments);
-  const balance = Math.max(0, total - amountPaid);
+
   const storedBalanceValue =
     !hasLineItems && invoice.balance !== undefined
       ? Math.max(0, toNumber(invoice.balance))
@@ -87,7 +76,6 @@ export const getInvoiceFinancials = (invoice: Invoice): InvoiceFinancials => {
   }
 
   const rawAmountPaid = Math.max(0, ...amountPaidCandidates);
-
   const computedBalance = Math.max(0, total - rawAmountPaid);
   const balance =
     storedBalanceValue !== null && Number.isFinite(storedBalanceValue)
