@@ -141,58 +141,60 @@ const InvoiceModal: React.FC<{ invoiceToEdit?: Invoice | null, isReadOnly?: bool
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
             <Card className="w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e=>e.stopPropagation()}>
                 <h3 className="text-lg font-bold mb-4">{invoiceToEdit ? `${isReadOnly ? 'View' : 'Edit'} Invoice ${invoiceToEdit.invoiceNumber}` : 'Create Invoice'}</h3>
-                <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto pr-2 flex-grow">
-                    <div className="grid grid-cols-2 gap-4">
-                        <select value={clientId} onChange={e=>setClientId(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-800" required disabled={isReadOnly}><option value="">Select Client</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
-                        <select value={projectId} onChange={e=>setProjectId(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-800" required disabled={isReadOnly}><option value="">Select Project</option>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
-                        <div><label className="text-xs">Issued Date</label><input type="date" value={issuedAt} onChange={e=>setIssuedAt(e.target.value)} className="w-full p-2 border rounded" disabled={isReadOnly}/></div>
-                        <div><label className="text-xs">Due Date</label><input type="date" value={dueAt} onChange={e=>setDueAt(e.target.value)} className="w-full p-2 border rounded" disabled={isReadOnly}/></div>
-                    </div>
-                    <div className="border-t pt-2">
-                        <h4 className="font-semibold">Line Items</h4>
-                        <div className="grid grid-cols-[1fr,90px,130px,130px,40px] gap-2 items-center mt-1 text-xs text-muted-foreground">
-                            <span>Description</span>
-                            <span className="text-right">Quantity</span>
-                            <span className="text-right">Unit Price</span>
-                            <span className="text-right">Amount</span>
+                <form onSubmit={handleSubmit} className="flex flex-col flex-grow">
+                    <div className="space-y-4 overflow-y-auto pr-2 flex-grow">
+                        <div className="grid grid-cols-2 gap-4">
+                            <select value={clientId} onChange={e=>setClientId(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-800" required disabled={isReadOnly}><option value="">Select Client</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
+                            <select value={projectId} onChange={e=>setProjectId(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-800" required disabled={isReadOnly}><option value="">Select Project</option>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
+                            <div><label className="text-xs">Issued Date</label><input type="date" value={issuedAt} onChange={e=>setIssuedAt(e.target.value)} className="w-full p-2 border rounded" disabled={isReadOnly}/></div>
+                            <div><label className="text-xs">Due Date</label><input type="date" value={dueAt} onChange={e=>setDueAt(e.target.value)} className="w-full p-2 border rounded" disabled={isReadOnly}/></div>
                         </div>
-                        {lineItems.map((item, i) => (
-                            <div key={item.id} className="grid grid-cols-[1fr,90px,130px,130px,40px] gap-2 items-center mt-2">
-                                <input type="text" value={item.description} onChange={e=>handleLineItemChange(i, 'description', e.target.value)} placeholder="Item or service description" className="p-1 border rounded" disabled={isReadOnly}/>
-                                <input type="number" value={item.quantity} onChange={e=>handleLineItemChange(i, 'quantity', Number(e.target.value))} placeholder="1" className="p-1 border rounded text-right" disabled={isReadOnly}/>
-                                <input type="number" value={item.unitPrice} onChange={e=>handleLineItemChange(i, 'unitPrice', Number(e.target.value))} placeholder="0.00" className="p-1 border rounded text-right" disabled={isReadOnly}/>
-                                <span className="p-1 text-right font-medium">{formatCurrency((item.quantity || 0) * (item.unitPrice || 0))}</span>
-                                {!isReadOnly && <Button type="button" variant="danger" size="sm" onClick={() => removeLineItem(i)}>&times;</Button>}
+                        <div className="border-t pt-2">
+                            <h4 className="font-semibold">Line Items</h4>
+                            <div className="grid grid-cols-[1fr,90px,130px,130px,40px] gap-2 items-center mt-1 text-xs text-muted-foreground">
+                                <span>Description</span>
+                                <span className="text-right">Quantity</span>
+                                <span className="text-right">Unit Price</span>
+                                <span className="text-right">Amount</span>
                             </div>
-                        ))}
-                        {!isReadOnly && <Button type="button" variant="secondary" size="sm" className="mt-2" onClick={addLineItem}>+ Add Item</Button>}
+                            {lineItems.map((item, i) => (
+                                <div key={item.id} className="grid grid-cols-[1fr,90px,130px,130px,40px] gap-2 items-center mt-2">
+                                    <input type="text" value={item.description} onChange={e=>handleLineItemChange(i, 'description', e.target.value)} placeholder="Item or service description" className="p-1 border rounded" disabled={isReadOnly}/>
+                                    <input type="number" value={item.quantity} onChange={e=>handleLineItemChange(i, 'quantity', Number(e.target.value))} placeholder="1" className="p-1 border rounded text-right" disabled={isReadOnly}/>
+                                    <input type="number" value={item.unitPrice} onChange={e=>handleLineItemChange(i, 'unitPrice', Number(e.target.value))} placeholder="0.00" className="p-1 border rounded text-right" disabled={isReadOnly}/>
+                                    <span className="p-1 text-right font-medium">{formatCurrency((item.quantity || 0) * (item.unitPrice || 0))}</span>
+                                    {!isReadOnly && <Button type="button" variant="danger" size="sm" onClick={() => removeLineItem(i)}>&times;</Button>}
+                                </div>
+                            ))}
+                            {!isReadOnly && <Button type="button" variant="secondary" size="sm" className="mt-2" onClick={addLineItem}>+ Add Item</Button>}
+                        </div>
+                        <div className="border-t pt-4 grid grid-cols-2 gap-8">
+                            <div>
+                                 <h4 className="font-semibold mb-2">Notes</h4>
+                                <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Payment details, terms and conditions..." rows={6} className="p-2 border rounded w-full" disabled={isReadOnly}/>
+                            </div>
+                            <div className="space-y-2">
+                                 <h4 className="font-semibold mb-2">Totals</h4>
+                                <div className="flex justify-between items-center"><span className="text-sm">Subtotal:</span><span className="font-medium">{formatCurrency(subtotal)}</span></div>
+                                <div className="flex justify-between items-center"><label htmlFor="taxRate" className="text-sm">Tax (%):</label><input id="taxRate" type="number" value={taxRate} onChange={e=>setTaxRate(e.target.value === '' ? '' : Number(e.target.value))} className="w-24 p-1 border rounded text-right" disabled={isReadOnly}/></div>
+                                 <div className="flex justify-between items-center"><span className="text-sm text-muted-foreground">Tax Amount:</span><span>{formatCurrency(taxAmount)}</span></div>
+                                 <div className="flex justify-between items-center"><label htmlFor="retentionRate" className="text-sm">Retention (%):</label><input id="retentionRate" type="number" value={retentionRate} onChange={e=>setRetentionRate(e.target.value === '' ? '' : Number(e.target.value))} className="w-24 p-1 border rounded text-right" disabled={isReadOnly}/></div>
+                                <div className="flex justify-between items-center"><span className="text-sm text-red-600">Retention Held:</span><span className="text-red-600 font-medium">-{formatCurrency(retentionAmount)}</span></div>
+                                <div className="flex justify-between items-center font-bold text-lg pt-2 border-t"><span >Total Due:</span><span>{formatCurrency(total)}</span></div>
+                                {invoiceToEdit && (
+                                    <>
+                                     <div className="flex justify-between items-center text-sm"><span >Amount Paid:</span><span>-{formatCurrency(amountPaid)}</span></div>
+                                     <div className="flex justify-between items-center font-bold text-lg text-green-600"><span >Balance:</span><span>{formatCurrency(balance)}</span></div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                    <div className="border-t pt-4 grid grid-cols-2 gap-8">
-                        <div>
-                             <h4 className="font-semibold mb-2">Notes</h4>
-                            <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Payment details, terms and conditions..." rows={6} className="p-2 border rounded w-full" disabled={isReadOnly}/>
-                        </div>
-                        <div className="space-y-2">
-                             <h4 className="font-semibold mb-2">Totals</h4>
-                            <div className="flex justify-between items-center"><span className="text-sm">Subtotal:</span><span className="font-medium">{formatCurrency(subtotal)}</span></div>
-                            <div className="flex justify-between items-center"><label htmlFor="taxRate" className="text-sm">Tax (%):</label><input id="taxRate" type="number" value={taxRate} onChange={e=>setTaxRate(e.target.value === '' ? '' : Number(e.target.value))} className="w-24 p-1 border rounded text-right" disabled={isReadOnly}/></div>
-                             <div className="flex justify-between items-center"><span className="text-sm text-muted-foreground">Tax Amount:</span><span>{formatCurrency(taxAmount)}</span></div>
-                             <div className="flex justify-between items-center"><label htmlFor="retentionRate" className="text-sm">Retention (%):</label><input id="retentionRate" type="number" value={retentionRate} onChange={e=>setRetentionRate(e.target.value === '' ? '' : Number(e.target.value))} className="w-24 p-1 border rounded text-right" disabled={isReadOnly}/></div>
-                            <div className="flex justify-between items-center"><span className="text-sm text-red-600">Retention Held:</span><span className="text-red-600 font-medium">-{formatCurrency(retentionAmount)}</span></div>
-                            <div className="flex justify-between items-center font-bold text-lg pt-2 border-t"><span >Total Due:</span><span>{formatCurrency(total)}</span></div>
-                            {invoiceToEdit && (
-                                <>
-                                 <div className="flex justify-between items-center text-sm"><span >Amount Paid:</span><span>-{formatCurrency(amountPaid)}</span></div>
-                                 <div className="flex justify-between items-center font-bold text-lg text-green-600"><span >Balance:</span><span>{formatCurrency(balance)}</span></div>
-                                </>
-                            )}
-                        </div>
+                    <div className="flex justify-end gap-2 pt-4 border-t mt-4 flex-shrink-0">
+                        <Button type="button" variant="secondary" onClick={onClose}>{isReadOnly ? 'Close' : 'Cancel'}</Button>
+                        {!isReadOnly && <Button type="submit" isLoading={isSaving}>Save Invoice</Button>}
                     </div>
                 </form>
-                <div className="flex justify-end gap-2 pt-4 border-t mt-4 flex-shrink-0">
-                    <Button variant="secondary" onClick={onClose}>{isReadOnly ? 'Close' : 'Cancel'}</Button>
-                    {!isReadOnly && <Button type="submit" isLoading={isSaving} onClick={handleSubmit}>Save Invoice</Button>}
-                </div>
             </Card>
         </div>
     );
