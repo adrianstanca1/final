@@ -6,6 +6,7 @@ import { Card } from './ui/Card';
 import { InvoiceStatusBadge } from './ui/StatusBadge';
 import { Tag } from './ui/Tag';
 import { Client, Invoice, InvoiceStatus, Project, User } from '../types';
+import { getDerivedStatus, getInvoiceFinancials } from '../utils/finance';
 
 type StatusFilter = 'ALL' | InvoiceStatus;
 
@@ -54,41 +55,6 @@ const getDateValue = (value?: string): number | null => {
 const getDueDateValue = (invoice: Invoice): number | null => getDateValue(getDueDate(invoice));
 
 const getIssuedDateValue = (invoice: Invoice): number | null => getDateValue(getIssuedDate(invoice));
-
-const calculateInvoiceFinancials = (invoice: Invoice) => {
-  const subtotal = (invoice.lineItems || []).reduce(
-    (acc, item) => acc + (Number(item.quantity) || 0) * (Number(item.unitPrice ?? item.rate) || 0),
-    0,
-  );
-  const taxAmount = subtotal * (invoice.taxRate || 0);
-  const retentionAmount = subtotal * (invoice.retentionRate || 0);
-  const total = subtotal + taxAmount - retentionAmount;
-  const payments = invoice.payments || [];
-  const paidFromPayments = payments.reduce((acc, payment) => acc + payment.amount, 0);
-  const amountPaid = Math.max(invoice.amountPaid || 0, paidFromPayments);
-  const balance = Math.max(0, total - amountPaid);
-
-  return { subtotal, taxAmount, retentionAmount, total, amountPaid, balance, payments };
-};
-
-const getDerivedStatus = (invoice: Invoice): InvoiceStatus => {
-  const { balance } = calculateInvoiceFinancials(invoice);
-
-  if (invoice.status === InvoiceStatus.CANCELLED) return InvoiceStatus.CANCELLED;
-  if (invoice.status === InvoiceStatus.DRAFT) return InvoiceStatus.DRAFT;
-  if (balance <= 0) return InvoiceStatus.PAID;
-
-  const dueValue = getDueDateValue(invoice);
-  if (
-    (invoice.status === InvoiceStatus.SENT || invoice.status === InvoiceStatus.OVERDUE) &&
-    dueValue !== null &&
-    dueValue < Date.now()
-  ) {
-    return InvoiceStatus.OVERDUE;
-  }
-
-  return invoice.status;
-};
 
 const getAgingInfo = (invoice: Invoice) => {
   const dueValue = getDueDateValue(invoice);
@@ -217,7 +183,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
       setPaymentAmount('');
       return;
     }
-    const { balance } = calculateInvoiceFinancials(selectedInvoice);
+    const { balance } = getInvoiceFinancials(selectedInvoice);
     setPaymentAmount(balance > 0 ? balance.toFixed(2) : '');
     setPaymentMethod('BANK_TRANSFER');
   }, [selectedInvoice]);
@@ -234,7 +200,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     invoices.forEach((invoice) => {
-      const { total, amountPaid, balance, payments } = calculateInvoiceFinancials(invoice);
+      const { total, amountPaid, balance, payments } = getInvoiceFinancials(invoice);
       totalBilled += total;
       totalCollected += amountPaid;
 
@@ -353,7 +319,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
       return;
     }
 
-    const { balance } = calculateInvoiceFinancials(selectedInvoice);
+    const { balance } = getInvoiceFinancials(selectedInvoice);
     if (amount > balance) {
       addToast('Amount exceeds outstanding balance.', 'error');
       return;
@@ -373,7 +339,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
   };
 
   const selectedInvoiceStatus = selectedInvoice ? getDerivedStatus(selectedInvoice) : null;
-  const selectedInvoiceFinancials = selectedInvoice ? calculateInvoiceFinancials(selectedInvoice) : null;
+  const selectedInvoiceFinancials = selectedInvoice ? getInvoiceFinancials(selectedInvoice) : null;
   const selectedAging = selectedInvoice ? getAgingInfo(selectedInvoice) : null;
 
   return (
@@ -727,7 +693,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
                   <tbody className="divide-y divide-border bg-card">
                     {filteredInvoices.map((invoice) => {
                       const derivedStatus = getDerivedStatus(invoice);
-                      const financials = calculateInvoiceFinancials(invoice);
+                      const financials = getInvoiceFinancials(invoice);
                       const aging = getAgingInfo(invoice);
 
                       return (
