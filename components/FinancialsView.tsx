@@ -1,3 +1,6 @@
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { User, FinancialKPIs, MonthlyFinancials, CostBreakdown, Invoice, Quote, Client, Project, Permission, Expense, ExpenseStatus, InvoiceStatus, QuoteStatus } from '../types';
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     User,
@@ -41,8 +44,58 @@ import { InvoiceStatusBadge, QuoteStatusBadge } from './ui/StatusBadge';
 import { hasPermission } from '../services/auth';
 import { Tag } from './ui/Tag';
 import { ExpenseModal } from './ExpenseModal';
+import ClientModal from './financials/ClientModal';
+import InvoiceModal from './financials/InvoiceModal';
+import PaymentModal from './financials/PaymentModal';
+import BarChart from './financials/BarChart';
+import { formatCurrency } from '../utils/finance';
 
 type FinancialsTab = 'dashboard' | 'invoices' | 'expenses' | 'clients';
+
+// --- Main View ---
+
+export const FinancialsView: React.FC<{ user: User; addToast: (message: string, type: 'success' | 'error') => void; }> = ({ user, addToast }) => {
+    const [activeTab, setActiveTab] = useState<FinancialsTab>('dashboard');
+    const [loading, setLoading] = useState(true);
+    const [data, setData] = useState({
+        kpis: null as FinancialKPIs | null,
+        monthly: [] as MonthlyFinancials[],
+        costs: [] as CostBreakdown[],
+        invoices: [] as Invoice[],
+        quotes: [] as Quote[],
+        expenses: [] as Expense[],
+        clients: [] as Client[],
+        projects: [] as Project[],
+        users: [] as User[],
+    });
+
+    const [modal, setModal] = useState<'client' | 'invoice' | 'payment' | 'expense' | null>(null);
+    const [selectedItem, setSelectedItem] = useState<Client | Invoice | Expense | null>(null);
+
+    const canManageFinances = hasPermission(user, Permission.MANAGE_FINANCES);
+
+    const fetchData = useCallback(async () => {
+        if (!user.companyId) return;
+        setLoading(true);
+        try {
+            const [kpiData, monthlyData, costsData, invoiceData, quoteData, expenseData, clientData, projectData, usersData] = await Promise.all([
+                api.getFinancialKPIsForCompany(user.companyId),
+                api.getMonthlyFinancials(user.companyId),
+                api.getCostBreakdown(user.companyId),
+                api.getInvoicesByCompany(user.companyId),
+                api.getQuotesByCompany(user.companyId),
+                api.getExpensesByCompany(user.companyId),
+                api.getClientsByCompany(user.companyId),
+                api.getProjectsByCompany(user.companyId),
+                api.getUsersByCompany(user.companyId),
+            ]);
+            setData({ kpis: kpiData, monthly: monthlyData, costs: costsData, invoices: invoiceData, quotes: quoteData, expenses: expenseData, clients: clientData, projects: projectData, users: usersData });
+        } catch (error) {
+            addToast("Failed to load financial data", 'error');
+        } finally {
+            setLoading(false);
+        }
+    }, [user.companyId, addToast]);
 
 const formatCurrency = (amount: number, currency: string = 'GBP') =>
   new Intl.NumberFormat('en-GB', {
