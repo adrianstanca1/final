@@ -47,6 +47,7 @@ const formatSignedPercentage = (value: number) => {
 };
 
 
+
 const createLineItemDraft = (): InvoiceLineItemDraft => ({
   id: `new-${Date.now()}-${Math.random().toString(16).slice(2)}`,
   description: '',
@@ -1211,6 +1212,7 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
     </div>
   );
 };
+
 
 
 interface DashboardTabProps {

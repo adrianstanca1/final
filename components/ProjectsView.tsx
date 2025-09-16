@@ -240,6 +240,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
   const filteredProjects = useMemo(() => {
     const baseProjects = filter === 'ALL' ? projects : projects.filter((project) => project.status === filter);
 
+
     const baseProjects = filter === 'ALL' ? projects : projects.filter(p => p.status === filter);
     const query = searchQuery.trim().toLowerCase();
 
@@ -320,6 +321,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
     [summaryForDisplay]
   );
 
+
   };
 
   const portfolioSummary = useMemo(() => {
@@ -348,6 +350,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
     setProjects(prev => [...prev, newProject]);
     onSelectProject(newProject);
   };
+ 
 
   const upcomingDeadlines = summaryForDisplay.upcomingDeadlines;
 
