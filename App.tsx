@@ -227,6 +227,65 @@ function App() {
       setActiveView('chat');
   };
 
+  const handleNotificationClick = useCallback(async (notification: Notification) => {
+    if (!user) return;
+
+    const wasUnread = !(notification.isRead ?? notification.read);
+
+    try {
+      if (wasUnread) {
+        await api.markNotificationAsRead(notification.id);
+      }
+
+      setNotifications(prev => prev.map(n => (
+        n.id === notification.id ? { ...n, isRead: true, read: true } : n
+      )));
+
+      previousNotificationsRef.current = previousNotificationsRef.current.map(n => (
+        n.id === notification.id ? { ...n, isRead: true, read: true } : n
+      ));
+
+      if (wasUnread) {
+        setUnreadNotificationCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error('Failed to update notification state', error);
+      addToast('Unable to update that notification right now.', 'error');
+      return;
+    }
+
+    const metadata = (notification.metadata ?? {}) as { view?: View; projectId?: string };
+
+    if (metadata.projectId) {
+      try {
+        const project = await api.getProjectById(metadata.projectId);
+        if (project) {
+          setSelectedProject(project);
+          changeView('project-detail');
+          return;
+        }
+        addToast('The project linked to this notification is no longer available.', 'error');
+        changeView('projects');
+        return;
+      } catch (error) {
+        console.error('Failed to load project from notification', error);
+        addToast('We could not open the related project.', 'error');
+        changeView('projects');
+        return;
+      }
+    } else if (metadata.view && metadata.view !== activeView) {
+      changeView(metadata.view);
+      return;
+    } else if (notification.type === NotificationType.NEW_MESSAGE) {
+      changeView('chat');
+      return;
+    }
+
+    if (wasUnread) {
+      addToast('Notification marked as read.', 'success');
+    }
+  }, [user, addToast, changeView, activeView]);
+
   const renderView = () => {
     if (!user) return null;
     if (activeView === 'project-detail' && selectedProject) {
@@ -340,12 +399,13 @@ function App() {
           onCommandPaletteClick={() => setIsCommandPaletteOpen(true)}
           unreadNotificationCount={unreadNotificationCount}
           notifications={notifications}
-          onNotificationClick={() => { /* Implement navigation */ }}
+          onNotificationClick={handleNotificationClick}
           onMarkAllNotificationsAsRead={async () => {
             if (!user) return;
             await api.markAllNotificationsAsRead(user.id);
             updateBadgeCounts(user);
           }}
+          addToast={addToast}
         />
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
           <ErrorBoundary>
