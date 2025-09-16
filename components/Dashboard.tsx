@@ -8,6 +8,7 @@ import { hasPermission } from '../services/auth';
 import { Avatar } from './ui/Avatar';
 import { EquipmentStatusBadge } from './ui/StatusBadge';
 import { Tag } from './ui/Tag';
+import { ViewHeader } from './layout/ViewHeader';
 // FIX: Removed `startOfWeek` from import and added a local implementation to resolve the module export error.
 import { format, eachDayOfInterval, isWithinInterval } from 'date-fns';
 
@@ -160,8 +161,29 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
 
     return (
         <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-foreground">Welcome back, {user.firstName}!</h1>
-            
+            <ViewHeader
+                title={`Welcome back, ${user.firstName}!`}
+                description="Here's how your teams and projects are performing right now."
+                meta={[
+                    {
+                        label: 'Active projects',
+                        value: kpiData.activeProjectsCount.toString(),
+                        indicator: kpiData.activeProjectsCount > 0 ? 'positive' : 'neutral',
+                    },
+                    {
+                        label: 'Team members',
+                        value: kpiData.teamSize.toString(),
+                        helper: 'Across your organisation',
+                    },
+                    {
+                        label: 'Budget utilisation',
+                        value: `${kpiData.budgetUtilization}%`,
+                        helper: 'Across active projects',
+                        indicator: Number(kpiData.budgetUtilization) > 90 ? 'warning' : 'positive',
+                    },
+                ]}
+            />
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <KpiCard title="Active Projects" value={kpiData.activeProjectsCount.toString()} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>} />
                 <KpiCard title="Team Size" value={kpiData.teamSize.toString()} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656-.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} />

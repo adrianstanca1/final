@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User, Project, Todo, Document, Role, Permission, TodoStatus, TodoPriority, SafetyIncident, Expense, ExpenseStatus } from '../types';
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { User, Project, Todo, Document, Role, Permission, TodoStatus, TodoPriority, SafetyIncident, Expense, ExpenseStatus, ProjectInsight } from '../types';
+
 // FIX: Corrected API import
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
@@ -14,8 +18,8 @@ import { TaskModal } from './TaskModal';
 import { Tag } from './ui/Tag';
 import { ReminderModal } from './ReminderModal';
 import { WhiteboardView } from './WhiteboardView';
-
-interface ProjectDetailViewProps {
+import { generateProjectHealthSummary } from '../services/ai';
+ interface ProjectDetailViewProps {
   project: Project;
   user: User;
   onBack: () => void;
@@ -28,48 +32,123 @@ type DetailTab = 'overview' | 'tasks' | 'whiteboard' | 'documents' | 'team' | 's
 
 const formatCurrency = (amount: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
 
-const ProjectHealthSummary: React.FC<{ project: Project; tasks: Todo[]; }> = ({ project, tasks }) => {
-    const [summary, setSummary] = useState('');
-    const [loading, setLoading] = useState(false);
+const ProjectHealthSummary: React.FC<{
+    project: Project;
+    insights: ProjectInsight[];
+    onGenerate: () => void;
+    isGenerating: boolean;
+    error?: string | null;
+    isOnline: boolean;
+}> = ({ project, insights, onGenerate, isGenerating, error, isOnline }) => {
+    const latestInsight = insights[0] ?? null;
 
-    const generateSummary = useCallback(async () => {
-        setLoading(true);
-        try {
-            // This would be a call to a Gemini model in a real app
-            await new Promise(res => setTimeout(res, 1200));
-            const completedTasks = tasks.filter(t => t.status === TodoStatus.DONE).length;
-            const progress = tasks.length > 0 ? (completedTasks / tasks.length) * 100 : 0;
-            const budgetUsage = (project.actualCost / project.budget) * 100;
-            
-            let health = 'Good';
-            if (budgetUsage > 100 || progress < 50 && budgetUsage > 60) health = 'Poor';
-            else if (budgetUsage > 90) health = 'Fair';
-            
-            setSummary(
-                `Project health is **${health}**. \n` +
-                `- **Progress:** ${progress.toFixed(0)}% complete (${completedTasks}/${tasks.length} tasks). \n` +
-                `- **Budget:** ${budgetUsage.toFixed(0)}% utilized. Currently ${budgetUsage > 100 ? 'over' : 'within'} budget. \n` +
-                `- **Recommendation:** Focus on completing high-priority tasks to maintain schedule.`
-            );
-        } catch (error)
-{
-            setSummary('Could not generate AI summary.');
-        } finally {
-            setLoading(false);
-        }
-    }, [project, tasks]);
+    const renderSummary = (summary: string, keyPrefix: string) => (
+        summary
+            .split('\n')
+            .map(line => line.trim())
+            .filter(line => line.length > 0)
+            .map((line, index) => (
+                <p
+                    key={`${keyPrefix}-${index}`}
+                    dangerouslySetInnerHTML={{
+                        __html: line
+                            .replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>')
+                            .replace(/^[-•]\s+/, '• '),
+                    }}
+                ></p>
+            ))
+    );
+
+    const metadata = (latestInsight?.metadata ?? {}) as Record<string, unknown>;
+    const totalTasks = typeof metadata.totalTasks === 'number' ? metadata.totalTasks : undefined;
+    const completedTasks = typeof metadata.completedTasks === 'number' ? metadata.completedTasks : undefined;
+    const averageProgress = typeof metadata.averageProgress === 'number' ? metadata.averageProgress : undefined;
+    const budgetUtilisation = typeof metadata.budgetUtilisation === 'number' ? metadata.budgetUtilisation : undefined;
+    const openIncidents = typeof metadata.openIncidents === 'number' ? metadata.openIncidents : undefined;
+    const expenseTotal = typeof metadata.expenseTotal === 'number' ? metadata.expenseTotal : undefined;
+    const isFallback = metadata.isFallback === true;
+
+    const tags: { label: string; value: string }[] = [];
+    if (typeof completedTasks === 'number' && typeof totalTasks === 'number' && totalTasks > 0) {
+        tags.push({ label: 'Tasks', value: `${completedTasks}/${totalTasks}` });
+    }
+    if (typeof averageProgress === 'number') {
+        tags.push({ label: 'Avg progress', value: `${Math.round(averageProgress)}%` });
+    }
+    if (typeof budgetUtilisation === 'number') {
+        tags.push({ label: 'Budget used', value: `${Math.round(budgetUtilisation)}%` });
+    }
+    if (typeof openIncidents === 'number') {
+        tags.push({ label: 'Open incidents', value: openIncidents.toString() });
+    }
+    if (typeof expenseTotal === 'number' && expenseTotal > 0) {
+        tags.push({ label: 'Logged expenses', value: formatCurrency(expenseTotal) });
+    }
+
+    const buttonLabel = latestInsight ? 'Refresh Summary' : 'Generate Summary';
 
     return (
         <Card className="bg-muted">
             <div className="flex justify-between items-center mb-2">
                  <h3 className="font-semibold text-lg">AI Project Health Summary</h3>
-                 <Button size="sm" variant="secondary" onClick={generateSummary} isLoading={loading}>Generate</Button>
+                 <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={onGenerate}
+                    isLoading={isGenerating}
+                    disabled={(!isOnline && !isGenerating)}
+                    title={!isOnline ? 'Go online to regenerate the AI summary.' : undefined}
+                >
+                    {buttonLabel}
+                </Button>
             </div>
-            {summary ? (
-                 <div className="text-sm space-y-1 whitespace-pre-wrap">
-                    {summary.split('\n').map((line, i) => <p key={i} dangerouslySetInnerHTML={{ __html: line.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold">$1</strong>').replace(/- /g, '• ') }}></p>)}
-                </div>
-            ) : <p className="text-sm text-muted-foreground">Click "Generate" to get an AI-powered summary of the project's status.</p>}
+            {error && <p className="text-sm text-destructive mb-2">{error}</p>}
+            {latestInsight ? (
+                <>
+                    <div className="text-sm space-y-1 whitespace-pre-wrap">
+                        {renderSummary(latestInsight.summary, 'current')}
+                    </div>
+                    {tags.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-3">
+                            {tags.map(tag => (
+                                <span key={tag.label} className="px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                                    {tag.label}: {tag.value}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-3">
+                        Last updated {new Date(latestInsight.createdAt).toLocaleString()}
+                        {latestInsight.model ? ` • ${latestInsight.model}` : ''}
+                        {isFallback ? ' • offline summary' : ''}
+                    </p>
+                </>
+            ) : (
+                <p className="text-sm text-muted-foreground">Click "Generate" to get an AI-powered summary of the project's status.</p>
+            )}
+            {insights.length > 1 && (
+                <details className="mt-4 text-sm">
+                    <summary className="cursor-pointer text-muted-foreground">Previous AI snapshots</summary>
+                    <div className="mt-2 space-y-3 max-h-60 overflow-y-auto pr-1">
+                        {insights.slice(1, 5).map(insight => {
+                            const entryMetadata = (insight.metadata ?? {}) as Record<string, unknown>;
+                            const entryFallback = entryMetadata.isFallback === true;
+                            return (
+                                <div key={insight.id} className="border border-border rounded-md p-2 bg-background">
+                                    <p className="text-xs text-muted-foreground">
+                                        {new Date(insight.createdAt).toLocaleString()}
+                                        {insight.model ? ` • ${insight.model}` : ''}
+                                        {entryFallback ? ' • offline summary' : ''}
+                                    </p>
+                                    <div className="text-xs space-y-1 whitespace-pre-wrap mt-1">
+                                        {renderSummary(insight.summary, insight.id)}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </details>
+            )}
         </Card>
     );
 };
@@ -177,13 +256,19 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project: i
     const [team, setTeam] = useState<User[]>([]);
     const [incidents, setIncidents] = useState<SafetyIncident[]>([]);
     const [expenses, setExpenses] = useState<Expense[]>([]);
+    const [insights, setInsights] = useState<ProjectInsight[]>([]);
     const [loading, setLoading] = useState(true);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [taskToEdit, setTaskToEdit] = useState<Todo | null>(null);
     const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
     const [taskForReminder, setTaskForReminder] = useState<Todo | null>(null);
+ codex/add-abort-feature-to-fetchdata
     const abortControllerRef = useRef<AbortController | null>(null);
+
+    const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
+    const [insightError, setInsightError] = useState<string | null>(null);
+ main
 
     const fetchData = useCallback(async () => {
         const controller = new AbortController();
@@ -193,12 +278,21 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project: i
         setLoading(true);
         try {
             if (!user.companyId) return;
+ codex/add-abort-feature-to-fetchdata
             const [taskData, docData, teamData, allIncidents, allExpenses] = await Promise.all([
                 api.getTodosByProjectIds([project.id], { signal: controller.signal }),
                 api.getDocumentsByProject(project.id, { signal: controller.signal }),
                 api.getUsersByProject(project.id, { signal: controller.signal }),
                 api.getSafetyIncidentsByCompany(user.companyId, { signal: controller.signal }),
                 api.getExpensesByCompany(user.companyId, { signal: controller.signal }),
+
+            const [taskData, docData, teamData, allIncidents, allExpenses, insightData] = await Promise.all([
+                api.getTodosByProjectIds([project.id]),
+                api.getDocumentsByProject(project.id),
+                api.getUsersByProject(project.id),
+                api.getSafetyIncidentsByCompany(user.companyId),
+                api.getExpensesByCompany(user.companyId),
+                api.getProjectInsights(project.id),
             ]);
             if (controller.signal.aborted) return;
             setTasks(taskData.sort((a,b) => (a.progress ?? 0) - (b.progress ?? 0)));
@@ -210,6 +304,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project: i
             setIncidents(allIncidents.filter(i => i.projectId == project.id));
             if (controller.signal.aborted) return;
             setExpenses(allExpenses.filter(e => e.projectId == project.id));
+            setInsights(insightData);
+            setInsightError(null);
         } catch (error) {
             if (controller.signal.aborted) return;
             addToast("Failed to load project details.", "error");
@@ -229,6 +325,38 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project: i
     useEffect(() => {
         setProject(initialProject);
     }, [initialProject]);
+
+    const handleGenerateInsight = useCallback(async () => {
+        if (isGeneratingInsight) return;
+        setIsGeneratingInsight(true);
+        setInsightError(null);
+        try {
+            const result = await generateProjectHealthSummary({
+                project,
+                tasks,
+                incidents,
+                expenses,
+            });
+
+            const newInsight = await api.createProjectInsight({
+                projectId: project.id,
+                summary: result.summary,
+                type: 'HEALTH_SUMMARY',
+                metadata: result.metadata,
+                model: result.model,
+            }, user.id);
+
+            setInsights(prev => [newInsight, ...prev]);
+            addToast(result.isFallback ? 'Generated offline project summary.' : 'AI project summary updated.', 'success');
+        } catch (error) {
+            console.error('Failed to generate project insight', error);
+            const message = error instanceof Error ? error.message : 'Failed to generate AI summary.';
+            setInsightError(message);
+            addToast('Failed to generate AI summary.', 'error');
+        } finally {
+            setIsGeneratingInsight(false);
+        }
+    }, [isGeneratingInsight, project, tasks, incidents, expenses, user.id, addToast]);
 
     // FIX: Changed taskId from number | string to string to match the API.
     const handleTaskUpdate = async (taskId: string, updates: Partial<Todo>) => {
@@ -330,9 +458,16 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project: i
         );
     };
 
-     const renderOverview = () => (
+    const renderOverview = () => (
         <div className="space-y-6">
-            <ProjectHealthSummary project={project} tasks={tasks} />
+            <ProjectHealthSummary
+                project={project}
+                insights={insights}
+                onGenerate={handleGenerateInsight}
+                isGenerating={isGeneratingInsight}
+                error={insightError ?? undefined}
+                isOnline={isOnline}
+            />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card><h3 className="font-semibold mb-2">Budget</h3><p className="text-3xl font-bold">{formatCurrency(project.actualCost)}</p><p className="text-sm text-muted-foreground">of {formatCurrency(project.budget)} used</p><div className="w-full bg-muted rounded-full h-2.5 mt-2"><div className="bg-green-600 h-2.5 rounded-full" style={{ width: `${(project.actualCost / project.budget) * 100}%` }}></div></div></Card>
                 <Card><h3 className="font-semibold mb-2">Team Members</h3><div className="flex -space-x-2">{team.map(member => <Avatar key={member.id} name={`${member.firstName} ${member.lastName}`} imageUrl={member.avatar} className="w-10 h-10 border-2 border-card" />)}</div></Card>

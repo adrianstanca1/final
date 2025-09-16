@@ -2,7 +2,7 @@
 // Supports offline queuing for write operations.
 
 import { initialData } from './mockData';
-import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegisterCredentials, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority } from '../types';
+import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegisterCredentials, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority } from '../types';
 
 const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
 
@@ -84,6 +84,7 @@ let db: {
     projectTemplates: Partial<ProjectTemplate>[];
     whiteboardNotes: Partial<WhiteboardNote>[];
     documents: Partial<Document>[];
+    projectInsights: Partial<ProjectInsight>[];
 } = {
     companies: hydrateData('companies', initialData.companies),
     users: hydrateData('users', initialData.users),
@@ -107,6 +108,7 @@ let db: {
     projectTemplates: hydrateData('projectTemplates', []),
     whiteboardNotes: hydrateData('whiteboardNotes', []),
     documents: hydrateData('documents', []),
+    projectInsights: hydrateData('projectInsights', (initialData as any).projectInsights || []),
 };
 
 const saveDb = () => {
@@ -415,8 +417,56 @@ export const api = {
         ensureNotAborted(options?.signal);
         return db.documents.filter(d => d.projectId === projectId) as Document[];
     },
+ codex/add-abort-feature-to-fetchdata
     getUsersByProject: async (projectId: string, options?: RequestOptions): Promise<User[]> => {
-        ensureNotAborted(options?.signal);
+        
+
+    getProjectInsights: async (projectId: string): Promise<ProjectInsight[]> => {
+        await delay();
+        return db.projectInsights
+            .filter(insight => insight.projectId === projectId)
+            .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+            .map(insight => ({
+                id: insight.id!,
+                projectId: insight.projectId!,
+                summary: insight.summary || '',
+                type: (insight.type as ProjectInsight['type']) || 'CUSTOM',
+                createdAt: insight.createdAt || new Date().toISOString(),
+                createdBy: insight.createdBy || 'system',
+                model: insight.model,
+                metadata: insight.metadata,
+            }));
+    },
+    createProjectInsight: async (
+        data: { projectId: string; summary: string; type?: ProjectInsight['type']; metadata?: Record<string, unknown>; model?: string },
+        userId: string
+    ): Promise<ProjectInsight> => {
+        await delay();
+        if (!data.projectId) {
+            throw new Error('projectId is required to create an insight.');
+        }
+        if (!data.summary.trim()) {
+            throw new Error('summary is required to create an insight.');
+        }
+
+        const newInsight: ProjectInsight = {
+            id: String(Date.now() + Math.random()),
+            projectId: data.projectId,
+            summary: data.summary,
+            type: data.type || 'CUSTOM',
+            createdAt: new Date().toISOString(),
+            createdBy: userId,
+            model: data.model,
+            metadata: data.metadata,
+        };
+
+        db.projectInsights.push(newInsight);
+        const project = db.projects.find(p => p.id === data.projectId);
+        addAuditLog(userId, 'generated_project_insight', project ? { type: 'project', id: project.id!, name: project.name || '' } : undefined);
+        saveDb();
+        return newInsight;
+    },
+    getUsersByProject: async (projectId: string): Promise<User[]> => {
         await delay();
         ensureNotAborted(options?.signal);
         const assignments = db.projectAssignments.filter(pa => pa.projectId === projectId);
@@ -581,12 +631,37 @@ export const api = {
         await delay();
         const index = db.invoices.findIndex(i => i.id === id);
         if (index === -1) throw new Error("Invoice not found");
-        const oldStatus = db.invoices[index]?.status;
-        db.invoices[index] = { ...db.invoices[index], ...data };
+
+        const existingInvoice = db.invoices[index]!;
+        const companyId = existingInvoice.companyId ?? db.users.find(u => u.id === userId)?.companyId;
+        const updatedInvoiceNumber = (data.invoiceNumber ?? existingInvoice.invoiceNumber) as string | undefined;
+
+        if (!updatedInvoiceNumber) {
+            throw new Error("Invoice number is required.");
+        }
+
+        const hasDuplicateNumber = db.invoices.some((invoice, invoiceIndex) => {
+            if (invoiceIndex === index) return false;
+            if (!invoice.invoiceNumber) return false;
+            return invoice.invoiceNumber === updatedInvoiceNumber;
+        });
+
+        if (hasDuplicateNumber) {
+            throw new Error("Invoice number already exists.");
+        }
+
+        const oldStatus = existingInvoice?.status;
+        db.invoices[index] = {
+            ...existingInvoice,
+            ...data,
+            companyId: existingInvoice.companyId ?? companyId,
+            invoiceNumber: updatedInvoiceNumber,
+        };
+
         if (oldStatus !== data.status) {
-            addAuditLog(userId, `UPDATE_INVOICE_STATUS: ${oldStatus} -> ${data.status}`, { type: 'Invoice', id: id, name: data.invoiceNumber });
+            addAuditLog(userId, `UPDATE_INVOICE_STATUS: ${oldStatus} -> ${data.status}`, { type: 'Invoice', id: id, name: updatedInvoiceNumber });
         } else {
-            addAuditLog(userId, 'UPDATE_INVOICE', { type: 'Invoice', id: id, name: data.invoiceNumber });
+            addAuditLog(userId, 'UPDATE_INVOICE', { type: 'Invoice', id: id, name: updatedInvoiceNumber });
         }
         saveDb();
         return db.invoices[index] as Invoice;
@@ -594,7 +669,49 @@ export const api = {
     createInvoice: async (data: any, userId: string): Promise<Invoice> => {
         await delay();
         const companyId = db.users.find(u => u.id === userId)?.companyId;
-        const newInvoice = { ...data, id: String(Date.now()), companyId };
+        if (!companyId) {
+            throw new Error("Unable to determine company for invoice creation.");
+        }
+
+        const companyInvoices = db.invoices.filter(inv => {
+            if (!inv.companyId) return true;
+            return inv.companyId === companyId;
+        });
+
+        const extractNumber = (invoiceNumber?: string): number => {
+            if (!invoiceNumber) return 0;
+            const match = invoiceNumber.match(/(\d+)$/);
+            return match ? parseInt(match[1], 10) : 0;
+        };
+
+        const existingNumbers = new Set(
+            companyInvoices
+                .map(inv => inv.invoiceNumber)
+                .filter((value): value is string => Boolean(value))
+        );
+
+        let counter = companyInvoices.reduce((max, inv) => {
+            const numeric = extractNumber(inv.invoiceNumber as string | undefined);
+            return Math.max(max, numeric);
+        }, 0);
+
+        let invoiceNumber: string;
+        do {
+            counter += 1;
+            invoiceNumber = `INV-${String(counter).padStart(3, '0')}`;
+        } while (existingNumbers.has(invoiceNumber));
+
+        if (!invoiceNumber) {
+            throw new Error("Failed to generate invoice number.");
+        }
+
+        const newInvoice = {
+            ...data,
+            id: String(Date.now()),
+            companyId,
+            invoiceNumber,
+        };
+
         db.invoices.push(newInvoice);
         addAuditLog(userId, 'CREATE_INVOICE', { type: 'Invoice', id: newInvoice.id, name: newInvoice.invoiceNumber });
         saveDb();
