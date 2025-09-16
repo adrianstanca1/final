@@ -36,6 +36,7 @@ const formatCurrency = (amount: number, currency: string = 'GBP') =>
     maximumFractionDigits: 2,
   }).format(amount);
 
+
 const formatSignedPercentage = (value: number) => {
   if (!Number.isFinite(value)) {
     return '0%';
@@ -44,6 +45,7 @@ const formatSignedPercentage = (value: number) => {
   const prefix = rounded > 0 ? '+' : '';
   return `${prefix}${rounded}%`;
 };
+
 
 const createLineItemDraft = (): InvoiceLineItemDraft => ({
   id: `new-${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -625,6 +627,9 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
         clientData,
         projectData,
         usersData,
+        forecastData,
+        companyData,
+
         forecastsData,
       ] = await Promise.all([
         api.getFinancialKPIsForCompany(user.companyId, { signal: controller.signal }),
@@ -637,8 +642,16 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
         api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
         api.getUsersByCompany(user.companyId, { signal: controller.signal }),
         api.getFinancialForecasts(user.companyId, { signal: controller.signal }),
+        api.getCompanies({ signal: controller.signal }),
       ]);
       if (controller.signal.aborted) return;
+      const companyRecord = companyData.find((company: { id?: string }) => company.id === user.companyId) as
+        | { name?: string }
+        | undefined;
+
+      ]);
+      if (controller.signal.aborted) return;
+ 
       setData({
         kpis: kpiData,
         monthly: monthlyData,
@@ -649,7 +662,11 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
         clients: clientData,
         projects: projectData,
         users: usersData,
+        forecasts: forecastData,
+        companyName: companyRecord?.name ?? null,
+
         forecasts: forecastsData,
+ 
       });
     } catch (error) {
       if (controller.signal.aborted) return;
@@ -675,6 +692,288 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
     }),
     [data.projects, data.clients, data.users],
   );
+
+  const handleLineItemChange = <Field extends EditableInvoiceLineItemField>(
+    index: number,
+    field: Field,
+    value: InvoiceLineItemDraft[Field],
+  ) => {
+    setLineItems(prevItems => prevItems.map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: value } : item)));
+  };
+
+  const addLineItem = () => setLineItems(prevItems => [...prevItems, createLineItemDraft()]);
+  const removeLineItem = (index: number) =>
+    setLineItems(prevItems => prevItems.filter((_, itemIndex) => itemIndex !== index));
+
+  const { subtotal, taxAmount, retentionAmount, total } = useMemo(() => {
+    const subtotalCalc = lineItems.reduce((acc, item) => acc + item.quantity * item.unitPrice, 0);
+    const taxPercentage = typeof taxRate === 'number' ? taxRate : 0;
+    const retentionPercentage = typeof retentionRate === 'number' ? retentionRate : 0;
+    const taxAmountCalc = subtotalCalc * (taxPercentage / 100);
+    const retentionAmountCalc = subtotalCalc * (retentionPercentage / 100);
+    const totalCalc = subtotalCalc + taxAmountCalc - retentionAmountCalc;
+    return { subtotal: subtotalCalc, taxAmount: taxAmountCalc, retentionAmount: retentionAmountCalc, total: totalCalc };
+  }, [lineItems, taxRate, retentionRate]);
+
+  const amountPaid = invoiceToEdit?.amountPaid || 0;
+  const balance = total - amountPaid;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSaving(true);
+    try {
+      const finalLineItems = lineItems.reduce<InvoiceLineItem[]>((acc, item) => {
+        const description = item.description.trim();
+        const quantity = Math.max(item.quantity, 0);
+        const unitPrice = Math.max(item.unitPrice, 0);
+
+        if (!description || quantity <= 0 || unitPrice <= 0) {
+          return acc;
+        }
+
+        acc.push({
+          id: item.id.startsWith('new-') ? String(Date.now() + Math.random()) : item.id,
+          description,
+          quantity,
+          unitPrice,
+          rate: unitPrice,
+          amount: quantity * unitPrice,
+        });
+
+        return acc;
+      }, []);
+
+      const invoiceData = {
+        clientId,
+        projectId,
+        issuedAt: new Date(issuedAt).toISOString(),
+        dueAt: new Date(dueAt).toISOString(),
+        lineItems: finalLineItems,
+        taxRate: Number(taxRate) / 100,
+        retentionRate: Number(retentionRate) / 100,
+        notes,
+        subtotal,
+        taxAmount,
+        retentionAmount,
+        total,
+        amountPaid,
+        balance,
+        payments: invoiceToEdit?.payments || [],
+        status: invoiceToEdit?.status || InvoiceStatus.DRAFT,
+      };
+
+      if (invoiceToEdit) {
+        const updated = await api.updateInvoice(
+          invoiceToEdit.id,
+          { ...invoiceData, invoiceNumber: invoiceToEdit.invoiceNumber },
+          user.id,
+        );
+        addToast(`Invoice ${updated.invoiceNumber} updated.`, 'success');
+      } else {
+        const created = await api.createInvoice(invoiceData, user.id);
+        if (!created.invoiceNumber) {
+          throw new Error('Invoice number was not returned by the server.');
+        }
+        addToast(`Invoice ${created.invoiceNumber} created as draft.`, 'success');
+      }
+      onSuccess();
+      onClose();
+    } catch (error) {
+      const message = error instanceof Error && error.message ? error.message : 'Failed to save invoice.';
+      addToast(message, 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <Card className="w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <h3 className="text-lg font-bold mb-4">
+          {invoiceToEdit ? `${isReadOnly ? 'View' : 'Edit'} Invoice ${invoiceToEdit.invoiceNumber}` : 'Create Invoice'}
+        </h3>
+        <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto pr-2 flex-grow">
+          <div className="grid grid-cols-2 gap-4">
+            <select
+              value={clientId}
+              onChange={e => setClientId(e.target.value)}
+              className="w-full p-2 border rounded bg-white dark:bg-slate-800"
+              required
+              disabled={isReadOnly}
+            >
+              <option value="">Select Client</option>
+              {clients.map(client => (
+                <option key={client.id} value={client.id}>
+                  {client.name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={projectId}
+              onChange={e => setProjectId(e.target.value)}
+              className="w-full p-2 border rounded bg-white dark:bg-slate-800"
+              required
+              disabled={isReadOnly}
+            >
+              <option value="">Select Project</option>
+              {projects.map(project => (
+                <option key={project.id} value={project.id}>
+                  {project.name}
+                </option>
+              ))}
+            </select>
+            <div>
+              <label className="text-xs">Issued Date</label>
+              <input
+                type="date"
+                value={issuedAt}
+                onChange={e => setIssuedAt(e.target.value)}
+                className="w-full p-2 border rounded"
+                disabled={isReadOnly}
+              />
+            </div>
+            <div>
+              <label className="text-xs">Due Date</label>
+              <input
+                type="date"
+                value={dueAt}
+                onChange={e => setDueAt(e.target.value)}
+                className="w-full p-2 border rounded"
+                disabled={isReadOnly}
+              />
+            </div>
+          </div>
+          <div className="border-t pt-2">
+            <h4 className="font-semibold">Line Items</h4>
+            <div className="grid grid-cols-[1fr,90px,130px,130px,40px] gap-2 items-center mt-1 text-xs text-muted-foreground">
+              <span>Description</span>
+              <span className="text-right">Quantity</span>
+              <span className="text-right">Unit Price</span>
+              <span className="text-right">Amount</span>
+            </div>
+            {lineItems.map((item, index) => (
+              <div key={item.id} className="grid grid-cols-[1fr,90px,130px,130px,40px] gap-2 items-center mt-2">
+                <input
+                  type="text"
+                  value={item.description}
+                  onChange={e => handleLineItemChange(index, 'description', e.target.value)}
+                  placeholder="Item or service description"
+                  className="p-1 border rounded"
+                  disabled={isReadOnly}
+                />
+                <input
+                  type="number"
+                  value={item.quantity}
+                  onChange={e => handleLineItemChange(index, 'quantity', parseNumberInputValue(e.target.value))}
+                  placeholder="1"
+                  className="p-1 border rounded text-right"
+                  disabled={isReadOnly}
+                />
+                <input
+                  type="number"
+                  value={item.unitPrice}
+                  onChange={e => handleLineItemChange(index, 'unitPrice', parseNumberInputValue(e.target.value))}
+                  placeholder="0.00"
+                  className="p-1 border rounded text-right"
+                  disabled={isReadOnly}
+                />
+                <span className="p-1 text-right font-medium">{formatCurrency(item.quantity * item.unitPrice)}</span>
+                {!isReadOnly && (
+                  <Button type="button" variant="danger" size="sm" onClick={() => removeLineItem(index)}>
+                    &times;
+                  </Button>
+                )}
+              </div>
+            ))}
+            {!isReadOnly && (
+              <Button type="button" variant="secondary" size="sm" className="mt-2" onClick={addLineItem}>
+                + Add Item
+              </Button>
+            )}
+          </div>
+          <div className="border-t pt-4 grid grid-cols-2 gap-8">
+            <div>
+              <h4 className="font-semibold mb-2">Notes</h4>
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Payment details, terms and conditions..."
+                rows={6}
+                className="p-2 border rounded w-full"
+                disabled={isReadOnly}
+              />
+            </div>
+            <div className="space-y-2">
+              <h4 className="font-semibold mb-2">Totals</h4>
+              <div className="flex justify-between items-center">
+                <span className="text-sm">Subtotal:</span>
+                <span className="font-medium">{formatCurrency(subtotal)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <label htmlFor="taxRate" className="text-sm">
+                  Tax (%):
+                </label>
+                <input
+                  id="taxRate"
+                  type="number"
+                  value={taxRate}
+                  onChange={e => setTaxRate(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="w-24 p-1 border rounded text-right"
+                  disabled={isReadOnly}
+                />
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-muted-foreground">Tax Amount:</span>
+                <span>{formatCurrency(taxAmount)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <label htmlFor="retentionRate" className="text-sm">
+                  Retention (%):
+                </label>
+                <input
+                  id="retentionRate"
+                  type="number"
+                  value={retentionRate}
+                  onChange={e => setRetentionRate(e.target.value === '' ? '' : Number(e.target.value))}
+                  className="w-24 p-1 border rounded text-right"
+                  disabled={isReadOnly}
+                />
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-red-600">Retention Held:</span>
+                <span className="text-red-600 font-medium">-{formatCurrency(retentionAmount)}</span>
+              </div>
+              <div className="flex justify-between items-center font-bold text-lg pt-2 border-t">
+                <span>Total Due:</span>
+                <span>{formatCurrency(total)}</span>
+              </div>
+              {invoiceToEdit && (
+                <>
+                  <div className="flex justify-between items-center text-sm">
+                    <span>Amount Paid:</span>
+                    <span>-{formatCurrency(amountPaid)}</span>
+                  </div>
+                  <div className="flex justify-between items-center font-bold text-lg text-green-600">
+                    <span>Balance:</span>
+                    <span>{formatCurrency(balance)}</span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </form>
+        <div className="flex justify-end gap-2 pt-4 border-t mt-4 flex-shrink-0">
+          <Button variant="secondary" onClick={onClose}>
+            {isReadOnly ? 'Close' : 'Cancel'}
+          </Button>
+          {!isReadOnly && (
+            <Button type="submit" isLoading={isSaving} onClick={handleSubmit}>
+              Save Invoice
+            </Button>
+          )}
+        </div>
+      </Card>
+
   const handleUpdateInvoiceStatus = useCallback(
     async (invoiceId: string, status: InvoiceStatus) => {
       if (status === InvoiceStatus.CANCELLED) {
@@ -913,6 +1212,7 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
   );
 };
 
+
 interface DashboardTabProps {
   kpis: FinancialKPIs | null;
   monthly: MonthlyFinancials[];
@@ -1006,7 +1306,7 @@ const DashboardTab = React.memo(
           </Card>
           <Card>
             <p className="text-sm text-slate-500">Cash Flow</p>
-            <p className="text-3xl font-bold">{formatCurrency(kpis?.cashFlow || 0, kpis?.currency || 'GBP')}</p>
+            <p className="text-3xl font-bold">{formatCurrency(kpis?.cashFlow || 0, kpis?.currency ?? 'GBP')}</p>
           </Card>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
