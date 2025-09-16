@@ -320,8 +320,6 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
   );
 
 
-  };
-
   const portfolioSummary = useMemo(() => {
     if (projects.length === 0) {
       return {
@@ -391,9 +389,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
             label: 'At risk',
             value: `${summaryForDisplay.atRiskProjects}`,
             helper: summaryForDisplay.overdueProjects
-              ? `${summaryForDisplay.overdueProjects} overdue deliverable${
-                  summaryForDisplay.overdueProjects === 1 ? '' : 's'
-                }`
+              ? `${summaryForDisplay.overdueProjects} overdue deliverables`
               : 'Budget and schedule on track',
             indicator:
               summaryForDisplay.atRiskProjects > 0 || summaryForDisplay.overdueProjects > 0
