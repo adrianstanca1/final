@@ -47,6 +47,7 @@ interface OwnerDashboardData {
   companyName: string | null;
   users: User[];
   operationalInsights: OperationalInsights | null;
+
 }
 
 const formatCurrency = (value: number, currency: string = 'GBP') =>
@@ -158,6 +159,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     companyName: null,
     users: [],
     operationalInsights: null,
+
   });
   const [briefError, setBriefError] = useState<string | null>(null);
   const [isGeneratingBrief, setIsGeneratingBrief] = useState(false);
@@ -190,6 +192,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         timesheets,
         forecasts,
         operationalInsights,
+
         companies,
       ] = await Promise.all([
         api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
@@ -202,6 +205,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         api.getTimesheetsByCompany(user.companyId, user.id, { signal: controller.signal }),
         api.getFinancialForecasts(user.companyId, { signal: controller.signal }),
         api.getOperationalInsights(user.companyId, { signal: controller.signal }),
+
         api.getCompanies({ signal: controller.signal }),
       ]);
 
@@ -305,6 +309,19 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   );
 
   const fallbackOpenIncidents = useMemo(
+
+  const approvedExpenses = useMemo(
+    () =>
+      data.expenses.filter(expense => expense.status === 'APPROVED' || expense.status === 'PAID'),
+    [data.expenses],
+  );
+
+  const approvedExpenseTotal = useMemo(
+    () => approvedExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0),
+    [approvedExpenses],
+  );
+
+  const openIncidents = useMemo(
     () => data.incidents.filter(incident => incident.status !== IncidentStatus.RESOLVED),
     [data.incidents],
   );
@@ -318,6 +335,13 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   );
 
   const fallbackComplianceRate = useMemo(() => {
+
+  const highSeverityIncidents = useMemo(
+    () => openIncidents.filter(incident => incident.severity === IncidentSeverity.HIGH || incident.severity === IncidentSeverity.CRITICAL),
+    [openIncidents],
+  );
+
+  const complianceRate = useMemo(() => {
     const submitted = data.timesheets.filter(ts => ts.status !== TimesheetStatus.DRAFT);
     if (!submitted.length) {
       return 0;
@@ -351,6 +375,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const approvalsClearedThisWeek = operationalInsights?.workforce.approvedThisWeek ?? 0;
   const overtimeHours = operationalInsights?.workforce.overtimeHours ?? null;
   const operationalAlerts = operationalInsights?.alerts ?? [];
+
 
   const latestForecast = data.forecasts[0] ?? null;
   const previousForecasts = data.forecasts.slice(1, 4);
@@ -451,6 +476,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 ? `${crewOnShift} team members clocked in`
                 : 'No approvals submitted',
             indicator: complianceRate < 80 ? 'warning' : crewOnShift > 0 ? 'positive' : 'neutral',
+
+            helper: `${clampPercentage(complianceRate)}% timesheets approved`,
+            indicator: complianceRate < 80 ? 'warning' : 'positive',
           },
         ]}
       />
@@ -478,6 +506,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 {openIncidentsCount}
                 {highSeverityCount > 0 && (
                   <span className="text-xs font-medium text-destructive"> • {highSeverityCount} high</span>
+                {openIncidents.length}
+                {highSeverityIncidents.length > 0 && (
+                  <span className="text-xs font-medium text-destructive"> • {highSeverityIncidents.length} high</span>
                 )}
               </span>
             </div>
@@ -489,6 +520,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                   : daysSinceLastIncident === 0
                   ? 'Today'
                   : `${daysSinceLastIncident} day${daysSinceLastIncident === 1 ? '' : 's'}`}
+
+              <span className="text-muted-foreground">Approved expense run rate</span>
+              <span className="font-semibold text-foreground">
+                {formatCurrency(approvedExpenseTotal, currency)}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -506,6 +541,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
               <span className="font-semibold text-foreground">
                 {formatCurrency(approvedExpenseRunRate, financialCurrency)}
               </span>
+
+              <span className="font-semibold text-foreground">{complianceRate}%</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Invoice pipeline</span>
@@ -545,6 +582,12 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             <h3 className="text-sm font-semibold text-muted-foreground">Approved cost mix</h3>
             <CostBreakdownList data={data.costs} currency={financialCurrency} />
           </div>
+
+                {formatCurrency(invoicePipeline, currency)}
+              </span>
+            </div>
+          </div>
+          <CostBreakdownList data={data.costs} currency={currency} />
         </Card>
       </section>
 
@@ -720,6 +763,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
               {approvalsClearedThisWeek} approvals cleared this week • {pendingTimesheetApprovals} awaiting sign-off
             </p>
           )}
+
           {data.users.length === 0 ? (
             <p className="text-sm text-muted-foreground">No team members recorded for this company.</p>
           ) : (

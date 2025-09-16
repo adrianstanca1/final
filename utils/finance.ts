@@ -82,7 +82,7 @@ export const getInvoiceFinancials = (invoice: Invoice): InvoiceFinancials => {
       ? Math.min(storedBalanceValue, Math.max(0, total))
       : computedBalance;
 
-  const amountPaid = Math.max(rawAmountPaid, Math.max(0, total - balance));
+  const amountPaid = rawAmountPaid;
 
   return { subtotal, taxAmount, retentionAmount, total, amountPaid, balance, payments };
 };

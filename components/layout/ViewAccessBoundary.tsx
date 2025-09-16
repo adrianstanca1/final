@@ -133,6 +133,7 @@ export const ViewAccessBoundary: React.FC<ViewAccessBoundaryProps> = ({
 
           <PermissionRequirements permissions={access.missingPermissions} anyGroups={access.missingAnyPermissionGroups} />
 
+
           <AllowedRoleList roles={access.allowedRoles} />
 
           {onNavigate ? (

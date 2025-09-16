@@ -1,5 +1,20 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
+    User,
+    FinancialKPIs,
+    MonthlyFinancials,
+    CostBreakdown,
+    Invoice,
+    Quote,
+    Client,
+    Project,
+    Permission,
+    Expense,
+    InvoiceStatus,
+    QuoteStatus,
+    InvoiceLineItem,
+    InvoiceLineItemDraft,
+
   User,
   FinancialKPIs,
   MonthlyFinancials,
@@ -15,6 +30,7 @@ import {
   InvoiceLineItem,
   InvoiceLineItemDraft,
   FinancialForecast,
+ 
 } from '../types';
 import { getDerivedStatus, getInvoiceFinancials } from '../utils/finance';
 import { api } from '../services/mockApi';
@@ -35,7 +51,11 @@ const formatCurrency = (amount: number, currency: string = 'GBP') =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
-const formatSignedPercentage = (value: number) => {
+
+
+
+
+ const formatSignedPercentage = (value: number) => {
   if (!Number.isFinite(value)) {
     return '0%';
   }
@@ -43,6 +63,11 @@ const formatSignedPercentage = (value: number) => {
   const prefix = rounded > 0 ? '+' : '';
   return `${prefix}${rounded}%`;
 };
+
+ 
+
+
+
 const createLineItemDraft = (): InvoiceLineItemDraft => ({
   id: `new-${Date.now()}-${Math.random().toString(16).slice(2)}`,
   description: '',
@@ -596,13 +621,12 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
     projects: [] as Project[],
     users: [] as User[],
     forecasts: [] as FinancialForecast[],
-    companyName: null as string | null,
   });
   const [modal, setModal] = useState<'client' | 'invoice' | 'payment' | 'expense' | null>(null);
   const [selectedItem, setSelectedItem] = useState<Client | Invoice | Expense | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
   const [isGeneratingForecast, setIsGeneratingForecast] = useState(false);
   const [forecastError, setForecastError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const canManageFinances = hasPermission(user, Permission.MANAGE_FINANCES);
 
@@ -626,6 +650,8 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
         usersData,
         forecastData,
         companyData,
+
+        forecastsData,
       ] = await Promise.all([
         api.getFinancialKPIsForCompany(user.companyId, { signal: controller.signal }),
         api.getMonthlyFinancials(user.companyId, { signal: controller.signal }),
@@ -643,6 +669,10 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
       const companyRecord = companyData.find((company: { id?: string }) => company.id === user.companyId) as
         | { name?: string }
         | undefined;
+
+      ]);
+      if (controller.signal.aborted) return;
+ 
       setData({
         kpis: kpiData,
         monthly: monthlyData,
@@ -655,6 +685,9 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
         users: usersData,
         forecasts: forecastData,
         companyName: companyRecord?.name ?? null,
+
+        forecasts: forecastsData,
+ 
       });
     } catch (error) {
       if (controller.signal.aborted) return;
@@ -961,9 +994,327 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
           )}
         </div>
       </Card>
+
+     const renderInvoicesAndQuotes = () => (
+        <div className="space-y-6">
+            <Card>
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-semibold text-lg">Invoices</h3>
+                    {canManageFinances && <Button onClick={()=>{ setSelectedItem(null); setModal('invoice'); }}>Create Invoice</Button>}
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-border">
+                        <thead className="bg-muted"><tr><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Number</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Client</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Project</th><th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Total</th><th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Balance Due</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Status</th><th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Actions</th></tr></thead>
+                        <tbody className="bg-card divide-y divide-border">
+                            {data.invoices.map(invoice => {
+                                const { total, balance } = getInvoiceFinancials(invoice);
+                                const derivedStatus = getDerivedStatus(invoice, balance);
+                                
+                                return (
+                                <tr key={invoice.id} className="hover:bg-accent">
+                                    <td className="px-4 py-3 font-medium">{invoice.invoiceNumber}</td>
+                                    <td className="px-4 py-3">{clientMap.get(invoice.clientId) || 'Client unavailable'}</td>
+                                    <td className="px-4 py-3">{projectMap.get(invoice.projectId) || 'Project unavailable'}</td>
+                                    <td className="px-4 py-3 text-right">{formatCurrency(total)}</td>
+                                    <td className="px-4 py-3 text-right font-semibold">{formatCurrency(balance)}</td>
+                                    <td className="px-4 py-3"><InvoiceStatusBadge status={derivedStatus} /></td>
+                                    <td className="px-4 py-3 text-right space-x-2">
+                                        {canManageFinances && invoice.status === InvoiceStatus.DRAFT && (
+                                            <>
+                                                <Button size="sm" variant="success" onClick={() => handleUpdateInvoiceStatus(invoice.id, InvoiceStatus.SENT)}>Send</Button>
+                                                <Button size="sm" variant="secondary" onClick={() => { setSelectedItem(invoice); setModal('invoice'); }}>Edit</Button>
+                                            </>
+                                        )}
+                                        {canManageFinances && (invoice.status === InvoiceStatus.SENT || derivedStatus === InvoiceStatus.OVERDUE) && (
+                                             <>
+                                                <Button size="sm" onClick={() => { setSelectedItem(invoice); setModal('payment'); }}>Record Payment</Button>
+                                                <Button size="sm" variant="danger" onClick={() => handleUpdateInvoiceStatus(invoice.id, InvoiceStatus.CANCELLED)}>Cancel</Button>
+                                            </>
+                                        )}
+                                        {invoice.status === InvoiceStatus.PAID || invoice.status === InvoiceStatus.CANCELLED ? (
+                                            <Button size="sm" variant="secondary" onClick={() => { setSelectedItem(invoice); setModal('invoice'); }}>View</Button>
+                                        ) : null}
+                                    </td>
+                                </tr>
+                            )})}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
+             <Card>
+                <h3 className="font-semibold text-lg mb-4">Quotes</h3>
+                 <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-border">
+                         <thead className="bg-muted"><tr><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Client</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Project</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Status</th></tr></thead>
+                          <tbody className="bg-card divide-y divide-border">
+                            {data.quotes.map(quote => {
+                                const clientName = clientMap.get(quote.clientId);
+                                const projectName = projectMap.get(quote.projectId);
+
+                                return (
+                                    <tr key={quote.id} className="hover:bg-accent">
+                                        <td className="px-4 py-3">{clientName || 'Client unavailable'}</td>
+                                        <td className="px-4 py-3">{projectName || 'Project unavailable'}</td>
+                                        <td className="px-4 py-3"><QuoteStatusBadge status={quote.status} /></td>
+                                    </tr>
+                                );
+                            })}
+                          </tbody>
+                    </table>
+                 </div>
+            </Card>
+        </div>
+
+  const handleUpdateInvoiceStatus = useCallback(
+    async (invoiceId: string, status: InvoiceStatus) => {
+      if (status === InvoiceStatus.CANCELLED) {
+        if (!window.confirm('Are you sure you want to cancel this invoice? This action cannot be undone.')) {
+          return;
+        }
+      }
+      try {
+        const invoice = data.invoices.find(i => i.id === invoiceId);
+        if (!invoice) throw new Error('Invoice not found');
+        await api.updateInvoice(invoiceId, { ...invoice, status }, user.id);
+        addToast(`Invoice marked as ${status.toLowerCase()}.`, 'success');
+        fetchData();
+      } catch (error) {
+        addToast('Failed to update invoice status.', 'error');
+      }
+    },
+    [data.invoices, user.id, addToast, fetchData],
+  );
+
+  const handleGenerateForecast = useCallback(
+    async (horizonMonths: number) => {
+      if (!user.companyId) {
+        return;
+      }
+
+      const sanitizedHorizon = Number.isFinite(horizonMonths)
+        ? Math.max(1, Math.round(horizonMonths))
+        : 3;
+
+      setIsGeneratingForecast(true);
+      setForecastError(null);
+
+      try {
+        const forecast = await generateFinancialForecast({
+          companyName: user.companyName ?? 'Your company',
+          currency: data.kpis?.currency,
+          horizonMonths: sanitizedHorizon,
+          kpis: data.kpis,
+          monthly: data.monthly,
+          costs: data.costs,
+          invoices: data.invoices,
+          expenses: data.expenses,
+        });
+
+        const metadataRecord: Record<string, unknown> = { ...forecast.metadata };
+        const existingCurrency = metadataRecord['currency'];
+        metadataRecord['currency'] =
+          typeof existingCurrency === 'string'
+            ? existingCurrency
+            : data.kpis?.currency ?? 'GBP';
+        metadataRecord['horizonMonths'] = sanitizedHorizon;
+        metadataRecord['isFallback'] = forecast.isFallback;
+
+        const storedForecast = await api.createFinancialForecast(
+          {
+            companyId: user.companyId,
+            summary: forecast.summary,
+            horizonMonths: sanitizedHorizon,
+            metadata: metadataRecord,
+            model: forecast.model,
+          },
+          user.id,
+        );
+
+        setData(prev => ({ ...prev, forecasts: [storedForecast, ...prev.forecasts] }));
+        addToast('Financial forecast updated.', 'success');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to generate financial forecast.';
+        setForecastError(message);
+        addToast('Failed to generate financial forecast.', 'error');
+      } finally {
+        setIsGeneratingForecast(false);
+      }
+    },
+    [
+      user.companyId,
+      user.id,
+      data.companyName,
+      data.kpis,
+      data.monthly,
+      data.costs,
+      data.invoices,
+      data.expenses,
+      addToast,
+    ],
+  );
+
+  const handleCreateInvoice = useCallback(() => {
+    setSelectedItem(null);
+    setModal('invoice');
+  }, []);
+
+  const handleOpenInvoice = useCallback((invoice: Invoice) => {
+    setSelectedItem(invoice);
+    setModal('invoice');
+  }, []);
+
+  const handleRecordPayment = useCallback((invoice: Invoice) => {
+    setSelectedItem(invoice);
+    setModal('payment');
+  }, []);
+
+  const handleCreateExpense = useCallback(() => {
+    setSelectedItem(null);
+    setModal('expense');
+  }, []);
+
+  const handleEditExpense = useCallback((expense: Expense) => {
+    setSelectedItem(expense);
+    setModal('expense');
+  }, []);
+
+  const handleAddClient = useCallback(() => {
+    setSelectedItem(null);
+    setModal('client');
+  }, []);
+
+  const handleEditClient = useCallback((client: Client) => {
+    setSelectedItem(client);
+    setModal('client');
+  }, []);
+
+  if (loading) return <Card>Loading financials...</Card>;
+
+  const selectedInvoice = modal === 'invoice' || modal === 'payment' ? (selectedItem as Invoice) : null;
+  const isInvoiceReadOnly =
+    !canManageFinances ||
+    selectedInvoice?.status === InvoiceStatus.PAID ||
+    selectedInvoice?.status === InvoiceStatus.CANCELLED;
+
+  return (
+    <div className="space-y-6">
+      {modal === 'client' && (
+        <ClientModal
+          clientToEdit={selectedItem as Client}
+          onClose={() => setModal(null)}
+          onSuccess={fetchData}
+          user={user}
+          addToast={addToast}
+        />
+      )}
+      {modal === 'invoice' && (
+        <InvoiceModal
+          invoiceToEdit={selectedInvoice}
+          isReadOnly={isInvoiceReadOnly}
+          onClose={() => setModal(null)}
+          onSuccess={fetchData}
+          user={user}
+          clients={data.clients}
+          projects={data.projects}
+          addToast={addToast}
+        />
+      )}
+      {modal === 'payment' && selectedInvoice && (
+        <PaymentModal
+          invoice={selectedInvoice}
+          balance={getInvoiceFinancials(selectedInvoice).balance}
+          onClose={() => setModal(null)}
+          onSuccess={fetchData}
+          user={user}
+          addToast={addToast}
+        />
+      )}
+      {modal === 'expense' && (
+        <ExpenseModal
+          expenseToEdit={selectedItem as Expense}
+          onClose={() => setModal(null)}
+          onSuccess={fetchData}
+          user={user}
+          projects={data.projects}
+          addToast={addToast}
+        />
+      )}
+
+      <div className="flex justify-between items-center">
+        <h2 className="text-3xl font-bold">Financials</h2>
+      </div>
+      <div className="border-b border-border">
+        <nav className="-mb-px flex space-x-6 overflow-x-auto">
+          {(['dashboard', 'invoices', 'expenses', 'clients'] as FinancialsTab[]).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`capitalize whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </nav>
+      </div>
+      {activeTab === 'dashboard' && (
+        <DashboardTab
+          kpis={data.kpis}
+          monthly={data.monthly}
+          costs={data.costs}
+          forecasts={data.forecasts}
+          onGenerateForecast={handleGenerateForecast}
+          isGeneratingForecast={isGeneratingForecast}
+          forecastError={forecastError}
+        />
+      )}
+      {activeTab === 'invoices' && (
+        <InvoicesTab
+          invoices={data.invoices}
+          quotes={data.quotes}
+          canManageFinances={canManageFinances}
+          clientMap={clientMap}
+          projectMap={projectMap}
+          onCreateInvoice={handleCreateInvoice}
+          onOpenInvoice={handleOpenInvoice}
+          onRecordPayment={handleRecordPayment}
+          onUpdateInvoiceStatus={handleUpdateInvoiceStatus}
+        />
+      )}
+      {activeTab === 'expenses' && (
+        <ExpensesTab
+          expenses={data.expenses}
+          userMap={userMap}
+          projectMap={projectMap}
+          onCreateExpense={handleCreateExpense}
+          onEditExpense={handleEditExpense}
+        />
+      )}
+      {activeTab === 'clients' && (
+        <ClientsTab
+          clients={data.clients}
+          canManageFinances={canManageFinances}
+          onAddClient={handleAddClient}
+          onEditClient={handleEditClient}
+        />
+      )}
     </div>
   );
 };
+
+
+
+
+interface DashboardTabProps {
+  kpis: FinancialKPIs | null;
+  monthly: MonthlyFinancials[];
+  costs: CostBreakdown[];
+  forecasts: FinancialForecast[];
+  onGenerateForecast: (horizon: number) => void;
+  isGeneratingForecast: boolean;
+  forecastError: string | null;
+}
 
 const DashboardTab = React.memo(
   ({
@@ -1148,7 +1499,6 @@ const DashboardTab = React.memo(
   },
 );
 
-DashboardTab.displayName = 'DashboardTab';
 
 interface InvoicesTabProps {
   invoices: Invoice[];

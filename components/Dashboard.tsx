@@ -17,6 +17,7 @@ import {
   ExpenseStatus,
   ProjectPortfolioSummary,
   OperationalInsights,
+
 } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -117,6 +118,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     const [incidents, setIncidents] = useState<SafetyIncident[]>([]);
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [operationalInsights, setOperationalInsights] = useState<OperationalInsights | null>(null);
+
     const [aiSelectedProjectId, setAiSelectedProjectId] = useState<string | null>(null);
     const [aiSummary, setAiSummary] = useState<ProjectHealthSummaryResult | null>(null);
     const [aiSummaryProjectId, setAiSummaryProjectId] = useState<string | null>(null);
@@ -164,6 +166,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
 
             if (controller.signal.aborted) return;
             setOperationalInsights(insightsData);
+
 
             const [incidentsData, expensesData] = await Promise.all([
                 api.getSafetyIncidentsByCompany(user.companyId),
@@ -219,6 +222,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     }, [activeProjects, portfolioSummary.upcomingDeadlines]);
 
     const fallbackOpenIncidents = useMemo(
+
+    const openIncidents = useMemo(
         () => incidents.filter(incident => incident.status !== IncidentStatus.RESOLVED),
         [incidents],
     );
@@ -234,6 +239,36 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
             .reduce((sum, expense) => sum + (expense.amount ?? 0), 0),
         [expenses],
     );
+    const highSeverityIncidents = useMemo(
+        () => openIncidents.filter(incident => incident.severity === 'HIGH' || incident.severity === 'CRITICAL'),
+        [openIncidents],
+    );
+
+    const approvedExpenses = useMemo(
+        () => expenses.filter(expense => expense.status === ExpenseStatus.APPROVED || expense.status === ExpenseStatus.PAID),
+        [expenses],
+    );
+
+    const approvedExpenseTotal = useMemo(
+        () => approvedExpenses.reduce((sum, expense) => sum + (expense.amount ?? 0), 0),
+        [approvedExpenses],
+    );
+
+    const kpiData = useMemo(() => {
+        const budgetData = activeProjects.reduce((acc, p) => {
+            acc.total += p.budget ?? 0;
+            acc.spent += p.actualCost ?? p.spent ?? 0;
+            return acc;
+        }, { total: 0, spent: 0 });
+        const budgetUtilization = budgetData.total > 0 ? (budgetData.spent / budgetData.total) * 100 : 0;
+        return {
+            activeProjectsCount: activeProjects.length,
+            teamSize: team.length,
+            budgetUtilization: budgetUtilization.toFixed(0),
+            atRisk: portfolioSummary.atRiskProjects,
+            openIncidents: openIncidents.length,
+        };
+    }, [activeProjects, team, portfolioSummary.atRiskProjects, openIncidents.length]);
 
     const weeklyTaskData = useMemo(() => {
         const now = new Date();
@@ -293,6 +328,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
         };
     }, [activeProjects, team, portfolioSummary.atRiskProjects, openIncidentsCount]);
 
+
     const handleGenerateProjectBrief = useCallback(async () => {
         if (!aiSelectedProjectId) {
             setAiError('Select a project to analyse.');
@@ -317,6 +353,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                     (expense.status === ExpenseStatus.APPROVED || expense.status === ExpenseStatus.PAID),
             );
 
+            const projectIncidents = openIncidents.filter(incident => incident.projectId === project.id);
+            const projectExpenses = approvedExpenses.filter(expense => expense.projectId === project.id);
+ 
+
             const summary = await generateProjectHealthSummary({
                 project,
                 tasks: projectTasks,
@@ -334,6 +374,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
             setIsGeneratingAiSummary(false);
         }
     }, [aiSelectedProjectId, projects, tasks, fallbackOpenIncidents, expenses, addToast]);
+
+    }, [aiSelectedProjectId, projects, tasks, openIncidents, approvedExpenses, addToast]);
+ 
     
 
     if (loading) return <Card>Loading project manager dashboard…</Card>;
@@ -395,6 +438,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                     title="Approved spend"
                     value={formatCurrency(approvedExpenseThisMonth, operationalCurrency)}
                     subtext="Approved or paid this month"
+
+                    value={formatCurrency(approvedExpenseTotal)}
+                    subtext="Approved or paid expenses"
                     icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M9 6h6m-3-2v2m0 12v2m7-5a9 9 0 11-14 0" /></svg>}
                 />
             </section>
@@ -528,6 +574,22 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                             </ul>
                         </div>
                     )}
+
+                            <span className="font-semibold text-foreground">{openIncidents.length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">High severity</span>
+                            <span className="font-semibold text-destructive">{highSeverityIncidents.length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Active tasks</span>
+                            <span className="font-semibold text-foreground">{tasksInProgress}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Approved spend</span>
+                            <span className="font-semibold text-foreground">{formatCurrency(approvedExpenseTotal)}</span>
+                        </div>
+                    </div>
                 </Card>
             </section>
 
@@ -582,6 +644,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                     <p className="text-xs text-muted-foreground">
                         {complianceRate}% timesheets approved • {pendingApprovals} pending
                     </p>
+
                     <div className="space-y-3 text-sm">
                         {Object.entries(availabilityBreakdown).map(([status, count]) => (
                             <div key={status} className="flex items-center justify-between">

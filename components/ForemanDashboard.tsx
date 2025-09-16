@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User, Project, Todo, Equipment, Permission, Role, TodoStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, SafetyIncident, Timesheet, TodoPriority, IncidentStatus, OperationalInsights } from '../types';
+
+import { User, Project, Todo, Equipment, Permission, Role, TodoStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, SafetyIncident, Timesheet, TodoPriority, IncidentStatus } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Avatar } from './ui/Avatar';
@@ -378,6 +380,7 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
     const [projectIncidents, setProjectIncidents] = useState<SafetyIncident[]>([]);
     const [operationalInsights, setOperationalInsights] = useState<OperationalInsights | null>(null);
 
+
     const userMap = useMemo(() => new Map(allUsers.map(u => [u.id, u])), [allUsers]);
     const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -473,6 +476,7 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
     const fieldPendingApprovals = fieldInsights?.workforce.pendingApprovals ?? 0;
     const fieldActiveCrew = fieldInsights?.workforce.activeTimesheets ?? (activeTimesheet ? 1 : 0);
 
+
     return (
        <ErrorBoundary>
             {isIncidentModalOpen && <ReportIncidentModal project={currentProject} user={user} onClose={() => setIsIncidentModalOpen(false)} addToast={addToast} onSuccess={fetchData} />}
@@ -488,6 +492,9 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
                                 ? `${openTaskCount} open tasks • ${fieldActiveCrew} clocked in`
                                 : `${openTaskCount} open tasks`,
                             indicator: fieldActiveCrew > 0 ? 'positive' : crewCount > 0 ? 'neutral' : 'warning',
+
+                            helper: `${openTaskCount} open tasks`,
+                            indicator: crewCount > 0 ? 'positive' : 'neutral',
                         },
                         {
                             label: 'Safety alerts',
@@ -508,6 +515,8 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
                                 : activeTimesheet
                                 ? 'On shift'
                                 : 'Clock-in ready',
+
+                            helper: activeTimesheet ? 'On shift' : 'Clock-in ready',
                         },
                     ]}
                 />
@@ -524,6 +533,16 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
             </div>
             <div className="space-y-6">
                 <TeamChatCard project={currentProject} user={user} onUpdate={fetchData} messages={projectMessages} userMap={userMap} />
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <TimeClockCard user={user} project={currentProject} addToast={addToast} onUpdate={fetchData} activeTimesheet={activeTimesheet} />
+                            <WeatherCard weather={weather} />
+                        </div>
+                        <DailyAssignmentsCard tasks={myTasks} onTaskReorder={setMyTasks} />
+                        <SiteUpdatesCard project={currentProject} user={user} addToast={addToast} onUpdate={fetchData} siteUpdates={siteUpdates} userMap={userMap} />
+                    </div>
+                    <div className="space-y-6">
+                        <TeamChatCard project={currentProject} user={user} onUpdate={fetchData} messages={projectMessages} userMap={userMap} />
                         <Card className="space-y-3 p-4">
                             <h2 className="text-lg font-semibold">Crew roster</h2>
                             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
