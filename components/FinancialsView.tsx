@@ -678,11 +678,8 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
         clients: clientData,
         projects: projectData,
         users: usersData,
-        forecasts: forecastData,
-        companyName: companyRecord?.name ?? null,
-
         forecasts: forecastsData,
- 
+        companyName: companyRecord?.name ?? null,
       });
     } catch (error) {
       if (controller.signal.aborted) return;
@@ -718,6 +715,37 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
       }
     },
     [data.invoices, user.id, addToast, fetchData],
+  );
+
+  const handleGenerateForecast = useCallback(
+    async (horizonMonths: number) => {
+      if (!user.companyId) {
+        return;
+      }
+
+      const sanitizedHorizon = Number.isFinite(horizonMonths)
+        ? Math.max(1, Math.round(horizonMonths))
+        : 3;
+
+      setIsGeneratingForecast(true);
+      setForecastError(null);
+
+      try {
+        const forecast = await generateFinancialForecast({
+          companyId: user.companyId,
+          monthlyData: data.monthly,
+          horizonMonths: sanitizedHorizon,
+        });
+        addToast('Financial forecast generated successfully.', 'success');
+      } catch (error) {
+        console.error('Forecast generation failed:', error);
+        setForecastError(error instanceof Error ? error.message : 'Failed to generate forecast');
+        addToast('Failed to generate forecast.', 'error');
+      } finally {
+        setIsGeneratingForecast(false);
+      }
+    },
+    [user.companyId, data.monthly, addToast],
   );
 
   const { projectMap, clientMap, userMap } = useMemo(
@@ -1010,75 +1038,6 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
         </div>
       </Card>
     </div>
-  );
-};
-
-  const handleGenerateForecast = useCallback(
-    async (horizonMonths: number) => {
-      if (!user.companyId) {
-        return;
-      }
-
-      const sanitizedHorizon = Number.isFinite(horizonMonths)
-        ? Math.max(1, Math.round(horizonMonths))
-        : 3;
-
-      setIsGeneratingForecast(true);
-      setForecastError(null);
-
-      try {
-        const forecast = await generateFinancialForecast({
-          companyName: user.companyName ?? 'Your company',
-          currency: data.kpis?.currency,
-          horizonMonths: sanitizedHorizon,
-          kpis: data.kpis,
-          monthly: data.monthly,
-          costs: data.costs,
-          invoices: data.invoices,
-          expenses: data.expenses,
-        });
-
-        const metadataRecord: Record<string, unknown> = { ...forecast.metadata };
-        const existingCurrency = metadataRecord['currency'];
-        metadataRecord['currency'] =
-          typeof existingCurrency === 'string'
-            ? existingCurrency
-            : data.kpis?.currency ?? 'GBP';
-        metadataRecord['horizonMonths'] = sanitizedHorizon;
-        metadataRecord['isFallback'] = forecast.isFallback;
-
-        const storedForecast = await api.createFinancialForecast(
-          {
-            companyId: user.companyId,
-            summary: forecast.summary,
-            horizonMonths: sanitizedHorizon,
-            metadata: metadataRecord,
-            model: forecast.model,
-          },
-          user.id,
-        );
-
-        setData(prev => ({ ...prev, forecasts: [storedForecast, ...prev.forecasts] }));
-        addToast('Financial forecast updated.', 'success');
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to generate financial forecast.';
-        setForecastError(message);
-        addToast('Failed to generate financial forecast.', 'error');
-      } finally {
-        setIsGeneratingForecast(false);
-      }
-    },
-    [
-      user.companyId,
-      user.id,
-      data.companyName,
-      data.kpis,
-      data.monthly,
-      data.costs,
-      data.invoices,
-      data.expenses,
-      addToast,
-    ],
   );
 
   const handleCreateInvoice = useCallback(() => {
