@@ -119,19 +119,22 @@ const InvoiceModal: React.FC<{ invoiceToEdit?: Invoice | null, isReadOnly?: bool
                 subtotal, taxAmount, retentionAmount, total, amountPaid, balance,
                 payments: invoiceToEdit?.payments || [],
                 status: invoiceToEdit?.status || InvoiceStatus.DRAFT,
-                invoiceNumber: invoiceToEdit?.invoiceNumber || `INV-${Math.floor(Math.random() * 9000) + 1000}`,
             };
             if(invoiceToEdit) {
-                 await api.updateInvoice(invoiceToEdit.id, invoiceData, user.id);
-                 addToast("Invoice updated.", "success");
+                 const updated = await api.updateInvoice(invoiceToEdit.id, { ...invoiceData, invoiceNumber: invoiceToEdit.invoiceNumber }, user.id);
+                 addToast(`Invoice ${updated.invoiceNumber} updated.`, "success");
             } else {
-                 await api.createInvoice(invoiceData, user.id);
-                 addToast("Invoice created as draft.", "success");
+                 const created = await api.createInvoice(invoiceData, user.id);
+                 if (!created.invoiceNumber) {
+                    throw new Error("Invoice number was not returned by the server.");
+                 }
+                 addToast(`Invoice ${created.invoiceNumber} created as draft.`, "success");
             }
             onSuccess();
             onClose();
         } catch(e) {
-            addToast("Failed to save invoice.", "error");
+            const message = e instanceof Error && e.message ? e.message : "Failed to save invoice.";
+            addToast(message, "error");
         } finally {
             setIsSaving(false);
         }

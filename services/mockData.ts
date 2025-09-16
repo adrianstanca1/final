@@ -37,7 +37,7 @@ export const initialData = {
       { id: 'e-1', description: 'Client Lunch', amount: 150, category: 'Other', projectId: '101', userId: '2', date: '2024-01-15', status: ExpenseStatus.APPROVED }
     ] as Partial<Expense>[],
     invoices: [
-        { id: 'inv-1', invoiceNumber: 'INV-001', projectId: '101', clientId: 'c-1', issueDate: '2024-01-20', dueDate: '2024-02-20', status: InvoiceStatus.PAID, lineItems: [{id: 'li-1', description: 'Phase 1', quantity: 1, rate: 100000, amount: 100000}], subtotal: 100000, taxRate: 0.2, taxAmount: 20000, retentionRate: 0.05, retentionAmount: 5000, total: 115000, amountPaid: 115000, balance: 0 }
+        { id: 'inv-1', companyId: '1', invoiceNumber: 'INV-001', projectId: '101', clientId: 'c-1', issueDate: '2024-01-20', dueDate: '2024-02-20', status: InvoiceStatus.PAID, lineItems: [{id: 'li-1', description: 'Phase 1', quantity: 1, rate: 100000, amount: 100000}], subtotal: 100000, taxRate: 0.2, taxAmount: 20000, retentionRate: 0.05, retentionAmount: 5000, total: 115000, amountPaid: 115000, balance: 0 }
     ] as Partial<Invoice>[],
     siteUpdates: [
         { id: 'su-1', projectId: '101', userId: '3', message: 'Concrete pour for the ground floor is complete.', timestamp: new Date(Date.now() - 2 * 3600 * 1000).toISOString(), images: ['https://picsum.photos/seed/concrete/400/200'] },
