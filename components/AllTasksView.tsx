@@ -64,7 +64,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                 setTodos(allTodos);
             }
         } catch (error) {
-            if (error.name !== 'AbortError') {
+            if ((error as Error).name !== 'AbortError') {
                 addToast("Failed to load tasks.", "error");
             }
         } finally {

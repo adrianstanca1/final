@@ -358,11 +358,45 @@ export interface Project {
   workClassification: string;
 }
 
+export interface UpcomingProjectDeadline {
+  id: string;
+  name: string;
+  endDate: string;
+  daysRemaining: number;
+  status: ProjectStatus;
+  isOverdue: boolean;
+}
+
+export interface ProjectPortfolioSummary {
+  totalProjects: number;
+  activeProjects: number;
+  completedProjects: number;
+  atRiskProjects: number;
+  overdueProjects: number;
+  pipelineValue: number;
+  totalActualCost: number;
+  budgetVariance: number;
+  averageProgress: number;
+  statusBreakdown: Record<ProjectStatus, number>;
+  upcomingDeadlines: UpcomingProjectDeadline[];
+}
+
 export interface ProjectInsight {
   id: string;
   projectId: string;
   summary: string;
   type: 'HEALTH_SUMMARY' | 'KNOWLEDGE_SUMMARY' | 'CUSTOM';
+  createdAt: string;
+  createdBy: string;
+  model?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface FinancialForecast {
+  id: string;
+  companyId: string;
+  summary: string;
+  horizonMonths: number;
   createdAt: string;
   createdBy: string;
   model?: string;

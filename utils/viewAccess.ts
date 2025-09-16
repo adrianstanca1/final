@@ -219,7 +219,6 @@ export const evaluateViewAccess = (user: User, view: View): ViewAccessEvaluation
       allowed: true,
       missingPermissions: [],
       missingAnyPermissionGroups: [],
-
     };
   }
 
@@ -239,7 +238,7 @@ export const evaluateViewAccess = (user: User, view: View): ViewAccessEvaluation
   const missingAnyGroups: Permission[][] = [];
 
   if (rule.anyPermissions) {
-    const hasAny = rule.anyPermissions.some((permission) => hasPermission(user, permission));
+    const hasAny = rule.anyPermissions.some(permission => hasPermission(user, permission));
     if (!hasAny) {
       missingAnyGroups.push(rule.anyPermissions);
       missingPermissions.push(...rule.anyPermissions);
@@ -247,7 +246,7 @@ export const evaluateViewAccess = (user: User, view: View): ViewAccessEvaluation
   }
 
   if (rule.allPermissions) {
-    const missing = rule.allPermissions.filter((permission) => !hasPermission(user, permission));
+    const missing = rule.allPermissions.filter(permission => !hasPermission(user, permission));
     missingPermissions.push(...missing);
   }
 

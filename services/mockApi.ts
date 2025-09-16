@@ -2,11 +2,65 @@
 // Supports offline queuing for write operations.
 
 import { initialData } from './mockData';
-import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegisterCredentials, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority } from '../types';
+import {
+    User,
+    Company,
+    Project,
+    ProjectPortfolioSummary,
+    Task,
+    TimeEntry,
+    SafetyIncident,
+    Equipment,
+    Client,
+    Invoice,
+    Expense,
+    Notification,
+    LoginCredentials,
+    RegisterCredentials,
+    TaskStatus,
+    TaskPriority,
+    TimeEntryStatus,
+    IncidentSeverity,
+    SiteUpdate,
+    ProjectMessage,
+    Weather,
+    InvoiceStatus,
+    Quote,
+    FinancialKPIs,
+    MonthlyFinancials,
+    CostBreakdown,
+    Role,
+    TimesheetStatus,
+    IncidentStatus,
+    AuditLog,
+    ResourceAssignment,
+    Conversation,
+    Message,
+    CompanySettings,
+    ProjectAssignment,
+    ProjectTemplate,
+    ProjectInsight,
+    FinancialForecast,
+    WhiteboardNote,
+    BidPackage,
+    RiskAnalysis,
+    Grant,
+    Timesheet,
+    Todo,
+    InvoiceLineItem,
+    Document,
+    UsageMetric,
+    CompanyType,
+    ExpenseStatus,
+    TodoStatus,
+    TodoPriority,
+} from '../types';
+import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
 
 const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
 
 type RequestOptions = { signal?: AbortSignal };
+type ProjectSummaryOptions = RequestOptions & { projectIds?: string[] };
 
 const ensureNotAborted = (signal?: AbortSignal) => {
     if (signal?.aborted) {
@@ -85,6 +139,7 @@ let db: {
     whiteboardNotes: Partial<WhiteboardNote>[];
     documents: Partial<Document>[];
     projectInsights: Partial<ProjectInsight>[];
+    financialForecasts: Partial<FinancialForecast>[];
 } = {
     companies: hydrateData('companies', initialData.companies),
     users: hydrateData('users', initialData.users),
@@ -109,6 +164,7 @@ let db: {
     whiteboardNotes: hydrateData('whiteboardNotes', []),
     documents: hydrateData('documents', []),
     projectInsights: hydrateData('projectInsights', (initialData as any).projectInsights || []),
+    financialForecasts: hydrateData('financialForecasts', (initialData as any).financialForecasts || []),
 };
 
 const saveDb = () => {
@@ -374,11 +430,28 @@ export const api = {
         });
         saveDb();
     },
+    markNotificationAsRead: async (notificationId: string): Promise<void> => {
+        await delay();
+        const notification = db.notifications.find(n => n.id === notificationId);
+        if (!notification) {
+            throw new Error('Notification not found');
+        }
+        notification.isRead = true;
+        notification.read = true;
+        saveDb();
+    },
     getProjectsByManager: async (managerId: string, options?: RequestOptions): Promise<Project[]> => {
         ensureNotAborted(options?.signal);
         await delay();
         ensureNotAborted(options?.signal);
         return db.projects.filter(p => (p as any).managerId === managerId) as Project[];
+    },
+    getProjectById: async (projectId: string, options?: RequestOptions): Promise<Project | null> => {
+        ensureNotAborted(options?.signal);
+        await delay();
+        ensureNotAborted(options?.signal);
+        const project = db.projects.find(p => p.id === projectId);
+        return project ? project as Project : null;
     },
     getUsersByCompany: async (companyId: string, options?: RequestOptions): Promise<User[]> => {
         ensureNotAborted(options?.signal);
@@ -427,7 +500,11 @@ export const api = {
     },
 
     getProjectInsights: async (projectId: string): Promise<ProjectInsight[]> => {
+
+    getProjectInsights: async (projectId: string, options?: RequestOptions): Promise<ProjectInsight[]> => {
+        ensureNotAborted(options?.signal);
         await delay();
+        ensureNotAborted(options?.signal);
         return db.projectInsights
             .filter(insight => insight.projectId === projectId)
             .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
@@ -470,6 +547,59 @@ export const api = {
         addAuditLog(userId, 'generated_project_insight', project ? { type: 'project', id: project.id!, name: project.name || '' } : undefined);
         saveDb();
         return newInsight;
+    },
+    getFinancialForecasts: async (companyId: string, options?: RequestOptions): Promise<FinancialForecast[]> => {
+        ensureNotAborted(options?.signal);
+        await delay();
+        ensureNotAborted(options?.signal);
+        return db.financialForecasts
+            .filter(forecast => forecast.companyId === companyId)
+            .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+            .map(forecast => ({
+                id: forecast.id!,
+                companyId: forecast.companyId!,
+                summary: forecast.summary || '',
+                horizonMonths: typeof forecast.horizonMonths === 'number'
+                    ? forecast.horizonMonths
+                    : Number((forecast.metadata as any)?.horizonMonths) || 3,
+                createdAt: forecast.createdAt || new Date().toISOString(),
+                createdBy: forecast.createdBy || 'system',
+                model: forecast.model,
+                metadata: forecast.metadata,
+            }));
+    },
+    createFinancialForecast: async (
+        data: { companyId: string; summary: string; horizonMonths: number; metadata?: Record<string, unknown>; model?: string },
+        userId: string,
+    ): Promise<FinancialForecast> => {
+        await delay();
+        if (!data.companyId) {
+            throw new Error('companyId is required to create a financial forecast.');
+        }
+        if (!data.summary.trim()) {
+            throw new Error('summary is required to create a financial forecast.');
+        }
+
+        const newForecast: FinancialForecast = {
+            id: String(Date.now() + Math.random()),
+            companyId: data.companyId,
+            summary: data.summary,
+            horizonMonths: data.horizonMonths,
+            createdAt: new Date().toISOString(),
+            createdBy: userId,
+            model: data.model,
+            metadata: data.metadata,
+        };
+
+        db.financialForecasts.push(newForecast);
+        const company = db.companies.find(c => c.id === data.companyId);
+        addAuditLog(
+            userId,
+            'generated_financial_forecast',
+            company ? { type: 'company', id: company.id!, name: company.name || '' } : undefined,
+        );
+        saveDb();
+        return newForecast;
     },
     getExpensesByCompany: async (companyId: string, options?: RequestOptions): Promise<Expense[]> => {
         ensureNotAborted(options?.signal);
@@ -538,6 +668,29 @@ export const api = {
     getProjectsByCompany: async (companyId: string, options?: RequestOptions): Promise<Project[]> => {
         ensureNotAborted(options?.signal);
         return db.projects.filter(p => p.companyId === companyId) as Project[];
+    },
+    getProjectPortfolioSummary: async (
+        companyId: string,
+        options?: ProjectSummaryOptions
+    ): Promise<ProjectPortfolioSummary> => {
+        ensureNotAborted(options?.signal);
+        await delay();
+        ensureNotAborted(options?.signal);
+
+        const scopedIds = options?.projectIds?.map(String);
+        const idFilter = scopedIds && scopedIds.length > 0 ? new Set(scopedIds) : null;
+
+        const scopedProjects = db.projects.filter(project => {
+            if (project.companyId !== companyId) {
+                return false;
+            }
+            if (idFilter) {
+                return project.id != null && idFilter.has(String(project.id));
+            }
+            return true;
+        });
+
+        return computeProjectPortfolioSummary(scopedProjects);
     },
     findGrants: async (keywords: string, location: string): Promise<Grant[]> => {
         await delay(1000);
@@ -611,16 +764,43 @@ export const api = {
     },
     getClientsByCompany: async (companyId: string, options?: RequestOptions): Promise<Client[]> => {
         ensureNotAborted(options?.signal);
-        return db.clients as Client[];
+        return db.clients
+            .filter(client => client.companyId === companyId)
+            .map(client => ({
+                ...client,
+                isActive: client.isActive ?? true,
+            })) as Client[];
     },
     updateClient: async (id:string, data:any, userId:string): Promise<Client> => {
         const index = db.clients.findIndex(c=>c.id === id);
-        db.clients[index] = {...db.clients[index], ...data};
+        if (index === -1) {
+            throw new Error('Client not found');
+        }
+        db.clients[index] = {
+            ...db.clients[index],
+            ...data,
+            updatedAt: new Date().toISOString(),
+        };
         saveDb();
         return db.clients[index] as Client;
     },
     createClient: async (data:any, userId:string): Promise<Client> => {
-        const newClient = {...data, id: String(Date.now()), companyId: db.users.find(u=>u.id===userId)!.companyId};
+        const timestamp = new Date().toISOString();
+        const companyId = db.users.find(u=>u.id===userId)!.companyId;
+        const newClient = {
+            isActive: true,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            contactPerson: data.contactPerson || '',
+            contactEmail: data.contactEmail,
+            contactPhone: data.contactPhone || data.phone,
+            paymentTerms: data.paymentTerms || 'Net 30',
+            billingAddress: data.billingAddress || '',
+            address: data.address || { street: '', city: '', state: '', zipCode: '', country: '' },
+            ...data,
+            id: String(Date.now()),
+            companyId,
+        };
         db.clients.push(newClient);
         saveDb();
         return newClient as Client;
