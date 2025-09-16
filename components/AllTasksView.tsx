@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User, Project, Todo, Role, Permission, TodoStatus, TodoPriority } from '../types';
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
@@ -23,33 +23,46 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [taskToEdit, setTaskToEdit] = useState<Todo | null>(null);
     const [bulkAction, setBulkAction] = useState({ type: '', value: '' });
-    
+
     const canManage = hasPermission(user, Permission.MANAGE_ALL_TASKS);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         setLoading(true);
         try {
             if (!user.companyId) return;
             const [projData, usersData] = await Promise.all([
-                api.getProjectsByCompany(user.companyId),
-                api.getUsersByCompany(user.companyId)
+                api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
+                api.getUsersByCompany(user.companyId, { signal: controller.signal })
             ]);
+            if (controller.signal.aborted) return;
             setProjects(projData);
+            if (controller.signal.aborted) return;
             setPersonnel(usersData);
 
             if (projData.length > 0) {
-                const allTodos = await api.getTodosByProjectIds(projData.map(p => p.id));
+                const allTodos = await api.getTodosByProjectIds(projData.map(p => p.id), { signal: controller.signal });
+                if (controller.signal.aborted) return;
                 setTodos(allTodos);
             }
         } catch (error) {
+            if (controller.signal.aborted) return;
             addToast("Failed to load tasks.", "error");
         } finally {
+            if (controller.signal.aborted) return;
             setLoading(false);
         }
     }, [user, addToast]);
 
     useEffect(() => {
         fetchData();
+        return () => {
+            abortControllerRef.current?.abort();
+        };
     }, [fetchData]);
 
     const filteredTodos = useMemo(() => {

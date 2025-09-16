@@ -6,6 +6,14 @@ import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Cli
 
 const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
 
+type RequestOptions = { signal?: AbortSignal };
+
+const ensureNotAborted = (signal?: AbortSignal) => {
+    if (signal?.aborted) {
+        throw new DOMException('Aborted', 'AbortError');
+    }
+};
+
 const JWT_SECRET = 'your-super-secret-key-for-mock-jwt';
 const MOCK_ACCESS_TOKEN_LIFESPAN = 15 * 60 * 1000; // 15 minutes
 const MOCK_REFRESH_TOKEN_LIFESPAN = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -335,20 +343,26 @@ export const api = {
             features: { projectManagement: true, timeTracking: true, financials: true, documents: true, safety: true, equipment: true, reporting: true },
         };
     },
-    getTimesheetsByCompany: async (companyId: string, userId?: string): Promise<Timesheet[]> => {
+    getTimesheetsByCompany: async (companyId: string, userId?: string, options?: RequestOptions): Promise<Timesheet[]> => {
+        ensureNotAborted(options?.signal);
         await delay();
+        ensureNotAborted(options?.signal);
         return db.timeEntries.map(te => ({...te, clockIn: new Date(te.clockIn!), clockOut: te.clockOut ? new Date(te.clockOut) : null })) as Timesheet[];
     },
     getSafetyIncidentsByCompany: async (companyId: string): Promise<SafetyIncident[]> => {
         await delay();
         return db.safetyIncidents as SafetyIncident[];
     },
-    getConversationsForUser: async (userId: string): Promise<Conversation[]> => {
+    getConversationsForUser: async (userId: string, options?: RequestOptions): Promise<Conversation[]> => {
+        ensureNotAborted(options?.signal);
         await delay();
+        ensureNotAborted(options?.signal);
         return db.conversations.filter(c => c.participantIds?.includes(userId)) as Conversation[];
     },
-    getNotificationsForUser: async (userId: string): Promise<Notification[]> => {
+    getNotificationsForUser: async (userId: string, options?: RequestOptions): Promise<Notification[]> => {
+        ensureNotAborted(options?.signal);
         await delay();
+        ensureNotAborted(options?.signal);
         return db.notifications.filter(n => n.userId === userId).map(n => ({...n, timestamp: new Date(n.timestamp!)})) as Notification[];
     },
     markAllNotificationsAsRead: async (userId: string): Promise<void> => {
@@ -358,43 +372,61 @@ export const api = {
         });
         saveDb();
     },
-    getProjectsByManager: async (managerId: string): Promise<Project[]> => {
+    getProjectsByManager: async (managerId: string, options?: RequestOptions): Promise<Project[]> => {
+        ensureNotAborted(options?.signal);
         await delay();
+        ensureNotAborted(options?.signal);
         return db.projects.filter(p => (p as any).managerId === managerId) as Project[];
     },
-    getUsersByCompany: async (companyId: string): Promise<User[]> => {
+    getUsersByCompany: async (companyId: string, options?: RequestOptions): Promise<User[]> => {
+        ensureNotAborted(options?.signal);
         await delay();
+        ensureNotAborted(options?.signal);
         return db.users.filter(u => u.companyId === companyId) as User[];
     },
-    getEquipmentByCompany: async (companyId: string): Promise<Equipment[]> => {
+    getEquipmentByCompany: async (companyId: string, options?: RequestOptions): Promise<Equipment[]> => {
+        ensureNotAborted(options?.signal);
         await delay();
+        ensureNotAborted(options?.signal);
         return db.equipment.filter(e => e.companyId === companyId) as Equipment[];
     },
-    getResourceAssignments: async (companyId: string): Promise<ResourceAssignment[]> => {
+    getResourceAssignments: async (companyId: string, options?: RequestOptions): Promise<ResourceAssignment[]> => {
+        ensureNotAborted(options?.signal);
         await delay();
+        ensureNotAborted(options?.signal);
         return db.resourceAssignments as ResourceAssignment[];
     },
-    getAuditLogsByCompany: async (companyId: string): Promise<AuditLog[]> => {
+    getAuditLogsByCompany: async (companyId: string, options?: RequestOptions): Promise<AuditLog[]> => {
+        ensureNotAborted(options?.signal);
         await delay();
+        ensureNotAborted(options?.signal);
         return db.auditLogs as AuditLog[];
     },
-    getTodosByProjectIds: async (projectIds: string[]): Promise<Todo[]> => {
+    getTodosByProjectIds: async (projectIds: string[], options?: RequestOptions): Promise<Todo[]> => {
+        ensureNotAborted(options?.signal);
         await delay();
+        ensureNotAborted(options?.signal);
         const idSet = new Set(projectIds);
         return db.todos.filter(t => idSet.has(t.projectId!)) as Todo[];
     },
-    getDocumentsByProject: async (projectId: string): Promise<Document[]> => {
+    getDocumentsByProject: async (projectId: string, options?: RequestOptions): Promise<Document[]> => {
+        ensureNotAborted(options?.signal);
         await delay();
+        ensureNotAborted(options?.signal);
         return db.documents.filter(d => d.projectId === projectId) as Document[];
     },
-    getUsersByProject: async (projectId: string): Promise<User[]> => {
+    getUsersByProject: async (projectId: string, options?: RequestOptions): Promise<User[]> => {
+        ensureNotAborted(options?.signal);
         await delay();
+        ensureNotAborted(options?.signal);
         const assignments = db.projectAssignments.filter(pa => pa.projectId === projectId);
         const userIds = new Set(assignments.map(a => a.userId));
         return db.users.filter(u => userIds.has(u.id!)) as User[];
     },
-    getExpensesByCompany: async (companyId: string): Promise<Expense[]> => {
+    getExpensesByCompany: async (companyId: string, options?: RequestOptions): Promise<Expense[]> => {
+        ensureNotAborted(options?.signal);
         await delay();
+        ensureNotAborted(options?.signal);
         const projectIds = new Set(db.projects.filter(p => p.companyId === companyId).map(p => p.id));
         return db.expenses.filter(e => projectIds.has(e.projectId!)) as Expense[];
     },
@@ -406,8 +438,10 @@ export const api = {
         saveDb();
         return db.todos[todoIndex] as Todo;
     },
-    getProjectsByUser: async (userId: string): Promise<Project[]> => {
+    getProjectsByUser: async (userId: string, options?: RequestOptions): Promise<Project[]> => {
+        ensureNotAborted(options?.signal);
         await delay();
+        ensureNotAborted(options?.signal);
         const assignments = db.projectAssignments.filter(pa => pa.userId === userId);
         const projectIds = new Set(assignments.map(a => a.projectId));
         return db.projects.filter(p => projectIds.has(p.id!)) as Project[];
@@ -449,10 +483,12 @@ export const api = {
         saveDb();
         return newDoc as Document;
     },
-    getDocumentsByCompany: async (companyId: string): Promise<Document[]> => {
+    getDocumentsByCompany: async (companyId: string, options?: RequestOptions): Promise<Document[]> => {
+        ensureNotAborted(options?.signal);
         return db.documents as Document[];
     },
-    getProjectsByCompany: async (companyId: string): Promise<Project[]> => {
+    getProjectsByCompany: async (companyId: string, options?: RequestOptions): Promise<Project[]> => {
+        ensureNotAborted(options?.signal);
         return db.projects.filter(p => p.companyId === companyId) as Project[];
     },
     findGrants: async (keywords: string, location: string): Promise<Grant[]> => {
@@ -471,10 +507,12 @@ export const api = {
         await delay(1500);
         return { report: `Analysis for project #${projectId}:\n- Common issue: Slips on wet surfaces (${incidents.length} incidents).\n- Recommendation: Increase signage and regular clean-up patrols.` };
     },
-    getCompanies: async (): Promise<Company[]> => {
+    getCompanies: async (options?: RequestOptions): Promise<Company[]> => {
+        ensureNotAborted(options?.signal);
         return db.companies as Company[];
     },
-    getPlatformUsageMetrics: async (): Promise<UsageMetric[]> => {
+    getPlatformUsageMetrics: async (options?: RequestOptions): Promise<UsageMetric[]> => {
+        ensureNotAborted(options?.signal);
         return [
             { name: 'Active Users (24h)', value: db.users.length - 2, unit: 'users' },
             { name: 'API Calls (24h)', value: 12543, unit: 'calls' },
@@ -503,12 +541,30 @@ export const api = {
         await delay(1000);
         return `Summary for ${date.toDateString()}:\n- Task A completed.\n- Task B in progress.`;
     },
-    getFinancialKPIsForCompany: async (companyId: string): Promise<FinancialKPIs> => { return { profitability: 15, projectMargin: 22, cashFlow: 120000, currency: 'GBP' } },
-    getMonthlyFinancials: async (companyId: string): Promise<MonthlyFinancials[]> => { return [{month: 'Jan', revenue: 50000, profit: 8000}, {month: 'Feb', revenue: 75000, profit: 12000}] },
-    getCostBreakdown: async (companyId: string): Promise<CostBreakdown[]> => { return [{category: 'Labor', amount: 40000}, {category: 'Materials', amount: 30000}] },
-    getInvoicesByCompany: async (companyId: string): Promise<Invoice[]> => { return db.invoices as Invoice[] },
-    getQuotesByCompany: async (companyId: string): Promise<Quote[]> => { return db.quotes as Quote[] },
-    getClientsByCompany: async (companyId: string): Promise<Client[]> => { return db.clients as Client[] },
+    getFinancialKPIsForCompany: async (companyId: string, options?: RequestOptions): Promise<FinancialKPIs> => {
+        ensureNotAborted(options?.signal);
+        return { profitability: 15, projectMargin: 22, cashFlow: 120000, currency: 'GBP' };
+    },
+    getMonthlyFinancials: async (companyId: string, options?: RequestOptions): Promise<MonthlyFinancials[]> => {
+        ensureNotAborted(options?.signal);
+        return [{month: 'Jan', revenue: 50000, profit: 8000}, {month: 'Feb', revenue: 75000, profit: 12000}];
+    },
+    getCostBreakdown: async (companyId: string, options?: RequestOptions): Promise<CostBreakdown[]> => {
+        ensureNotAborted(options?.signal);
+        return [{category: 'Labor', amount: 40000}, {category: 'Materials', amount: 30000}];
+    },
+    getInvoicesByCompany: async (companyId: string, options?: RequestOptions): Promise<Invoice[]> => {
+        ensureNotAborted(options?.signal);
+        return db.invoices as Invoice[];
+    },
+    getQuotesByCompany: async (companyId: string, options?: RequestOptions): Promise<Quote[]> => {
+        ensureNotAborted(options?.signal);
+        return db.quotes as Quote[];
+    },
+    getClientsByCompany: async (companyId: string, options?: RequestOptions): Promise<Client[]> => {
+        ensureNotAborted(options?.signal);
+        return db.clients as Client[];
+    },
     updateClient: async (id:string, data:any, userId:string): Promise<Client> => {
         const index = db.clients.findIndex(c=>c.id === id);
         db.clients[index] = {...db.clients[index], ...data};
@@ -592,7 +648,8 @@ export const api = {
         saveDb();
         return entry as Timesheet;
     },
-    getTimesheetsByUser: async (userId: string): Promise<Timesheet[]> => {
+    getTimesheetsByUser: async (userId: string, options?: RequestOptions): Promise<Timesheet[]> => {
+        ensureNotAborted(options?.signal);
         return db.timeEntries.filter(t => t.userId === userId).map(te => ({...te, clockIn: new Date(te.clockIn!), clockOut: te.clockOut ? new Date(te.clockOut) : null })) as Timesheet[];
     },
     createSafetyIncident: async (data: any, userId: string): Promise<SafetyIncident> => {
@@ -621,7 +678,8 @@ export const api = {
         saveDb();
         return db.projects[index] as Project;
     },
-    getProjectTemplates: async (companyId: string): Promise<ProjectTemplate[]> => {
+    getProjectTemplates: async (companyId: string, options?: RequestOptions): Promise<ProjectTemplate[]> => {
+        ensureNotAborted(options?.signal);
         return db.projectTemplates as ProjectTemplate[];
     },
     createProjectTemplate: async (data: any, userId: string): Promise<ProjectTemplate> => {
@@ -630,7 +688,8 @@ export const api = {
         saveDb();
         return newTemplate as ProjectTemplate;
     },
-    getProjectAssignmentsByCompany: async (companyId: string): Promise<ProjectAssignment[]> => {
+    getProjectAssignmentsByCompany: async (companyId: string, options?: RequestOptions): Promise<ProjectAssignment[]> => {
+        ensureNotAborted(options?.signal);
         return db.projectAssignments as ProjectAssignment[];
     },
     getUserPerformanceMetrics: async (userId: string): Promise<{totalHours: number, tasksCompleted: number}> => {
@@ -663,7 +722,8 @@ export const api = {
         await delay(1000);
         return { prioritizedTaskIds: tasks.sort((a,b) => (b.priority === TodoPriority.HIGH ? 1 : -1) - (a.priority === TodoPriority.HIGH ? 1 : -1)).map(t=>t.id) };
     },
-    getMessagesForConversation: async (conversationId: string, userId: string): Promise<Message[]> => {
+    getMessagesForConversation: async (conversationId: string, userId: string, options?: RequestOptions): Promise<Message[]> => {
+        ensureNotAborted(options?.signal);
         return db.messages.filter(m => m.conversationId === conversationId).map(m=>({...m, timestamp: new Date(m.timestamp!)})) as Message[];
     },
     sendMessage: async (senderId: string, recipientId: string, content: string, conversationId?: string): Promise<{conversation: Conversation, message: Message}> => {
@@ -678,7 +738,8 @@ export const api = {
         saveDb();
         return { conversation: convo as Conversation, message: newMessage as Message };
     },
-    getWhiteboardNotesByProject: async (projectId: string): Promise<WhiteboardNote[]> => {
+    getWhiteboardNotesByProject: async (projectId: string, options?: RequestOptions): Promise<WhiteboardNote[]> => {
+        ensureNotAborted(options?.signal);
         return db.whiteboardNotes.filter(n => n.projectId === projectId) as WhiteboardNote[];
     },
     createWhiteboardNote: async (data: any, userId: string): Promise<WhiteboardNote> => {
@@ -712,13 +773,16 @@ export const api = {
         });
         saveDb();
     },
-    getSiteUpdatesByProject: async (projectId: string): Promise<SiteUpdate[]> => {
+    getSiteUpdatesByProject: async (projectId: string, options?: RequestOptions): Promise<SiteUpdate[]> => {
+        ensureNotAborted(options?.signal);
         return db.siteUpdates.filter(s => s.projectId === projectId) as SiteUpdate[];
     },
-    getProjectMessages: async (projectId: string): Promise<ProjectMessage[]> => {
+    getProjectMessages: async (projectId: string, options?: RequestOptions): Promise<ProjectMessage[]> => {
+        ensureNotAborted(options?.signal);
         return db.projectMessages.filter(p => p.projectId === projectId) as ProjectMessage[];
     },
-    getWeatherForLocation: async (lat: number, lng: number): Promise<Weather> => {
+    getWeatherForLocation: async (lat: number, lng: number, options?: RequestOptions): Promise<Weather> => {
+        ensureNotAborted(options?.signal);
         return { temperature: 18, condition: 'Sunny', windSpeed: 10, icon: '☀️' };
     },
     createSiteUpdate: async (data: any, userId: string): Promise<SiteUpdate> => {

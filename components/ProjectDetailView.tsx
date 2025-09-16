@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User, Project, Todo, Document, Role, Permission, TodoStatus, TodoPriority, SafetyIncident, Expense, ExpenseStatus } from '../types';
 // FIX: Corrected API import
 import { api } from '../services/mockApi';
@@ -183,32 +183,47 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project: i
     const [taskToEdit, setTaskToEdit] = useState<Todo | null>(null);
     const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
     const [taskForReminder, setTaskForReminder] = useState<Todo | null>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         setLoading(true);
         try {
             if (!user.companyId) return;
             const [taskData, docData, teamData, allIncidents, allExpenses] = await Promise.all([
-                api.getTodosByProjectIds([project.id]),
-                api.getDocumentsByProject(project.id),
-                api.getUsersByProject(project.id),
-                api.getSafetyIncidentsByCompany(user.companyId),
-                api.getExpensesByCompany(user.companyId),
+                api.getTodosByProjectIds([project.id], { signal: controller.signal }),
+                api.getDocumentsByProject(project.id, { signal: controller.signal }),
+                api.getUsersByProject(project.id, { signal: controller.signal }),
+                api.getSafetyIncidentsByCompany(user.companyId, { signal: controller.signal }),
+                api.getExpensesByCompany(user.companyId, { signal: controller.signal }),
             ]);
+            if (controller.signal.aborted) return;
             setTasks(taskData.sort((a,b) => (a.progress ?? 0) - (b.progress ?? 0)));
+            if (controller.signal.aborted) return;
             setDocuments(docData as any);
+            if (controller.signal.aborted) return;
             setTeam(teamData);
+            if (controller.signal.aborted) return;
             setIncidents(allIncidents.filter(i => i.projectId == project.id));
+            if (controller.signal.aborted) return;
             setExpenses(allExpenses.filter(e => e.projectId == project.id));
         } catch (error) {
+            if (controller.signal.aborted) return;
             addToast("Failed to load project details.", "error");
         } finally {
+            if (controller.signal.aborted) return;
             setLoading(false);
         }
     }, [project.id, user.companyId, addToast]);
 
     useEffect(() => {
         fetchData();
+        return () => {
+            abortControllerRef.current?.abort();
+        };
     }, [fetchData]);
     
     useEffect(() => {

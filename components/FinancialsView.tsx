@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User, FinancialKPIs, MonthlyFinancials, CostBreakdown, Invoice, Quote, Client, Project, Permission, Expense, ExpenseCategory, ExpenseStatus, InvoiceStatus, QuoteStatus, LineItem, Payment, InvoiceLineItem } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
@@ -265,34 +265,45 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
 
     const [modal, setModal] = useState<'client' | 'invoice' | 'payment' | 'expense' | null>(null);
     const [selectedItem, setSelectedItem] = useState<Client | Invoice | Expense | null>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const canManageFinances = hasPermission(user, Permission.MANAGE_FINANCES);
 
     const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         if (!user.companyId) return;
         setLoading(true);
         try {
             const [kpiData, monthlyData, costsData, invoiceData, quoteData, expenseData, clientData, projectData, usersData] = await Promise.all([
-                api.getFinancialKPIsForCompany(user.companyId),
-                api.getMonthlyFinancials(user.companyId),
-                api.getCostBreakdown(user.companyId),
-                api.getInvoicesByCompany(user.companyId),
-                api.getQuotesByCompany(user.companyId),
-                api.getExpensesByCompany(user.companyId),
-                api.getClientsByCompany(user.companyId),
-                api.getProjectsByCompany(user.companyId),
-                api.getUsersByCompany(user.companyId),
+                api.getFinancialKPIsForCompany(user.companyId, { signal: controller.signal }),
+                api.getMonthlyFinancials(user.companyId, { signal: controller.signal }),
+                api.getCostBreakdown(user.companyId, { signal: controller.signal }),
+                api.getInvoicesByCompany(user.companyId, { signal: controller.signal }),
+                api.getQuotesByCompany(user.companyId, { signal: controller.signal }),
+                api.getExpensesByCompany(user.companyId, { signal: controller.signal }),
+                api.getClientsByCompany(user.companyId, { signal: controller.signal }),
+                api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
+                api.getUsersByCompany(user.companyId, { signal: controller.signal }),
             ]);
+            if (controller.signal.aborted) return;
             setData({ kpis: kpiData, monthly: monthlyData, costs: costsData, invoices: invoiceData, quotes: quoteData, expenses: expenseData, clients: clientData, projects: projectData, users: usersData });
         } catch (error) {
+            if (controller.signal.aborted) return;
             addToast("Failed to load financial data", 'error');
         } finally {
+            if (controller.signal.aborted) return;
             setLoading(false);
         }
     }, [user.companyId, addToast]);
 
     useEffect(() => {
         fetchData();
+        return () => {
+            abortControllerRef.current?.abort();
+        };
     }, [fetchData]);
 
     const { projectMap, clientMap, userMap } = useMemo(() => ({

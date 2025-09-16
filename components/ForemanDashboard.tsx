@@ -286,46 +286,63 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
     const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false);
 
     const userMap = useMemo(() => new Map(allUsers.map(u => [u.id, u])), [allUsers]);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         setLoading(true);
         try {
             if (!user.companyId) return;
             const [userProjects, allCompanyUsers, tsData] = await Promise.all([
-                api.getProjectsByUser(user.id),
-                api.getUsersByCompany(user.companyId),
-                api.getTimesheetsByUser(user.id),
+                api.getProjectsByUser(user.id, { signal: controller.signal }),
+                api.getUsersByCompany(user.companyId, { signal: controller.signal }),
+                api.getTimesheetsByUser(user.id, { signal: controller.signal }),
             ]);
+
+            if (controller.signal.aborted) return;
             setAllUsers(allCompanyUsers);
+            if (controller.signal.aborted) return;
             setActiveTimesheet(tsData.find(ts => ts.clockOut === null));
             const activeProject = userProjects.find(p => p.status === 'ACTIVE');
+            if (controller.signal.aborted) return;
             setCurrentProject(activeProject || null);
 
             if (activeProject) {
                 const [allProjectTasks, allCompanyEquipment, allAssignments, updates, messages, weatherData] = await Promise.all([
-                    api.getTodosByProjectIds([activeProject.id]),
-                    api.getEquipmentByCompany(user.companyId),
-                    api.getResourceAssignments(user.companyId),
-                    api.getSiteUpdatesByProject(activeProject.id),
-                    api.getProjectMessages(activeProject.id),
-                    api.getWeatherForLocation(activeProject.location.lat, activeProject.location.lng)
+                    api.getTodosByProjectIds([activeProject.id], { signal: controller.signal }),
+                    api.getEquipmentByCompany(user.companyId, { signal: controller.signal }),
+                    api.getResourceAssignments(user.companyId, { signal: controller.signal }),
+                    api.getSiteUpdatesByProject(activeProject.id, { signal: controller.signal }),
+                    api.getProjectMessages(activeProject.id, { signal: controller.signal }),
+                    api.getWeatherForLocation(activeProject.location.lat, activeProject.location.lng, { signal: controller.signal })
                 ]);
 
+                if (controller.signal.aborted) return;
                 setMyTasks(allProjectTasks.filter(t => t.assigneeId === user.id && t.status !== TodoStatus.DONE).sort((a,b) => (b.priority === TodoPriority.HIGH ? 1 : -1) - (a.priority === TodoPriority.HIGH ? 1 : -1)));
-                
+
                 const crewIds = new Set(allAssignments.filter(a => a.projectId === activeProject.id && a.resourceType === 'user').map(a => a.resourceId));
+                if (controller.signal.aborted) return;
                 setCrew(allCompanyUsers.filter(u => crewIds.has(u.id) && u.id !== user.id));
 
                 const currentProjectEquipmentIds = new Set(allAssignments.filter(a => a.projectId === activeProject.id && a.resourceType === 'equipment').map(a=>a.resourceId));
+                if (controller.signal.aborted) return;
                 setEquipment(allCompanyEquipment.filter(e => currentProjectEquipmentIds.has(e.id)));
 
+                if (controller.signal.aborted) return;
                 setSiteUpdates(updates);
+                if (controller.signal.aborted) return;
                 setProjectMessages(messages);
+                if (controller.signal.aborted) return;
                 setWeather(weatherData);
             }
         } catch (error) {
+            if (controller.signal.aborted) return;
             addToast("Failed to load foreman dashboard data.", "error");
         } finally {
+            if (controller.signal.aborted) return;
             setLoading(false);
         }
     }, [user, addToast]);
@@ -333,7 +350,10 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
     useEffect(() => {
         fetchData();
         const interval = setInterval(fetchData, 30000); // Auto-refresh every 30s
-        return () => clearInterval(interval);
+        return () => {
+            clearInterval(interval);
+            abortControllerRef.current?.abort();
+        };
     }, [fetchData]);
 
     if (loading) {

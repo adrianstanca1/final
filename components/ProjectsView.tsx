@@ -1,6 +1,6 @@
 // full contents of components/ProjectsView.tsx
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User, Project, Permission } from '../types';
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
@@ -44,30 +44,41 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('All');
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const canCreate = hasPermission(user, Permission.CREATE_PROJECT);
 
     const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         setLoading(true);
         try {
             if (!user.companyId) return;
             let projectsPromise: Promise<Project[]>;
             if (hasPermission(user, Permission.VIEW_ALL_PROJECTS)) {
-                projectsPromise = api.getProjectsByCompany(user.companyId);
+                projectsPromise = api.getProjectsByCompany(user.companyId, { signal: controller.signal });
             } else {
-                projectsPromise = api.getProjectsByUser(user.id);
+                projectsPromise = api.getProjectsByUser(user.id, { signal: controller.signal });
             }
             const fetchedProjects = await projectsPromise;
+            if (controller.signal.aborted) return;
             setProjects(fetchedProjects);
         } catch (error) {
+            if (controller.signal.aborted) return;
             addToast("Failed to load projects.", "error");
         } finally {
+            if (controller.signal.aborted) return;
             setLoading(false);
         }
     }, [user, addToast]);
 
     useEffect(() => {
         fetchData();
+        return () => {
+            abortControllerRef.current?.abort();
+        };
     }, [fetchData]);
     
     const filteredProjects = useMemo(() => {

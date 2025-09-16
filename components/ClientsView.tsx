@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 // FIX: Corrected import paths to be relative.
 import { User, Client } from '../types';
 import { api } from '../services/mockApi';
@@ -13,22 +13,33 @@ interface ClientsViewProps {
 export const ClientsView: React.FC<ClientsViewProps> = ({ user, addToast }) => {
     const [clients, setClients] = useState<Client[]>([]);
     const [loading, setLoading] = useState(true);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         setLoading(true);
         try {
             if (!user.companyId) return;
-            const data = await api.getClientsByCompany(user.companyId);
+            const data = await api.getClientsByCompany(user.companyId, { signal: controller.signal });
+            if (controller.signal.aborted) return;
             setClients(data);
         } catch (error) {
+            if (controller.signal.aborted) return;
             addToast("Failed to load clients.", "error");
         } finally {
+            if (controller.signal.aborted) return;
             setLoading(false);
         }
     }, [user.companyId, addToast]);
 
     useEffect(() => {
         fetchData();
+        return () => {
+            abortControllerRef.current?.abort();
+        };
     }, [fetchData]);
 
     if (loading) {

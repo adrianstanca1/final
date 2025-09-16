@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User, View, Project, Todo, Equipment, AuditLog, ResourceAssignment, Role, Permission, TodoStatus, AvailabilityStatus } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -71,43 +71,58 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     const [equipment, setEquipment] = useState<Equipment[]>([]);
     const [tasks, setTasks] = useState<Todo[]>([]);
     const [activityLog, setActivityLog] = useState<AuditLog[]>([]);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         setLoading(true);
         try {
             if (!user.companyId) return;
             const [projData, usersData, equipData, assignmentsData, logsData] = await Promise.all([
-                api.getProjectsByManager(user.id),
-                api.getUsersByCompany(user.companyId),
-                api.getEquipmentByCompany(user.companyId),
-                api.getResourceAssignments(user.companyId),
-                api.getAuditLogsByCompany(user.companyId)
+                api.getProjectsByManager(user.id, { signal: controller.signal }),
+                api.getUsersByCompany(user.companyId, { signal: controller.signal }),
+                api.getEquipmentByCompany(user.companyId, { signal: controller.signal }),
+                api.getResourceAssignments(user.companyId, { signal: controller.signal }),
+                api.getAuditLogsByCompany(user.companyId, { signal: controller.signal })
             ]);
-            
+
+            if (controller.signal.aborted) return;
             setProjects(projData);
+            if (controller.signal.aborted) return;
             setTeam(usersData.filter(u => u.role !== Role.PRINCIPAL_ADMIN));
-            
+
             // FIX: Use uppercase 'ACTIVE' for ProjectStatus enum comparison.
             const activeProjectIds = new Set(projData.filter(p => p.status === 'ACTIVE').map(p => p.id));
-            const tasksData = await api.getTodosByProjectIds(Array.from(activeProjectIds));
+            const tasksData = await api.getTodosByProjectIds(Array.from(activeProjectIds), { signal: controller.signal });
+            if (controller.signal.aborted) return;
             setTasks(tasksData);
 
             const assignedEquipmentIds = new Set(assignmentsData
                 .filter(a => a.resourceType === 'equipment' && activeProjectIds.has(a.projectId))
                 .map(a => a.resourceId));
+            if (controller.signal.aborted) return;
             setEquipment(equipData.filter(e => assignedEquipmentIds.has(e.id)));
 
+            if (controller.signal.aborted) return;
             setActivityLog(logsData.filter(l => l.action.includes('task')).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
 
         } catch (error) {
+            if (controller.signal.aborted) return;
             addToast("Failed to load dashboard data.", 'error');
         } finally {
+            if (controller.signal.aborted) return;
             setLoading(false);
         }
     }, [user, addToast]);
 
     useEffect(() => {
         fetchData();
+        return () => {
+            abortControllerRef.current?.abort();
+        };
     }, [fetchData]);
     
     const userMap = useMemo(() => new Map(team.map(u => [u.id, u])), [team]);
