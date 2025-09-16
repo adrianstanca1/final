@@ -56,7 +56,10 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ user
                     notifications.map(n => (
                         <div
                             key={n.id}
-                            onClick={() => onNotificationClick(n)}
+                            onClick={() => {
+                                onNotificationClick(n);
+                                onClose();
+                            }}
                             className={`flex items-start gap-3 p-4 border-b border-border hover:bg-accent cursor-pointer ${!n.read ? 'bg-primary/10' : ''}`}
                         >
                             {!n.read && <div className="w-2 h-2 rounded-full bg-primary mt-1.5 flex-shrink-0"></div>}

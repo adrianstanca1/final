@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { User, View, Project, Role, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
 import { api } from './services/mockApi';
 import { Login } from './components/Login';
@@ -36,6 +36,8 @@ import { UserRegistration } from './components/UserRegistration';
 import { useAuth } from './contexts/AuthContext';
 import { ForgotPassword } from './components/auth/ForgotPassword';
 import { ResetPassword } from './components/auth/ResetPassword';
+import { ViewHeader } from './components/layout/ViewHeader';
+import { getViewMetadata } from './utils/viewMetadata';
 
 
 interface Toast {
@@ -90,7 +92,7 @@ const ToastMessage: React.FC<{ toast: Toast; onDismiss: (id: number) => void }> 
 
 
 function App() {
-  const { isAuthenticated, user, loading, logout } = useAuth();
+  const { isAuthenticated, user, loading, logout, company } = useAuth();
   const [authView, setAuthView] = useState<'login' | 'register' | 'forgot-password' | 'reset-password'>('login');
   const [resetToken, setResetToken] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<View>('dashboard');
@@ -220,6 +222,65 @@ function App() {
       setActiveView('chat');
   };
 
+  const handleNotificationClick = useCallback(async (notification: Notification) => {
+    if (!user) return;
+
+    try {
+      await api.markNotificationAsRead(notification.id);
+    } catch (error) {
+      console.error('Failed to mark notification as read', error);
+    }
+
+    setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, read: true, isRead: true } : n));
+
+    let targetView: View | null = null;
+    let project: Project | null = null;
+
+    if (notification.metadata?.projectId) {
+      try {
+        project = await api.getProjectById(notification.metadata.projectId);
+      } catch (error) {
+        console.error('Failed to resolve project from notification metadata', error);
+      }
+    }
+
+    if (project) {
+      setSelectedProject(project);
+      targetView = 'project-detail';
+    } else if (notification.metadata?.view) {
+      targetView = notification.metadata.view as View;
+    } else {
+      switch (notification.type) {
+        case NotificationType.NEW_MESSAGE:
+          targetView = 'chat';
+          break;
+        case NotificationType.SAFETY_ALERT:
+          targetView = 'safety';
+          break;
+        case NotificationType.APPROVAL_REQUEST:
+          targetView = 'timesheets';
+          break;
+        case NotificationType.TASK_ASSIGNED:
+          targetView = 'all-tasks';
+          break;
+        case NotificationType.DOCUMENT_COMMENT:
+          targetView = 'documents';
+          break;
+        default:
+          targetView = null;
+      }
+    }
+
+    if (targetView) {
+      if (targetView !== 'project-detail') {
+        setSelectedProject(null);
+      }
+      setActiveView(targetView);
+    }
+
+    updateBadgeCounts(user);
+  }, [user, updateBadgeCounts, setSelectedProject, setActiveView]);
+
   const renderView = () => {
     if (!user) return null;
     if (activeView === 'project-detail' && selectedProject) {
@@ -251,6 +312,35 @@ function App() {
       default: return <Dashboard user={user} addToast={addToast} activeView={activeView} setActiveView={setActiveView} onSelectProject={handleSelectProject} />;
     }
   };
+
+  const viewMetadata = useMemo(() => (
+    getViewMetadata(activeView, { selectedProject, userRole: user?.role ?? null })
+  ), [activeView, selectedProject, user?.role]);
+
+  const headerStats = useMemo(() => {
+    switch (activeView) {
+      case 'timesheets':
+        return [{
+          label: 'Pending approvals',
+          value: pendingTimesheetCount,
+          tone: pendingTimesheetCount > 0 ? 'warning' : 'success',
+        }];
+      case 'safety':
+        return [{
+          label: 'Open incidents',
+          value: openIncidentCount,
+          tone: openIncidentCount > 0 ? 'warning' : 'success',
+        }];
+      case 'chat':
+        return [{
+          label: 'Unread conversations',
+          value: unreadMessageCount,
+          tone: unreadMessageCount > 0 ? 'info' : 'neutral',
+        }];
+      default:
+        return undefined;
+    }
+  }, [activeView, pendingTimesheetCount, openIncidentCount, unreadMessageCount]);
 
   if (loading) {
     return (
@@ -289,16 +379,17 @@ function App() {
         pendingTimesheetCount={pendingTimesheetCount}
         openIncidentCount={openIncidentCount}
         unreadMessageCount={unreadMessageCount}
+        companyName={company?.name}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header 
-          user={user} 
-          onLogout={handleLogout} 
+        <Header
+          user={user}
+          onLogout={handleLogout}
           onSearchClick={() => setIsSearchModalOpen(true)}
           onCommandPaletteClick={() => setIsCommandPaletteOpen(true)}
           unreadNotificationCount={unreadNotificationCount}
           notifications={notifications}
-          onNotificationClick={() => { /* Implement navigation */ }}
+          onNotificationClick={handleNotificationClick}
           onMarkAllNotificationsAsRead={async () => {
             if (!user) return;
             await api.markAllNotificationsAsRead(user.id);
@@ -306,6 +397,16 @@ function App() {
           }}
         />
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+          <ViewHeader
+            title={viewMetadata.title}
+            description={viewMetadata.description}
+            icon={viewMetadata.icon}
+            accentColorClass={viewMetadata.accentColorClass}
+            contextPill={viewMetadata.contextPill}
+            stats={headerStats}
+            isOnline={isOnline}
+          />
+
           <ErrorBoundary>
             {renderView()}
           </ErrorBoundary>

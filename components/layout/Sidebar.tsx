@@ -1,6 +1,8 @@
-import React from 'react';
-import { User, View, Role, Permission } from '../../types';
-import { hasPermission } from '../../services/auth';
+import React, { useMemo } from 'react';
+import { User, View } from '../../types';
+import { Avatar } from '../ui/Avatar';
+import { RoleBadge } from '../ui/RoleBadge';
+import { buildNavigationForUser, NavigationBadgeCounts } from '../../utils/navigation';
 
 interface SidebarProps {
   user: User | null;
@@ -10,6 +12,7 @@ interface SidebarProps {
   pendingTimesheetCount: number;
   openIncidentCount: number;
   unreadMessageCount: number;
+  companyName?: string;
 }
 
 interface NavItemProps {
@@ -19,6 +22,7 @@ interface NavItemProps {
   activeView: View;
   setActiveView: (view: View) => void;
   badgeCount?: number;
+  description?: string;
 }
 
 interface NavSectionProps {
@@ -27,93 +31,144 @@ interface NavSectionProps {
 }
 
 const NavSection: React.FC<NavSectionProps> = ({ title, children }) => (
-  <div className="space-y-1">
-    <h2 className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</h2>
-    {children}
+  <div className="space-y-2">
+    <h2 className="px-3 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{title}</h2>
+    <div className="space-y-1.5">{children}</div>
   </div>
 );
 
-
-const NavItem: React.FC<NavItemProps> = ({ icon, label, view, activeView, setActiveView, badgeCount }) => (
+const NavItem: React.FC<NavItemProps> = ({ icon, label, view, activeView, setActiveView, badgeCount, description }) => {
+  const isActive = activeView === view;
+  return (
     <button
-        onClick={() => setActiveView(view)}
-        className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-md text-sm transition-colors ${
-            activeView === view
-                ? 'bg-primary text-primary-foreground font-semibold shadow'
-                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-        }`}
+      onClick={() => setActiveView(view)}
+      className={`group flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 ${
+        isActive
+          ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+          : 'border border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted/70 hover:text-foreground'
+      }`}
+      title={description}
     >
-        <div className="flex items-center gap-3">
-            {icon}
-            <span>{label}</span>
-        </div>
-        {badgeCount && badgeCount > 0 && (
-            <span className="ml-auto bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                {badgeCount > 99 ? '99+' : badgeCount}
-            </span>
-        )}
+      <span className="flex items-center gap-3 text-left">
+        <span
+          className={`flex h-9 w-9 items-center justify-center rounded-lg border text-base transition-colors ${
+            isActive
+              ? 'border-primary-foreground/60 bg-primary-foreground/20'
+              : 'border-border bg-card group-hover:border-primary/40 group-hover:text-primary'
+          }`}
+          aria-hidden
+        >
+          {icon}
+        </span>
+        <span className="font-medium leading-tight">{label}</span>
+      </span>
+      {badgeCount !== undefined && badgeCount > 0 && (
+        <span className="ml-auto inline-flex min-w-[1.75rem] justify-center rounded-full bg-red-500 px-2 py-0.5 text-xs font-semibold text-white">
+          {badgeCount > 99 ? '99+' : badgeCount}
+        </span>
+      )}
     </button>
-);
+  );
+};
 
-export const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, onLogout, pendingTimesheetCount, openIncidentCount, unreadMessageCount }) => {
-    if (!user) return null;
+const formatCompany = (companyName?: string) => {
+  if (!companyName) return null;
+  return companyName;
+};
 
-    const dashboardView: View = user.role === Role.OPERATIVE ? 'my-day' : user.role === Role.FOREMAN ? 'foreman-dashboard' : 'dashboard';
-    const dashboardLabel = user.role === Role.OPERATIVE ? 'My Day' : 'Dashboard';
+export const Sidebar: React.FC<SidebarProps> = ({
+  user,
+  activeView,
+  setActiveView,
+  onLogout,
+  pendingTimesheetCount,
+  openIncidentCount,
+  unreadMessageCount,
+  companyName,
+}) => {
+  if (!user) return null;
 
-    const renderNavItems = () => {
-        if (user.role === Role.PRINCIPAL_ADMIN) {
-            return (
-                <NavItem view='principal-dashboard' label='Platform Dashboard' icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} activeView={activeView} setActiveView={setActiveView} />
-            );
-        }
+  const navigationCounts = useMemo<NavigationBadgeCounts>(
+    () => ({
+      pendingTimesheetCount,
+      openIncidentCount,
+      unreadMessageCount,
+    }),
+    [pendingTimesheetCount, openIncidentCount, unreadMessageCount]
+  );
 
-        const hasProjectsAccess = hasPermission(user, Permission.VIEW_ALL_PROJECTS) || hasPermission(user, Permission.VIEW_ASSIGNED_PROJECTS);
+  const navigationSections = useMemo(
+    () => buildNavigationForUser(user, navigationCounts),
+    [user, navigationCounts]
+  );
 
-        return (
-            <>
-                <NavSection title="Menu">
-                    <NavItem view={dashboardView} label={dashboardLabel} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>} activeView={activeView} setActiveView={setActiveView} />
-                    {hasPermission(user, Permission.VIEW_ALL_TASKS) && <NavItem view='all-tasks' label='All Tasks' icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>} activeView={activeView} setActiveView={setActiveView} />}
-                    {hasProjectsAccess && <NavItem view='projects' label='Projects' icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>} activeView={activeView} setActiveView={setActiveView} />}
-                    {hasProjectsAccess && <NavItem view='map' label='Map View' icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l5.447 2.724A1 1 0 0021 16.382V5.618a1 1 0 00-1.447-.894L15 7m0 13V7m0 0L9 4" /></svg>} activeView={activeView} setActiveView={setActiveView} />}
-                    {hasPermission(user, Permission.SEND_DIRECT_MESSAGE) && <NavItem view='chat' label='Chat' icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>} badgeCount={unreadMessageCount} activeView={activeView} setActiveView={setActiveView} />}
-                </NavSection>
+  const displayName = `${user.firstName} ${user.lastName}`.trim();
+  const formattedCompany = formatCompany(companyName);
 
-                <NavSection title="Management">
-                    {hasPermission(user, Permission.SUBMIT_TIMESHEET) && <NavItem view='time' label='Time Clock' icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} activeView={activeView} setActiveView={setActiveView} />}
-                    {hasPermission(user, Permission.VIEW_ALL_TIMESHEETS) && <NavItem view='timesheets' label='Timesheets' icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>} badgeCount={pendingTimesheetCount} activeView={activeView} setActiveView={setActiveView} />}
-                    {hasPermission(user, Permission.VIEW_DOCUMENTS) && <NavItem view='documents' label='Documents' icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>} activeView={activeView} setActiveView={setActiveView} />}
-                    {hasPermission(user, Permission.VIEW_SAFETY_REPORTS) && <NavItem view='safety' label='Safety' icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>} badgeCount={openIncidentCount} activeView={activeView} setActiveView={setActiveView} />}
-                    {hasPermission(user, Permission.VIEW_FINANCES) && <NavItem view='financials' label='Financials' icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} activeView={activeView} setActiveView={setActiveView} />}
-                    {hasPermission(user, Permission.VIEW_TEAM) && <NavItem view='users' label='Team' icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656-.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} activeView={activeView} setActiveView={setActiveView} />}
-                    {hasPermission(user, Permission.MANAGE_EQUIPMENT) && <NavItem view='equipment' label='Equipment' icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" /><path d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z" /></svg>} activeView={activeView} setActiveView={setActiveView} />}
-                </NavSection>
-
-                <NavSection title="Tools & Admin">
-                    {hasPermission(user, Permission.ACCESS_ALL_TOOLS) && <NavItem view='tools' label='Tools' icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924-1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0 3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>} activeView={activeView} setActiveView={setActiveView} />}
-                    {hasPermission(user, Permission.MANAGE_PROJECT_TEMPLATES) && <NavItem view='templates' label='Templates' icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>} activeView={activeView} setActiveView={setActiveView} />}
-                    {hasPermission(user, Permission.VIEW_AUDIT_LOG) && <NavItem view='audit-log' label='Audit Log' icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>} activeView={activeView} setActiveView={setActiveView} />}
-                </NavSection>
-            </>
-        );
-    };
-
-    return (
-        <aside className="w-64 bg-card border-r border-border flex flex-col flex-shrink-0 h-full p-4">
-             <div className="flex items-center gap-2 mb-6 px-2">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="w-8 h-8 text-primary">
-                    <path fill="currentColor" d="M12 2L2 22h20L12 2z"/>
-                </svg>
-                <h1 className="text-xl font-bold text-foreground">AS Agents</h1>
+  return (
+    <aside className="flex h-full w-72 flex-shrink-0 flex-col border-r border-border/80 bg-card/95 p-5">
+      <div className="mb-6 space-y-4">
+        <div className="flex items-center gap-2 px-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-8 w-8 text-primary" aria-hidden>
+            <path
+              fill="currentColor"
+              d="M12 2l9.196 5.31a1 1 0 01.5.866v10.648a1 1 0 01-.5.866L12 24l-9.196-4.31a1 1 0 01-.5-.866V8.176a1 1 0 01.5-.866L12 2z"
+              opacity={0.12}
+            />
+            <path
+              fill="currentColor"
+              d="M12 4.5l-6.5 3.752v7.496L12 19.5l6.5-3.752V8.252L12 4.5zm0 1.732l5 2.886v5.764l-5 2.886-5-2.886V9.118l5-2.886z"
+            />
+          </svg>
+          <div className="leading-tight">
+            <p className="text-xs font-semibold uppercase tracking-[0.32em] text-muted-foreground">AS Agents</p>
+            <p className="text-lg font-semibold text-foreground">Project Command</p>
+          </div>
+        </div>
+        <div className="rounded-2xl border border-border/60 bg-gradient-to-br from-primary/10 via-transparent to-transparent p-4">
+          <div className="flex items-center gap-3">
+            <Avatar name={displayName} imageUrl={user.avatar} className="h-12 w-12" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
+              <RoleBadge role={user.role} className="mt-1" />
+              {formattedCompany && (
+                <p className="mt-1 truncate text-xs text-muted-foreground">{formattedCompany}</p>
+              )}
             </div>
-            {/* All navigation items are conditionally rendered based on user permissions */}
-            <nav className="flex flex-col flex-grow space-y-4">
-                {renderNavItems()}
-            </nav>
-             <div className="mt-auto">
-                <NavItem view='settings' label='Settings' icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924-1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0 3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>} activeView={activeView} setActiveView={setActiveView} />
-            </div>
-        </aside>
-    );
+          </div>
+        </div>
+      </div>
+
+      <nav aria-label="Main navigation" className="flex-1 space-y-6 overflow-y-auto pr-1">
+        {navigationSections.map(section => (
+          <NavSection key={section.id} title={section.title}>
+            {section.items.map(item => (
+              <NavItem
+                key={item.id}
+                view={item.view}
+                icon={item.icon}
+                label={item.label}
+                activeView={activeView}
+                setActiveView={setActiveView}
+                badgeCount={item.badgeCount}
+                description={item.description}
+              />
+            ))}
+          </NavSection>
+        ))}
+      </nav>
+
+      <div className="mt-6">
+        <button
+          onClick={onLogout}
+          className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200/70 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-500/20"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 7l-5 5 5 5M4 12h11" />
+          </svg>
+          Sign out
+        </button>
+      </div>
+    </aside>
+  );
 };
