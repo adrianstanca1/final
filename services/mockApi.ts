@@ -612,16 +612,43 @@ export const api = {
     },
     getClientsByCompany: async (companyId: string, options?: RequestOptions): Promise<Client[]> => {
         ensureNotAborted(options?.signal);
-        return db.clients as Client[];
+        return db.clients
+            .filter(client => client.companyId === companyId)
+            .map(client => ({
+                ...client,
+                isActive: client.isActive ?? true,
+            })) as Client[];
     },
     updateClient: async (id:string, data:any, userId:string): Promise<Client> => {
         const index = db.clients.findIndex(c=>c.id === id);
-        db.clients[index] = {...db.clients[index], ...data};
+        if (index === -1) {
+            throw new Error('Client not found');
+        }
+        db.clients[index] = {
+            ...db.clients[index],
+            ...data,
+            updatedAt: new Date().toISOString(),
+        };
         saveDb();
         return db.clients[index] as Client;
     },
     createClient: async (data:any, userId:string): Promise<Client> => {
-        const newClient = {...data, id: String(Date.now()), companyId: db.users.find(u=>u.id===userId)!.companyId};
+        const timestamp = new Date().toISOString();
+        const companyId = db.users.find(u=>u.id===userId)!.companyId;
+        const newClient = {
+            isActive: true,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            contactPerson: data.contactPerson || '',
+            contactEmail: data.contactEmail,
+            contactPhone: data.contactPhone || data.phone,
+            paymentTerms: data.paymentTerms || 'Net 30',
+            billingAddress: data.billingAddress || '',
+            address: data.address || { street: '', city: '', state: '', zipCode: '', country: '' },
+            ...data,
+            id: String(Date.now()),
+            companyId,
+        };
         db.clients.push(newClient);
         saveDb();
         return newClient as Client;
