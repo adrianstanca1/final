@@ -112,7 +112,6 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
   const [searchQuery, setSearchQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('startDate');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
- main
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -148,35 +147,6 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
     fetchData();
     return () => {
       abortControllerRef.current?.abort();
-    };
-  }, [fetchData]);
-
-  const filteredProjects = useMemo(() => {
-    if (filter === 'ALL') return projects;
-    return projects.filter(p => p.status === filter);
-  }, [projects, filter]);
-
-  const portfolioSummary = useMemo(() => {
-    if (projects.length === 0) {
-      return {
-        total: 0,
-        active: 0,
-        atRisk: 0,
-        pipelineValue: 0,
-      };
-    }
-
-    const active = projects.filter(p => p.status === 'ACTIVE').length;
-    const atRisk = projects.filter(p => p.actualCost > p.budget).length;
-    const pipelineValue = projects.reduce((acc, project) => acc + project.budget, 0);
-
-    return {
-      total: projects.length,
-      active,
-      atRisk,
-      pipelineValue,
-    };
-
     };
   }, [fetchData]);
 
@@ -264,7 +234,6 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
       atRisk,
       pipelineValue,
     };
- main
   }, [projects]);
 
   const handleSuccess = (newProject: Project) => {
