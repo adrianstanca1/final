@@ -1695,4 +1695,3 @@ const ClientsTab = React.memo(({ clients, canManageFinances, onAddClient, onEdit
 ClientsTab.displayName = 'ClientsTab';
 
 // Closing brace for the main FinancialsView component
-};
