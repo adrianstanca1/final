@@ -102,6 +102,11 @@ function App() {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [initialChatRecipient, setInitialChatRecipient] = useState<User | null>(null);
 
+  const navigateToView = useCallback((view: View) => {
+    setSelectedProject(current => (view === 'project-detail' ? current : null));
+    setActiveView(view);
+  }, [setActiveView, setSelectedProject]);
+
   // States for sidebar badge counts
   const [pendingTimesheetCount, setPendingTimesheetCount] = useState(0);
   const [openIncidentCount, setOpenIncidentCount] = useState(0);
@@ -208,8 +213,7 @@ function App() {
   const handleLogout = () => {
     logout();
     setAuthView('login');
-    setActiveView('dashboard');
-    setSelectedProject(null);
+    navigateToView('dashboard');
   };
 
   const handleSelectProject = (project: Project) => {
@@ -272,44 +276,41 @@ function App() {
     }
 
     if (targetView) {
-      if (targetView !== 'project-detail') {
-        setSelectedProject(null);
-      }
-      setActiveView(targetView);
+      navigateToView(targetView);
     }
 
     updateBadgeCounts(user);
-  }, [user, updateBadgeCounts, setSelectedProject, setActiveView]);
+  }, [user, updateBadgeCounts, setSelectedProject, navigateToView]);
 
   const renderView = () => {
     if (!user) return null;
     if (activeView === 'project-detail' && selectedProject) {
-      return <ProjectDetailView project={selectedProject} user={user} onBack={() => { setSelectedProject(null); setActiveView('projects'); }} addToast={addToast} isOnline={isOnline} onStartChat={handleStartChat}/>;
+      return <ProjectDetailView project={selectedProject} user={user} onBack={() => navigateToView('projects')} addToast={addToast} isOnline={isOnline} onStartChat={handleStartChat}/>;
     }
 
     switch (activeView) {
-      case 'dashboard': return <Dashboard user={user} addToast={addToast} activeView={activeView} setActiveView={setActiveView} onSelectProject={handleSelectProject} />;
+      case 'dashboard': return <Dashboard user={user} addToast={addToast} activeView={activeView} setActiveView={navigateToView} onSelectProject={handleSelectProject} />;
       case 'my-day': return <MyDayView user={user} addToast={addToast} />;
       case 'foreman-dashboard': return <ForemanDashboard user={user} addToast={addToast} />;
       case 'principal-dashboard': return <PrincipalAdminDashboard user={user} addToast={addToast} />;
       case 'projects': return <ProjectsView user={user} addToast={addToast} onSelectProject={handleSelectProject} />;
       case 'all-tasks': return <AllTasksView user={user} addToast={addToast} isOnline={isOnline} />;
       case 'map': return <ProjectsMapView user={user} addToast={addToast} />;
-      case 'time': return <TimeTrackingView user={user} addToast={addToast} setActiveView={setActiveView} />;
+      case 'time': return <TimeTrackingView user={user} addToast={addToast} setActiveView={navigateToView} />;
       case 'timesheets': return <TimesheetsView user={user} addToast={addToast} />;
       case 'documents': return <DocumentsView user={user} addToast={addToast} isOnline={isOnline} settings={companySettings} />;
-      case 'safety': return <SafetyView user={user} addToast={addToast} setActiveView={setActiveView} />;
+      case 'safety': return <SafetyView user={user} addToast={addToast} setActiveView={navigateToView} />;
       case 'financials': return <FinancialsView user={user} addToast={addToast} />;
       case 'users': return <TeamView user={user} addToast={addToast} onStartChat={handleStartChat} />;
       case 'equipment': return <EquipmentView user={user} addToast={addToast} />;
       case 'templates': return <TemplatesView user={user} addToast={addToast} />;
-      case 'tools': return <ToolsView user={user} addToast={addToast} setActiveView={setActiveView} />;
+      case 'tools': return <ToolsView user={user} addToast={addToast} setActiveView={navigateToView} />;
       case 'audit-log': return <AuditLogView user={user} addToast={addToast} />;
       case 'settings': return <SettingsView user={user} addToast={addToast} settings={companySettings} onSettingsUpdate={(s) => setCompanySettings(prev => ({...prev!, ...s}))} />;
       case 'chat': return <ChatView user={user} addToast={addToast} initialRecipient={initialChatRecipient}/>;
       case 'clients': return <ClientsView user={user} addToast={addToast} />;
       case 'invoices': return <InvoicesView user={user} addToast={addToast} />;
-      default: return <Dashboard user={user} addToast={addToast} activeView={activeView} setActiveView={setActiveView} onSelectProject={handleSelectProject} />;
+      default: return <Dashboard user={user} addToast={addToast} activeView={activeView} setActiveView={navigateToView} onSelectProject={handleSelectProject} />;
     }
   };
 
@@ -374,7 +375,7 @@ function App() {
       <Sidebar
         user={user}
         activeView={activeView}
-        setActiveView={(v) => { if(v !== 'project-detail') setSelectedProject(null); setActiveView(v); }}
+        setActiveView={navigateToView}
         onLogout={handleLogout}
         pendingTimesheetCount={pendingTimesheetCount}
         openIncidentCount={openIncidentCount}
@@ -414,7 +415,14 @@ function App() {
       </div>
       
       {isSearchModalOpen && <AISearchModal user={user} currentProject={selectedProject} onClose={() => setIsSearchModalOpen(false)} addToast={addToast} />}
-      {isCommandPaletteOpen && <CommandPalette user={user} onClose={() => setIsCommandPaletteOpen(false)} setActiveView={setActiveView} />}
+      {isCommandPaletteOpen && (
+        <CommandPalette
+          user={user}
+          onClose={() => setIsCommandPaletteOpen(false)}
+          setActiveView={navigateToView}
+          onProjectSelect={handleSelectProject}
+        />
+      )}
       
       <div className="fixed bottom-4 right-4 z-50 space-y-2">
         {toasts.map(toast => (
