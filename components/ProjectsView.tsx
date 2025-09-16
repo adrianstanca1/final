@@ -389,7 +389,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
             label: 'At risk',
             value: `${summaryForDisplay.atRiskProjects}`,
             helper: summaryForDisplay.overdueProjects
-              ? `${summaryForDisplay.overdueProjects} overdue deliverables`
+              ? `${summaryForDisplay.overdueProjects} overdue deliverable${summaryForDisplay.overdueProjects === 1 ? '' : 's'}`
               : 'Budget and schedule on track',
             indicator:
               summaryForDisplay.atRiskProjects > 0 || summaryForDisplay.overdueProjects > 0
