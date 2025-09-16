@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User, SafetyIncident, Project, Permission, IncidentStatus, IncidentSeverity, View } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
@@ -166,28 +166,41 @@ export const SafetyView: React.FC<{
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'timestamp', direction: 'desc' });
 
     const canSubmit = hasPermission(user, Permission.SUBMIT_SAFETY_REPORT);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         setLoading(true);
         try {
             if (!user.companyId) return;
             const [incidentsData, projectsData, usersData] = await Promise.all([
-                api.getSafetyIncidentsByCompany(user.companyId),
-                api.getProjectsByCompany(user.companyId),
-                api.getUsersByCompany(user.companyId)
+                api.getSafetyIncidentsByCompany(user.companyId, { signal: controller.signal }),
+                api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
+                api.getUsersByCompany(user.companyId, { signal: controller.signal })
             ]);
+            if (controller.signal.aborted) return;
             setIncidents(incidentsData);
+            if (controller.signal.aborted) return;
             setProjects(projectsData);
+            if (controller.signal.aborted) return;
             setUsers(usersData);
         } catch (error) {
+            if (controller.signal.aborted) return;
             addToast("Failed to load safety data.", "error");
         } finally {
+            if (controller.signal.aborted) return;
             setLoading(false);
         }
     }, [user.companyId, addToast]);
 
     useEffect(() => {
         fetchData();
+        return () => {
+            abortControllerRef.current?.abort();
+        };
     }, [fetchData]);
     
     const { projectMap, userMap } = useMemo(() => ({

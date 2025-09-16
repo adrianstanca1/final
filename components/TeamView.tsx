@@ -1,6 +1,6 @@
 // full contents of components/TeamView.tsx
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User, Role, Permission, AvailabilityStatus, Project, ProjectAssignment } from '../types';
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
@@ -259,28 +259,41 @@ export const TeamView: React.FC<TeamViewProps> = ({ user, addToast, onStartChat 
     const [assignments, setAssignments] = useState<ProjectAssignment[]>([]);
     const [loading, setLoading] = useState(true);
     const [modalState, setModalState] = useState<{ mode: 'add' } | { mode: 'edit', member: User } | null>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         setLoading(true);
         try {
             if (!user.companyId) return;
             const [usersData, projectsData, assignmentsData] = await Promise.all([
-                api.getUsersByCompany(user.companyId),
-                api.getProjectsByCompany(user.companyId),
-                api.getProjectAssignmentsByCompany(user.companyId),
+                api.getUsersByCompany(user.companyId, { signal: controller.signal }),
+                api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
+                api.getProjectAssignmentsByCompany(user.companyId, { signal: controller.signal }),
             ]);
+            if (controller.signal.aborted) return;
             setTeam(usersData);
+            if (controller.signal.aborted) return;
             setProjects(projectsData);
+            if (controller.signal.aborted) return;
             setAssignments(assignmentsData);
         } catch (error) {
+            if (controller.signal.aborted) return;
             addToast("Failed to load team data.", "error");
         } finally {
+            if (controller.signal.aborted) return;
             setLoading(false);
         }
     }, [user.companyId, addToast]);
 
     useEffect(() => {
         fetchData();
+        return () => {
+            abortControllerRef.current?.abort();
+        };
     }, [fetchData]);
 
     const canManageTeam = hasPermission(user, Permission.MANAGE_TEAM);
