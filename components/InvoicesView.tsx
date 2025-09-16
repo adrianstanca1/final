@@ -5,6 +5,7 @@ import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 import { InvoiceStatusBadge } from './ui/StatusBadge';
 import { Tag } from './ui/Tag';
+import { ViewHeader } from './layout/ViewHeader';
 import { Client, Invoice, InvoiceStatus, Project, User } from '../types';
 import { getDerivedStatus, getInvoiceFinancials } from '../utils/finance';
 
@@ -341,6 +342,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
   const selectedInvoiceStatus = selectedInvoice ? getDerivedStatus(selectedInvoice) : null;
   const selectedInvoiceFinancials = selectedInvoice ? getInvoiceFinancials(selectedInvoice) : null;
   const selectedAging = selectedInvoice ? getAgingInfo(selectedInvoice) : null;
+  const collectionIndicator = summary.collectionRate >= 90 ? 'positive' : summary.collectionRate >= 75 ? 'warning' : 'negative';
 
   return (
     <div className="relative space-y-6">
@@ -554,22 +556,39 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
         </div>
       )}
 
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Invoices</h1>
-          <p className="text-sm text-muted-foreground">
-            Monitor billing health, follow up on overdue accounts, and record payments as they arrive.
-          </p>
-        </div>
-        <Button
-          variant="secondary"
-          onClick={() =>
-            addToast('Invoice creation is available from the Financials workspace.', 'success')
-          }
-        >
-          New invoice
-        </Button>
-      </div>
+      <ViewHeader
+        view="invoices"
+        actions={
+          <Button
+            variant="secondary"
+            onClick={() =>
+              addToast('Invoice creation is available from the Financials workspace.', 'success')
+            }
+          >
+            New invoice
+          </Button>
+        }
+        meta={[
+          {
+            label: 'Outstanding balance',
+            value: formatCurrency(summary.outstanding),
+            helper: summary.outstanding > 0 ? 'Across open invoices' : 'All invoices settled',
+            indicator: summary.outstanding > 0 ? 'warning' : 'positive',
+          },
+          {
+            label: 'Overdue exposure',
+            value: formatCurrency(summary.overdue),
+            helper: summary.overdue > 0 ? 'Requires follow up' : 'No overdue balances',
+            indicator: summary.overdue > 0 ? 'negative' : 'positive',
+          },
+          {
+            label: 'Collection rate',
+            value: `${summary.collectionRate}%`,
+            helper: 'Paid in the last 30 days',
+            indicator: collectionIndicator,
+          },
+        ]}
+      />
 
       {loading ? (
         <Card>Loading invoices...</Card>
