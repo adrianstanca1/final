@@ -525,12 +525,37 @@ export const api = {
         await delay();
         const index = db.invoices.findIndex(i => i.id === id);
         if (index === -1) throw new Error("Invoice not found");
-        const oldStatus = db.invoices[index]?.status;
-        db.invoices[index] = { ...db.invoices[index], ...data };
+
+        const existingInvoice = db.invoices[index]!;
+        const companyId = existingInvoice.companyId ?? db.users.find(u => u.id === userId)?.companyId;
+        const updatedInvoiceNumber = (data.invoiceNumber ?? existingInvoice.invoiceNumber) as string | undefined;
+
+        if (!updatedInvoiceNumber) {
+            throw new Error("Invoice number is required.");
+        }
+
+        const hasDuplicateNumber = db.invoices.some((invoice, invoiceIndex) => {
+            if (invoiceIndex === index) return false;
+            if (!invoice.invoiceNumber) return false;
+            return invoice.invoiceNumber === updatedInvoiceNumber;
+        });
+
+        if (hasDuplicateNumber) {
+            throw new Error("Invoice number already exists.");
+        }
+
+        const oldStatus = existingInvoice?.status;
+        db.invoices[index] = {
+            ...existingInvoice,
+            ...data,
+            companyId: existingInvoice.companyId ?? companyId,
+            invoiceNumber: updatedInvoiceNumber,
+        };
+
         if (oldStatus !== data.status) {
-            addAuditLog(userId, `UPDATE_INVOICE_STATUS: ${oldStatus} -> ${data.status}`, { type: 'Invoice', id: id, name: data.invoiceNumber });
+            addAuditLog(userId, `UPDATE_INVOICE_STATUS: ${oldStatus} -> ${data.status}`, { type: 'Invoice', id: id, name: updatedInvoiceNumber });
         } else {
-            addAuditLog(userId, 'UPDATE_INVOICE', { type: 'Invoice', id: id, name: data.invoiceNumber });
+            addAuditLog(userId, 'UPDATE_INVOICE', { type: 'Invoice', id: id, name: updatedInvoiceNumber });
         }
         saveDb();
         return db.invoices[index] as Invoice;
@@ -538,7 +563,49 @@ export const api = {
     createInvoice: async (data: any, userId: string): Promise<Invoice> => {
         await delay();
         const companyId = db.users.find(u => u.id === userId)?.companyId;
-        const newInvoice = { ...data, id: String(Date.now()), companyId };
+        if (!companyId) {
+            throw new Error("Unable to determine company for invoice creation.");
+        }
+
+        const companyInvoices = db.invoices.filter(inv => {
+            if (!inv.companyId) return true;
+            return inv.companyId === companyId;
+        });
+
+        const extractNumber = (invoiceNumber?: string): number => {
+            if (!invoiceNumber) return 0;
+            const match = invoiceNumber.match(/(\d+)$/);
+            return match ? parseInt(match[1], 10) : 0;
+        };
+
+        const existingNumbers = new Set(
+            companyInvoices
+                .map(inv => inv.invoiceNumber)
+                .filter((value): value is string => Boolean(value))
+        );
+
+        let counter = companyInvoices.reduce((max, inv) => {
+            const numeric = extractNumber(inv.invoiceNumber as string | undefined);
+            return Math.max(max, numeric);
+        }, 0);
+
+        let invoiceNumber: string;
+        do {
+            counter += 1;
+            invoiceNumber = `INV-${String(counter).padStart(3, '0')}`;
+        } while (existingNumbers.has(invoiceNumber));
+
+        if (!invoiceNumber) {
+            throw new Error("Failed to generate invoice number.");
+        }
+
+        const newInvoice = {
+            ...data,
+            id: String(Date.now()),
+            companyId,
+            invoiceNumber,
+        };
+
         db.invoices.push(newInvoice);
         addAuditLog(userId, 'CREATE_INVOICE', { type: 'Invoice', id: newInvoice.id, name: newInvoice.invoiceNumber });
         saveDb();
