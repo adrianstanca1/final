@@ -361,66 +361,6 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project: i
         setProject(initialProject);
     }, [initialProject]);
 
-    const handleGenerateInsight = useCallback(async () => {
-        if (isGeneratingInsight) return;
-        setIsGeneratingInsight(true);
-        setInsightError(null);
-        try {
-            const result = await generateProjectHealthSummary({
-                project,
-                tasks,
-                incidents,
-                expenses,
-            });
-
-            const newInsight = await api.createProjectInsight({
-                projectId: project.id,
-                summary: result.summary,
-                type: 'HEALTH_SUMMARY',
-                metadata: result.metadata,
-                model: result.model,
-            }, user.id);
-
-            setInsights(prev => [newInsight, ...prev]);
-            addToast(result.isFallback ? 'Generated offline project summary.' : 'AI project summary updated.', 'success');
-        } catch (error) {
-            console.error('Failed to generate project insight', error);
-            const message = error instanceof Error ? error.message : 'Failed to generate AI summary.';
-            setInsightError(message);
-            addToast('Failed to generate AI summary.', 'error');
-        } finally {
-            setIsGeneratingInsight(false);
-        }
-    }, [isGeneratingInsight, project, tasks, incidents, expenses, user.id, addToast]);
-
-    // FIX: Changed taskId from number | string to string to match the API.
-    const handleTaskUpdate = async (taskId: string, updates: Partial<Todo>) => {
-        const originalTasks = [...tasks];
-        setTasks(prevTasks => prevTasks.map(t => t.id === taskId ? { ...t, ...updates } : t));
-        try {
-            await api.updateTodo(taskId, updates, user.id);
-            // After successful API call, refresh all data to get consistent dependency statuses
-            fetchData();
-            addToast("Task updated.", "success");
-        } catch (e) {
-            addToast("Failed to update task.", "error");
-            setTasks(originalTasks);
-        }
-    };
-    
-    const handleOpenTaskModal = (task: Todo | null) => {
-        setTaskToEdit(task);
-        setIsTaskModalOpen(true);
-    };
-
-    const handleOpenReminderModal = (task: Todo) => {
-        setTaskForReminder(task);
-        setIsReminderModalOpen(true);
-    };
-
-    const handleTaskModalSuccess = () => {
-        // Just refresh all data to ensure dependency graph is correct
-        fetchData();
   useEffect(() => {
     fetchData();
     return () => {

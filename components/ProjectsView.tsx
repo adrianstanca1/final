@@ -621,9 +621,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
 
       {projects.length > 0 && !loading ? (
         <p className="text-xs text-muted-foreground">
-          {filteredProjects.length === projects.length
-            ? `Showing all ${projects.length} project${projects.length === 1 ? '' : 's'}.`
-            : `Showing ${filteredProjects.length} of ${projects.length} projects.`}
+          Projects shown: {filteredProjects.length} of {projects.length}
         </p>
       ) : null}
     </div>
