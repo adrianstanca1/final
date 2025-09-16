@@ -204,10 +204,12 @@ const PaymentModal: React.FC<{ invoice: Invoice, balance: number, onClose: () =>
     const [isSaving, setIsSaving] = useState(false);
     
     const handleSubmit = async () => {
-        if (!amount || amount <= 0) { addToast("Invalid amount", 'error'); return; }
+        const numericAmount = Number(amount);
+        if (amount === '' || numericAmount <= 0) { addToast("Invalid amount", 'error'); return; }
+        if (numericAmount > balance) { addToast("Amount exceeds the outstanding balance", 'error'); return; }
         setIsSaving(true);
         try {
-            await api.recordPaymentForInvoice(invoice.id, { amount: Number(amount), method }, user.id);
+            await api.recordPaymentForInvoice(invoice.id, { amount: numericAmount, method }, user.id);
             addToast("Payment recorded.", "success");
             onSuccess();
             onClose();
@@ -223,7 +225,7 @@ const PaymentModal: React.FC<{ invoice: Invoice, balance: number, onClose: () =>
             <Card className="w-full max-w-md" onClick={e=>e.stopPropagation()}>
                 <h3 className="text-lg font-bold">Record Payment for {invoice.invoiceNumber}</h3>
                 <p className="text-sm text-muted-foreground mb-4">Current balance: {formatCurrency(balance)}</p>
-                <input type="number" value={amount} onChange={e=>setAmount(e.target.value==='' ? '' : Number(e.target.value))} placeholder={`Enter amount (up to ${balance.toFixed(2)})`} className="w-full p-2 border rounded mt-4" />
+                <input type="number" value={amount} onChange={e=>setAmount(e.target.value==='' ? '' : Number(e.target.value))} placeholder={`Enter amount (up to ${balance.toFixed(2)})`} className="w-full p-2 border rounded mt-4" max={balance} />
                 <select value={method} onChange={e=>setMethod(e.target.value as any)} className="w-full p-2 border rounded mt-2 bg-white"><option value="BANK_TRANSFER">Bank Transfer</option><option value="CREDIT_CARD">Card</option><option value="CASH">Cash</option></select>
                 <div className="flex justify-end gap-2 mt-4"><Button variant="secondary" onClick={onClose}>Cancel</Button><Button onClick={handleSubmit} isLoading={isSaving}>Record Payment</Button></div>
             </Card>
