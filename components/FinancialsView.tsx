@@ -991,6 +991,76 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
         </div>
       </Card>
 
+     const renderInvoicesAndQuotes = () => (
+        <div className="space-y-6">
+            <Card>
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-semibold text-lg">Invoices</h3>
+                    {canManageFinances && <Button onClick={()=>{ setSelectedItem(null); setModal('invoice'); }}>Create Invoice</Button>}
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-border">
+                        <thead className="bg-muted"><tr><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Number</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Client</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Project</th><th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Total</th><th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Balance Due</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Status</th><th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Actions</th></tr></thead>
+                        <tbody className="bg-card divide-y divide-border">
+                            {data.invoices.map(invoice => {
+                                const { total, balance } = getInvoiceFinancials(invoice);
+                                const derivedStatus = getDerivedStatus(invoice, balance);
+                                
+                                return (
+                                <tr key={invoice.id} className="hover:bg-accent">
+                                    <td className="px-4 py-3 font-medium">{invoice.invoiceNumber}</td>
+                                    <td className="px-4 py-3">{clientMap.get(invoice.clientId) || 'Client unavailable'}</td>
+                                    <td className="px-4 py-3">{projectMap.get(invoice.projectId) || 'Project unavailable'}</td>
+                                    <td className="px-4 py-3 text-right">{formatCurrency(total)}</td>
+                                    <td className="px-4 py-3 text-right font-semibold">{formatCurrency(balance)}</td>
+                                    <td className="px-4 py-3"><InvoiceStatusBadge status={derivedStatus} /></td>
+                                    <td className="px-4 py-3 text-right space-x-2">
+                                        {canManageFinances && invoice.status === InvoiceStatus.DRAFT && (
+                                            <>
+                                                <Button size="sm" variant="success" onClick={() => handleUpdateInvoiceStatus(invoice.id, InvoiceStatus.SENT)}>Send</Button>
+                                                <Button size="sm" variant="secondary" onClick={() => { setSelectedItem(invoice); setModal('invoice'); }}>Edit</Button>
+                                            </>
+                                        )}
+                                        {canManageFinances && (invoice.status === InvoiceStatus.SENT || derivedStatus === InvoiceStatus.OVERDUE) && (
+                                             <>
+                                                <Button size="sm" onClick={() => { setSelectedItem(invoice); setModal('payment'); }}>Record Payment</Button>
+                                                <Button size="sm" variant="danger" onClick={() => handleUpdateInvoiceStatus(invoice.id, InvoiceStatus.CANCELLED)}>Cancel</Button>
+                                            </>
+                                        )}
+                                        {invoice.status === InvoiceStatus.PAID || invoice.status === InvoiceStatus.CANCELLED ? (
+                                            <Button size="sm" variant="secondary" onClick={() => { setSelectedItem(invoice); setModal('invoice'); }}>View</Button>
+                                        ) : null}
+                                    </td>
+                                </tr>
+                            )})}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
+             <Card>
+                <h3 className="font-semibold text-lg mb-4">Quotes</h3>
+                 <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-border">
+                         <thead className="bg-muted"><tr><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Client</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Project</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Status</th></tr></thead>
+                          <tbody className="bg-card divide-y divide-border">
+                            {data.quotes.map(quote => {
+                                const clientName = clientMap.get(quote.clientId);
+                                const projectName = projectMap.get(quote.projectId);
+
+                                return (
+                                    <tr key={quote.id} className="hover:bg-accent">
+                                        <td className="px-4 py-3">{clientName || 'Client unavailable'}</td>
+                                        <td className="px-4 py-3">{projectName || 'Project unavailable'}</td>
+                                        <td className="px-4 py-3"><QuoteStatusBadge status={quote.status} /></td>
+                                    </tr>
+                                );
+                            })}
+                          </tbody>
+                    </table>
+                 </div>
+            </Card>
+        </div>
+=======
   const handleUpdateInvoiceStatus = useCallback(
     async (invoiceId: string, status: InvoiceStatus) => {
       if (status === InvoiceStatus.CANCELLED) {
