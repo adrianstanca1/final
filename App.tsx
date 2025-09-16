@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { User, View, Project, Role, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
 import { api } from './services/mockApi';
 import { Login } from './components/Login';
@@ -38,6 +38,8 @@ import { ForgotPassword } from './components/auth/ForgotPassword';
 import { ResetPassword } from './components/auth/ResetPassword';
 import { ViewAccessBoundary } from './components/layout/ViewAccessBoundary';
 import { evaluateViewAccess, getDefaultViewForUser } from './utils/viewAccess';
+import { ViewHeader } from './components/layout/ViewHeader';
+import { getViewMetadata } from './utils/viewMetadata';
 
 
 interface Toast {
@@ -92,7 +94,7 @@ const ToastMessage: React.FC<{ toast: Toast; onDismiss: (id: number) => void }> 
 
 
 function App() {
-  const { isAuthenticated, user, loading, logout } = useAuth();
+  const { isAuthenticated, user, loading, logout, company } = useAuth();
   const [authView, setAuthView] = useState<'login' | 'register' | 'forgot-password' | 'reset-password'>('login');
   const [resetToken, setResetToken] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<View>('dashboard');
@@ -230,61 +232,90 @@ function App() {
   const handleNotificationClick = useCallback(async (notification: Notification) => {
     if (!user) return;
 
-    const wasUnread = !(notification.isRead ?? notification.read);
-
     try {
-      if (wasUnread) {
-        await api.markNotificationAsRead(notification.id);
-      }
-
-      setNotifications(prev => prev.map(n => (
-        n.id === notification.id ? { ...n, isRead: true, read: true } : n
-      )));
-
-      previousNotificationsRef.current = previousNotificationsRef.current.map(n => (
-        n.id === notification.id ? { ...n, isRead: true, read: true } : n
-      ));
-
-      if (wasUnread) {
-        setUnreadNotificationCount(prev => Math.max(0, prev - 1));
-      }
+      await api.markNotificationAsRead(notification.id);
     } catch (error) {
-      console.error('Failed to update notification state', error);
-      addToast('Unable to update that notification right now.', 'error');
-      return;
+      console.error('Failed to mark notification as read', error);
     }
 
-    const metadata = (notification.metadata ?? {}) as { view?: View; projectId?: string };
+    setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, read: true, isRead: true } : n));
 
-    if (metadata.projectId) {
+    let targetView: View | null = null;
+    let project: Project | null = null;
+
+    if (notification.metadata?.projectId) {
       try {
-        const project = await api.getProjectById(metadata.projectId);
-        if (project) {
-          setSelectedProject(project);
-          changeView('project-detail');
-          return;
-        }
-        addToast('The project linked to this notification is no longer available.', 'error');
-        changeView('projects');
-        return;
+        project = await api.getProjectById(notification.metadata.projectId);
       } catch (error) {
-        console.error('Failed to load project from notification', error);
-        addToast('We could not open the related project.', 'error');
-        changeView('projects');
-        return;
+        console.error('Failed to resolve project from notification metadata', error);
       }
-    } else if (metadata.view && metadata.view !== activeView) {
-      changeView(metadata.view);
-      return;
-    } else if (notification.type === NotificationType.NEW_MESSAGE) {
-      changeView('chat');
-      return;
     }
 
-    if (wasUnread) {
-      addToast('Notification marked as read.', 'success');
+    if (project) {
+      setSelectedProject(project);
+      targetView = 'project-detail';
+    } else if (notification.metadata?.view) {
+      targetView = notification.metadata.view as View;
+    } else {
+      switch (notification.type) {
+        case NotificationType.NEW_MESSAGE:
+          targetView = 'chat';
+          break;
+        case NotificationType.SAFETY_ALERT:
+          targetView = 'safety';
+          break;
+        case NotificationType.APPROVAL_REQUEST:
+          targetView = 'timesheets';
+          break;
+        case NotificationType.TASK_ASSIGNED:
+          targetView = 'all-tasks';
+          break;
+        case NotificationType.DOCUMENT_COMMENT:
+          targetView = 'documents';
+          break;
+        default:
+          targetView = null;
+      }
     }
-  }, [user, addToast, changeView, activeView]);
+
+    if (targetView) {
+      if (targetView !== 'project-detail') {
+        setSelectedProject(null);
+      }
+      setActiveView(targetView);
+    }
+
+    updateBadgeCounts(user);
+  }, [user, updateBadgeCounts, setSelectedProject, setActiveView]);
+
+  const viewMetadata = useMemo(() => (
+    getViewMetadata(activeView, { selectedProject, userRole: user?.role ?? null })
+  ), [activeView, selectedProject, user?.role]);
+
+  const headerStats = useMemo(() => {
+    switch (activeView) {
+      case 'timesheets':
+        return [{
+          label: 'Pending approvals',
+          value: pendingTimesheetCount,
+          tone: pendingTimesheetCount > 0 ? 'warning' : 'success',
+        }];
+      case 'safety':
+        return [{
+          label: 'Open incidents',
+          value: openIncidentCount,
+          tone: openIncidentCount > 0 ? 'warning' : 'success',
+        }];
+      case 'chat':
+        return [{
+          label: 'Unread conversations',
+          value: unreadMessageCount,
+          tone: unreadMessageCount > 0 ? 'info' : 'neutral',
+        }];
+      default:
+        return undefined;
+    }
+  }, [activeView, pendingTimesheetCount, openIncidentCount, unreadMessageCount]);
 
   const renderView = () => {
     if (!user) return null;
@@ -390,6 +421,7 @@ function App() {
         pendingTimesheetCount={pendingTimesheetCount}
         openIncidentCount={openIncidentCount}
         unreadMessageCount={unreadMessageCount}
+        companyName={company?.name}
       />
       <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
         <Header
@@ -408,6 +440,16 @@ function App() {
           addToast={addToast}
         />
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+          <ViewHeader
+            title={viewMetadata.title}
+            description={viewMetadata.description}
+            icon={viewMetadata.icon}
+            accentColorClass={viewMetadata.accentColorClass}
+            contextPill={viewMetadata.contextPill}
+            stats={headerStats}
+            isOnline={isOnline}
+          />
+
           <ErrorBoundary>
             <ViewAccessBoundary
               user={user}
