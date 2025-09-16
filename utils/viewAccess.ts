@@ -219,7 +219,6 @@ export const evaluateViewAccess = (user: User, view: View): ViewAccessEvaluation
       allowed: true,
       missingPermissions: [],
       missingAnyPermissionGroups: [],
-
     };
   }
 
@@ -229,8 +228,6 @@ export const evaluateViewAccess = (user: User, view: View): ViewAccessEvaluation
       allowed: false,
       missingPermissions: [],
       missingAnyPermissionGroups: [],
-
- main
       allowedRoles: rule.allowedRoles,
       reason: rule.description,
       fallbackView: rule.fallbackView,
@@ -238,35 +235,27 @@ export const evaluateViewAccess = (user: User, view: View): ViewAccessEvaluation
   }
 
   const missingPermissions: Permission[] = [];
- codex/enhance-ui-and-design-for-integration-t494d2
   const missingAnyGroups: Permission[][] = [];
 
- 
-
   if (rule.anyPermissions) {
-    const hasAny = rule.anyPermissions.some((permission) => hasPermission(user, permission));
+    const hasAny = rule.anyPermissions.some(permission => hasPermission(user, permission));
     if (!hasAny) {
       missingAnyGroups.push(rule.anyPermissions);
-
       missingPermissions.push(...rule.anyPermissions);
     }
   }
 
   if (rule.allPermissions) {
-    const missing = rule.allPermissions.filter((permission) => !hasPermission(user, permission));
+    const missing = rule.allPermissions.filter(permission => !hasPermission(user, permission));
     missingPermissions.push(...missing);
   }
 
   if (missingPermissions.length > 0 || missingAnyGroups.length > 0) {
-
-  if (missingPermissions.length > 0) {
     return {
       view,
       allowed: false,
       missingPermissions,
       missingAnyPermissionGroups: missingAnyGroups,
-
- main
       reason: rule.description,
       fallbackView: rule.fallbackView,
     };
@@ -276,9 +265,7 @@ export const evaluateViewAccess = (user: User, view: View): ViewAccessEvaluation
     view,
     allowed: true,
     missingPermissions: [],
- codex/enhance-ui-and-design-for-integration-t494d2
-
- main
+    missingAnyPermissionGroups: [],
   };
 };
 

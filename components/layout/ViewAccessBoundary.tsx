@@ -61,21 +61,6 @@ const PermissionRequirements: React.FC<{ permissions: Permission[]; anyGroups: P
           </div>
         </div>
       ))}
-
-const PermissionList: React.FC<{ permissions: Permission[] }> = ({ permissions }) => {
-  const uniquePermissions = Array.from(new Set(permissions));
-
-  if (uniquePermissions.length === 0) return null;
-
-  return (
-    <div className="space-y-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Required permissions</p>
-      <div className="flex flex-wrap gap-2">
-        {uniquePermissions.map((permission) => (
-          <Tag key={permission} label={humanise(permission)} color="red" statusIndicator="red" />
-        ))}
-      </div>
- main
     </div>
   );
 };
@@ -148,7 +133,6 @@ export const ViewAccessBoundary: React.FC<ViewAccessBoundaryProps> = ({
 
           <PermissionRequirements permissions={access.missingPermissions} anyGroups={access.missingAnyPermissionGroups} />
 
-          <PermissionList permissions={access.missingPermissions} />
           <AllowedRoleList roles={access.allowedRoles} />
 
           {onNavigate ? (

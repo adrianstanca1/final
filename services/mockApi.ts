@@ -417,12 +417,18 @@ export const api = {
         ensureNotAborted(options?.signal);
         return db.documents.filter(d => d.projectId === projectId) as Document[];
     },
- codex/add-abort-feature-to-fetchdata
     getUsersByProject: async (projectId: string, options?: RequestOptions): Promise<User[]> => {
-        
-
-    getProjectInsights: async (projectId: string): Promise<ProjectInsight[]> => {
+        ensureNotAborted(options?.signal);
         await delay();
+        ensureNotAborted(options?.signal);
+        const assignments = db.projectAssignments.filter(pa => pa.projectId === projectId);
+        const userIds = new Set(assignments.map(a => a.userId));
+        return db.users.filter(u => userIds.has(u.id!)) as User[];
+    },
+    getProjectInsights: async (projectId: string, options?: RequestOptions): Promise<ProjectInsight[]> => {
+        ensureNotAborted(options?.signal);
+        await delay();
+        ensureNotAborted(options?.signal);
         return db.projectInsights
             .filter(insight => insight.projectId === projectId)
             .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
@@ -465,13 +471,6 @@ export const api = {
         addAuditLog(userId, 'generated_project_insight', project ? { type: 'project', id: project.id!, name: project.name || '' } : undefined);
         saveDb();
         return newInsight;
-    },
-    getUsersByProject: async (projectId: string): Promise<User[]> => {
-        await delay();
-        ensureNotAborted(options?.signal);
-        const assignments = db.projectAssignments.filter(pa => pa.projectId === projectId);
-        const userIds = new Set(assignments.map(a => a.userId));
-        return db.users.filter(u => userIds.has(u.id!)) as User[];
     },
     getExpensesByCompany: async (companyId: string, options?: RequestOptions): Promise<Expense[]> => {
         ensureNotAborted(options?.signal);
