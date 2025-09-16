@@ -499,8 +499,6 @@ export const api = {
         return db.users.filter(u => userIds.has(u.id!)) as User[];
     },
 
-    getProjectInsights: async (projectId: string): Promise<ProjectInsight[]> => {
-
     getProjectInsights: async (projectId: string, options?: RequestOptions): Promise<ProjectInsight[]> => {
         ensureNotAborted(options?.signal);
         await delay();
