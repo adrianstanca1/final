@@ -415,6 +415,8 @@ export interface InvoiceLineItem {
   unitPrice: number;
 }
 
+export type InvoiceLineItemDraft = Omit<InvoiceLineItem, 'amount' | 'rate'>;
+
 export interface Invoice {
   id: string;
   invoiceNumber: string;
