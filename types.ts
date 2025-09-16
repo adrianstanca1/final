@@ -358,6 +358,17 @@ export interface Project {
   workClassification: string;
 }
 
+export interface ProjectInsight {
+  id: string;
+  projectId: string;
+  summary: string;
+  type: 'HEALTH_SUMMARY' | 'KNOWLEDGE_SUMMARY' | 'CUSTOM';
+  createdAt: string;
+  createdBy: string;
+  model?: string;
+  metadata?: Record<string, unknown>;
+}
+
 // FIX: Renamed Task to Todo for consistency with component usage.
 export interface Todo {
   id: string;
