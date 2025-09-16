@@ -358,6 +358,29 @@ export interface Project {
   workClassification: string;
 }
 
+export interface UpcomingProjectDeadline {
+  id: string;
+  name: string;
+  endDate: string;
+  daysRemaining: number;
+  status: ProjectStatus;
+  isOverdue: boolean;
+}
+
+export interface ProjectPortfolioSummary {
+  totalProjects: number;
+  activeProjects: number;
+  completedProjects: number;
+  atRiskProjects: number;
+  overdueProjects: number;
+  pipelineValue: number;
+  totalActualCost: number;
+  budgetVariance: number;
+  averageProgress: number;
+  statusBreakdown: Record<ProjectStatus, number>;
+  upcomingDeadlines: UpcomingProjectDeadline[];
+}
+
 export interface ProjectInsight {
   id: string;
   projectId: string;
