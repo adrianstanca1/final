@@ -369,6 +369,17 @@ export interface ProjectInsight {
   metadata?: Record<string, unknown>;
 }
 
+export interface FinancialForecast {
+  id: string;
+  companyId: string;
+  summary: string;
+  horizonMonths: number;
+  createdAt: string;
+  createdBy: string;
+  model?: string;
+  metadata?: Record<string, unknown>;
+}
+
 // FIX: Renamed Task to Todo for consistency with component usage.
 export interface Todo {
   id: string;
