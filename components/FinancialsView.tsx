@@ -372,8 +372,8 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
                                 return (
                                 <tr key={invoice.id} className="hover:bg-accent">
                                     <td className="px-4 py-3 font-medium">{invoice.invoiceNumber}</td>
-                                    <td className="px-4 py-3">{clientMap.get(invoice.clientId)}</td>
-                                    <td className="px-4 py-3">{projectMap.get(invoice.projectId)}</td>
+                                    <td className="px-4 py-3">{clientMap.get(invoice.clientId) || 'Client unavailable'}</td>
+                                    <td className="px-4 py-3">{projectMap.get(invoice.projectId) || 'Project unavailable'}</td>
                                     <td className="px-4 py-3 text-right">{formatCurrency(total)}</td>
                                     <td className="px-4 py-3 text-right font-semibold">{formatCurrency(balance)}</td>
                                     <td className="px-4 py-3"><InvoiceStatusBadge status={derivedStatus} /></td>
@@ -406,7 +406,18 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
                     <table className="min-w-full divide-y divide-border">
                          <thead className="bg-muted"><tr><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Client</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Project</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Status</th></tr></thead>
                           <tbody className="bg-card divide-y divide-border">
-                            {data.quotes.map(quote => (<tr key={quote.id}><td className="px-4 py-3">Client Name</td><td className="px-4 py-3">Project Name</td><td className="px-4 py-3"><QuoteStatusBadge status={quote.status} /></td></tr>))}
+                            {data.quotes.map(quote => {
+                                const clientName = clientMap.get(quote.clientId);
+                                const projectName = projectMap.get(quote.projectId);
+
+                                return (
+                                    <tr key={quote.id} className="hover:bg-accent">
+                                        <td className="px-4 py-3">{clientName || 'Client unavailable'}</td>
+                                        <td className="px-4 py-3">{projectName || 'Project unavailable'}</td>
+                                        <td className="px-4 py-3"><QuoteStatusBadge status={quote.status} /></td>
+                                    </tr>
+                                );
+                            })}
                           </tbody>
                     </table>
                  </div>

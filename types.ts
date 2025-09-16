@@ -612,6 +612,8 @@ export type View = 'dashboard' | 'my-day' | 'foreman-dashboard' | 'principal-das
 
 export interface Quote {
     id: string;
+    clientId: string;
+    projectId: string;
     status: QuoteStatus;
 }
 
