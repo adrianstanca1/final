@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { differenceInCalendarDays, format } from 'date-fns';
 import { api } from '../services/mockApi';
 import { Button } from './ui/Button';
@@ -119,36 +119,49 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('BANK_TRANSFER');
   const [isRecordingPayment, setIsRecordingPayment] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(
     async (showLoader = false) => {
+      const controller = new AbortController();
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = controller;
+
       if (showLoader) setLoading(true);
 
       if (!user.companyId) {
+        if (controller.signal.aborted) return null;
         setInvoices([]);
+        if (controller.signal.aborted) return null;
         setProjects([]);
+        if (controller.signal.aborted) return null;
         setClients([]);
-        if (showLoader) setLoading(false);
+        if (showLoader && !controller.signal.aborted) setLoading(false);
         return null;
       }
 
       try {
         const [invoiceData, projectData, clientData] = await Promise.all([
-          api.getInvoicesByCompany(user.companyId),
-          api.getProjectsByCompany(user.companyId),
-          api.getClientsByCompany(user.companyId),
+          api.getInvoicesByCompany(user.companyId, { signal: controller.signal }),
+          api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
+          api.getClientsByCompany(user.companyId, { signal: controller.signal }),
         ]);
 
+        if (controller.signal.aborted) return null;
         setInvoices(invoiceData);
+        if (controller.signal.aborted) return null;
         setProjects(projectData);
+        if (controller.signal.aborted) return null;
         setClients(clientData);
         return { invoiceData, projectData, clientData };
       } catch (error) {
         console.error('Failed to load invoices', error);
-        addToast('Failed to load invoices.', 'error');
+        if (!controller.signal.aborted) {
+          addToast('Failed to load invoices.', 'error');
+        }
         return null;
       } finally {
-        if (showLoader) setLoading(false);
+        if (showLoader && !controller.signal.aborted) setLoading(false);
       }
     },
     [user.companyId, addToast],
@@ -156,6 +169,9 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
 
   useEffect(() => {
     fetchData(true);
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [fetchData]);
 
   useEffect(() => {

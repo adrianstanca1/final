@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User, Project, Todo, TodoStatus, Timesheet } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
@@ -19,38 +19,53 @@ export const MyDayView: React.FC<MyDayViewProps> = ({ user, addToast }) => {
     const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
     const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string | number>>(new Set());
     const [isPrioritizing, setIsPrioritizing] = useState(false);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         setLoading(true);
         try {
             if (!user.companyId) return;
 
             const [userProjects, tsData, companyUsers] = await Promise.all([
-                api.getProjectsByUser(user.id),
-                api.getTimesheetsByUser(user.id),
-                api.getUsersByCompany(user.companyId)
+                api.getProjectsByUser(user.id, { signal: controller.signal }),
+                api.getTimesheetsByUser(user.id, { signal: controller.signal }),
+                api.getUsersByCompany(user.companyId, { signal: controller.signal })
             ]);
-            
+
+            if (controller.signal.aborted) return;
             setProjects(userProjects);
+            if (controller.signal.aborted) return;
             setTimesheets(tsData);
+            if (controller.signal.aborted) return;
             setPersonnel(companyUsers);
-            
+
             if (userProjects.length > 0) {
                 const projectIds = userProjects.map(p => p.id);
-                const projectTasks = await api.getTodosByProjectIds(projectIds);
+                const projectTasks = await api.getTodosByProjectIds(projectIds, { signal: controller.signal });
+                if (controller.signal.aborted) return;
                 const myTasks = projectTasks.filter(t => t.assigneeId === user.id);
                 setTodos(myTasks);
+                if (controller.signal.aborted) return;
                 setAllTodos(projectTasks); // For dependency checks
             }
         } catch (error) {
+            if (controller.signal.aborted) return;
             addToast("Failed to load daily data.", "error");
         } finally {
+            if (controller.signal.aborted) return;
             setLoading(false);
         }
     }, [user, addToast]);
 
     useEffect(() => {
         fetchData();
+        return () => {
+            abortControllerRef.current?.abort();
+        };
     }, [fetchData]);
     
     const handleTaskStatusChange = async (taskId: string | number, newStatus: TodoStatus) => {
