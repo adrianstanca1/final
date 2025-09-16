@@ -666,7 +666,6 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
         | { name?: string }
         | undefined;
 
-      ]);
       if (controller.signal.aborted) return;
  
       setData({
@@ -990,8 +989,11 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
           )}
         </div>
       </Card>
+    </div>
+  );
+};
 
-     const renderInvoicesAndQuotes = () => (
+const renderInvoicesAndQuotes = () => (
         <div className="space-y-6">
             <Card>
                 <div className="flex justify-between items-center mb-4">
@@ -1060,7 +1062,8 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
                  </div>
             </Card>
         </div>
-=======
+    );
+
   const handleUpdateInvoiceStatus = useCallback(
     async (invoiceId: string, status: InvoiceStatus) => {
       if (status === InvoiceStatus.CANCELLED) {
@@ -1697,3 +1700,6 @@ const ClientsTab = React.memo(({ clients, canManageFinances, onAddClient, onEdit
 ));
 
 ClientsTab.displayName = 'ClientsTab';
+
+// Closing brace for the main FinancialsView component
+};
