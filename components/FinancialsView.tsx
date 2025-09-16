@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+codex/refactor-finance-functions-and-components
 import { User, FinancialKPIs, MonthlyFinancials, CostBreakdown, Invoice, Quote, Client, Project, Permission, Expense, InvoiceStatus, InvoiceLineItem } from '../types';
 import { getDerivedStatus, getInvoiceFinancials } from '../utils/finance';
+import { User, FinancialKPIs, MonthlyFinancials, CostBreakdown, Invoice, Quote, Client, Project, Permission, Expense, ExpenseCategory, ExpenseStatus, InvoiceStatus, QuoteStatus, InvoiceLineItem, InvoiceLineItemDraft } from '../types';
+
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -14,6 +17,36 @@ type FinancialsTab = 'dashboard' | 'invoices' | 'expenses' | 'clients';
 const formatCurrency = (amount: number, currency: string = 'GBP') => {
     return new Intl.NumberFormat('en-GB', { style: 'currency', currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
 };
+
+const createLineItemDraft = (): InvoiceLineItemDraft => ({
+    id: `new-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    description: '',
+    quantity: 1,
+    unitPrice: 0,
+});
+
+const mapInvoiceLineItemToDraft = (item: InvoiceLineItem): InvoiceLineItemDraft => {
+    const safeQuantity = Number.isFinite(item.quantity) ? Math.max(item.quantity, 0) : 0;
+    const safeRate = Number.isFinite(item.rate) ? Math.max(item.rate, 0) : 0;
+    const safeUnitPrice = Number.isFinite(item.unitPrice) ? Math.max(item.unitPrice, 0) : safeRate;
+
+    return {
+        id: item.id,
+        description: item.description,
+        quantity: safeQuantity,
+        unitPrice: safeUnitPrice > 0 ? safeUnitPrice : safeRate,
+    };
+};
+
+const parseNumberInputValue = (value: string): number => {
+    if (value.trim() === '') {
+        return 0;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+};
+
+type EditableInvoiceLineItemField = Exclude<keyof InvoiceLineItemDraft, 'id'>;
 
 // --- Modals ---
 
@@ -68,25 +101,44 @@ const InvoiceModal: React.FC<{ invoiceToEdit?: Invoice | null, isReadOnly?: bool
     const [projectId, setProjectId] = useState<string>(invoiceToEdit?.projectId.toString() || '');
     const [issuedAt, setIssuedAt] = useState(new Date(invoiceToEdit?.issuedAt || new Date()).toISOString().split('T')[0]);
     const [dueAt, setDueAt] = useState(new Date(invoiceToEdit?.dueAt || Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
-    const [lineItems, setLineItems] = useState<Partial<InvoiceLineItem>[]>(invoiceToEdit?.lineItems || [{ id: `new-${Date.now()}`, description: '', quantity: 1, unitPrice: 0 }]);
+    const [lineItems, setLineItems] = useState<InvoiceLineItemDraft[]>(() =>
+        invoiceToEdit?.lineItems?.length
+            ? invoiceToEdit.lineItems.map(mapInvoiceLineItemToDraft)
+            : [createLineItemDraft()],
+    );
     const [taxRate, setTaxRate] = useState<number | ''>(invoiceToEdit ? invoiceToEdit.taxRate * 100 : 20);
     const [retentionRate, setRetentionRate] = useState<number | ''>(invoiceToEdit ? invoiceToEdit.retentionRate * 100 : 5);
     const [notes, setNotes] = useState(invoiceToEdit?.notes || '');
     const [isSaving, setIsSaving] = useState(false);
 
-    const handleLineItemChange = (index: number, field: keyof Omit<InvoiceLineItem, 'id'|'amount'|'rate'>, value: string | number) => {
-        const newItems = [...lineItems];
-        (newItems[index] as any)[field] = value;
-        setLineItems(newItems);
+    useEffect(() => {
+        setLineItems(
+            invoiceToEdit?.lineItems?.length
+                ? invoiceToEdit.lineItems.map(mapInvoiceLineItemToDraft)
+                : [createLineItemDraft()],
+        );
+    }, [invoiceToEdit?.id]);
+
+    const handleLineItemChange = <Field extends EditableInvoiceLineItemField>(
+        index: number,
+        field: Field,
+        value: InvoiceLineItemDraft[Field],
+    ) => {
+        setLineItems((prevItems) =>
+            prevItems.map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: value } : item)),
+        );
     };
 
-    const addLineItem = () => setLineItems([...lineItems, { id: `new-${Date.now()}`, description: '', quantity: 1, unitPrice: 0 }]);
-    const removeLineItem = (index: number) => setLineItems(lineItems.filter((_, i) => i !== index));
+    const addLineItem = () => setLineItems((prevItems) => [...prevItems, createLineItemDraft()]);
+    const removeLineItem = (index: number) =>
+        setLineItems((prevItems) => prevItems.filter((_, itemIndex) => itemIndex !== index));
 
     const { subtotal, taxAmount, retentionAmount, total } = useMemo(() => {
-        const subtotalCalc = lineItems.reduce((acc, item) => acc + (Number(item.quantity) * Number(item.unitPrice)), 0);
-        const taxAmountCalc = subtotalCalc * (Number(taxRate) / 100);
-        const retentionAmountCalc = subtotalCalc * (Number(retentionRate) / 100);
+        const subtotalCalc = lineItems.reduce((acc, item) => acc + item.quantity * item.unitPrice, 0);
+        const taxPercentage = typeof taxRate === 'number' ? taxRate : 0;
+        const retentionPercentage = typeof retentionRate === 'number' ? retentionRate : 0;
+        const taxAmountCalc = subtotalCalc * (taxPercentage / 100);
+        const retentionAmountCalc = subtotalCalc * (retentionPercentage / 100);
         const totalCalc = subtotalCalc + taxAmountCalc - retentionAmountCalc;
         return { subtotal: subtotalCalc, taxAmount: taxAmountCalc, retentionAmount: retentionAmountCalc, total: totalCalc };
     }, [lineItems, taxRate, retentionRate]);
@@ -98,15 +150,26 @@ const InvoiceModal: React.FC<{ invoiceToEdit?: Invoice | null, isReadOnly?: bool
         e.preventDefault();
         setIsSaving(true);
         try {
-            const finalLineItems = lineItems
-                .filter(li => li.description && li.quantity! > 0 && li.unitPrice! > 0)
-                .map(li => ({
-                    id: li.id!.toString().startsWith('new-') ? String(Date.now() + Math.random()) : li.id!,
-                    description: li.description!,
-                    quantity: Number(li.quantity),
-                    unitPrice: Number(li.unitPrice),
-                    amount: Number(li.quantity) * Number(li.unitPrice)
-                }));
+            const finalLineItems = lineItems.reduce<InvoiceLineItem[]>((acc, item) => {
+                const description = item.description.trim();
+                const quantity = Math.max(item.quantity, 0);
+                const unitPrice = Math.max(item.unitPrice, 0);
+
+                if (!description || quantity <= 0 || unitPrice <= 0) {
+                    return acc;
+                }
+
+                acc.push({
+                    id: item.id.startsWith('new-') ? String(Date.now() + Math.random()) : item.id,
+                    description,
+                    quantity,
+                    unitPrice,
+                    rate: unitPrice,
+                    amount: quantity * unitPrice,
+                });
+
+                return acc;
+            }, []);
             
             const invoiceData = {
                 clientId: clientId,
@@ -160,9 +223,9 @@ const InvoiceModal: React.FC<{ invoiceToEdit?: Invoice | null, isReadOnly?: bool
                         {lineItems.map((item, i) => (
                             <div key={item.id} className="grid grid-cols-[1fr,90px,130px,130px,40px] gap-2 items-center mt-2">
                                 <input type="text" value={item.description} onChange={e=>handleLineItemChange(i, 'description', e.target.value)} placeholder="Item or service description" className="p-1 border rounded" disabled={isReadOnly}/>
-                                <input type="number" value={item.quantity} onChange={e=>handleLineItemChange(i, 'quantity', Number(e.target.value))} placeholder="1" className="p-1 border rounded text-right" disabled={isReadOnly}/>
-                                <input type="number" value={item.unitPrice} onChange={e=>handleLineItemChange(i, 'unitPrice', Number(e.target.value))} placeholder="0.00" className="p-1 border rounded text-right" disabled={isReadOnly}/>
-                                <span className="p-1 text-right font-medium">{formatCurrency((item.quantity || 0) * (item.unitPrice || 0))}</span>
+                                <input type="number" value={item.quantity} onChange={e=>handleLineItemChange(i, 'quantity', parseNumberInputValue(e.target.value))} placeholder="1" className="p-1 border rounded text-right" disabled={isReadOnly}/>
+                                <input type="number" value={item.unitPrice} onChange={e=>handleLineItemChange(i, 'unitPrice', parseNumberInputValue(e.target.value))} placeholder="0.00" className="p-1 border rounded text-right" disabled={isReadOnly}/>
+                                <span className="p-1 text-right font-medium">{formatCurrency(item.quantity * item.unitPrice)}</span>
                                 {!isReadOnly && <Button type="button" variant="danger" size="sm" onClick={() => removeLineItem(i)}>&times;</Button>}
                             </div>
                         ))}
