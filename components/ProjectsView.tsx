@@ -108,9 +108,11 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'ALL' | ProjectStatus>('ALL');
+
   const [searchQuery, setSearchQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('startDate');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+ main
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -146,6 +148,35 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
     fetchData();
     return () => {
       abortControllerRef.current?.abort();
+    };
+  }, [fetchData]);
+
+  const filteredProjects = useMemo(() => {
+    if (filter === 'ALL') return projects;
+    return projects.filter(p => p.status === filter);
+  }, [projects, filter]);
+
+  const portfolioSummary = useMemo(() => {
+    if (projects.length === 0) {
+      return {
+        total: 0,
+        active: 0,
+        atRisk: 0,
+        pipelineValue: 0,
+      };
+    }
+
+    const active = projects.filter(p => p.status === 'ACTIVE').length;
+    const atRisk = projects.filter(p => p.actualCost > p.budget).length;
+    const pipelineValue = projects.reduce((acc, project) => acc + project.budget, 0);
+
+    return {
+      total: projects.length,
+      active,
+      atRisk,
+      pipelineValue,
+    };
+
     };
   }, [fetchData]);
 
@@ -233,6 +264,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
       atRisk,
       pipelineValue,
     };
+ main
   }, [projects]);
 
   const handleSuccess = (newProject: Project) => {
@@ -277,6 +309,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
           },
         ]}
       />
+
 
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div className="relative w-full md:max-w-sm">
@@ -348,6 +381,12 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
         ))}
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {filteredProjects.map(project => (
+          <ProjectCard key={project.id} project={project} onSelect={() => onSelectProject(project)} />
+        ))}
+      </div>
+
       {projects.length > 0 && (
         <p className="text-xs text-muted-foreground">
           {filteredProjects.length === projects.length
@@ -376,6 +415,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
           )}
         </Card>
       )}
+ 
     </div>
   );
 };

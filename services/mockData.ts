@@ -2,7 +2,47 @@
 
 // FIX: Added missing type imports to allow for explicit typing of mock data arrays.
 // FIX: Replaced UserRole with Role
-import { Company, User, Project, ProjectAssignment, Task, Timesheet, SafetyIncident, Equipment, ResourceAssignment, Client, Invoice, Quote, Expense, ProjectTemplate, ProjectInsight, Notification, AuditLog, Conversation, Message, Document, Role, TodoStatus, TimesheetStatus, IncidentStatus, IncidentSeverity, TodoPriority, InvoiceStatus, QuoteStatus, ExpenseCategory, ExpenseStatus, NotificationType, DocumentStatus, EquipmentStatus, AvailabilityStatus, WhiteboardNote, SiteUpdate, ProjectMessage, Todo } from '../types';
+import {
+  Company,
+  User,
+  Project,
+  ProjectAssignment,
+  Task,
+  Timesheet,
+  SafetyIncident,
+  Equipment,
+  ResourceAssignment,
+  Client,
+  Invoice,
+  Quote,
+  Expense,
+  ProjectTemplate,
+  ProjectInsight,
+  FinancialForecast,
+  Notification,
+  AuditLog,
+  Conversation,
+  Message,
+  Document,
+  Role,
+  TodoStatus,
+  TimesheetStatus,
+  IncidentStatus,
+  IncidentSeverity,
+  TodoPriority,
+  InvoiceStatus,
+  QuoteStatus,
+  ExpenseCategory,
+  ExpenseStatus,
+  NotificationType,
+  DocumentStatus,
+  EquipmentStatus,
+  AvailabilityStatus,
+  WhiteboardNote,
+  SiteUpdate,
+  ProjectMessage,
+  Todo,
+} from '../types';
 
 export const initialData = {
     companies: [
@@ -55,6 +95,7 @@ export const initialData = {
         { id: 'te-1', userId: '4', projectId: '101', startTime: new Date(Date.now() - 8 * 3600 * 1000).toISOString(), endTime: new Date().toISOString(), status: TimesheetStatus.PENDING }
     ] as Partial<Timesheet>[],
     projectInsights: [] as Partial<ProjectInsight>[],
+    financialForecasts: [] as Partial<FinancialForecast>[],
     clients: [
         {
             id: 'c-1',

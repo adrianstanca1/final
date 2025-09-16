@@ -2,7 +2,58 @@
 // Supports offline queuing for write operations.
 
 import { initialData } from './mockData';
-import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegisterCredentials, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority } from '../types';
+import {
+    User,
+    Company,
+    Project,
+    Task,
+    TimeEntry,
+    SafetyIncident,
+    Equipment,
+    Client,
+    Invoice,
+    Expense,
+    Notification,
+    LoginCredentials,
+    RegisterCredentials,
+    TaskStatus,
+    TaskPriority,
+    TimeEntryStatus,
+    IncidentSeverity,
+    SiteUpdate,
+    ProjectMessage,
+    Weather,
+    InvoiceStatus,
+    Quote,
+    FinancialKPIs,
+    MonthlyFinancials,
+    CostBreakdown,
+    Role,
+    TimesheetStatus,
+    IncidentStatus,
+    AuditLog,
+    ResourceAssignment,
+    Conversation,
+    Message,
+    CompanySettings,
+    ProjectAssignment,
+    ProjectTemplate,
+    ProjectInsight,
+    FinancialForecast,
+    WhiteboardNote,
+    BidPackage,
+    RiskAnalysis,
+    Grant,
+    Timesheet,
+    Todo,
+    InvoiceLineItem,
+    Document,
+    UsageMetric,
+    CompanyType,
+    ExpenseStatus,
+    TodoStatus,
+    TodoPriority,
+} from '../types';
 
 const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
 
@@ -85,6 +136,7 @@ let db: {
     whiteboardNotes: Partial<WhiteboardNote>[];
     documents: Partial<Document>[];
     projectInsights: Partial<ProjectInsight>[];
+    financialForecasts: Partial<FinancialForecast>[];
 } = {
     companies: hydrateData('companies', initialData.companies),
     users: hydrateData('users', initialData.users),
@@ -109,6 +161,7 @@ let db: {
     whiteboardNotes: hydrateData('whiteboardNotes', []),
     documents: hydrateData('documents', []),
     projectInsights: hydrateData('projectInsights', (initialData as any).projectInsights || []),
+    financialForecasts: hydrateData('financialForecasts', (initialData as any).financialForecasts || []),
 };
 
 const saveDb = () => {
@@ -488,6 +541,59 @@ export const api = {
         addAuditLog(userId, 'generated_project_insight', project ? { type: 'project', id: project.id!, name: project.name || '' } : undefined);
         saveDb();
         return newInsight;
+    },
+    getFinancialForecasts: async (companyId: string, options?: RequestOptions): Promise<FinancialForecast[]> => {
+        ensureNotAborted(options?.signal);
+        await delay();
+        ensureNotAborted(options?.signal);
+        return db.financialForecasts
+            .filter(forecast => forecast.companyId === companyId)
+            .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+            .map(forecast => ({
+                id: forecast.id!,
+                companyId: forecast.companyId!,
+                summary: forecast.summary || '',
+                horizonMonths: typeof forecast.horizonMonths === 'number'
+                    ? forecast.horizonMonths
+                    : Number((forecast.metadata as any)?.horizonMonths) || 3,
+                createdAt: forecast.createdAt || new Date().toISOString(),
+                createdBy: forecast.createdBy || 'system',
+                model: forecast.model,
+                metadata: forecast.metadata,
+            }));
+    },
+    createFinancialForecast: async (
+        data: { companyId: string; summary: string; horizonMonths: number; metadata?: Record<string, unknown>; model?: string },
+        userId: string,
+    ): Promise<FinancialForecast> => {
+        await delay();
+        if (!data.companyId) {
+            throw new Error('companyId is required to create a financial forecast.');
+        }
+        if (!data.summary.trim()) {
+            throw new Error('summary is required to create a financial forecast.');
+        }
+
+        const newForecast: FinancialForecast = {
+            id: String(Date.now() + Math.random()),
+            companyId: data.companyId,
+            summary: data.summary,
+            horizonMonths: data.horizonMonths,
+            createdAt: new Date().toISOString(),
+            createdBy: userId,
+            model: data.model,
+            metadata: data.metadata,
+        };
+
+        db.financialForecasts.push(newForecast);
+        const company = db.companies.find(c => c.id === data.companyId);
+        addAuditLog(
+            userId,
+            'generated_financial_forecast',
+            company ? { type: 'company', id: company.id!, name: company.name || '' } : undefined,
+        );
+        saveDb();
+        return newForecast;
     },
     getExpensesByCompany: async (companyId: string, options?: RequestOptions): Promise<Expense[]> => {
         ensureNotAborted(options?.signal);
