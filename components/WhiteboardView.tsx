@@ -122,21 +122,32 @@ export const WhiteboardView: React.FC<WhiteboardViewProps> = ({ project, user, a
     const [notes, setNotes] = useState<WhiteboardNote[]>([]);
     const [loading, setLoading] = useState(true);
     const whiteboardRef = useRef<HTMLDivElement>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         setLoading(true);
         try {
-            const notesData = await api.getWhiteboardNotesByProject(project.id);
+            const notesData = await api.getWhiteboardNotesByProject(project.id, { signal: controller.signal });
+            if (controller.signal.aborted) return;
             setNotes(notesData);
         } catch (error) {
+            if (controller.signal.aborted) return;
             addToast("Failed to load whiteboard notes.", "error");
         } finally {
+            if (controller.signal.aborted) return;
             setLoading(false);
         }
     }, [project.id, addToast]);
 
     useEffect(() => {
         fetchData();
+        return () => {
+            abortControllerRef.current?.abort();
+        };
     }, [fetchData]);
 
     const handleAddNote = async (color: 'yellow' | 'green' | 'blue') => {
