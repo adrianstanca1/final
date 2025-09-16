@@ -105,6 +105,28 @@ describe('getInvoiceFinancials', () => {
 
     expect(financials.balance).toBe(0);
   });
+
+
+  it('falls back to stored totals when line items are unavailable', () => {
+    const invoice = createInvoice({
+      lineItems: [],
+      subtotal: 500,
+      taxAmount: 100,
+      retentionAmount: 50,
+      total: 550,
+      balance: 150,
+      amountPaid: 0,
+    });
+
+    const financials = getInvoiceFinancials(invoice);
+
+    expect(financials.subtotal).toBe(500);
+    expect(financials.taxAmount).toBe(100);
+    expect(financials.retentionAmount).toBe(50);
+    expect(financials.total).toBe(550);
+    expect(financials.amountPaid).toBe(400);
+    expect(financials.balance).toBe(150);
+  });
 });
 
 describe('getDerivedStatus', () => {
@@ -128,6 +150,19 @@ describe('getDerivedStatus', () => {
       status: InvoiceStatus.SENT,
       lineItems: [createLineItem({ id: 'item-1', quantity: 1, unitPrice: 120, amount: 120 })],
       payments: [createPayment({ id: 'payment-1', amount: 120 })],
+    });
+
+    expect(getDerivedStatus(invoice)).toBe(InvoiceStatus.PAID);
+  });
+
+
+  it('honours PAID status even when payments data is missing', () => {
+    const invoice = createInvoice({
+      status: InvoiceStatus.PAID,
+      lineItems: [createLineItem({ id: 'item-1', quantity: 2, unitPrice: 150, amount: 300 })],
+      payments: [],
+      amountPaid: 0,
+      balance: 0,
     });
 
     expect(getDerivedStatus(invoice)).toBe(InvoiceStatus.PAID);
