@@ -427,11 +427,28 @@ export const api = {
         });
         saveDb();
     },
+    markNotificationAsRead: async (notificationId: string): Promise<void> => {
+        await delay();
+        const notification = db.notifications.find(n => n.id === notificationId);
+        if (!notification) {
+            throw new Error('Notification not found');
+        }
+        notification.isRead = true;
+        notification.read = true;
+        saveDb();
+    },
     getProjectsByManager: async (managerId: string, options?: RequestOptions): Promise<Project[]> => {
         ensureNotAborted(options?.signal);
         await delay();
         ensureNotAborted(options?.signal);
         return db.projects.filter(p => (p as any).managerId === managerId) as Project[];
+    },
+    getProjectById: async (projectId: string, options?: RequestOptions): Promise<Project | null> => {
+        ensureNotAborted(options?.signal);
+        await delay();
+        ensureNotAborted(options?.signal);
+        const project = db.projects.find(p => p.id === projectId);
+        return project ? project as Project : null;
     },
     getUsersByCompany: async (companyId: string, options?: RequestOptions): Promise<User[]> => {
         ensureNotAborted(options?.signal);
@@ -718,16 +735,43 @@ export const api = {
     },
     getClientsByCompany: async (companyId: string, options?: RequestOptions): Promise<Client[]> => {
         ensureNotAborted(options?.signal);
-        return db.clients as Client[];
+        return db.clients
+            .filter(client => client.companyId === companyId)
+            .map(client => ({
+                ...client,
+                isActive: client.isActive ?? true,
+            })) as Client[];
     },
     updateClient: async (id:string, data:any, userId:string): Promise<Client> => {
         const index = db.clients.findIndex(c=>c.id === id);
-        db.clients[index] = {...db.clients[index], ...data};
+        if (index === -1) {
+            throw new Error('Client not found');
+        }
+        db.clients[index] = {
+            ...db.clients[index],
+            ...data,
+            updatedAt: new Date().toISOString(),
+        };
         saveDb();
         return db.clients[index] as Client;
     },
     createClient: async (data:any, userId:string): Promise<Client> => {
-        const newClient = {...data, id: String(Date.now()), companyId: db.users.find(u=>u.id===userId)!.companyId};
+        const timestamp = new Date().toISOString();
+        const companyId = db.users.find(u=>u.id===userId)!.companyId;
+        const newClient = {
+            isActive: true,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+            contactPerson: data.contactPerson || '',
+            contactEmail: data.contactEmail,
+            contactPhone: data.contactPhone || data.phone,
+            paymentTerms: data.paymentTerms || 'Net 30',
+            billingAddress: data.billingAddress || '',
+            address: data.address || { street: '', city: '', state: '', zipCode: '', country: '' },
+            ...data,
+            id: String(Date.now()),
+            companyId,
+        };
         db.clients.push(newClient);
         saveDb();
         return newClient as Client;
