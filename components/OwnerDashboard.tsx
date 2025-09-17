@@ -326,10 +326,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   const fallbackHighSeverityIncidents = useMemo(
     () =>
-      fallbackOpenIncidents.filter(
+      openIncidents.filter(
         incident => incident.severity === IncidentSeverity.HIGH || incident.severity === IncidentSeverity.CRITICAL,
       ),
-    [fallbackOpenIncidents],
+    [openIncidents],
   );
 
   const highSeverityIncidents = useMemo(
@@ -358,7 +358,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   const operationalInsights = data.operationalInsights;
   const financialCurrency = operationalInsights?.financial.currency ?? currency;
-  const openIncidentsCount = operationalInsights?.safety.openIncidents ?? fallbackOpenIncidents.length;
+  const openIncidentsCount = operationalInsights?.safety.openIncidents ?? openIncidents.length;
   const highSeverityCount = operationalInsights?.safety.highSeverity ?? fallbackHighSeverityIncidents.length;
   const daysSinceLastIncident = operationalInsights?.safety.daysSinceLastIncident ?? null;
   const approvedExpenseRunRate = operationalInsights?.financial.approvedExpensesThisMonth ?? fallbackApprovedExpenseTotal;

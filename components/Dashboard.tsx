@@ -227,8 +227,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     );
 
     const fallbackHighSeverityIncidents = useMemo(
-        () => fallbackOpenIncidents.filter(incident => incident.severity === 'HIGH' || incident.severity === 'CRITICAL'),
-        [fallbackOpenIncidents],
+        () => openIncidents.filter(incident => incident.severity === 'HIGH' || incident.severity === 'CRITICAL'),
+        [openIncidents],
     );
 
     const fallbackApprovedExpenseTotal = useMemo(
@@ -298,7 +298,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     const insight = operationalInsights;
     const operationalCurrency = insight?.financial.currency ?? 'GBP';
     const complianceRate = clampPercentage(insight?.workforce.complianceRate ?? 0);
-    const openIncidentsCount = insight?.safety.openIncidents ?? fallbackOpenIncidents.length;
+    const openIncidentsCount = insight?.safety.openIncidents ?? openIncidents.length;
     const highSeverityCount = insight?.safety.highSeverity ?? fallbackHighSeverityIncidents.length;
     const pendingApprovals = insight?.workforce.pendingApprovals ?? 0;
     const approvedExpenseThisMonth = insight?.financial.approvedExpensesThisMonth ?? fallbackApprovedExpenseTotal;

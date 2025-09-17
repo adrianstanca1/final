@@ -319,9 +319,6 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
     [summaryForDisplay]
   );
 
-
-  };
-
   const portfolioSummary = useMemo(() => {
     if (projects.length === 0) {
       return {

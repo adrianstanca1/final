@@ -656,3 +656,13 @@ const BarChart: React.FC<{ data: { label: string; value: number }[]; barColor: s
     </div>
   );
 };
+
+  return (
+    <div className="space-y-6">
+      <div className="text-center p-6">
+        <h1 className="text-2xl font-bold">Financials</h1>
+        <p className="text-muted-foreground">Financial data will be displayed here...</p>
+      </div>
+    </div>
+  );
+};
