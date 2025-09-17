@@ -628,4 +628,4 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
       ) : null}
     </div>
   );
-};
+}

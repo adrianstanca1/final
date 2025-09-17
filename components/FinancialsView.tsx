@@ -767,7 +767,7 @@ const renderInvoicesAndQuotes = () => (
       )}
     </div>
   );
-};
+}
 
 
 

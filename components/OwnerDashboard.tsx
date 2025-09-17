@@ -774,7 +774,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       </section>
     </div>
   );
-};
+}
 
 OwnerDashboard.displayName = 'OwnerDashboard';
 
