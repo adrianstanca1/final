@@ -308,8 +308,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     [data.expenses],
   );
 
-  const fallbackOpenIncidents = useMemo(
-
   const approvedExpenses = useMemo(
     () =>
       data.expenses.filter(expense => expense.status === 'APPROVED' || expense.status === 'PAID'),
@@ -328,13 +326,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   const fallbackHighSeverityIncidents = useMemo(
     () =>
-      fallbackOpenIncidents.filter(
+      openIncidents.filter(
         incident => incident.severity === IncidentSeverity.HIGH || incident.severity === IncidentSeverity.CRITICAL,
       ),
-    [fallbackOpenIncidents],
+    [openIncidents],
   );
-
-  const fallbackComplianceRate = useMemo(() => {
 
   const highSeverityIncidents = useMemo(
     () => openIncidents.filter(incident => incident.severity === IncidentSeverity.HIGH || incident.severity === IncidentSeverity.CRITICAL),
@@ -362,10 +358,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   const operationalInsights = data.operationalInsights;
   const financialCurrency = operationalInsights?.financial.currency ?? currency;
-  const complianceRate = clampPercentage(
-    operationalInsights?.workforce.complianceRate ?? fallbackComplianceRate,
-  );
-  const openIncidentsCount = operationalInsights?.safety.openIncidents ?? fallbackOpenIncidents.length;
+  const openIncidentsCount = operationalInsights?.safety.openIncidents ?? openIncidents.length;
   const highSeverityCount = operationalInsights?.safety.highSeverity ?? fallbackHighSeverityIncidents.length;
   const daysSinceLastIncident = operationalInsights?.safety.daysSinceLastIncident ?? null;
   const approvedExpenseRunRate = operationalInsights?.financial.approvedExpensesThisMonth ?? fallbackApprovedExpenseTotal;
@@ -476,9 +469,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 ? `${crewOnShift} team members clocked in`
                 : 'No approvals submitted',
             indicator: complianceRate < 80 ? 'warning' : crewOnShift > 0 ? 'positive' : 'neutral',
-
-            helper: `${clampPercentage(complianceRate)}% timesheets approved`,
-            indicator: complianceRate < 80 ? 'warning' : 'positive',
           },
         ]}
       />
@@ -506,9 +496,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 {openIncidentsCount}
                 {highSeverityCount > 0 && (
                   <span className="text-xs font-medium text-destructive"> • {highSeverityCount} high</span>
-                {openIncidents.length}
-                {highSeverityIncidents.length > 0 && (
-                  <span className="text-xs font-medium text-destructive"> • {highSeverityIncidents.length} high</span>
                 )}
               </span>
             </div>
@@ -520,7 +507,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                   : daysSinceLastIncident === 0
                   ? 'Today'
                   : `${daysSinceLastIncident} day${daysSinceLastIncident === 1 ? '' : 's'}`}
-
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Approved expense run rate</span>
               <span className="font-semibold text-foreground">
                 {formatCurrency(approvedExpenseTotal, currency)}
@@ -582,12 +571,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             <h3 className="text-sm font-semibold text-muted-foreground">Approved cost mix</h3>
             <CostBreakdownList data={data.costs} currency={financialCurrency} />
           </div>
-
-                {formatCurrency(invoicePipeline, currency)}
-              </span>
-            </div>
-          </div>
-          <CostBreakdownList data={data.costs} currency={currency} />
         </Card>
       </section>
 

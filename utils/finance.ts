@@ -1,3 +1,5 @@
+import { Invoice, InvoiceStatus } from '../types';
+
 export const formatCurrency = (amount: number, currency: string = 'GBP') => {
     return new Intl.NumberFormat('en-GB', {
         style: 'currency',
@@ -5,8 +7,7 @@ export const formatCurrency = (amount: number, currency: string = 'GBP') => {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     }).format(amount);
-
-import { Invoice, InvoiceStatus } from '../types';
+};
 
 export interface InvoiceFinancials {
   subtotal: number;
