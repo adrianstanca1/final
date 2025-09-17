@@ -308,8 +308,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     [data.expenses],
   );
 
-  const fallbackOpenIncidents = useMemo(
-
   const approvedExpenses = useMemo(
     () =>
       data.expenses.filter(expense => expense.status === 'APPROVED' || expense.status === 'PAID'),
@@ -362,9 +360,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   const operationalInsights = data.operationalInsights;
   const financialCurrency = operationalInsights?.financial.currency ?? currency;
-  const complianceRate = clampPercentage(
-    operationalInsights?.workforce.complianceRate ?? fallbackComplianceRate,
-  );
   const openIncidentsCount = operationalInsights?.safety.openIncidents ?? fallbackOpenIncidents.length;
   const highSeverityCount = operationalInsights?.safety.highSeverity ?? fallbackHighSeverityIncidents.length;
   const daysSinceLastIncident = operationalInsights?.safety.daysSinceLastIncident ?? null;
@@ -503,9 +498,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Open incidents</span>
               <span className="font-semibold text-foreground">
-                {openIncidentsCount}
-                {highSeverityCount > 0 && (
-                  <span className="text-xs font-medium text-destructive"> • {highSeverityCount} high</span>
                 {openIncidents.length}
                 {highSeverityIncidents.length > 0 && (
                   <span className="text-xs font-medium text-destructive"> • {highSeverityIncidents.length} high</span>
@@ -520,7 +512,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                   : daysSinceLastIncident === 0
                   ? 'Today'
                   : `${daysSinceLastIncident} day${daysSinceLastIncident === 1 ? '' : 's'}`}
-
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Approved expense run rate</span>
               <span className="font-semibold text-foreground">
                 {formatCurrency(approvedExpenseTotal, currency)}
@@ -582,12 +576,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             <h3 className="text-sm font-semibold text-muted-foreground">Approved cost mix</h3>
             <CostBreakdownList data={data.costs} currency={financialCurrency} />
           </div>
-
-                {formatCurrency(invoicePipeline, currency)}
-              </span>
-            </div>
-          </div>
-          <CostBreakdownList data={data.costs} currency={currency} />
         </Card>
       </section>
 
@@ -789,3 +777,5 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 };
 
 OwnerDashboard.displayName = 'OwnerDashboard';
+
+export { OwnerDashboard };

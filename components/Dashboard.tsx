@@ -252,22 +252,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
         [approvedExpenses],
     );
 
-    const kpiData = useMemo(() => {
-        const budgetData = activeProjects.reduce((acc, p) => {
-            acc.total += p.budget ?? 0;
-            acc.spent += p.actualCost ?? p.spent ?? 0;
-            return acc;
-        }, { total: 0, spent: 0 });
-        const budgetUtilization = budgetData.total > 0 ? (budgetData.spent / budgetData.total) * 100 : 0;
-        return {
-            activeProjectsCount: activeProjects.length,
-            teamSize: team.length,
-            budgetUtilization: budgetUtilization.toFixed(0),
-            atRisk: portfolioSummary.atRiskProjects,
-            openIncidents: openIncidents.length,
-        };
-    }, [activeProjects, team, portfolioSummary.atRiskProjects, openIncidents.length]);
-
     const weeklyTaskData = useMemo(() => {
         const now = new Date();
         const weekStart = startOfWeek(now, { weekStartsOn: 1 });
@@ -344,12 +328,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
 
         try {
             const projectTasks = tasks.filter(task => task.projectId === project.id);
-            const projectIncidents = fallbackOpenIncidents.filter(incident => incident.projectId === project.id);
-            const projectExpenses = expenses.filter(
-                expense =>
-                    expense.projectId === project.id &&
-                    (expense.status === ExpenseStatus.APPROVED || expense.status === ExpenseStatus.PAID),
-            );
 
             const projectIncidents = openIncidents.filter(incident => incident.projectId === project.id);
             const projectExpenses = approvedExpenses.filter(expense => expense.projectId === project.id);
