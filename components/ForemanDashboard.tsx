@@ -478,8 +478,16 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
 
 
     return (
-       <ErrorBoundary>
-            {isIncidentModalOpen && <ReportIncidentModal project={currentProject} user={user} onClose={() => setIsIncidentModalOpen(false)} addToast={addToast} onSuccess={fetchData} />}
+        <ErrorBoundary>
+            {isIncidentModalOpen && (
+                <ReportIncidentModal
+                    project={currentProject}
+                    user={user}
+                    onClose={() => setIsIncidentModalOpen(false)}
+                    addToast={addToast}
+                    onSuccess={fetchData}
+                />
+            )}
             <div className="space-y-6">
                 <ViewHeader
                     title={`Field operations • ${currentProject.name}`}
@@ -492,9 +500,6 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
                                 ? `${openTaskCount} open tasks • ${fieldActiveCrew} clocked in`
                                 : `${openTaskCount} open tasks`,
                             indicator: fieldActiveCrew > 0 ? 'positive' : crewCount > 0 ? 'neutral' : 'warning',
-
-                            helper: `${openTaskCount} open tasks`,
-                            indicator: crewCount > 0 ? 'positive' : 'neutral',
                         },
                         {
                             label: 'Safety alerts',
@@ -515,34 +520,41 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
                                 : activeTimesheet
                                 ? 'On shift'
                                 : 'Clock-in ready',
-
-                            helper: activeTimesheet ? 'On shift' : 'Clock-in ready',
                         },
                     ]}
                 />
 
                 <div className="grid grid-cols-1 xl:grid-cols-[2fr,1fr] gap-6">
                     <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <TimeClockCard user={user} project={currentProject} addToast={addToast} onUpdate={fetchData} activeTimesheet={activeTimesheet} />
-                    <WeatherCard weather={weather} />
-                </div>
-                <OperationalPulseCard insights={operationalInsights} />
-                <DailyAssignmentsCard tasks={myTasks} onTaskReorder={setMyTasks} />
-                <SiteUpdatesCard project={currentProject} user={user} addToast={addToast} onUpdate={fetchData} siteUpdates={siteUpdates} userMap={userMap} />
-            </div>
-            <div className="space-y-6">
-                <TeamChatCard project={currentProject} user={user} onUpdate={fetchData} messages={projectMessages} userMap={userMap} />
-
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <TimeClockCard user={user} project={currentProject} addToast={addToast} onUpdate={fetchData} activeTimesheet={activeTimesheet} />
+                            <TimeClockCard
+                                user={user}
+                                project={currentProject}
+                                addToast={addToast}
+                                onUpdate={fetchData}
+                                activeTimesheet={activeTimesheet}
+                            />
                             <WeatherCard weather={weather} />
                         </div>
+                        <OperationalPulseCard insights={operationalInsights} />
                         <DailyAssignmentsCard tasks={myTasks} onTaskReorder={setMyTasks} />
-                        <SiteUpdatesCard project={currentProject} user={user} addToast={addToast} onUpdate={fetchData} siteUpdates={siteUpdates} userMap={userMap} />
+                        <SiteUpdatesCard
+                            project={currentProject}
+                            user={user}
+                            addToast={addToast}
+                            onUpdate={fetchData}
+                            siteUpdates={siteUpdates}
+                            userMap={userMap}
+                        />
                     </div>
                     <div className="space-y-6">
-                        <TeamChatCard project={currentProject} user={user} onUpdate={fetchData} messages={projectMessages} userMap={userMap} />
+                        <TeamChatCard
+                            project={currentProject}
+                            user={user}
+                            onUpdate={fetchData}
+                            messages={projectMessages}
+                            userMap={userMap}
+                        />
                         <Card className="space-y-3 p-4">
                             <h2 className="text-lg font-semibold">Crew roster</h2>
                             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
@@ -576,12 +588,18 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
                         </Card>
                         <Card className="space-y-3 p-4">
                             <h2 className="text-lg font-semibold">Safety & quality</h2>
-                            <p className="text-sm text-muted-foreground">{openIncidentCount === 0 ? 'No open incidents logged.' : `${openIncidentCount} issue(s) in review • ${highSeverityCount} high severity`}</p>
-                            <Button variant="danger" className="w-full" onClick={() => setIsIncidentModalOpen(true)}>Report new issue</Button>
+                            <p className="text-sm text-muted-foreground">
+                                {openIncidentCount === 0
+                                    ? 'No open incidents logged.'
+                                    : `${openIncidentCount} issue(s) in review • ${highSeverityCount} high severity`}
+                            </p>
+                            <Button variant="danger" className="w-full" onClick={() => setIsIncidentModalOpen(true)}>
+                                Report new issue
+                            </Button>
                         </Card>
                     </div>
                 </div>
             </div>
-       </ErrorBoundary>
+        </ErrorBoundary>
     );
 };
