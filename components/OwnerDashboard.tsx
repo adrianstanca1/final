@@ -326,13 +326,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   const fallbackHighSeverityIncidents = useMemo(
     () =>
-      fallbackOpenIncidents.filter(
+      openIncidents.filter(
         incident => incident.severity === IncidentSeverity.HIGH || incident.severity === IncidentSeverity.CRITICAL,
       ),
-    [fallbackOpenIncidents],
+    [openIncidents],
   );
-
-  const fallbackComplianceRate = useMemo(() => {
 
   const highSeverityIncidents = useMemo(
     () => openIncidents.filter(incident => incident.severity === IncidentSeverity.HIGH || incident.severity === IncidentSeverity.CRITICAL),
@@ -361,6 +359,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const operationalInsights = data.operationalInsights;
   const financialCurrency = operationalInsights?.financial.currency ?? currency;
   const openIncidentsCount = operationalInsights?.safety.openIncidents ?? fallbackOpenIncidents.length;
+  const openIncidentsCount = operationalInsights?.safety.openIncidents ?? openIncidents.length;
   const highSeverityCount = operationalInsights?.safety.highSeverity ?? fallbackHighSeverityIncidents.length;
   const daysSinceLastIncident = operationalInsights?.safety.daysSinceLastIncident ?? null;
   const approvedExpenseRunRate = operationalInsights?.financial.approvedExpensesThisMonth ?? fallbackApprovedExpenseTotal;
@@ -471,9 +470,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 ? `${crewOnShift} team members clocked in`
                 : 'No approvals submitted',
             indicator: complianceRate < 80 ? 'warning' : crewOnShift > 0 ? 'positive' : 'neutral',
-
-            helper: `${clampPercentage(complianceRate)}% timesheets approved`,
-            indicator: complianceRate < 80 ? 'warning' : 'positive',
           },
         ]}
       />
@@ -501,6 +497,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 {openIncidents.length}
                 {highSeverityIncidents.length > 0 && (
                   <span className="text-xs font-medium text-destructive"> • {highSeverityIncidents.length} high</span>
+                {openIncidentsCount}
+                {highSeverityCount > 0 && (
+                  <span className="text-xs font-medium text-destructive"> • {highSeverityCount} high</span>
                 )}
               </span>
             </div>

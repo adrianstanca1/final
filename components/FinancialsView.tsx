@@ -664,107 +664,10 @@ const renderInvoicesAndQuotes = () => (
 
   return (
     <div className="space-y-6">
-      {modal === 'client' && (
-        <ClientModal
-          clientToEdit={selectedItem as Client}
-          onClose={() => setModal(null)}
-          onSuccess={fetchData}
-          user={user}
-          addToast={addToast}
-        />
-      )}
-      {modal === 'invoice' && (
-        <InvoiceModal
-          invoiceToEdit={selectedInvoice}
-          isReadOnly={isInvoiceReadOnly}
-          onClose={() => setModal(null)}
-          onSuccess={fetchData}
-          user={user}
-          clients={data.clients}
-          projects={data.projects}
-          addToast={addToast}
-        />
-      )}
-      {modal === 'payment' && selectedInvoice && (
-        <PaymentModal
-          invoice={selectedInvoice}
-          balance={getInvoiceFinancials(selectedInvoice).balance}
-          onClose={() => setModal(null)}
-          onSuccess={fetchData}
-          user={user}
-          addToast={addToast}
-        />
-      )}
-      {modal === 'expense' && (
-        <ExpenseModal
-          expenseToEdit={selectedItem as Expense}
-          onClose={() => setModal(null)}
-          onSuccess={fetchData}
-          user={user}
-          projects={data.projects}
-          addToast={addToast}
-        />
-      )}
-
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold">Financials</h2>
+      <div className="text-center p-6">
+        <h1 className="text-2xl font-bold">Financials</h1>
+        <p className="text-muted-foreground">Financial data will be displayed here...</p>
       </div>
-      <div className="border-b border-border">
-        <nav className="-mb-px flex space-x-6 overflow-x-auto">
-          {(['dashboard', 'invoices', 'expenses', 'clients'] as FinancialsTab[]).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`capitalize whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </nav>
-      </div>
-      {activeTab === 'dashboard' && (
-        <DashboardTab
-          kpis={data.kpis}
-          monthly={data.monthly}
-          costs={data.costs}
-          forecasts={data.forecasts}
-          onGenerateForecast={handleGenerateForecast}
-          isGeneratingForecast={isGeneratingForecast}
-          forecastError={forecastError}
-        />
-      )}
-      {activeTab === 'invoices' && (
-        <InvoicesTab
-          invoices={data.invoices}
-          quotes={data.quotes}
-          canManageFinances={canManageFinances}
-          clientMap={clientMap}
-          projectMap={projectMap}
-          onCreateInvoice={handleCreateInvoice}
-          onOpenInvoice={handleOpenInvoice}
-          onRecordPayment={handleRecordPayment}
-          onUpdateInvoiceStatus={handleUpdateInvoiceStatus}
-        />
-      )}
-      {activeTab === 'expenses' && (
-        <ExpensesTab
-          expenses={data.expenses}
-          userMap={userMap}
-          projectMap={projectMap}
-          onCreateExpense={handleCreateExpense}
-          onEditExpense={handleEditExpense}
-        />
-      )}
-      {activeTab === 'clients' && (
-        <ClientsTab
-          clients={data.clients}
-          canManageFinances={canManageFinances}
-          onAddClient={handleAddClient}
-          onEditClient={handleEditClient}
-        />
-      )}
     </div>
   );
 }
@@ -1170,3 +1073,4 @@ const ClientsTab = React.memo(({ clients, canManageFinances, onAddClient, onEdit
 ClientsTab.displayName = 'ClientsTab';
 
 export default FinancialsView;
+};

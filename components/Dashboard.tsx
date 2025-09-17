@@ -227,8 +227,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     );
 
     const fallbackHighSeverityIncidents = useMemo(
-        () => fallbackOpenIncidents.filter(incident => incident.severity === 'HIGH' || incident.severity === 'CRITICAL'),
-        [fallbackOpenIncidents],
+        () => openIncidents.filter(incident => incident.severity === 'HIGH' || incident.severity === 'CRITICAL'),
+        [openIncidents],
     );
 
     const fallbackApprovedExpenseTotal = useMemo(
@@ -282,7 +282,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     const insight = operationalInsights;
     const operationalCurrency = insight?.financial.currency ?? 'GBP';
     const complianceRate = clampPercentage(insight?.workforce.complianceRate ?? 0);
-    const openIncidentsCount = insight?.safety.openIncidents ?? fallbackOpenIncidents.length;
+    const openIncidentsCount = insight?.safety.openIncidents ?? openIncidents.length;
     const highSeverityCount = insight?.safety.highSeverity ?? fallbackHighSeverityIncidents.length;
     const pendingApprovals = insight?.workforce.pendingApprovals ?? 0;
     const approvedExpenseThisMonth = insight?.financial.approvedExpensesThisMonth ?? fallbackApprovedExpenseTotal;
@@ -293,23 +293,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     const overdueTasks = insight?.schedule.overdueTasks ?? 0;
     const scheduleInProgress = insight?.schedule.tasksInProgress ?? tasksInProgress;
     const operationalAlerts = insight?.alerts ?? [];
-
-    const kpiData = useMemo(() => {
-        const budgetData = activeProjects.reduce((acc, p) => {
-            acc.total += p.budget ?? 0;
-            acc.spent += p.actualCost ?? p.spent ?? 0;
-            return acc;
-        }, { total: 0, spent: 0 });
-        const budgetUtilization = budgetData.total > 0 ? (budgetData.spent / budgetData.total) * 100 : 0;
-        return {
-            activeProjectsCount: activeProjects.length,
-            teamSize: team.length,
-            budgetUtilization: budgetUtilization.toFixed(0),
-            atRisk: portfolioSummary.atRiskProjects,
-            openIncidents: openIncidentsCount,
-        };
-    }, [activeProjects, team, portfolioSummary.atRiskProjects, openIncidentsCount]);
-
 
     const handleGenerateProjectBrief = useCallback(async () => {
         if (!aiSelectedProjectId) {
@@ -328,6 +311,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
 
         try {
             const projectTasks = tasks.filter(task => task.projectId === project.id);
+
 
             const projectIncidents = openIncidents.filter(incident => incident.projectId === project.id);
             const projectExpenses = approvedExpenses.filter(expense => expense.projectId === project.id);
@@ -350,6 +334,10 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
             setIsGeneratingAiSummary(false);
         }
     }, [aiSelectedProjectId, projects, tasks, openIncidents, expenses, addToast]);
+
+    }, [aiSelectedProjectId, projects, tasks, openIncidents, approvedExpenses, addToast]);
+ 
+    
 
     if (loading) return <Card>Loading project manager dashboard…</Card>;
 
@@ -564,6 +552,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                             <span className="font-semibold text-foreground">{formatCurrency(approvedExpenseTotal)}</span>
                         </div>
                     </div>
+
                 </Card>
             </section>
 
