@@ -308,8 +308,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     [data.expenses],
   );
 
-  const fallbackOpenIncidents = useMemo(
-
   const approvedExpenses = useMemo(
     () =>
       data.expenses.filter(expense => expense.status === 'APPROVED' || expense.status === 'PAID'),
@@ -333,8 +331,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       ),
     [fallbackOpenIncidents],
   );
-
-  const fallbackComplianceRate = useMemo(() => {
 
   const highSeverityIncidents = useMemo(
     () => openIncidents.filter(incident => incident.severity === IncidentSeverity.HIGH || incident.severity === IncidentSeverity.CRITICAL),
@@ -362,9 +358,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   const operationalInsights = data.operationalInsights;
   const financialCurrency = operationalInsights?.financial.currency ?? currency;
-  const complianceRate = clampPercentage(
-    operationalInsights?.workforce.complianceRate ?? fallbackComplianceRate,
-  );
   const openIncidentsCount = operationalInsights?.safety.openIncidents ?? fallbackOpenIncidents.length;
   const highSeverityCount = operationalInsights?.safety.highSeverity ?? fallbackHighSeverityIncidents.length;
   const daysSinceLastIncident = operationalInsights?.safety.daysSinceLastIncident ?? null;
@@ -506,9 +499,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 {openIncidentsCount}
                 {highSeverityCount > 0 && (
                   <span className="text-xs font-medium text-destructive"> • {highSeverityCount} high</span>
-                {openIncidents.length}
-                {highSeverityIncidents.length > 0 && (
-                  <span className="text-xs font-medium text-destructive"> • {highSeverityIncidents.length} high</span>
                 )}
               </span>
             </div>

@@ -221,8 +221,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
             .slice(0, 4);
     }, [activeProjects, portfolioSummary.upcomingDeadlines]);
 
-    const fallbackOpenIncidents = useMemo(
-
     const openIncidents = useMemo(
         () => incidents.filter(incident => incident.status !== IncidentStatus.RESOLVED),
         [incidents],
