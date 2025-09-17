@@ -5,6 +5,7 @@ export const formatCurrency = (amount: number, currency: string = 'GBP') => {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     }).format(amount);
+};
 
 import { Invoice, InvoiceStatus } from '../types';
 

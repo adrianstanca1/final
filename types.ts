@@ -464,6 +464,7 @@ export type InvoiceLineItemDraft = Omit<InvoiceLineItem, 'amount' | 'rate'>;
 
 export interface Invoice {
   id: string;
+  companyId: string;
   invoiceNumber: string;
   projectId: string;
   clientId: string;
