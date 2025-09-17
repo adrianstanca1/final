@@ -9,6 +9,9 @@ export const formatCurrency = (amount: number, currency: string = 'GBP') => {
     }).format(amount);
 };
 
+import { Invoice, InvoiceStatus } from '../types';
+
+
 export interface InvoiceFinancials {
   subtotal: number;
   taxAmount: number;

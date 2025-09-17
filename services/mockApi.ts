@@ -638,10 +638,7 @@ export const api = {
                 metadata: insight.metadata,
             }));
     },
-    createProjectInsight: async (
-        data: { projectId: string; summary: string; type?: ProjectInsight['type']; metadata?: Record<string, unknown>; model?: string },
-        userId: string
-    ): Promise<ProjectInsight> => {
+    createProjectInsight: async (data: { projectId: string; summary: string; type?: ProjectInsight['type']; metadata?: Record<string, unknown>; model?: string }, userId: string): Promise<ProjectInsight> => {
         await delay();
         if (!data.projectId) {
             throw new Error('projectId is required to create an insight.');
@@ -687,10 +684,7 @@ export const api = {
                 metadata: forecast.metadata,
             }));
     },
-    createFinancialForecast: async (
-        data: { companyId: string; summary: string; horizonMonths: number; metadata?: Record<string, unknown>; model?: string },
-        userId: string,
-    ): Promise<FinancialForecast> => {
+    createFinancialForecast: async (data: { companyId: string; summary: string; horizonMonths: number; metadata?: Record<string, unknown>; model?: string }, userId: string): Promise<FinancialForecast> => {
         await delay();
         if (!data.companyId) {
             throw new Error('companyId is required to create a financial forecast.');
@@ -788,10 +782,7 @@ export const api = {
         ensureNotAborted(options?.signal);
         return db.projects.filter(p => p.companyId === companyId) as Project[];
     },
-    getProjectPortfolioSummary: async (
-        companyId: string,
-        options?: ProjectSummaryOptions
-    ): Promise<ProjectPortfolioSummary> => {
+    getProjectPortfolioSummary: async (companyId: string, options?: ProjectSummaryOptions): Promise<ProjectPortfolioSummary> => {
         ensureNotAborted(options?.signal);
         await delay();
         ensureNotAborted(options?.signal);

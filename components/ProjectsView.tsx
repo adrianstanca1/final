@@ -240,6 +240,8 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
 
   const filteredProjects = useMemo(() => {
     const baseProjects = filter === 'ALL' ? projects : projects.filter((project) => project.status === filter);
+
+
     const query = searchQuery.trim().toLowerCase();
 
     const searchedProjects = query
@@ -624,4 +626,6 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
       ) : null}
     </div>
   );
-};
+}
+
+// export { ProjectsView };

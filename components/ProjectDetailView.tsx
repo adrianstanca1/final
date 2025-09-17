@@ -292,70 +292,6 @@ const TaskItem: React.FC<{
   );
 };
 
-export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
-  project: initialProject,
-  user,
-  onBack,
-  addToast,
-  isOnline,
-  onStartChat,
-}) => {
-  const [project, setProject] = useState(initialProject);
-  const [activeTab, setActiveTab] = useState<DetailTab>('overview');
-  const [tasks, setTasks] = useState<Todo[]>([]);
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [team, setTeam] = useState<User[]>([]);
-  const [incidents, setIncidents] = useState<SafetyIncident[]>([]);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [insights, setInsights] = useState<ProjectInsight[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const [taskToEdit, setTaskToEdit] = useState<Todo | null>(null);
-  const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
-  const [taskForReminder, setTaskForReminder] = useState<Todo | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
-  const [insightError, setInsightError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    const controller = new AbortController();
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = controller;
-
-    setLoading(true);
-    try {
-      if (!user.companyId) return;
-      const [taskData, docData, teamData, allIncidents, allExpenses, insightData] = await Promise.all([
-        api.getTodosByProjectIds([project.id], { signal: controller.signal }),
-        api.getDocumentsByProject(project.id, { signal: controller.signal }),
-        api.getUsersByProject(project.id, { signal: controller.signal }),
-        api.getSafetyIncidentsByCompany(user.companyId, { signal: controller.signal }),
-        api.getExpensesByCompany(user.companyId, { signal: controller.signal }),
-        api.getProjectInsights(project.id, { signal: controller.signal }),
-      ]);
-      if (controller.signal.aborted) return;
-
-      setTasks(taskData.sort((a, b) => (a.progress ?? 0) - (b.progress ?? 0)));
-      if (controller.signal.aborted) return;
-      setDocuments(docData as Document[]);
-      if (controller.signal.aborted) return;
-      setTeam(teamData);
-      if (controller.signal.aborted) return;
-      setIncidents(allIncidents.filter(i => i.projectId == project.id));
-      if (controller.signal.aborted) return;
-      setExpenses(allExpenses.filter(e => e.projectId == project.id));
-      if (controller.signal.aborted) return;
-      setInsights(insightData);
-      setInsightError(null);
-    } catch (error) {
-      if (controller.signal.aborted) return;
-      addToast('Failed to load project details.', 'error');
-    } finally {
-      if (controller.signal.aborted) return;
-      setLoading(false);
-    }
-  }, [project.id, user.companyId, addToast]);
 
   return (
     <div className="space-y-6">
@@ -379,5 +315,9 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
       </div>
     </div>
   );
+}
+
+// export { ProjectDetailView };
+
 };
 
