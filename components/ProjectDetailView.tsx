@@ -813,4 +813,4 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project: i
   );
 }
 
-export { ProjectDetailView };
+// export { ProjectDetailView };

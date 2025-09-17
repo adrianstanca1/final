@@ -776,6 +776,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   );
 }
 
-OwnerDashboard.displayName = 'OwnerDashboard';
+// OwnerDashboard.displayName = 'OwnerDashboard';
 
-export { OwnerDashboard };
+// export { OwnerDashboard };
+);
+
+const OwnerDashboard = {}; // placeholder
