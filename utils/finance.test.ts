@@ -31,6 +31,7 @@ const createInvoice = (overrides: Partial<Invoice> = {}): Invoice => {
 
   return {
     id: overrides.id ?? 'inv-1',
+    companyId: overrides.companyId ?? 'company-1',
     invoiceNumber: overrides.invoiceNumber ?? 'INV-001',
     projectId: overrides.projectId ?? 'project-1',
     clientId: overrides.clientId ?? 'client-1',
