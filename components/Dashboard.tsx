@@ -310,23 +310,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     const scheduleInProgress = insight?.schedule.tasksInProgress ?? tasksInProgress;
     const operationalAlerts = insight?.alerts ?? [];
 
-    const kpiData = useMemo(() => {
-        const budgetData = activeProjects.reduce((acc, p) => {
-            acc.total += p.budget ?? 0;
-            acc.spent += p.actualCost ?? p.spent ?? 0;
-            return acc;
-        }, { total: 0, spent: 0 });
-        const budgetUtilization = budgetData.total > 0 ? (budgetData.spent / budgetData.total) * 100 : 0;
-        return {
-            activeProjectsCount: activeProjects.length,
-            teamSize: team.length,
-            budgetUtilization: budgetUtilization.toFixed(0),
-            atRisk: portfolioSummary.atRiskProjects,
-            openIncidents: openIncidentsCount,
-        };
-    }, [activeProjects, team, portfolioSummary.atRiskProjects, openIncidentsCount]);
-
-
     const handleGenerateProjectBrief = useCallback(async () => {
         if (!aiSelectedProjectId) {
             setAiError('Select a project to analyse.');
@@ -344,13 +327,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
 
         try {
             const projectTasks = tasks.filter(task => task.projectId === project.id);
-            const projectIncidents = fallbackOpenIncidents.filter(incident => incident.projectId === project.id);
-            const projectExpenses = expenses.filter(
-                expense =>
-                    expense.projectId === project.id &&
-                    (expense.status === ExpenseStatus.APPROVED || expense.status === ExpenseStatus.PAID),
-            );
-
             const projectIncidents = openIncidents.filter(incident => incident.projectId === project.id);
             const projectExpenses = approvedExpenses.filter(expense => expense.projectId === project.id);
  
@@ -371,8 +347,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
         } finally {
             setIsGeneratingAiSummary(false);
         }
-    }, [aiSelectedProjectId, projects, tasks, fallbackOpenIncidents, expenses, addToast]);
-
     }, [aiSelectedProjectId, projects, tasks, openIncidents, approvedExpenses, addToast]);
  
     
@@ -572,22 +546,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                             </ul>
                         </div>
                     )}
-
-                            <span className="font-semibold text-foreground">{openIncidents.length}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">High severity</span>
-                            <span className="font-semibold text-destructive">{highSeverityIncidents.length}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Active tasks</span>
-                            <span className="font-semibold text-foreground">{tasksInProgress}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Approved spend</span>
-                            <span className="font-semibold text-foreground">{formatCurrency(approvedExpenseTotal)}</span>
-                        </div>
-                    </div>
                 </Card>
             </section>
 

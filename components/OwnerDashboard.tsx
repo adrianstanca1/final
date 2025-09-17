@@ -469,9 +469,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 ? `${crewOnShift} team members clocked in`
                 : 'No approvals submitted',
             indicator: complianceRate < 80 ? 'warning' : crewOnShift > 0 ? 'positive' : 'neutral',
-
-            helper: `${clampPercentage(complianceRate)}% timesheets approved`,
-            indicator: complianceRate < 80 ? 'warning' : 'positive',
           },
         ]}
       />
@@ -510,7 +507,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                   : daysSinceLastIncident === 0
                   ? 'Today'
                   : `${daysSinceLastIncident} day${daysSinceLastIncident === 1 ? '' : 's'}`}
-
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Approved expense run rate</span>
               <span className="font-semibold text-foreground">
                 {formatCurrency(approvedExpenseTotal, currency)}
@@ -572,12 +571,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             <h3 className="text-sm font-semibold text-muted-foreground">Approved cost mix</h3>
             <CostBreakdownList data={data.costs} currency={financialCurrency} />
           </div>
-
-                {formatCurrency(invoicePipeline, currency)}
-              </span>
-            </div>
-          </div>
-          <CostBreakdownList data={data.costs} currency={currency} />
         </Card>
       </section>
 
