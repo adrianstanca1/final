@@ -27,12 +27,9 @@ import { InvoiceStatusBadge } from './ui/StatusBadge';
 import { Tag } from './ui/Tag';
 import { ExpenseModal } from './ExpenseModal';
 import ClientModal from './financials/ClientModal';
-import InvoiceModal from './financials/InvoiceModal';
 import PaymentModal from './financials/PaymentModal';
 
 type FinancialsTab = 'dashboard' | 'invoices' | 'expenses' | 'clients';
-
-type ModalType = 'client' | 'invoice' | 'payment' | 'expense' | null;
 
 interface FinancialDataState {
   kpis: FinancialKPIs | null;
@@ -203,6 +200,8 @@ const InvoiceModal: React.FC<{ invoiceToEdit?: Invoice | null, isReadOnly?: bool
             </Card>
         </div>
     );
+};
+
 const forecastSummaryToElements = (summary: string) =>
   summary
     .split('\n')
@@ -245,20 +244,8 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
     users: [] as User[],
     forecasts: [] as FinancialForecast[],
     companyName: null as string | null,
-  const [data, setData] = useState<FinancialDataState>({
-    kpis: null,
-    monthly: [],
-    costs: [],
-    invoices: [],
-    quotes: [],
-    expenses: [],
-    clients: [],
-    projects: [],
-    users: [],
-    forecasts: [],
-    companyName: null,
   });
-  const [modal, setModal] = useState<ModalType>(null);
+  const [modal, setModal] = useState<'client' | 'invoice' | 'payment' | 'expense' | null>(null);
   const [selectedItem, setSelectedItem] = useState<Client | Invoice | Expense | null>(null);
   const [isGeneratingForecast, setIsGeneratingForecast] = useState(false);
   const [forecastError, setForecastError] = useState<string | null>(null);
@@ -371,9 +358,6 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
     },
     [data.invoices, user.id, addToast, fetchData],
   );
-
-  const projectMap = useMemo(() => new Map(data.projects.map(project => [project.id, project.name])), [data.projects]);
-  const clientMap = useMemo(() => new Map(data.clients.map(client => [client.id, client.name])), [data.clients]);
 
   const approvedExpenses = useMemo(
     () => data.expenses.filter(expense => expense.status === ExpenseStatus.APPROVED || expense.status === ExpenseStatus.PAID),
