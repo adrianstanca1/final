@@ -31,9 +31,11 @@ const createInvoice = (overrides: Partial<Invoice> = {}): Invoice => {
 
   return {
     id: overrides.id ?? 'inv-1',
+    companyId: overrides.companyId ?? 'company-1',
     invoiceNumber: overrides.invoiceNumber ?? 'INV-001',
     projectId: overrides.projectId ?? 'project-1',
     clientId: overrides.clientId ?? 'client-1',
+    companyId: overrides.companyId ?? 'company-1',
     issueDate: overrides.issueDate ?? new Date('2024-01-01').toISOString(),
     dueDate: overrides.dueDate ?? new Date('2024-02-01').toISOString(),
     status: overrides.status ?? InvoiceStatus.DRAFT,
@@ -106,6 +108,7 @@ describe('getInvoiceFinancials', () => {
     expect(financials.balance).toBe(0);
   });
 
+
   it('falls back to stored totals when line items are unavailable', () => {
     const invoice = createInvoice({
       lineItems: [],
@@ -153,6 +156,7 @@ describe('getDerivedStatus', () => {
 
     expect(getDerivedStatus(invoice)).toBe(InvoiceStatus.PAID);
   });
+
 
   it('honours PAID status even when payments data is missing', () => {
     const invoice = createInvoice({

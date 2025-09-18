@@ -67,7 +67,7 @@ export const TaskModal: React.FC<{
     };
 
     const handleDependsOnChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
+        const selectedOptions = Array.from(e.target.selectedOptions, (option: HTMLOptionElement) => option.value);
         setDependsOn(selectedOptions);
     };
     

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User, AuditLog } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
@@ -73,26 +73,38 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ user, addToast }) =>
     startDate: '',
     endDate: '',
   });
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(async () => {
+    const controller = new AbortController();
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     try {
       if (!user.companyId) return;
       const [logsData, usersData] = await Promise.all([
-        api.getAuditLogsByCompany(user.companyId),
-        api.getUsersByCompany(user.companyId),
+        api.getAuditLogsByCompany(user.companyId, { signal: controller.signal }),
+        api.getUsersByCompany(user.companyId, { signal: controller.signal }),
       ]);
+      if (controller.signal.aborted) return;
       setLogs(logsData);
+      if (controller.signal.aborted) return;
       setUsers(new Map(usersData.map((entry) => [entry.id, entry])));
     } catch (error) {
+      if (controller.signal.aborted) return;
       addToast('Failed to load audit logs.', 'error');
     } finally {
+      if (controller.signal.aborted) return;
       setLoading(false);
     }
   }, [user.companyId, addToast]);
 
   useEffect(() => {
     fetchData();
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [fetchData]);
 
   const uniqueActionTypes = useMemo(() => [...new Set(logs.map((log) => log.action))], [logs]);
@@ -173,7 +185,7 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ user, addToast }) =>
               className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
             >
               <option value="all">All users</option>
-              {Array.from(users.values()).map((actor) => (
+              {Array.from(users.values()).map((actor: User) => (
                 <option key={actor.id} value={actor.id}>
                   {actor.firstName} {actor.lastName}
                 </option>

@@ -358,6 +358,51 @@ export interface Project {
   workClassification: string;
 }
 
+export interface UpcomingProjectDeadline {
+  id: string;
+  name: string;
+  endDate: string;
+  daysRemaining: number;
+  status: ProjectStatus;
+  isOverdue: boolean;
+}
+
+export interface ProjectPortfolioSummary {
+  totalProjects: number;
+  activeProjects: number;
+  completedProjects: number;
+  atRiskProjects: number;
+  overdueProjects: number;
+  pipelineValue: number;
+  totalActualCost: number;
+  budgetVariance: number;
+  averageProgress: number;
+  statusBreakdown: Record<ProjectStatus, number>;
+  upcomingDeadlines: UpcomingProjectDeadline[];
+}
+
+export interface ProjectInsight {
+  id: string;
+  projectId: string;
+  summary: string;
+  type: 'HEALTH_SUMMARY' | 'KNOWLEDGE_SUMMARY' | 'CUSTOM';
+  createdAt: string;
+  createdBy: string;
+  model?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface FinancialForecast {
+  id: string;
+  companyId: string;
+  summary: string;
+  horizonMonths: number;
+  createdAt: string;
+  createdBy: string;
+  model?: string;
+  metadata?: Record<string, unknown>;
+}
+
 // FIX: Renamed Task to Todo for consistency with component usage.
 export interface Todo {
   id: string;
@@ -415,8 +460,11 @@ export interface InvoiceLineItem {
   unitPrice: number;
 }
 
+export type InvoiceLineItemDraft = Omit<InvoiceLineItem, 'amount' | 'rate'>;
+
 export interface Invoice {
   id: string;
+  companyId: string;
   invoiceNumber: string;
   projectId: string;
   clientId: string;
@@ -612,6 +660,8 @@ export type View = 'dashboard' | 'my-day' | 'foreman-dashboard' | 'principal-das
 
 export interface Quote {
     id: string;
+    clientId: string;
+    projectId: string;
     status: QuoteStatus;
 }
 
@@ -680,6 +730,46 @@ export interface MonthlyFinancials {
 export interface CostBreakdown {
     category: string;
     amount: number;
+}
+
+export type OperationalAlertSeverity = 'info' | 'warning' | 'critical';
+
+export interface OperationalAlert {
+    id: string;
+    severity: OperationalAlertSeverity;
+    message: string;
+}
+
+export interface OperationalInsights {
+    updatedAt: string;
+    safety: {
+        openIncidents: number;
+        highSeverity: number;
+        daysSinceLastIncident: number | null;
+    };
+    workforce: {
+        complianceRate: number;
+        approvedThisWeek: number;
+        overtimeHours: number;
+        averageHours: number;
+        activeTimesheets: number;
+        pendingApprovals: number;
+    };
+    schedule: {
+        atRiskProjects: number;
+        overdueProjects: number;
+        tasksDueSoon: number;
+        overdueTasks: number;
+        tasksInProgress: number;
+        averageProgress: number;
+    };
+    financial: {
+        currency: string;
+        approvedExpensesThisMonth: number;
+        burnRatePerActiveProject: number;
+        outstandingReceivables: number;
+    };
+    alerts: OperationalAlert[];
 }
 
 export interface ProjectTemplate {

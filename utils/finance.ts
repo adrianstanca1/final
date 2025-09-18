@@ -1,5 +1,15 @@
 import { Invoice, InvoiceStatus } from '../types';
 
+export const formatCurrency = (amount: number, currency: string = 'GBP') => {
+    return new Intl.NumberFormat('en-GB', {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(amount);
+};
+
+
 export interface InvoiceFinancials {
   subtotal: number;
   taxAmount: number;
@@ -64,6 +74,7 @@ export const getInvoiceFinancials = (invoice: Invoice): InvoiceFinancials => {
   const payments = invoice.payments || [];
   const paidFromPayments = payments.reduce((acc, payment) => acc + toNumber(payment.amount), 0);
   const recordedPaidAmount = toNumber(invoice.amountPaid);
+
   const storedBalanceValue =
     !hasLineItems && invoice.balance !== undefined
       ? Math.max(0, toNumber(invoice.balance))
@@ -75,14 +86,13 @@ export const getInvoiceFinancials = (invoice: Invoice): InvoiceFinancials => {
   }
 
   const rawAmountPaid = Math.max(0, ...amountPaidCandidates);
-
   const computedBalance = Math.max(0, total - rawAmountPaid);
   const balance =
     storedBalanceValue !== null && Number.isFinite(storedBalanceValue)
       ? Math.min(storedBalanceValue, Math.max(0, total))
       : computedBalance;
 
-  const amountPaid = Math.max(rawAmountPaid, Math.max(0, total - balance));
+  const amountPaid = rawAmountPaid;
 
   return { subtotal, taxAmount, retentionAmount, total, amountPaid, balance, payments };
 };
@@ -92,6 +102,8 @@ export const getDerivedStatus = (invoice: Invoice, now: number = Date.now()): In
 
   if (invoice.status === InvoiceStatus.CANCELLED) return InvoiceStatus.CANCELLED;
   if (invoice.status === InvoiceStatus.DRAFT) return InvoiceStatus.DRAFT;
+ 
+
   if (invoice.status === InvoiceStatus.PAID) return InvoiceStatus.PAID;
   if (balance <= 0) return InvoiceStatus.PAID;
 

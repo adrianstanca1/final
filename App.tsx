@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { User, View, Project, Role, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { User, View, Project, Notification, CompanySettings } from './types';
 import { api } from './services/mockApi';
 import { Login } from './components/Login';
 import { Sidebar } from './components/layout/Sidebar';
@@ -29,13 +31,45 @@ import { CommandPalette } from './components/CommandPalette';
 import { useOfflineSync } from './hooks/useOfflineSync';
 import { useCommandPalette } from './hooks/useCommandPalette';
 import { useReminderService } from './hooks/useReminderService';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { ClientsView } from './components/ClientsView';
 import { InvoicesView } from './components/InvoicesView';
-import { ErrorBoundary } from './components/ErrorBoundary';
+import { PageErrorBoundary } from './components/ErrorBoundary';
 import { UserRegistration } from './components/UserRegistration';
 import { useAuth } from './contexts/AuthContext';
 import { ForgotPassword } from './components/auth/ForgotPassword';
 import { ResetPassword } from './components/auth/ResetPassword';
+import { ViewAccessBoundary } from './components/layout/ViewAccessBoundary';
+import { evaluateViewAccess, getDefaultViewForUser } from './utils/viewAccess';
+
+// Lazy-load heavy view components to reduce initial bundle size
+const Dashboard = React.lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
+const OwnerDashboard = React.lazy(() => import('./components/OwnerDashboard').then(m => ({ default: m.OwnerDashboard })));
+const MyDayView = React.lazy(() => import('./components/MyDayView').then(m => ({ default: m.MyDayView })));
+const ForemanDashboard = React.lazy(() => import('./components/ForemanDashboard').then(m => ({ default: m.ForemanDashboard })));
+const PrincipalAdminDashboard = React.lazy(() => import('./components/PrincipalAdminDashboard').then(m => ({ default: m.PrincipalAdminDashboard })));
+const ProjectsView = React.lazy(() => import('./components/ProjectsView').then(m => ({ default: m.ProjectsView })));
+const ProjectDetailView = React.lazy(() => import('./components/ProjectDetailView').then(m => ({ default: m.ProjectDetailView })));
+const AllTasksView = React.lazy(() => import('./components/AllTasksView').then(m => ({ default: m.AllTasksView })));
+const ProjectsMapView = React.lazy(() => import('./components/ProjectsMapView').then(m => ({ default: m.ProjectsMapView })));
+const TimeTrackingView = React.lazy(() => import('./components/TimeTrackingView').then(m => ({ default: m.TimeTrackingView })));
+const TimesheetsView = React.lazy(() => import('./components/TimesheetsView').then(m => ({ default: m.TimesheetsView })));
+const DocumentsView = React.lazy(() => import('./components/DocumentsView').then(m => ({ default: m.DocumentsView })));
+const SafetyView = React.lazy(() => import('./components/SafetyView').then(m => ({ default: m.SafetyView })));
+const FinancialsView = React.lazy(() => import('./components/FinancialsView').then(m => ({ default: m.FinancialsView })));
+const TeamView = React.lazy(() => import('./components/TeamView').then(m => ({ default: m.TeamView })));
+const EquipmentView = React.lazy(() => import('./components/EquipmentView').then(m => ({ default: m.EquipmentView })));
+const TemplatesView = React.lazy(() => import('./components/TemplatesView').then(m => ({ default: m.TemplatesView })));
+const ToolsView = React.lazy(() => import('./components/ToolsView').then(m => ({ default: m.ToolsView })));
+const AuditLogView = React.lazy(() => import('./components/AuditLogView').then(m => ({ default: m.AuditLogView })));
+const SettingsView = React.lazy(() => import('./components/SettingsView').then(m => ({ default: m.SettingsView })));
+const ChatView = React.lazy(() => import('./components/ChatView').then(m => ({ default: m.ChatView })));
+const ClientsView = React.lazy(() => import('./components/ClientsView').then(m => ({ default: m.ClientsView })));
+const InvoicesView = React.lazy(() => import('./components/InvoicesView').then(m => ({ default: m.InvoicesView })));
+const UserRegistration = React.lazy(() => import('./components/UserRegistration').then(m => ({ default: m.UserRegistration })));
+import { ToastProvider, useToastHelpers } from './components/ui/Toast';
+import { setupGlobalErrorHandling } from './utils/errorHandling';
+import { useErrorHandling } from './hooks/useErrorHandling';
 
 
 interface Toast {
@@ -83,13 +117,16 @@ const ToastMessage: React.FC<{ toast: Toast; onDismiss: (id: number) => void }> 
         <p className="font-bold">{title}</p>
         <p>{toast.message}</p>
       </div>
-      <button onClick={() => onDismiss(toast.id)} className="p-1 -m-1 rounded-full hover:bg-black/10 flex-shrink-0">&times;</button>
+      <button type="button" onClick={() => onDismiss(toast.id)} className="p-1 -m-1 rounded-full hover:bg-black/10 flex-shrink-0">&times;</button>
     </div>
   );
 };
 
 
-function App() {
+// Setup global error handling on app initialization
+setupGlobalErrorHandling();
+
+function AppContent() {
   const { isAuthenticated, user, loading, logout } = useAuth();
   const [authView, setAuthView] = useState<'login' | 'register' | 'forgot-password' | 'reset-password'>('login');
   const [resetToken, setResetToken] = useState<string | null>(null);
@@ -107,6 +144,16 @@ function App() {
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const previousNotificationsRef = useRef<Notification[]>([]);
+
+  const changeView = useCallback(
+    (view: View) => {
+      if (view !== 'project-detail') {
+        setSelectedProject(null);
+      }
+      setActiveView(view);
+    },
+    []
+  );
 
   const addToast = useCallback((message: string, type: 'success' | 'error' = 'success', notification?: Notification) => {
     setToasts(currentToasts => [...currentToasts, { id: Date.now(), message, type, notification }]);
@@ -131,7 +178,7 @@ function App() {
   useReminderService(user);
   
   useEffect(() => {
-    if (user && user.companyId) {
+    if (user?.companyId) {
       api.getCompanySettings(user.companyId).then(setCompanySettings);
     }
   }, [user]);
@@ -144,11 +191,7 @@ function App() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-        let defaultView: View = 'dashboard';
-        if (user.role === Role.OPERATIVE) defaultView = 'my-day';
-        if (user.role === Role.FOREMAN) defaultView = 'foreman-dashboard';
-        if (user.role === Role.PRINCIPAL_ADMIN) defaultView = 'principal-dashboard';
-        setActiveView(defaultView);
+      setActiveView(getDefaultViewForUser(user));
     }
   }, [isAuthenticated, user]);
 
@@ -206,8 +249,7 @@ function App() {
   const handleLogout = () => {
     logout();
     setAuthView('login');
-    setActiveView('dashboard');
-    setSelectedProject(null);
+    changeView('dashboard');
   };
 
   const handleSelectProject = (project: Project) => {
@@ -220,35 +262,124 @@ function App() {
       setActiveView('chat');
   };
 
+  const handleNotificationClick = useCallback(async (notification: Notification) => {
+    if (!user) return;
+
+    const wasUnread = !(notification.isRead ?? notification.read);
+
+    try {
+      if (wasUnread) {
+        await api.markNotificationAsRead(notification.id);
+      }
+
+      setNotifications(prev => prev.map(n => (
+        n.id === notification.id ? { ...n, isRead: true, read: true } : n
+      )));
+
+      previousNotificationsRef.current = previousNotificationsRef.current.map(n => (
+        n.id === notification.id ? { ...n, isRead: true, read: true } : n
+      ));
+
+      if (wasUnread) {
+        setUnreadNotificationCount(prev => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error('Failed to update notification state', error);
+      addToast('Unable to update that notification right now.', 'error');
+      return;
+    }
+
+    const metadata = (notification.metadata ?? {}) as { view?: View; projectId?: string };
+
+    if (metadata.projectId) {
+      try {
+        const project = await api.getProjectById(metadata.projectId);
+        if (project) {
+          setSelectedProject(project);
+          changeView('project-detail');
+          return;
+        }
+        addToast('The project linked to this notification is no longer available.', 'error');
+        changeView('projects');
+        return;
+      } catch (error) {
+        console.error('Failed to load project from notification', error);
+        addToast('We could not open the related project.', 'error');
+        changeView('projects');
+        return;
+      }
+    } else if (metadata.view && metadata.view !== activeView) {
+      changeView(metadata.view);
+      return;
+    } else if (notification.type === NotificationType.NEW_MESSAGE) {
+      changeView('chat');
+      return;
+    }
+
+    if (wasUnread) {
+      addToast('Notification marked as read.', 'success');
+    }
+  }, [user, addToast, changeView, activeView]);
+
   const renderView = () => {
     if (!user) return null;
     if (activeView === 'project-detail' && selectedProject) {
-      return <ProjectDetailView project={selectedProject} user={user} onBack={() => { setSelectedProject(null); setActiveView('projects'); }} addToast={addToast} isOnline={isOnline} onStartChat={handleStartChat}/>;
+      return (
+        <ProjectDetailView
+          project={selectedProject}
+          user={user}
+          onBack={() => changeView('projects')}
+          addToast={addToast}
+          isOnline={isOnline}
+          onStartChat={handleStartChat}
+        />
+      );
     }
 
     switch (activeView) {
-      case 'dashboard': return <Dashboard user={user} addToast={addToast} activeView={activeView} setActiveView={setActiveView} onSelectProject={handleSelectProject} />;
+      case 'dashboard':
+        return (
+          <Dashboard
+            user={user}
+            addToast={addToast}
+            activeView={activeView}
+            setActiveView={changeView}
+            onSelectProject={handleSelectProject}
+          />
+        );
       case 'my-day': return <MyDayView user={user} addToast={addToast} />;
       case 'foreman-dashboard': return <ForemanDashboard user={user} addToast={addToast} />;
       case 'principal-dashboard': return <PrincipalAdminDashboard user={user} addToast={addToast} />;
       case 'projects': return <ProjectsView user={user} addToast={addToast} onSelectProject={handleSelectProject} />;
       case 'all-tasks': return <AllTasksView user={user} addToast={addToast} isOnline={isOnline} />;
       case 'map': return <ProjectsMapView user={user} addToast={addToast} />;
-      case 'time': return <TimeTrackingView user={user} addToast={addToast} setActiveView={setActiveView} />;
+      case 'time':
+        return <TimeTrackingView user={user} addToast={addToast} setActiveView={changeView} />;
       case 'timesheets': return <TimesheetsView user={user} addToast={addToast} />;
       case 'documents': return <DocumentsView user={user} addToast={addToast} isOnline={isOnline} settings={companySettings} />;
-      case 'safety': return <SafetyView user={user} addToast={addToast} setActiveView={setActiveView} />;
+      case 'safety':
+        return <SafetyView user={user} addToast={addToast} setActiveView={changeView} />;
       case 'financials': return <FinancialsView user={user} addToast={addToast} />;
       case 'users': return <TeamView user={user} addToast={addToast} onStartChat={handleStartChat} />;
       case 'equipment': return <EquipmentView user={user} addToast={addToast} />;
       case 'templates': return <TemplatesView user={user} addToast={addToast} />;
-      case 'tools': return <ToolsView user={user} addToast={addToast} setActiveView={setActiveView} />;
+      case 'tools':
+        return <ToolsView user={user} addToast={addToast} setActiveView={changeView} />;
       case 'audit-log': return <AuditLogView user={user} addToast={addToast} />;
-      case 'settings': return <SettingsView user={user} addToast={addToast} settings={companySettings} onSettingsUpdate={(s) => setCompanySettings(prev => ({...prev!, ...s}))} />;
+      case 'settings': return <SettingsView user={user} addToast={addToast} settings={companySettings} onSettingsUpdate={(s) => setCompanySettings(prev => ({...prev, ...s}))} />;
       case 'chat': return <ChatView user={user} addToast={addToast} initialRecipient={initialChatRecipient}/>;
       case 'clients': return <ClientsView user={user} addToast={addToast} />;
       case 'invoices': return <InvoicesView user={user} addToast={addToast} />;
-      default: return <Dashboard user={user} addToast={addToast} activeView={activeView} setActiveView={setActiveView} onSelectProject={handleSelectProject} />;
+      default:
+        return (
+          <Dashboard
+            user={user}
+            addToast={addToast}
+            activeView={activeView}
+            setActiveView={changeView}
+            onSelectProject={handleSelectProject}
+          />
+        );
     }
   };
 
@@ -279,48 +410,79 @@ function App() {
     }
   }
 
+  const viewEvaluation = evaluateViewAccess(user, activeView);
+  const viewContent = viewEvaluation.allowed ? renderView() : null;
+
   return (
-    <div className="flex h-screen bg-background text-foreground">
+    <div className="relative flex h-screen overflow-hidden bg-background text-foreground">
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent dark:from-primary/20" aria-hidden="true"></div>
+      <div className="pointer-events-none absolute inset-y-0 right-[-10%] w-1/2 rounded-full bg-primary/5 blur-3xl dark:bg-primary/10" aria-hidden="true"></div>
       <Sidebar
         user={user}
         activeView={activeView}
-        setActiveView={(v) => { if(v !== 'project-detail') setSelectedProject(null); setActiveView(v); }}
+        setActiveView={changeView}
         onLogout={handleLogout}
         pendingTimesheetCount={pendingTimesheetCount}
         openIncidentCount={openIncidentCount}
         unreadMessageCount={unreadMessageCount}
       />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header 
-          user={user} 
-          onLogout={handleLogout} 
+      <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
+        <Header
+          user={user}
+          onLogout={handleLogout}
           onSearchClick={() => setIsSearchModalOpen(true)}
           onCommandPaletteClick={() => setIsCommandPaletteOpen(true)}
           unreadNotificationCount={unreadNotificationCount}
           notifications={notifications}
-          onNotificationClick={() => { /* Implement navigation */ }}
+          onNotificationClick={handleNotificationClick}
           onMarkAllNotificationsAsRead={async () => {
             if (!user) return;
             await api.markAllNotificationsAsRead(user.id);
             updateBadgeCounts(user);
           }}
+          addToast={addToast}
         />
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-          <ErrorBoundary>
-            {renderView()}
-          </ErrorBoundary>
+          <PageErrorBoundary>
+            <ViewAccessBoundary
+              user={user}
+              view={activeView}
+              evaluation={viewEvaluation}
+              fallbackView={viewEvaluation.fallbackView}
+              onNavigate={changeView}
+            >
+              <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading view…</div>}>
+                {viewContent}
+              </Suspense>
+            </ViewAccessBoundary>
+          </PageErrorBoundary>
         </main>
       </div>
-      
+
       {isSearchModalOpen && <AISearchModal user={user} currentProject={selectedProject} onClose={() => setIsSearchModalOpen(false)} addToast={addToast} />}
-      {isCommandPaletteOpen && <CommandPalette user={user} onClose={() => setIsCommandPaletteOpen(false)} setActiveView={setActiveView} />}
-      
+      {isCommandPaletteOpen && (
+        <CommandPalette
+          user={user}
+          onClose={() => setIsCommandPaletteOpen(false)}
+          setActiveView={changeView}
+        />
+      )}
+
       <div className="fixed bottom-4 right-4 z-50 space-y-2">
         {toasts.map(toast => (
           <ToastMessage key={toast.id} toast={toast} onDismiss={dismissToast} />
         ))}
       </div>
     </div>
+  );
+}
+
+// Main App component with enhanced error handling and toast provider
+function App() {
+  return (
+    <ToastProvider>
+      <AppContent />
+    </ToastProvider>
   );
 }
 

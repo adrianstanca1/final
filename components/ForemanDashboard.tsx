@@ -1,11 +1,12 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { User, Project, Todo, Equipment, Permission, Role, TodoStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, SafetyIncident, Timesheet, TodoPriority } from '../types';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import type { User, Project, Todo, Equipment, TodoStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, SafetyIncident, Timesheet, TodoPriority } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Avatar } from './ui/Avatar';
 import { PriorityDisplay } from './ui/PriorityDisplay';
 import { EquipmentStatusBadge } from './ui/StatusBadge';
 import { Button } from './ui/Button';
+import { Tag } from './ui/Tag';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { ErrorBoundary } from './ErrorBoundary';
 
@@ -55,7 +56,7 @@ const ReportIncidentModal: React.FC<{ project: Project, user: User, onClose: () 
             addToast("Safety incident reported.", "success");
             onSuccess();
             onClose();
-        } catch (error) {
+        } catch {
             addToast("Failed to report incident.", "error");
         } finally {
             setIsSaving(false);
@@ -63,17 +64,18 @@ const ReportIncidentModal: React.FC<{ project: Project, user: User, onClose: () 
     };
 
     return (
-         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose} onKeyDown={(e) => e.key === 'Escape' && onClose()}>
             <Card className="w-full max-w-lg" onClick={e=>e.stopPropagation()}>
                 <h3 className="text-lg font-bold mb-4">Report Field Issue at {project.name}</h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <textarea value={description} onChange={e=>setDescription(e.target.value)} rows={4} className="w-full p-2 border rounded" placeholder="Describe the issue..." required />
-                    <select value={severity} onChange={e=>setSeverity(e.target.value as IncidentSeverity)} className="w-full p-2 border rounded bg-white">
+                    <label htmlFor="severity-select" className="block text-sm font-medium mb-1">Severity</label>
+                    <select id="severity-select" value={severity} onChange={e=>setSeverity(e.target.value as IncidentSeverity)} className="w-full p-2 border rounded bg-white">
                         {Object.values(IncidentSeverity).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                     <div>
-                        <label className="block text-sm font-medium">Attach Photo (optional)</label>
-                        <input type="file" accept="image/*" onChange={e => setPhoto(e.target.files?.[0] || null)} className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"/>
+                        <label htmlFor="photo-upload" className="block text-sm font-medium">Attach Photo (optional)</label>
+                        <input id="photo-upload" type="file" accept="image/*" onChange={e => setPhoto(e.target.files?.[0] || null)} className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"/>
                     </div>
                     <div className="flex justify-end gap-2">
                         <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
@@ -90,7 +92,7 @@ const ReportIncidentModal: React.FC<{ project: Project, user: User, onClose: () 
 
 const TimeClockCard: React.FC<{ user: User; project: Project; addToast: (m:string,t:'success'|'error')=>void; onUpdate: ()=>void; activeTimesheet: Timesheet | undefined }> = ({ user, project, addToast, onUpdate, activeTimesheet }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const { data: geoData, insideGeofenceIds } = useGeolocation({ geofences: [{ id: project.id, lat: project.location.lat, lng: project.location.lng, radius: project.geofenceRadius || 200 }]});
+    const { insideGeofenceIds } = useGeolocation({ geofences: [{ id: project.id, lat: project.location.lat, lng: project.location.lng, radius: project.geofenceRadius || 200 }]});
     const isInsideGeofence = insideGeofenceIds.has(project.id);
 
     const handleClockIn = async () => {
@@ -196,7 +198,7 @@ const SiteUpdatesCard: React.FC<{ project: Project; user: User; addToast: (m:str
             addToast("Site update posted.", "success");
             onUpdate();
             setText(''); setPhoto(null);
-        } catch(err) { addToast("Failed to post update.", "error"); }
+        } catch { addToast("Failed to post update.", "error"); }
         finally { setIsSubmitting(false); }
     }
 
@@ -218,7 +220,8 @@ const SiteUpdatesCard: React.FC<{ project: Project; user: User; addToast: (m:str
             <form onSubmit={handleSubmit} className="mt-auto space-y-2 pt-2 border-t">
                  <textarea value={text} onChange={e=>setText(e.target.value)} rows={2} placeholder="Post an update..." className="w-full p-2 border rounded-md"/>
                  <div className="flex justify-between items-center">
-                    <input type="file" accept="image/*" onChange={e => setPhoto(e.target.files?.[0] || null)} className="text-xs"/>
+                    <label htmlFor="update-photo" className="sr-only">Attach photo to update</label>
+                    <input id="update-photo" type="file" accept="image/*" onChange={e => setPhoto(e.target.files?.[0] || null)} className="text-xs"/>
                     <Button size="sm" type="submit" isLoading={isSubmitting}>Post</Button>
                  </div>
             </form>
@@ -233,7 +236,7 @@ const TeamChatCard: React.FC<{ project: Project; user: User; onUpdate: ()=>void;
 
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [messages]);
+    }, []);
 
     const handleSend = async () => {
         if (!content.trim()) return;
@@ -286,46 +289,63 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
     const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false);
 
     const userMap = useMemo(() => new Map(allUsers.map(u => [u.id, u])), [allUsers]);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         setLoading(true);
         try {
             if (!user.companyId) return;
             const [userProjects, allCompanyUsers, tsData] = await Promise.all([
-                api.getProjectsByUser(user.id),
-                api.getUsersByCompany(user.companyId),
-                api.getTimesheetsByUser(user.id),
+                api.getProjectsByUser(user.id, { signal: controller.signal }),
+                api.getUsersByCompany(user.companyId, { signal: controller.signal }),
+                api.getTimesheetsByUser(user.id, { signal: controller.signal }),
             ]);
+
+            if (controller.signal.aborted) return;
             setAllUsers(allCompanyUsers);
+            if (controller.signal.aborted) return;
             setActiveTimesheet(tsData.find(ts => ts.clockOut === null));
             const activeProject = userProjects.find(p => p.status === 'ACTIVE');
+            if (controller.signal.aborted) return;
             setCurrentProject(activeProject || null);
 
             if (activeProject) {
                 const [allProjectTasks, allCompanyEquipment, allAssignments, updates, messages, weatherData] = await Promise.all([
-                    api.getTodosByProjectIds([activeProject.id]),
-                    api.getEquipmentByCompany(user.companyId),
-                    api.getResourceAssignments(user.companyId),
-                    api.getSiteUpdatesByProject(activeProject.id),
-                    api.getProjectMessages(activeProject.id),
-                    api.getWeatherForLocation(activeProject.location.lat, activeProject.location.lng)
+                    api.getTodosByProjectIds([activeProject.id], { signal: controller.signal }),
+                    api.getEquipmentByCompany(user.companyId, { signal: controller.signal }),
+                    api.getResourceAssignments(user.companyId, { signal: controller.signal }),
+                    api.getSiteUpdatesByProject(activeProject.id, { signal: controller.signal }),
+                    api.getProjectMessages(activeProject.id, { signal: controller.signal }),
+                    api.getWeatherForLocation(activeProject.location.lat, activeProject.location.lng, { signal: controller.signal })
                 ]);
 
+                if (controller.signal.aborted) return;
                 setMyTasks(allProjectTasks.filter(t => t.assigneeId === user.id && t.status !== TodoStatus.DONE).sort((a,b) => (b.priority === TodoPriority.HIGH ? 1 : -1) - (a.priority === TodoPriority.HIGH ? 1 : -1)));
-                
+
                 const crewIds = new Set(allAssignments.filter(a => a.projectId === activeProject.id && a.resourceType === 'user').map(a => a.resourceId));
+                if (controller.signal.aborted) return;
                 setCrew(allCompanyUsers.filter(u => crewIds.has(u.id) && u.id !== user.id));
 
                 const currentProjectEquipmentIds = new Set(allAssignments.filter(a => a.projectId === activeProject.id && a.resourceType === 'equipment').map(a=>a.resourceId));
+                if (controller.signal.aborted) return;
                 setEquipment(allCompanyEquipment.filter(e => currentProjectEquipmentIds.has(e.id)));
 
+                if (controller.signal.aborted) return;
                 setSiteUpdates(updates);
+                if (controller.signal.aborted) return;
                 setProjectMessages(messages);
+                if (controller.signal.aborted) return;
                 setWeather(weatherData);
             }
-        } catch (error) {
+        } catch {
+            if (controller.signal.aborted) return;
             addToast("Failed to load foreman dashboard data.", "error");
         } finally {
+            if (controller.signal.aborted) return;
             setLoading(false);
         }
     }, [user, addToast]);
@@ -333,7 +353,10 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
     useEffect(() => {
         fetchData();
         const interval = setInterval(fetchData, 30000); // Auto-refresh every 30s
-        return () => clearInterval(interval);
+        return () => {
+            clearInterval(interval);
+            abortControllerRef.current?.abort();
+        };
     }, [fetchData]);
 
     if (loading) {
