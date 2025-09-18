@@ -28,7 +28,7 @@ let cachedClient: GoogleGenAI | null = null;
 const DEFAULT_GENERATION_CONFIG = {
   temperature: 0.35,
   maxOutputTokens: 768,
-} as const;
+};
 
 const getClient = (): GoogleGenAI | null => {
   if (!API_KEY) {

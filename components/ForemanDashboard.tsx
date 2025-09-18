@@ -6,6 +6,7 @@ import { Avatar } from './ui/Avatar';
 import { PriorityDisplay } from './ui/PriorityDisplay';
 import { EquipmentStatusBadge } from './ui/StatusBadge';
 import { Button } from './ui/Button';
+import { Tag } from './ui/Tag';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { ErrorBoundary } from './ErrorBoundary';
 import { ViewHeader } from './layout/ViewHeader';

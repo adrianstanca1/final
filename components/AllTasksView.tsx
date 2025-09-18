@@ -140,7 +140,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
         setTodos(prev => prev.map(t => selectedIdsArray.includes(t.id) ? { ...t, ...updates } : t));
 
         try {
-            await api.bulkUpdateTodos(selectedIdsArray, updates, user.id);
+            await api.bulkUpdateTodos(selectedIdsArray as (string | number)[], updates, user.id);
             addToast(`Bulk update applied successfully.`, 'success');
         } catch (error) {
             addToast("Bulk update failed.", "error");
