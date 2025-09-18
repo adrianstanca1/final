@@ -389,7 +389,7 @@ ${buildSearchContext(input)}
 
 Respond with concise Markdown. Prioritise actionable insights, references to document names, task IDs, or incident statuses when relevant.`;
 
-  const response = await callGemini(prompt, { maxOutputTokens: 512 as any });
+  const response = await callGemini(prompt, { maxOutputTokens: 512 });
 
   if (response?.text) {
     const text = response.text.trim();
