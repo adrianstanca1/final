@@ -532,7 +532,7 @@ export const api = {
         ensureNotAborted(options?.signal);
         await delay();
         ensureNotAborted(options?.signal);
-        return db.safetyIncidents as SafetyIncident[];
+        return db.safetyIncidents.filter(incident => resolveCompanyIdFromProject(incident.projectId) === companyId) as SafetyIncident[];
     },
     getConversationsForUser: async (userId: string, options?: RequestOptions): Promise<Conversation[]> => {
         ensureNotAborted(options?.signal);
