@@ -23,10 +23,6 @@ export class ErrorBoundary extends Component<Props, State> {
     };
   }
 
-  static getDerivedStateFromError(error: Error): State {
-
-  }
-
   public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
