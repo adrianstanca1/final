@@ -18,3 +18,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1bxBJgk2nuKF5tvtdT-YfJQ
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Deployment automation
+
+This project ships with a fully automated CI/CD pipeline backed by GitHub Actions. Pull requests run tests and builds via the [`CI` workflow](.github/workflows/ci.yml), while merges to `main` trigger the [`Deploy to GitHub Pages` workflow](.github/workflows/deploy.yml) to publish the production site. Refer to [docs/deployment-plan.md](docs/deployment-plan.md) for the complete autonomous deployment plan, including environment setup, secrets management, and rollback guidance.
