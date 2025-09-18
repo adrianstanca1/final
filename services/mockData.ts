@@ -2,7 +2,47 @@
 
 // FIX: Added missing type imports to allow for explicit typing of mock data arrays.
 // FIX: Replaced UserRole with Role
-import { Company, User, Project, ProjectAssignment, Task, Timesheet, SafetyIncident, Equipment, ResourceAssignment, Client, Invoice, Quote, Expense, ProjectTemplate, Notification, AuditLog, Conversation, Message, Document, Role, TodoStatus, TimesheetStatus, IncidentStatus, IncidentSeverity, TodoPriority, InvoiceStatus, QuoteStatus, ExpenseCategory, ExpenseStatus, NotificationType, DocumentStatus, EquipmentStatus, AvailabilityStatus, WhiteboardNote, SiteUpdate, ProjectMessage, Todo } from '../types';
+import {
+  Company,
+  User,
+  Project,
+  ProjectAssignment,
+  Task,
+  Timesheet,
+  SafetyIncident,
+  Equipment,
+  ResourceAssignment,
+  Client,
+  Invoice,
+  Quote,
+  Expense,
+  ProjectTemplate,
+  ProjectInsight,
+  FinancialForecast,
+  Notification,
+  AuditLog,
+  Conversation,
+  Message,
+  Document,
+  Role,
+  TodoStatus,
+  TimesheetStatus,
+  IncidentStatus,
+  IncidentSeverity,
+  TodoPriority,
+  InvoiceStatus,
+  QuoteStatus,
+  ExpenseCategory,
+  ExpenseStatus,
+  NotificationType,
+  DocumentStatus,
+  EquipmentStatus,
+  AvailabilityStatus,
+  WhiteboardNote,
+  SiteUpdate,
+  ProjectMessage,
+  Todo,
+} from '../types';
 
 export const initialData = {
     companies: [
@@ -37,7 +77,7 @@ export const initialData = {
       { id: 'e-1', description: 'Client Lunch', amount: 150, category: 'Other', projectId: '101', userId: '2', date: '2024-01-15', status: ExpenseStatus.APPROVED }
     ] as Partial<Expense>[],
     invoices: [
-        { id: 'inv-1', invoiceNumber: 'INV-001', projectId: '101', clientId: 'c-1', issueDate: '2024-01-20', dueDate: '2024-02-20', status: InvoiceStatus.PAID, lineItems: [{id: 'li-1', description: 'Phase 1', quantity: 1, rate: 100000, amount: 100000}], subtotal: 100000, taxRate: 0.2, taxAmount: 20000, retentionRate: 0.05, retentionAmount: 5000, total: 115000, amountPaid: 115000, balance: 0 }
+        { id: 'inv-1', companyId: '1', invoiceNumber: 'INV-001', projectId: '101', clientId: 'c-1', issueDate: '2024-01-20', dueDate: '2024-02-20', status: InvoiceStatus.PAID, lineItems: [{id: 'li-1', description: 'Phase 1', quantity: 1, rate: 100000, amount: 100000}], subtotal: 100000, taxRate: 0.2, taxAmount: 20000, retentionRate: 0.05, retentionAmount: 5000, total: 115000, amountPaid: 115000, balance: 0 }
     ] as Partial<Invoice>[],
     siteUpdates: [
         { id: 'su-1', projectId: '101', userId: '3', message: 'Concrete pour for the ground floor is complete.', timestamp: new Date(Date.now() - 2 * 3600 * 1000).toISOString(), images: ['https://picsum.photos/seed/concrete/400/200'] },
@@ -54,7 +94,52 @@ export const initialData = {
     timeEntries: [
         { id: 'te-1', userId: '4', projectId: '101', startTime: new Date(Date.now() - 8 * 3600 * 1000).toISOString(), endTime: new Date().toISOString(), status: TimesheetStatus.PENDING }
     ] as Partial<Timesheet>[],
+    projectInsights: [] as Partial<ProjectInsight>[],
+    financialForecasts: [] as Partial<FinancialForecast>[],
     clients: [
-        { id: 'c-1', name: 'Global Real Estate Inc.', email: 'contact@gre.com', phone: '555-0101', companyId: '1' }
+        {
+            id: 'c-1',
+            companyId: '1',
+            name: 'Global Real Estate Inc.',
+            contactPerson: 'Ava Harris',
+            contactEmail: 'ava.harris@gre.com',
+            contactPhone: '+44 20 7946 0101',
+            email: 'accounts@gre.com',
+            phone: '+44 20 7946 0101',
+            billingAddress: 'Accounts Payable, 100 Market Street, London SW1A 1AA',
+            paymentTerms: 'Net 30',
+            isActive: true,
+            createdAt: '2024-01-15T09:00:00Z',
+            updatedAt: '2024-12-10T10:30:00Z',
+            address: {
+                street: '100 Market Street',
+                city: 'London',
+                state: 'Greater London',
+                zipCode: 'SW1A 1AA',
+                country: 'United Kingdom',
+            },
+        },
+        {
+            id: 'c-2',
+            companyId: '1',
+            name: 'Northbridge Retail Group',
+            contactPerson: 'Leo Patel',
+            contactEmail: 'leo.patel@northbridge.com',
+            contactPhone: '+44 161 555 0198',
+            email: 'finance@northbridge.com',
+            phone: '+44 161 555 0198',
+            billingAddress: 'Finance Office, 50 King Street, Manchester M2 4LY',
+            paymentTerms: 'Net 45',
+            isActive: true,
+            createdAt: '2024-11-28T12:00:00Z',
+            updatedAt: '2024-12-15T08:15:00Z',
+            address: {
+                street: '50 King Street',
+                city: 'Manchester',
+                state: 'Greater Manchester',
+                zipCode: 'M2 4LY',
+                country: 'United Kingdom',
+            },
+        },
     ] as Partial<Client>[],
 };

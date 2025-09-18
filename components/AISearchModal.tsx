@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { User, Project } from '../types';
+import { User, Project, Todo, Document, SafetyIncident, Expense } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
+import { api } from '../services/mockApi';
+import { searchKnowledgeBase } from '../services/ai';
 
 interface AISearchModalProps {
   user: User;
@@ -14,6 +16,7 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({ user, currentProje
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<string | null>(null);
+  const [resultMeta, setResultMeta] = useState<string | null>(null);
 
   const handleSearch = async () => {
     if (!query.trim()) {
@@ -22,10 +25,69 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({ user, currentProje
     }
     setIsLoading(true);
     setResults(null);
+    setResultMeta(null);
     // Mock AI search
-    await new Promise(res => setTimeout(res, 1500));
-    setResults(`AI search results for: "${query}"\n\n- Found 3 relevant documents in '${currentProject?.name || 'current project'}'.\n- Found 2 users with expertise in this area.\n- Relevant task: #101 Finalize foundation pouring.`);
-    setIsLoading(false);
+    try {
+      let tasks: Todo[] = [];
+      let documents: Document[] = [];
+      let incidents: SafetyIncident[] = [];
+      let expenses: Expense[] = [];
+      let focusProject: Project | null | undefined = currentProject ?? null;
+
+      if (user.companyId) {
+        const [projects, incidentData, expenseData, documentData] = await Promise.all([
+          currentProject ? Promise.resolve<Project[]>([]) : api.getProjectsByCompany(user.companyId),
+          api.getSafetyIncidentsByCompany(user.companyId),
+          api.getExpensesByCompany(user.companyId),
+          currentProject ? api.getDocumentsByProject(currentProject.id) : api.getDocumentsByCompany(user.companyId),
+        ]);
+
+        incidents = incidentData;
+        expenses = expenseData;
+        documents = (documentData as Document[]).slice(0, 20);
+
+        let projectIds: string[] = [];
+        if (currentProject) {
+          projectIds = [currentProject.id];
+        } else {
+          const topProjects = projects.slice(0, 5);
+          projectIds = topProjects.map(p => p.id);
+          if (!focusProject && topProjects.length === 1) {
+            focusProject = topProjects[0];
+          }
+        }
+
+        if (projectIds.length > 0) {
+          tasks = await api.getTodosByProjectIds(projectIds);
+        }
+      }
+
+      const aiResult = await searchKnowledgeBase({
+        query,
+        user,
+        project: focusProject ?? currentProject ?? undefined,
+        tasks,
+        documents,
+        incidents,
+        expenses,
+      });
+
+      setResults(aiResult.text);
+      if (aiResult.isFallback) {
+        setResultMeta('Generated using offline knowledge search fallback.');
+      } else if (aiResult.model) {
+        setResultMeta(`Generated with ${aiResult.model}.`);
+      } else {
+        setResultMeta(null);
+      }
+    } catch (error) {
+      console.error('AI search failed', error);
+      addToast('AI search failed. Please try again later.', 'error');
+      setResults('Unable to complete the AI search right now. Please try again later.');
+      setResultMeta(null);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -48,6 +110,9 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({ user, currentProje
             <div className="p-4 bg-slate-50 rounded-md whitespace-pre-wrap font-mono text-sm">
               {results}
             </div>
+          )}
+          {resultMeta && (
+            <p className="mt-2 text-xs text-muted-foreground">{resultMeta}</p>
           )}
         </div>
       </Card>
