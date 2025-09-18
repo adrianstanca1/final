@@ -243,7 +243,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                          <div className="space-y-2">
                              {[Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE].map(role => (
-                                <RadioCard key={role} name="role" value={role} label={role.replace(/_/g, ' ')} description="" checked={formData.role === role} onChange={handleChange} />
+                                <RadioCard key={role} name="role" value={String(role)} label={role.replace(/_/g, ' ')} description="" checked={formData.role === role} onChange={handleChange} />
                             ))}
                             {errors.role && <p className="text-xs text-destructive mt-1">{errors.role}</p>}
                          </div>
@@ -366,7 +366,10 @@ const SelectField = ({ label, name, value, onChange, error, options }: {label: s
     </div>
 );
 
-const RadioCard = ({ name, value, label, description, checked, onChange }: { name: string, value: string | CompanyType | Role, label: string, description: string, checked: boolean, onChange: any }) => (
+const RadioCard = ({ name, value, label, description, checked, onChange, ...props }: { name: string, value: string, label: string, description: string, checked: boolean, onChange: any } & React.HTMLAttributes<HTMLLabelElement>) => (
+    <label {...props} className={`block p-4 border rounded-md cursor-pointer transition-all ${checked ? 'bg-primary/10 border-primary ring-2 ring-primary' : 'hover:bg-accent'}`}>
+
+const RadioCard = ({ name, value, label, description, checked, onChange }: { key?: string | CompanyType | Role, name: string, value: string | CompanyType | Role, label: string, description: string, checked: boolean, onChange: (name: string, value: string) => void }) => (
     <label className={`block p-4 border rounded-md cursor-pointer transition-all ${checked ? 'bg-primary/10 border-primary ring-2 ring-primary' : 'hover:bg-accent'}`}>
         <input type="radio" name={name} value={value} checked={checked} onChange={e => onChange(name, e.target.value)} className="sr-only"/>
         <p className="font-semibold">{label}</p>

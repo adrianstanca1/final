@@ -1,3 +1,5 @@
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { User, View, Project, Role, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { User, View, Project, Notification, CompanySettings } from './types';
 import { api } from './services/mockApi';
@@ -29,6 +31,7 @@ import { CommandPalette } from './components/CommandPalette';
 import { useOfflineSync } from './hooks/useOfflineSync';
 import { useCommandPalette } from './hooks/useCommandPalette';
 import { useReminderService } from './hooks/useReminderService';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { ClientsView } from './components/ClientsView';
 import { InvoicesView } from './components/InvoicesView';
 import { PageErrorBoundary } from './components/ErrorBoundary';
@@ -38,6 +41,32 @@ import { ForgotPassword } from './components/auth/ForgotPassword';
 import { ResetPassword } from './components/auth/ResetPassword';
 import { ViewAccessBoundary } from './components/layout/ViewAccessBoundary';
 import { evaluateViewAccess, getDefaultViewForUser } from './utils/viewAccess';
+
+// Lazy-load heavy view components to reduce initial bundle size
+const Dashboard = React.lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
+const OwnerDashboard = React.lazy(() => import('./components/OwnerDashboard').then(m => ({ default: m.OwnerDashboard })));
+const MyDayView = React.lazy(() => import('./components/MyDayView').then(m => ({ default: m.MyDayView })));
+const ForemanDashboard = React.lazy(() => import('./components/ForemanDashboard').then(m => ({ default: m.ForemanDashboard })));
+const PrincipalAdminDashboard = React.lazy(() => import('./components/PrincipalAdminDashboard').then(m => ({ default: m.PrincipalAdminDashboard })));
+const ProjectsView = React.lazy(() => import('./components/ProjectsView').then(m => ({ default: m.ProjectsView })));
+const ProjectDetailView = React.lazy(() => import('./components/ProjectDetailView').then(m => ({ default: m.ProjectDetailView })));
+const AllTasksView = React.lazy(() => import('./components/AllTasksView').then(m => ({ default: m.AllTasksView })));
+const ProjectsMapView = React.lazy(() => import('./components/ProjectsMapView').then(m => ({ default: m.ProjectsMapView })));
+const TimeTrackingView = React.lazy(() => import('./components/TimeTrackingView').then(m => ({ default: m.TimeTrackingView })));
+const TimesheetsView = React.lazy(() => import('./components/TimesheetsView').then(m => ({ default: m.TimesheetsView })));
+const DocumentsView = React.lazy(() => import('./components/DocumentsView').then(m => ({ default: m.DocumentsView })));
+const SafetyView = React.lazy(() => import('./components/SafetyView').then(m => ({ default: m.SafetyView })));
+const FinancialsView = React.lazy(() => import('./components/FinancialsView').then(m => ({ default: m.FinancialsView })));
+const TeamView = React.lazy(() => import('./components/TeamView').then(m => ({ default: m.TeamView })));
+const EquipmentView = React.lazy(() => import('./components/EquipmentView').then(m => ({ default: m.EquipmentView })));
+const TemplatesView = React.lazy(() => import('./components/TemplatesView').then(m => ({ default: m.TemplatesView })));
+const ToolsView = React.lazy(() => import('./components/ToolsView').then(m => ({ default: m.ToolsView })));
+const AuditLogView = React.lazy(() => import('./components/AuditLogView').then(m => ({ default: m.AuditLogView })));
+const SettingsView = React.lazy(() => import('./components/SettingsView').then(m => ({ default: m.SettingsView })));
+const ChatView = React.lazy(() => import('./components/ChatView').then(m => ({ default: m.ChatView })));
+const ClientsView = React.lazy(() => import('./components/ClientsView').then(m => ({ default: m.ClientsView })));
+const InvoicesView = React.lazy(() => import('./components/InvoicesView').then(m => ({ default: m.InvoicesView })));
+const UserRegistration = React.lazy(() => import('./components/UserRegistration').then(m => ({ default: m.UserRegistration })));
 import { ToastProvider, useToastHelpers } from './components/ui/Toast';
 import { setupGlobalErrorHandling } from './utils/errorHandling';
 import { useErrorHandling } from './hooks/useErrorHandling';
@@ -422,7 +451,9 @@ function AppContent() {
               fallbackView={viewEvaluation.fallbackView}
               onNavigate={changeView}
             >
-              {viewContent}
+              <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading view…</div>}>
+                {viewContent}
+              </Suspense>
             </ViewAccessBoundary>
           </PageErrorBoundary>
         </main>
