@@ -15,8 +15,6 @@ import type {
   InvoiceLineItem,
   InvoiceLineItemDraft,
   QuoteStatus,
-  InvoiceLineItem,
-  InvoiceLineItemDraft,
   FinancialForecast,
 } from '../types';
 import { getDerivedStatus, getInvoiceFinancials } from '../utils/finance';
@@ -27,6 +25,9 @@ import { InvoiceStatusBadge, QuoteStatusBadge } from './ui/StatusBadge';
 import { hasPermission } from '../services/auth';
 import { Tag } from './ui/Tag';
 import { ExpenseModal } from './ExpenseModal';
+import ClientModal from './financials/ClientModal';
+import InvoiceModal from './financials/InvoiceModal';
+import PaymentModal from './financials/PaymentModal';
 
 type FinancialsTab = 'dashboard' | 'invoices' | 'expenses' | 'clients';
 
@@ -176,416 +177,30 @@ const InvoiceModal: React.FC<{
   user: User;
   clients: Client[];
   projects: Project[];
-  addToast: (message: string, type: 'success' | 'error') => void;
-}> = ({ invoiceToEdit, isReadOnly = false, onClose, onSuccess, user, clients, projects, addToast }) => {
-  const [clientId, setClientId] = useState<string>(invoiceToEdit?.clientId?.toString() || '');
-  const [projectId, setProjectId] = useState<string>(invoiceToEdit?.projectId?.toString() || '');
-  const [issuedAt, setIssuedAt] = useState(new Date(invoiceToEdit?.issuedAt || new Date()).toISOString().split('T')[0]);
-  const [dueAt, setDueAt] = useState(
-    new Date(invoiceToEdit?.dueAt || Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-  );
-  const [lineItems, setLineItems] = useState<InvoiceLineItemDraft[]>(() =>
-    invoiceToEdit?.lineItems?.length
-      ? invoiceToEdit.lineItems.map(mapInvoiceLineItemToDraft)
-      : [createLineItemDraft()],
-  );
-  const [taxRate, setTaxRate] = useState<number | ''>(invoiceToEdit ? invoiceToEdit.taxRate * 100 : 20);
-  const [retentionRate, setRetentionRate] = useState<number | ''>(invoiceToEdit ? invoiceToEdit.retentionRate * 100 : 5);
-  const [notes, setNotes] = useState(invoiceToEdit?.notes || '');
-  const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    setLineItems(
-      invoiceToEdit?.lineItems?.length
-        ? invoiceToEdit.lineItems.map(mapInvoiceLineItemToDraft)
-        : [createLineItemDraft()],
-    );
-  }, [invoiceToEdit?.lineItems]);
-
-  const handleLineItemChange = <Field extends EditableInvoiceLineItemField>(
-    index: number,
-    field: Field,
-    value: InvoiceLineItemDraft[Field],
-  ) => {
-    setLineItems(prevItems => prevItems.map((item, itemIndex) => (itemIndex === index ? { ...item, [field]: value } : item)));
-  };
-
-  const addLineItem = () => setLineItems(prevItems => [...prevItems, createLineItemDraft()]);
-  const removeLineItem = (index: number) =>
-    setLineItems(prevItems => prevItems.filter((_, itemIndex) => itemIndex !== index));
-
-  const { subtotal, taxAmount, retentionAmount, total } = useMemo(() => {
-    const subtotalCalc = lineItems.reduce((acc, item) => acc + item.quantity * item.unitPrice, 0);
-    const taxPercentage = typeof taxRate === 'number' ? taxRate : 0;
-    const retentionPercentage = typeof retentionRate === 'number' ? retentionRate : 0;
-    const taxAmountCalc = subtotalCalc * (taxPercentage / 100);
-    const retentionAmountCalc = subtotalCalc * (retentionPercentage / 100);
-    const totalCalc = subtotalCalc + taxAmountCalc - retentionAmountCalc;
-    return { subtotal: subtotalCalc, taxAmount: taxAmountCalc, retentionAmount: retentionAmountCalc, total: totalCalc };
-  }, [lineItems, taxRate, retentionRate]);
-
-  const amountPaid = invoiceToEdit?.amountPaid || 0;
-  const balance = total - amountPaid;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    try {
-      const finalLineItems = lineItems.reduce<InvoiceLineItem[]>((acc, item) => {
-        const description = item.description.trim();
-        const quantity = Math.max(item.quantity, 0);
-        const unitPrice = Math.max(item.unitPrice, 0);
-
-        if (!description || quantity <= 0 || unitPrice <= 0) {
-          return acc;
-        }
-
-        acc.push({
-          id: item.id.startsWith('new-') ? String(Date.now() + Math.random()) : item.id,
-          description,
-          quantity,
-          unitPrice,
-          rate: unitPrice,
-          amount: quantity * unitPrice,
-        });
-
-        return acc;
-      }, []);
-
-      const invoiceData = {
-        clientId,
-        projectId,
-        issuedAt: new Date(issuedAt).toISOString(),
-        dueAt: new Date(dueAt).toISOString(),
-        lineItems: finalLineItems,
-        taxRate: Number(taxRate) / 100,
-        retentionRate: Number(retentionRate) / 100,
-        notes,
-        subtotal,
-        taxAmount,
-        retentionAmount,
-        total,
-        amountPaid,
-        balance,
-        payments: invoiceToEdit?.payments || [],
-        status: invoiceToEdit?.status || InvoiceStatus.DRAFT,
-      };
-
-      if (invoiceToEdit) {
-        const updated = await api.updateInvoice(
-          invoiceToEdit.id,
-          { ...invoiceData, invoiceNumber: invoiceToEdit.invoiceNumber },
-          user.id,
-        );
-        addToast(`Invoice ${updated.invoiceNumber} updated.`, 'success');
-      } else {
-        const created = await api.createInvoice(invoiceData, user.id);
-        if (!created.invoiceNumber) {
-          throw new Error('Invoice number was not returned by the server.');
-        }
-        addToast(`Invoice ${created.invoiceNumber} created as draft.`, 'success');
-      }
-      onSuccess();
-      onClose();
-    } catch (error) {
-      const message = error instanceof Error && error.message ? error.message : 'Failed to save invoice.';
-      addToast(message, 'error');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose} onKeyDown={(e) => e.key === 'Escape' && onClose()}>
-      <Card className="w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
-        <h3 className="text-lg font-bold mb-4">
-          {invoiceToEdit ? `${isReadOnly ? 'View' : 'Edit'} Invoice ${invoiceToEdit.invoiceNumber}` : 'Create Invoice'}
-        </h3>
-        <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto pr-2 flex-grow">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="client-select" className="block text-sm font-medium mb-1">Client</label>
-              <select
-                id="client-select"
-                value={clientId}
-                onChange={e => setClientId(e.target.value)}
-                className="w-full p-2 border rounded bg-white dark:bg-slate-800"
-                required
-                disabled={isReadOnly}
-              >
-                <option value="">Select Client</option>
-                {clients.map(client => (
-                  <option key={client.id} value={client.id}>
-                    {client.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="project-select" className="block text-sm font-medium mb-1">Project</label>
-              <select
-                id="project-select"
-                value={projectId}
-                onChange={e => setProjectId(e.target.value)}
-                className="w-full p-2 border rounded bg-white dark:bg-slate-800"
-                required
-              disabled={isReadOnly}
-            >
-              <option value="">Select Project</option>
-              {projects.map(project => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="issued-date" className="block text-sm font-medium mb-1">Issued Date</label>
-              <input
-                id="issued-date"
-                type="date"
-                value={issuedAt}
-                onChange={e => setIssuedAt(e.target.value)}
-                className="w-full p-2 border rounded"
-                disabled={isReadOnly}
-              />
-            </div>
-            <div>
-              <label htmlFor="due-date" className="block text-sm font-medium mb-1">Due Date</label>
-              <input
-                id="due-date"
-                type="date"
-                value={dueAt}
-                onChange={e => setDueAt(e.target.value)}
-                className="w-full p-2 border rounded"
-                disabled={isReadOnly}
-              />
-            </div>
-          </div>
-          <div className="border-t pt-2">
-            <h4 className="font-semibold">Line Items</h4>
-            <div className="grid grid-cols-[1fr,90px,130px,130px,40px] gap-2 items-center mt-1 text-xs text-muted-foreground">
-              <span>Description</span>
-              <span className="text-right">Quantity</span>
-              <span className="text-right">Unit Price</span>
-              <span className="text-right">Amount</span>
-            </div>
-            {lineItems.map((item, index) => (
-              <div key={item.id} className="grid grid-cols-[1fr,90px,130px,130px,40px] gap-2 items-center mt-2">
-                <input
-                  type="text"
-                  value={item.description}
-                  onChange={e => handleLineItemChange(index, 'description', e.target.value)}
-                  placeholder="Item or service description"
-                  className="p-1 border rounded"
-                  disabled={isReadOnly}
-                />
-                <input
-                  type="number"
-                  value={item.quantity}
-                  onChange={e => handleLineItemChange(index, 'quantity', parseNumberInputValue(e.target.value))}
-                  placeholder="1"
-                  className="p-1 border rounded text-right"
-                  disabled={isReadOnly}
-                />
-                <input
-                  type="number"
-                  value={item.unitPrice}
-                  onChange={e => handleLineItemChange(index, 'unitPrice', parseNumberInputValue(e.target.value))}
-                  placeholder="0.00"
-                  className="p-1 border rounded text-right"
-                  disabled={isReadOnly}
-                />
-                <span className="p-1 text-right font-medium">{formatCurrency(item.quantity * item.unitPrice)}</span>
-                {!isReadOnly && (
-                  <Button type="button" variant="danger" size="sm" onClick={() => removeLineItem(index)}>
-                    &times;
-                  </Button>
-                )}
-              </div>
-            ))}
-            {!isReadOnly && (
-              <Button type="button" variant="secondary" size="sm" className="mt-2" onClick={addLineItem}>
-                + Add Item
-              </Button>
-            )}
-          </div>
-          <div className="border-t pt-4 grid grid-cols-2 gap-8">
-            <div>
-              <h4 className="font-semibold mb-2">Notes</h4>
-              <textarea
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                placeholder="Payment details, terms and conditions..."
-                rows={6}
-                className="p-2 border rounded w-full"
-                disabled={isReadOnly}
-              />
-            </div>
-            <div className="space-y-2">
-              <h4 className="font-semibold mb-2">Totals</h4>
-              <div className="flex justify-between items-center">
-                <span className="text-sm">Subtotal:</span>
-                <span className="font-medium">{formatCurrency(subtotal)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <label htmlFor="taxRate" className="text-sm">
-                  Tax (%):
-                </label>
-                <input
-                  id="taxRate"
-                  type="number"
-                  value={taxRate}
-                  onChange={e => setTaxRate(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-24 p-1 border rounded text-right"
-                  disabled={isReadOnly}
-                />
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Tax Amount:</span>
-                <span>{formatCurrency(taxAmount)}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <label htmlFor="retentionRate" className="text-sm">
-                  Retention (%):
-                </label>
-                <input
-                  id="retentionRate"
-                  type="number"
-                  value={retentionRate}
-                  onChange={e => setRetentionRate(e.target.value === '' ? '' : Number(e.target.value))}
-                  className="w-24 p-1 border rounded text-right"
-                  disabled={isReadOnly}
-                />
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-red-600">Retention Held:</span>
-                <span className="text-red-600 font-medium">-{formatCurrency(retentionAmount)}</span>
-              </div>
-              <div className="flex justify-between items-center font-bold text-lg pt-2 border-t">
-                <span>Total Due:</span>
-                <span>{formatCurrency(total)}</span>
-              </div>
-              {invoiceToEdit && (
-                <>
-                  <div className="flex justify-between items-center text-sm">
-                    <span>Amount Paid:</span>
-                    <span>-{formatCurrency(amountPaid)}</span>
-                  </div>
-                  <div className="flex justify-between items-center font-bold text-lg text-green-600">
-                    <span>Balance:</span>
-                    <span>{formatCurrency(balance)}</span>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        </form>
-        <div className="flex justify-end gap-2 pt-4 border-t mt-4 flex-shrink-0">
-          <Button variant="secondary" onClick={onClose}>
-            {isReadOnly ? 'Close' : 'Cancel'}
-          </Button>
-          {!isReadOnly && (
-            <Button type="submit" isLoading={isSaving} onClick={handleSubmit}>
-              Save Invoice
-            </Button>
-          )}
-        </div>
-      </Card>
-    </div>
-  );
-};
-
-const PaymentModal: React.FC<{
-  invoice: Invoice;
-  balance: number;
-  onClose: () => void;
-  onSuccess: () => void;
-  user: User;
-  addToast: (message: string, type: 'success' | 'error') => void;
-}> = ({ invoice, balance, onClose, onSuccess, user, addToast }) => {
-  const [amount, setAmount] = useState<number | ''>(balance > 0 ? balance : '');
-  const [method, setMethod] = useState<'CREDIT_CARD' | 'BANK_TRANSFER' | 'CASH'>('BANK_TRANSFER');
-  const [isSaving, setIsSaving] = useState(false);
-
-  const handleSubmit = async () => {
-    const numericAmount = Number(amount);
-    if (amount === '' || numericAmount <= 0) {
-      addToast('Invalid amount', 'error');
-      return;
-    }
-    if (numericAmount > balance) {
-      addToast('Amount exceeds the outstanding balance', 'error');
-      return;
-    }
-    setIsSaving(true);
-    try {
-      await api.recordPaymentForInvoice(invoice.id, { amount: numericAmount, method }, user.id);
-      addToast('Payment recorded.', 'success');
-      onSuccess();
-      onClose();
-    } catch {
-      addToast('Failed to record payment.', 'error');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose} onKeyDown={(e) => e.key === 'Escape' && onClose()}>
-      <Card className="w-full max-w-md" onClick={e => e.stopPropagation()}>
-        <h3 className="text-lg font-bold">Record Payment for {invoice.invoiceNumber}</h3>
-        <p className="text-sm text-muted-foreground mb-4">Current balance: {formatCurrency(balance)}</p>
-        <input
-          type="number"
-          value={amount}
-          onChange={e => setAmount(e.target.value === '' ? '' : Number(e.target.value))}
-          placeholder={`Enter amount (up to ${balance.toFixed(2)})`}
-          className="w-full p-2 border rounded mt-4"
-          max={balance}
-        />
-        <label htmlFor="payment-method" className="block text-sm font-medium mt-2 mb-1">Payment Method</label>
-        <select
-          id="payment-method"
-          value={method}
-          onChange={e => setMethod(e.target.value as typeof method)}
-          className="w-full p-2 border rounded bg-white"
-        >
-          <option value="BANK_TRANSFER">Bank Transfer</option>
-          <option value="CREDIT_CARD">Card</option>
-          <option value="CASH">Cash</option>
-        </select>
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} isLoading={isSaving}>
-            Record Payment
-          </Button>
-        </div>
-      </Card>
-    </div>
-  );
-};
+  users: User[];
+  forecasts: FinancialForecast[];
+  companyName: string | null;
+}
 
 const BarChart: React.FC<{ data: { label: string; value: number }[]; barColor: string }> = ({ data, barColor }) => {
-  const maxValue = Math.max(...data.map(d => d.value), 0);
+  const maxValue = Math.max(...data.map(entry => entry.value), 0);
+
   return (
-    <div className="w-full h-64 flex items-end justify-around p-4 border rounded-lg bg-slate-50 dark:bg-slate-800">
-      {data.map((item, index) => (
-        <div key={index} className="flex flex-col items-center justify-end h-full w-full">
+    <div className="w-full h-64 flex items-end justify-around gap-2 p-4 border rounded-lg bg-slate-50 dark:bg-slate-900/40">
+      {data.map(entry => (
+        <div key={entry.label} className="flex flex-col items-center justify-end h-full w-full">
           <div
-            className={`w-3/4 rounded-t-md chart-bar ${barColor}`}
-            style={{ '--bar-height': `${maxValue > 0 ? (item.value / maxValue) * 100 : 0}%` } as React.CSSProperties}
-            title={formatCurrency(item.value)}
-          ></div>
-          <span className="text-xs mt-2 text-slate-600">{item.label}</span>
+            className={`w-3/4 rounded-t-md transition-all ${barColor}`}
+            style={{ height: `${maxValue > 0 ? Math.round((entry.value / maxValue) * 100) : 0}%` }}
+            title={formatCurrency(entry.value)}
+          />
+          <span className="text-xs mt-2 text-slate-600 dark:text-slate-300">{entry.label}</span>
         </div>
       ))}
     </div>
   );
+};
+
 const InvoiceModal: React.FC<{ invoiceToEdit?: Invoice | null, isReadOnly?: boolean, onClose: () => void, onSuccess: () => void, user: User, clients: Client[], projects: Project[], addToast: (m:string,t:'success'|'error')=>void }> = ({ invoiceToEdit, isReadOnly = false, onClose, onSuccess, user, clients, projects, addToast }) => {
     const [clientId, setClientId] = useState<string>(invoiceToEdit?.clientId.toString() || '');
     const [projectId, setProjectId] = useState<string>(invoiceToEdit?.projectId.toString() || '');
@@ -762,16 +377,6 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
     clients: [] as Client[],
     projects: [] as Project[],
     users: [] as User[],
-  const [data, setData] = useState({
-    kpis: null as FinancialKPIs | null,
-    monthly: [] as MonthlyFinancials[],
-    costs: [] as CostBreakdown[],
-    invoices: [] as Invoice[],
-    quotes: [] as Quote[],
-    expenses: [] as Expense[],
-    clients: [] as Client[],
-    projects: [] as Project[],
-    users: [] as User[],
     forecasts: [] as FinancialForecast[],
     companyName: null as string | null,
   const [data, setData] = useState<FinancialDataState>({
@@ -798,7 +403,12 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
     abortControllerRef.current?.abort();
     abortControllerRef.current = controller;
 
-    if (!user.companyId) return;
+    if (!user.companyId) {
+      setData(prev => ({ ...prev, invoices: [], expenses: [], clients: [], projects: [], forecasts: [] }));
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const [
@@ -822,7 +432,11 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
         api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
         api.getUsersByCompany(user.companyId, { signal: controller.signal }),
       ]);
+
       if (controller.signal.aborted) return;
+
+      const companyRecord = companyData.find(entry => entry.id === user.companyId) as { name?: string } | undefined;
+
       setData({
         kpis: kpiData,
         monthly: monthlyData,
@@ -834,8 +448,10 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
         projects: projectData,
         users: usersData,
       });
-    } catch {
+      setForecastError(null);
+    } catch (error) {
       if (controller.signal.aborted) return;
+      console.error('Failed to load financial data', error);
       addToast('Failed to load financial data', 'error');
     } finally {
       if (controller.signal.aborted) return;
@@ -850,51 +466,66 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
     };
   }, [fetchData]);
 
-  const { projectMap, clientMap, userMap } = useMemo(
-    () => ({
-      projectMap: new Map(data.projects.map(p => [p.id, p.name])),
-      clientMap: new Map(data.clients.map(c => [c.id, c.name])),
-      userMap: new Map(data.users.map(u => [u.id, `${u.firstName} ${u.lastName}`])),
-    }),
-    [data.projects, data.clients, data.users],
+  const projectMap = useMemo(() => new Map(data.projects.map(project => [project.id, project.name])), [data.projects]);
+  const clientMap = useMemo(() => new Map(data.clients.map(client => [client.id, client.name])), [data.clients]);
+
+  const approvedExpenses = useMemo(
+    () => data.expenses.filter(expense => expense.status === ExpenseStatus.APPROVED || expense.status === ExpenseStatus.PAID),
+    [data.expenses],
+  );
+  const approvedExpenseTotal = useMemo(
+    () => approvedExpenses.reduce((sum, expense) => sum + (expense.amount ?? 0), 0),
+    [approvedExpenses],
   );
 
-  const handleUpdateInvoiceStatus = useCallback(
-    async (invoiceId: string, status: InvoiceStatus) => {
-      if (status === InvoiceStatus.CANCELLED) {
-        if (!window.confirm('Are you sure you want to cancel this invoice? This action cannot be undone.')) {
-          return;
+  const invoiceMetrics = useMemo(() => {
+    return data.invoices.reduce(
+      (
+        acc,
+        invoice,
+      ) => {
+        const financials = getInvoiceFinancials(invoice);
+        const derivedStatus = getDerivedStatus(invoice);
+        acc.pipeline += financials.total;
+        if (derivedStatus !== InvoiceStatus.PAID && derivedStatus !== InvoiceStatus.CANCELLED) {
+          acc.outstanding += financials.balance;
         }
-      }
-      try {
-        const invoice = data.invoices.find(i => i.id === invoiceId);
-        if (!invoice) throw new Error('Invoice not found');
-        await api.updateInvoice(invoiceId, { ...invoice, status }, user.id);
-        addToast(`Invoice marked as ${status.toLowerCase()}.`, 'success');
-        fetchData();
-      } catch (error) {
-        addToast('Failed to update invoice status.', 'error');
-      }
-    },
-    [data.invoices, user.id, addToast, fetchData],
-  );
-
-  const { projectMap, clientMap, userMap } = useMemo(
-    () => ({
-      projectMap: new Map(data.projects.map(p => [p.id, p.name])),
-      clientMap: new Map(data.clients.map(c => [c.id, c.name])),
-      userMap: new Map(data.users.map(u => [u.id, `${u.firstName} ${u.lastName}`])),
-    }),
-    [data.projects, data.clients, data.users],
-  );
-
-  const handleUpdateInvoiceStatus = useCallback(
-    async (invoiceId: string, status: InvoiceStatus) => {
-      if (status === InvoiceStatus.CANCELLED) {
-        if (!window.confirm('Are you sure you want to cancel this invoice? This action cannot be undone.')) {
-          return;
+        if (derivedStatus === InvoiceStatus.OVERDUE) {
+          acc.overdue += financials.balance;
         }
+        return acc;
+      },
+      { pipeline: 0, outstanding: 0, overdue: 0 },
+    );
+  }, [data.invoices]);
+
+  const latestForecast = data.forecasts[0] ?? null;
+  const previousForecasts = data.forecasts.slice(1, 4);
+
+  const revenueTrend = useMemo(() => data.monthly.map(entry => ({ label: entry.month, value: entry.revenue })), [data.monthly]);
+  const profitTrend = useMemo(() => data.monthly.map(entry => ({ label: entry.month, value: entry.profit })), [data.monthly]);
+  const costBreakdown = useMemo(() => data.costs.map(entry => ({ label: entry.category, value: entry.amount })), [data.costs]);
+
+  const quoteSummary = useMemo(() => {
+    return data.quotes.reduce(
+      (acc, quote) => {
+        acc.total += 1;
+        acc[quote.status] = (acc[quote.status] ?? 0) + 1;
+        return acc;
+      },
+      { total: 0 } as Record<'total' | QuoteStatus, number>,
+    );
+  }, [data.quotes]);
+
+  const handleGenerateForecast = useCallback(
+    async (horizonMonths: number) => {
+      if (!user.companyId) {
+        addToast('A company is required to generate forecasts.', 'error');
+        return;
       }
+
+      setIsGeneratingForecast(true);
+      setForecastError(null);
       try {
         const invoice = data.invoices.find(i => i.id === invoiceId);
         if (!invoice) throw new Error('Invoice not found');
@@ -953,134 +584,155 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
 
   return (
     <div className="space-y-6">
-      {modal === 'client' && (
-        <ClientModal
-          clientToEdit={selectedItem as Client}
-          onClose={() => setModal(null)}
-          onSuccess={fetchData}
-          user={user}
-          addToast={addToast}
-        />
-      )}
-      {modal === 'invoice' && (
-        <InvoiceModal
-          invoiceToEdit={selectedInvoice}
-          isReadOnly={isInvoiceReadOnly}
-          onClose={() => setModal(null)}
-          onSuccess={fetchData}
-          user={user}
-          clients={data.clients}
-          projects={data.projects}
-          addToast={addToast}
-        />
-      )}
-      {modal === 'payment' && selectedInvoice && (
-        <PaymentModal
-          invoice={selectedInvoice}
-          balance={getInvoiceFinancials(selectedInvoice).balance}
-          onClose={() => setModal(null)}
-          onSuccess={fetchData}
-          user={user}
-          addToast={addToast}
-        />
-      )}
-      {modal === 'expense' && (
-        <ExpenseModal
-          expenseToEdit={selectedItem as Expense}
-          onClose={() => setModal(null)}
-          onSuccess={fetchData}
-          user={user}
-          projects={data.projects}
-          addToast={addToast}
-        />
-      )}
-
-      <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold">Financials</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="space-y-1 p-4">
+          <p className="text-sm text-muted-foreground">Profitability</p>
+          <p className="text-3xl font-semibold">
+            {typeof data.kpis?.profitability === 'number' ? `${data.kpis.profitability.toFixed(1)}%` : '—'}
+          </p>
+        </Card>
+        <Card className="space-y-1 p-4">
+          <p className="text-sm text-muted-foreground">Project margin</p>
+          <p className="text-3xl font-semibold">
+            {typeof data.kpis?.projectMargin === 'number' ? `${data.kpis.projectMargin.toFixed(1)}%` : '—'}
+          </p>
+        </Card>
+        <Card className="space-y-1 p-4">
+          <p className="text-sm text-muted-foreground">Cash flow</p>
+          <p className="text-3xl font-semibold">{formatCurrency(data.kpis?.cashFlow ?? 0, currency)}</p>
+        </Card>
       </div>
-      <div className="border-b border-border">
-        <nav className="-mb-px flex space-x-6 overflow-x-auto">
-          {(['dashboard', 'invoices', 'expenses', 'clients'] as FinancialsTab[]).map(tab => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              className={`capitalize whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-                activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
-              }`}
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="space-y-4 p-6">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold">Revenue momentum</h2>
+            <p className="text-sm text-muted-foreground">Trailing performance for the last reporting periods.</p>
+          </div>
+          {revenueTrend.length > 0 ? (
+            <BarChart data={revenueTrend} barColor="bg-blue-500" />
+          ) : (
+            <p className="text-sm text-muted-foreground">No revenue history captured yet.</p>
+          )}
+        </Card>
+        <Card className="space-y-4 p-6">
+          <div className="space-y-1">
+            <h2 className="text-lg font-semibold">Profit trend</h2>
+            <p className="text-sm text-muted-foreground">Observed profit trajectory across the same period.</p>
+          </div>
+          {profitTrend.length > 0 ? (
+            <BarChart data={profitTrend} barColor="bg-emerald-500" />
+          ) : (
+            <p className="text-sm text-muted-foreground">No profit figures recorded.</p>
+          )}
+        </Card>
+      </div>
+
+      <Card className="p-6 space-y-4">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="text-lg font-semibold">Cash outlook</h2>
+            <p className="text-sm text-muted-foreground">Generate and review medium-term forecasts.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-muted-foreground" htmlFor="forecast-horizon">
+              Horizon (months)
+            </label>
+            <select
+              id="forecast-horizon"
+              className="border rounded px-2 py-1 text-sm bg-white dark:bg-slate-900"
+              value={forecastHorizon}
+              onChange={event => setForecastHorizon(Number(event.target.value))}
             >
-              {tab}
-            </button>
-          ))}
-        </nav>
+              {[3, 6, 9, 12].map(option => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+            <Button onClick={() => handleGenerateForecast(forecastHorizon)} isLoading={isGeneratingForecast}>
+              Generate forecast
+            </Button>
+          </div>
+        </div>
+        {forecastError && <p className="text-sm text-destructive">{forecastError}</p>}
+        {latestForecast ? (
+          <div className="space-y-3">
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+              <div>
+                <h3 className="text-base font-semibold">Latest forecast</h3>
+                <p className="text-sm text-muted-foreground">
+                  {new Date(latestForecast.createdAt).toLocaleString()} • {latestForecast.horizonMonths}-month outlook
+                </p>
+              </div>
+              {latestForecast.model && (
+                <Tag label={latestForecast.model} color="blue" statusIndicator="blue" />
+              )}
+            </div>
+            <div className="space-y-2">{forecastSummaryToElements(latestForecast.summary)}</div>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Generate your first forecast to project runway and cash position.</p>
+        )}
+        {previousForecasts.length > 0 && (
+          <details className="pt-2">
+            <summary className="cursor-pointer text-sm text-muted-foreground">Previous runs</summary>
+            <div className="mt-3 space-y-3 max-h-48 overflow-y-auto pr-2">
+              {previousForecasts.map(entry => (
+                <Card key={entry.id} className="p-3 space-y-1 bg-muted">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>
+                      {new Date(entry.createdAt).toLocaleString()} • {entry.horizonMonths}-month horizon
+                    </span>
+                    {entry.model && <span>{entry.model}</span>}
+                  </div>
+                  <div className="space-y-1">{forecastSummaryToElements(entry.summary)}</div>
+                </Card>
+              ))}
+            </div>
+          </details>
+        )}
+      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <Card className="p-6 space-y-2">
+          <h3 className="text-lg font-semibold">Invoice pipeline</h3>
+          <p className="text-3xl font-semibold">{formatCurrency(invoiceMetrics.pipeline, currency)}</p>
+          <p className="text-sm text-muted-foreground">
+            {formatCurrency(invoiceMetrics.outstanding, currency)} outstanding • {formatCurrency(invoiceMetrics.overdue, currency)}
+            {' '}overdue
+          </p>
+        </Card>
+        <Card className="p-6 space-y-2">
+          <h3 className="text-lg font-semibold">Approved expenses</h3>
+          <p className="text-3xl font-semibold">{formatCurrency(approvedExpenseTotal, currency)}</p>
+          <p className="text-sm text-muted-foreground">{approvedExpenses.length} approved or paid expenses</p>
+        </Card>
+        <Card className="p-6 space-y-2">
+          <h3 className="text-lg font-semibold">Quote status</h3>
+          <p className="text-sm text-muted-foreground">{quoteSummary.total} quotes tracked</p>
+          <div className="flex flex-wrap gap-2 text-xs">
+            {([QuoteStatus.DRAFT, QuoteStatus.SENT, QuoteStatus.ACCEPTED, QuoteStatus.REJECTED] as QuoteStatus[]).map(status => (
+              <Tag key={status} label={`${status.toLowerCase()}: ${quoteSummary[status] ?? 0}`} />
+            ))}
+          </div>
+        </Card>
       </div>
-      {activeTab === 'dashboard' && (
-        <DashboardTab kpis={data.kpis} monthly={data.monthly} costs={data.costs} />
-      )}
-      {activeTab === 'invoices' && (
-        <InvoicesTab
-          invoices={data.invoices}
-          quotes={data.quotes}
-          canManageFinances={canManageFinances}
-          clientMap={clientMap}
-          projectMap={projectMap}
-          onCreateInvoice={handleCreateInvoice}
-          onOpenInvoice={handleOpenInvoice}
-          onRecordPayment={handleRecordPayment}
-          onUpdateInvoiceStatus={handleUpdateInvoiceStatus}
-        />
-      )}
-      {activeTab === 'expenses' && (
-        <ExpensesTab
-          expenses={data.expenses}
-          userMap={userMap}
-          projectMap={projectMap}
-          onCreateExpense={handleCreateExpense}
-          onEditExpense={handleEditExpense}
-        />
-      )}
-      {activeTab === 'clients' && (
-        <ClientsTab
-          clients={data.clients}
-          canManageFinances={canManageFinances}
-          onAddClient={handleAddClient}
-          onEditClient={handleEditClient}
-        />
-      )}
-    </div>
-  );
-};
 
-interface DashboardTabProps {
-  kpis: FinancialKPIs | null;
-  monthly: MonthlyFinancials[];
-  costs: CostBreakdown[];
-}
-
-const DashboardTab = React.memo(({ kpis, monthly, costs }: DashboardTabProps) => (
-  <div className="space-y-6">
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <Card>
-        <p className="text-sm text-slate-500">Profitability</p>
-        <p className="text-3xl font-bold">{kpis?.profitability || 0}%</p>
-      </Card>
-      <Card>
-        <p className="text-sm text-slate-500">Avg. Project Margin</p>
-        <p className="text-3xl font-bold">{kpis?.projectMargin || 0}%</p>
-      </Card>
-      <Card>
-        <p className="text-sm text-slate-500">Cash Flow</p>
-        <p className="text-3xl font-bold">{formatCurrency(kpis?.cashFlow || 0, kpis?.currency || 'GBP')}</p>
-      </Card>
-    </div>
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <Card>
-        <h3 className="font-semibold mb-4">Monthly Performance (Profit)</h3>
-        <BarChart data={monthly.map(m => ({ label: m.month, value: m.profit }))} barColor="bg-green-500" />
-      </Card>
-      <Card>
-        <h3 className="font-semibold mb-4">Cost Breakdown</h3>
-        <BarChart data={costs.map(c => ({ label: c.category, value: c.amount }))} barColor="bg-sky-500" />
+      <Card className="p-6 space-y-3">
+        <h3 className="text-lg font-semibold">Cost allocation</h3>
+        {costBreakdown.length > 0 ? (
+          <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-sm">
+            {costBreakdown.map(entry => (
+              <li key={entry.label} className="flex items-center justify-between bg-muted rounded px-3 py-2">
+                <span>{entry.label}</span>
+                <span className="font-medium">{formatCurrency(entry.value, currency)}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">No cost breakdown recorded.</p>
+        )}
       </Card>
     </div>
   </div>

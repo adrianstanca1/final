@@ -42,10 +42,8 @@ const PermissionRequirements: React.FC<{ permissions: Permission[]; anyGroups: P
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Requires all of</p>
           <div className="flex flex-wrap gap-2">
-            {uniquePermissions.map((permission) => (
+            {uniquePermissions.map(permission => (
               <Tag key={String(permission)} label={humanise(String(permission))} color="red" statusIndicator="red" />
-              <Tag key={permission} label={humanise(String(permission))} color="red" statusIndicator="red" />
- 
             ))}
           </div>
         </div>
