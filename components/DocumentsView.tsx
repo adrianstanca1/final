@@ -121,11 +121,26 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ user, addToast, is
                     user={user}
                 />
             )}
-            <div className="flex justify-between items-center">
-                <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Documents</h2>
-                {canUpload && (
-                    <Button onClick={() => setIsUploadModalOpen(true)} disabled={!projectForUpload}>
-                        Upload Document
+            <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+                <div className="flex items-center gap-4">
+                    <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Documents</h2>
+                    <select title="Document filter"
+                        value={currentProject?.id || ''}
+                        onChange={e => handleProjectChange(e.target.value)}
+                        className="p-2 border rounded-md bg-white"
+                    >
+                        {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                </div>
+                {canManage && <div className="flex gap-2">
+                    <Button variant="secondary">New Folder</Button>
+                    {canUpload && (
+                        <Button onClick={() => setIsUploadModalOpen(true)} disabled={!projectForUpload}>
+                            Upload Document
+                        </Button>
+                    )}
+                </div>}
+            </div>
                     </Button>
                 )}
             </div>

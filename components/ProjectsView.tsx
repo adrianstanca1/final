@@ -1,4 +1,11 @@
+<<<<<<< Updated upstream
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+=======
+    <title>Team Members Icon</title>
+    <title>Open Tasks Icon</title>
+    <title>Overdue Tasks Icon</title>
+// full contents of components/ProjectsView.tsx
+>>>>>>> Stashed changes
 
 import {
   User,
@@ -144,6 +151,90 @@ const ProjectCard: React.FC<{ project: Project; onSelect: () => void }> = ({ pro
   );
 };
 
+<<<<<<< Updated upstream
+=======
+interface ProjectSummaryCardProps {
+    project: Project;
+    taskCount: number;
+    memberCount: number;
+    overdueTaskCount: number;
+    upcomingMilestone: { name: string; date: Date } | null;
+    health: ProjectHealth | null;
+    onSelect: () => void;
+}
+
+const ProjectSummaryCard: React.FC<ProjectSummaryCardProps> = ({ project, taskCount, memberCount, overdueTaskCount, upcomingMilestone, health, onSelect }) => {
+    const progress = project.budget > 0 ? (project.actualCost / project.budget) * 100 : 0;
+
+    return (
+        <Card onClick={onSelect} className="cursor-pointer hover:shadow-lg hover:border-sky-500/50 transition-all duration-300 flex flex-col p-0 overflow-hidden animate-card-enter">
+            <img src={project.imageUrl} alt={project.name} className="w-full h-40 object-cover" />
+            <div className="p-4 flex flex-col flex-grow">
+                <div className="flex justify-between items-start mb-2 gap-2">
+                    <h3 className="font-bold text-lg text-slate-800 flex-grow pr-2">{project.name}</h3>
+                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                        <ProjectStatusBadge status={project.status} />
+                        {health && <ProjectHealthIndicator health={health} />}
+                    </div>
+                </div>
+                <p className="text-sm text-slate-500 mb-4">{project.location.address}</p>
+
+                {/* Key Metrics List */}
+                <div className="space-y-3 my-2">
+                    <div className="flex items-center text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656-.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                        <span className="text-slate-600">Team Members</span>
+                        <span className="ml-auto font-semibold text-slate-800 bg-slate-100 rounded-full px-2.5 py-0.5">{memberCount}</span>
+                    </div>
+                     <div className="flex items-center text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                        <span className="text-slate-600">Open Tasks</span>
+                        <span className="ml-auto font-semibold text-slate-800 bg-slate-100 rounded-full px-2.5 py-0.5">{taskCount}</span>
+                    </div>
+                    <div className="flex items-center text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <span className="text-slate-600">Overdue Tasks</span>
+                        <span className={`ml-auto font-bold text-lg ${overdueTaskCount > 0 ? 'text-red-600' : 'text-slate-800'}`}>
+                            {overdueTaskCount}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Upcoming Milestone */}
+                <div className="mt-4 flex-grow">
+                    {upcomingMilestone ? (
+                        <div className="text-sm bg-slate-50 p-3 rounded-md border">
+                            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Next Milestone</p>
+                            <div className="flex justify-between items-center mt-1">
+                                <p className="font-semibold text-slate-700 truncate pr-2">{upcomingMilestone.name}</p>
+                                <p className="text-xs text-slate-600 font-medium flex-shrink-0">{new Date(upcomingMilestone.date).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-sm bg-slate-50 p-3 rounded-md border text-center text-slate-500">
+                            <p>No upcoming tasks with due dates.</p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Budget */}
+                <div className="mt-4 pt-4 border-t">
+                    <div className="flex justify-between mb-1 text-xs font-medium text-slate-600">
+                        <span>Budget Used</span>
+                        <span>{progress.toFixed(0)}%</span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-2">
+                        <div className={`project-budget-bar ${progress > 100 ? 'bg-red-500' : 'bg-sky-500'}`} style={{ '--bar-width': `${Math.min(progress, 100)}%` } as React.CSSProperties}></div>
+import './ui/projectBudgetBar.css';
+                    </div>
+                </div>
+            </div>
+        </Card>
+    );
+};
+
+
+>>>>>>> Stashed changes
 export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSelectProject }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -173,9 +264,37 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
       return;
     }
 
+<<<<<<< Updated upstream
     const controller = new AbortController();
     abortControllerRef.current?.abort();
     abortControllerRef.current = controller;
+=======
+    return (
+        <div className="space-y-6">
+            {isCreateModalOpen && (
+                <CreateProjectModal
+                    user={user}
+                    onClose={() => setIsCreateModalOpen(false)}
+                    onProjectCreated={(newProject) => {
+                        fetchData();
+                        onSelectProject(newProject);
+                    }}
+                    addToast={addToast}
+                />
+            )}
+            <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+                <h2 className="text-3xl font-bold text-slate-800">{isPM ? "Project Manager Dashboard" : "Projects"}</h2>
+                {canCreate && (
+                    <Button variant="primary" onClick={() => setIsCreateModalOpen(true)}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <title>Create Project Icon</title>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Create Project
+                    </Button>
+                )}
+            </div>
+>>>>>>> Stashed changes
 
     setLoading(true);
     setSummaryLoading(true);
