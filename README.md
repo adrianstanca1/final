@@ -21,4 +21,8 @@ View your app in AI Studio: https://ai.studio/apps/drive/1bxBJgk2nuKF5tvtdT-YfJQ
 
 ## Deployment automation
 
-This project ships with a fully automated CI/CD pipeline backed by GitHub Actions. Pull requests run tests and builds via the [`CI` workflow](.github/workflows/ci.yml), while merges to `main` trigger the [`Deploy to GitHub Pages` workflow](.github/workflows/deploy.yml) to publish the production site. Refer to [docs/deployment-plan.md](docs/deployment-plan.md) for the complete autonomous deployment plan, including environment setup, secrets management, and rollback guidance.
+This project ships with a fully automated CI/CD pipeline backed by GitHub Actions. Pull requests run tests and builds via the [`CI` workflow](.github/workflows/ci.yml), while merges to `main` trigger the [`Deploy to GitHub Pages` workflow](.github/workflows/deploy.yml) to publish the production site.
+
+- **Runbooks & responsibilities**: [docs/deployment-plan.md](docs/deployment-plan.md) details the end-to-end automation flow, operational checklists, and ownership model for engineers, reviewers, QA, and on-call.
+- **Secrets**: store the shared Gemini credential as `GEMINI_API_KEY` in repository secrets; developers keep personal keys in `.env.local` as `VITE_GEMINI_API_KEY`.
+- **Monitoring**: follow the plan's observability section to wire synthetic uptime checks and error tracking so deployments stay production ready.
