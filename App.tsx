@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { User, View, Project, Role, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { User, View, Project, Notification, CompanySettings } from './types';
 import { api } from './services/mockApi';
 import { Login } from './components/Login';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { Dashboard } from './components/Dashboard';
-import { OwnerDashboard } from './components/OwnerDashboard';
 import { MyDayView } from './components/MyDayView';
 import { ForemanDashboard } from './components/ForemanDashboard';
 import { PrincipalAdminDashboard } from './components/PrincipalAdminDashboard';
@@ -32,13 +31,16 @@ import { useCommandPalette } from './hooks/useCommandPalette';
 import { useReminderService } from './hooks/useReminderService';
 import { ClientsView } from './components/ClientsView';
 import { InvoicesView } from './components/InvoicesView';
-import { ErrorBoundary } from './components/ErrorBoundary';
+import { PageErrorBoundary } from './components/ErrorBoundary';
 import { UserRegistration } from './components/UserRegistration';
 import { useAuth } from './contexts/AuthContext';
 import { ForgotPassword } from './components/auth/ForgotPassword';
 import { ResetPassword } from './components/auth/ResetPassword';
 import { ViewAccessBoundary } from './components/layout/ViewAccessBoundary';
 import { evaluateViewAccess, getDefaultViewForUser } from './utils/viewAccess';
+import { ToastProvider, useToastHelpers } from './components/ui/Toast';
+import { setupGlobalErrorHandling } from './utils/errorHandling';
+import { useErrorHandling } from './hooks/useErrorHandling';
 
 
 interface Toast {
@@ -86,13 +88,16 @@ const ToastMessage: React.FC<{ toast: Toast; onDismiss: (id: number) => void }> 
         <p className="font-bold">{title}</p>
         <p>{toast.message}</p>
       </div>
-      <button onClick={() => onDismiss(toast.id)} className="p-1 -m-1 rounded-full hover:bg-black/10 flex-shrink-0">&times;</button>
+      <button type="button" onClick={() => onDismiss(toast.id)} className="p-1 -m-1 rounded-full hover:bg-black/10 flex-shrink-0">&times;</button>
     </div>
   );
 };
 
 
-function App() {
+// Setup global error handling on app initialization
+setupGlobalErrorHandling();
+
+function AppContent() {
   const { isAuthenticated, user, loading, logout } = useAuth();
   const [authView, setAuthView] = useState<'login' | 'register' | 'forgot-password' | 'reset-password'>('login');
   const [resetToken, setResetToken] = useState<string | null>(null);
@@ -118,7 +123,7 @@ function App() {
       }
       setActiveView(view);
     },
-    [setSelectedProject, setActiveView]
+    []
   );
 
   const addToast = useCallback((message: string, type: 'success' | 'error' = 'success', notification?: Notification) => {
@@ -144,7 +149,7 @@ function App() {
   useReminderService(user);
   
   useEffect(() => {
-    if (user && user.companyId) {
+    if (user?.companyId) {
       api.getCompanySettings(user.companyId).then(setCompanySettings);
     }
   }, [user]);
@@ -304,16 +309,6 @@ function App() {
 
     switch (activeView) {
       case 'dashboard':
-        if (user.role === Role.OWNER || user.role === Role.ADMIN) {
-          return (
-            <OwnerDashboard
-              user={user}
-              addToast={addToast}
-              onSelectProject={handleSelectProject}
-              setActiveView={changeView}
-            />
-          );
-        }
         return (
           <Dashboard
             user={user}
@@ -342,7 +337,7 @@ function App() {
       case 'tools':
         return <ToolsView user={user} addToast={addToast} setActiveView={changeView} />;
       case 'audit-log': return <AuditLogView user={user} addToast={addToast} />;
-      case 'settings': return <SettingsView user={user} addToast={addToast} settings={companySettings} onSettingsUpdate={(s) => setCompanySettings(prev => ({...prev!, ...s}))} />;
+      case 'settings': return <SettingsView user={user} addToast={addToast} settings={companySettings} onSettingsUpdate={(s) => setCompanySettings(prev => ({...prev, ...s}))} />;
       case 'chat': return <ChatView user={user} addToast={addToast} initialRecipient={initialChatRecipient}/>;
       case 'clients': return <ClientsView user={user} addToast={addToast} />;
       case 'invoices': return <InvoicesView user={user} addToast={addToast} />;
@@ -419,7 +414,7 @@ function App() {
           addToast={addToast}
         />
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-          <ErrorBoundary>
+          <PageErrorBoundary>
             <ViewAccessBoundary
               user={user}
               view={activeView}
@@ -429,7 +424,7 @@ function App() {
             >
               {viewContent}
             </ViewAccessBoundary>
-          </ErrorBoundary>
+          </PageErrorBoundary>
         </main>
       </div>
 
@@ -441,13 +436,22 @@ function App() {
           setActiveView={changeView}
         />
       )}
-      
+
       <div className="fixed bottom-4 right-4 z-50 space-y-2">
         {toasts.map(toast => (
           <ToastMessage key={toast.id} toast={toast} onDismiss={dismissToast} />
         ))}
       </div>
     </div>
+  );
+}
+
+// Main App component with enhanced error handling and toast provider
+function App() {
+  return (
+    <ToastProvider>
+      <AppContent />
+    </ToastProvider>
   );
 }
 
