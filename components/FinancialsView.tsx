@@ -13,8 +13,6 @@ import {
   ExpenseStatus,
   InvoiceStatus,
   QuoteStatus,
-  InvoiceLineItem,
-  InvoiceLineItemDraft,
   FinancialForecast,
 } from '../types';
 import { api } from '../services/mockApi';
@@ -29,6 +27,7 @@ import { ExpenseModal } from './ExpenseModal';
 import ClientModal from './financials/ClientModal';
 import InvoiceModal from './financials/InvoiceModal';
 import PaymentModal from './financials/PaymentModal';
+import BarChart from './financials/BarChart';
 
 type FinancialsTab = 'dashboard' | 'invoices' | 'expenses' | 'clients';
 
@@ -48,161 +47,6 @@ interface FinancialDataState {
   companyName: string | null;
 }
 
-const BarChart: React.FC<{ data: { label: string; value: number }[]; barColor: string }> = ({ data, barColor }) => {
-  const maxValue = Math.max(...data.map(entry => entry.value), 0);
-
-  return (
-    <div className="w-full h-64 flex items-end justify-around gap-2 p-4 border rounded-lg bg-slate-50 dark:bg-slate-900/40">
-      {data.map(entry => (
-        <div key={entry.label} className="flex flex-col items-center justify-end h-full w-full">
-          <div
-            className={`w-3/4 rounded-t-md transition-all ${barColor}`}
-            style={{ height: `${maxValue > 0 ? Math.round((entry.value / maxValue) * 100) : 0}%` }}
-            title={formatCurrency(entry.value)}
-          />
-          <span className="text-xs mt-2 text-slate-600 dark:text-slate-300">{entry.label}</span>
-        </div>
-      ))}
-    </div>
-  );
-};
-
-const InvoiceModal: React.FC<{ invoiceToEdit?: Invoice | null, isReadOnly?: boolean, onClose: () => void, onSuccess: () => void, user: User, clients: Client[], projects: Project[], addToast: (m:string,t:'success'|'error')=>void }> = ({ invoiceToEdit, isReadOnly = false, onClose, onSuccess, user, clients, projects, addToast }) => {
-    const [clientId, setClientId] = useState<string>(invoiceToEdit?.clientId.toString() || '');
-    const [projectId, setProjectId] = useState<string>(invoiceToEdit?.projectId.toString() || '');
-    const [issuedAt, setIssuedAt] = useState(new Date(invoiceToEdit?.issuedAt || new Date()).toISOString().split('T')[0]);
-    const [dueAt, setDueAt] = useState(new Date(invoiceToEdit?.dueAt || Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
-    const [lineItems, setLineItems] = useState<Partial<InvoiceLineItem>[]>(invoiceToEdit?.lineItems || [{ id: `new-${Date.now()}`, description: '', quantity: 1, unitPrice: 0 }]);
-    const [taxRate, setTaxRate] = useState<number | ''>(invoiceToEdit ? invoiceToEdit.taxRate * 100 : 20);
-    const [retentionRate, setRetentionRate] = useState<number | ''>(invoiceToEdit ? invoiceToEdit.retentionRate * 100 : 5);
-    const [notes, setNotes] = useState(invoiceToEdit?.notes || '');
-    const [isSaving, setIsSaving] = useState(false);
-
-    const handleLineItemChange = (index: number, field: keyof Omit<InvoiceLineItem, 'id'|'amount'|'rate'>, value: string | number) => {
-        const newItems = [...lineItems];
-        (newItems[index] as any)[field] = value;
-        setLineItems(newItems);
-    };
-
-    const addLineItem = () => setLineItems([...lineItems, { id: `new-${Date.now()}`, description: '', quantity: 1, unitPrice: 0 }]);
-    const removeLineItem = (index: number) => setLineItems(lineItems.filter((_, i) => i !== index));
-
-    const { subtotal, taxAmount, retentionAmount, total } = useMemo(() => {
-        const subtotalCalc = lineItems.reduce((acc, item) => acc + (Number(item.quantity) * Number(item.unitPrice)), 0);
-        const taxAmountCalc = subtotalCalc * (Number(taxRate) / 100);
-        const retentionAmountCalc = subtotalCalc * (Number(retentionRate) / 100);
-        const totalCalc = subtotalCalc + taxAmountCalc - retentionAmountCalc;
-        return { subtotal: subtotalCalc, taxAmount: taxAmountCalc, retentionAmount: retentionAmountCalc, total: totalCalc };
-    }, [lineItems, taxRate, retentionRate]);
-    
-    const amountPaid = invoiceToEdit?.amountPaid || 0;
-    const balance = total - amountPaid;
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        setIsSaving(true);
-        try {
-            const finalLineItems = lineItems
-                .filter(li => li.description && li.quantity! > 0 && li.unitPrice! > 0)
-                .map(li => ({
-                    id: li.id!.toString().startsWith('new-') ? String(Date.now() + Math.random()) : li.id!,
-                    description: li.description!,
-                    quantity: Number(li.quantity),
-                    unitPrice: Number(li.unitPrice),
-                    amount: Number(li.quantity) * Number(li.unitPrice)
-                }));
-            
-            const invoiceData = {
-                clientId: clientId,
-                projectId: projectId,
-                issuedAt: new Date(issuedAt).toISOString(),
-                dueAt: new Date(dueAt).toISOString(),
-                lineItems: finalLineItems,
-                taxRate: Number(taxRate) / 100,
-                retentionRate: Number(retentionRate) / 100,
-                notes,
-                subtotal, taxAmount, retentionAmount, total, amountPaid, balance,
-                payments: invoiceToEdit?.payments || [],
-                status: invoiceToEdit?.status || InvoiceStatus.DRAFT,
-                invoiceNumber: invoiceToEdit?.invoiceNumber || `INV-${Math.floor(Math.random() * 9000) + 1000}`,
-            };
-            if(invoiceToEdit) {
-                 await api.updateInvoice(invoiceToEdit.id, invoiceData, user.id);
-                 addToast("Invoice updated.", "success");
-            } else {
-                 await api.createInvoice(invoiceData, user.id);
-                 addToast("Invoice created as draft.", "success");
-            }
-            onSuccess();
-            onClose();
-        } catch(e) {
-            addToast("Failed to save invoice.", "error");
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    return (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <Card className="w-full max-w-4xl max-h-[90vh] flex flex-col" onClick={e=>e.stopPropagation()}>
-                <h3 className="text-lg font-bold mb-4">{invoiceToEdit ? `${isReadOnly ? 'View' : 'Edit'} Invoice ${invoiceToEdit.invoiceNumber}` : 'Create Invoice'}</h3>
-                <form onSubmit={handleSubmit} className="flex flex-col flex-grow">
-                    <div className="space-y-4 overflow-y-auto pr-2 flex-grow">
-                        <div className="grid grid-cols-2 gap-4">
-                            <select value={clientId} onChange={e=>setClientId(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-800" required disabled={isReadOnly}><option value="">Select Client</option>{clients.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select>
-                            <select value={projectId} onChange={e=>setProjectId(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-800" required disabled={isReadOnly}><option value="">Select Project</option>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>
-                            <div><label className="text-xs">Issued Date</label><input type="date" value={issuedAt} onChange={e=>setIssuedAt(e.target.value)} className="w-full p-2 border rounded" disabled={isReadOnly}/></div>
-                            <div><label className="text-xs">Due Date</label><input type="date" value={dueAt} onChange={e=>setDueAt(e.target.value)} className="w-full p-2 border rounded" disabled={isReadOnly}/></div>
-                        </div>
-                        <div className="border-t pt-2">
-                            <h4 className="font-semibold">Line Items</h4>
-                            <div className="grid grid-cols-[1fr,90px,130px,130px,40px] gap-2 items-center mt-1 text-xs text-muted-foreground">
-                                <span>Description</span>
-                                <span className="text-right">Quantity</span>
-                                <span className="text-right">Unit Price</span>
-                                <span className="text-right">Amount</span>
-                            </div>
-                            {lineItems.map((item, i) => (
-                                <div key={item.id} className="grid grid-cols-[1fr,90px,130px,130px,40px] gap-2 items-center mt-2">
-                                    <input type="text" value={item.description} onChange={e=>handleLineItemChange(i, 'description', e.target.value)} placeholder="Item or service description" className="p-1 border rounded" disabled={isReadOnly}/>
-                                    <input type="number" value={item.quantity} onChange={e=>handleLineItemChange(i, 'quantity', Number(e.target.value))} placeholder="1" className="p-1 border rounded text-right" disabled={isReadOnly}/>
-                                    <input type="number" value={item.unitPrice} onChange={e=>handleLineItemChange(i, 'unitPrice', Number(e.target.value))} placeholder="0.00" className="p-1 border rounded text-right" disabled={isReadOnly}/>
-                                    <span className="p-1 text-right font-medium">{formatCurrency((item.quantity || 0) * (item.unitPrice || 0))}</span>
-                                    {!isReadOnly && <Button type="button" variant="danger" size="sm" onClick={() => removeLineItem(i)}>&times;</Button>}
-                                </div>
-                            ))}
-                            {!isReadOnly && <Button type="button" variant="secondary" size="sm" className="mt-2" onClick={addLineItem}>+ Add Item</Button>}
-                        </div>
-                        <div className="border-t pt-4 grid grid-cols-2 gap-8">
-                            <div>
-                                 <h4 className="font-semibold mb-2">Notes</h4>
-                                <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Payment details, terms and conditions..." rows={6} className="p-2 border rounded w-full" disabled={isReadOnly}/>
-                            </div>
-                            <div className="space-y-2">
-                                 <h4 className="font-semibold mb-2">Totals</h4>
-                                <div className="flex justify-between items-center"><span className="text-sm">Subtotal:</span><span className="font-medium">{formatCurrency(subtotal)}</span></div>
-                                <div className="flex justify-between items-center"><label htmlFor="taxRate" className="text-sm">Tax (%):</label><input id="taxRate" type="number" value={taxRate} onChange={e=>setTaxRate(e.target.value === '' ? '' : Number(e.target.value))} className="w-24 p-1 border rounded text-right" disabled={isReadOnly}/></div>
-                                 <div className="flex justify-between items-center"><span className="text-sm text-muted-foreground">Tax Amount:</span><span>{formatCurrency(taxAmount)}</span></div>
-                                 <div className="flex justify-between items-center"><label htmlFor="retentionRate" className="text-sm">Retention (%):</label><input id="retentionRate" type="number" value={retentionRate} onChange={e=>setRetentionRate(e.target.value === '' ? '' : Number(e.target.value))} className="w-24 p-1 border rounded text-right" disabled={isReadOnly}/></div>
-                                <div className="flex justify-between items-center"><span className="text-sm text-red-600">Retention Held:</span><span className="text-red-600 font-medium">-{formatCurrency(retentionAmount)}</span></div>
-                                <div className="flex justify-between items-center font-bold text-lg pt-2 border-t"><span >Total Due:</span><span>{formatCurrency(total)}</span></div>
-                                {invoiceToEdit && (
-                                    <>
-                                     <div className="flex justify-between items-center text-sm"><span >Amount Paid:</span><span>-{formatCurrency(amountPaid)}</span></div>
-                                     <div className="flex justify-between items-center font-bold text-lg text-green-600"><span >Balance:</span><span>{formatCurrency(balance)}</span></div>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                    <div className="flex justify-end gap-2 pt-4 border-t mt-4 flex-shrink-0">
-                        <Button type="button" variant="secondary" onClick={onClose}>{isReadOnly ? 'Close' : 'Cancel'}</Button>
-                        {!isReadOnly && <Button type="submit" isLoading={isSaving}>Save Invoice</Button>}
-                    </div>
-                </form>
-            </Card>
-        </div>
-    );
 const forecastSummaryToElements = (summary: string) =>
   summary
     .split('\n')
@@ -233,18 +77,6 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
 }) => {
   const [activeTab, setActiveTab] = useState<FinancialsTab>('dashboard');
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState({
-    kpis: null as FinancialKPIs | null,
-    monthly: [] as MonthlyFinancials[],
-    costs: [] as CostBreakdown[],
-    invoices: [] as Invoice[],
-    quotes: [] as Quote[],
-    expenses: [] as Expense[],
-    clients: [] as Client[],
-    projects: [] as Project[],
-    users: [] as User[],
-    forecasts: [] as FinancialForecast[],
-    companyName: null as string | null,
   const [data, setData] = useState<FinancialDataState>({
     kpis: null,
     monthly: [],
@@ -269,15 +101,22 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
   const currency = data.kpis?.currency ?? 'GBP';
 
   const fetchData = useCallback(async () => {
-    const controller = new AbortController();
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = controller;
-
     if (!user.companyId) {
-      setData(prev => ({ ...prev, invoices: [], expenses: [], clients: [], projects: [], forecasts: [] }));
+      setData(prev => ({
+        ...prev,
+        invoices: [],
+        expenses: [],
+        clients: [],
+        projects: [],
+        forecasts: [],
+      }));
       setLoading(false);
       return;
     }
+
+    const controller = new AbortController();
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = controller;
 
     setLoading(true);
     try {
@@ -307,7 +146,9 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
         api.getCompanies({ signal: controller.signal }),
       ]);
 
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted) {
+        return;
+      }
 
       const companyRecord = companyData.find(entry => entry.id === user.companyId) as { name?: string } | undefined;
 
@@ -326,7 +167,9 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
       });
       setForecastError(null);
     } catch (error) {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted) {
+        return;
+      }
       console.error('Failed to load financial data', error);
       addToast('Failed to load financial data', 'error');
     } finally {
@@ -343,35 +186,6 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
     };
   }, [fetchData]);
 
-  const { projectMap, clientMap, userMap } = useMemo(
-    () => ({
-      projectMap: new Map(data.projects.map(p => [p.id, p.name])),
-      clientMap: new Map(data.clients.map(c => [c.id, c.name])),
-      userMap: new Map(data.users.map(u => [u.id, `${u.firstName} ${u.lastName}`])),
-    }),
-    [data.projects, data.clients, data.users],
-  );
-
-  const handleUpdateInvoiceStatus = useCallback(
-    async (invoiceId: string, status: InvoiceStatus) => {
-      if (status === InvoiceStatus.CANCELLED) {
-        if (!window.confirm('Are you sure you want to cancel this invoice? This action cannot be undone.')) {
-          return;
-        }
-      }
-      try {
-        const invoice = data.invoices.find(i => i.id === invoiceId);
-        if (!invoice) throw new Error('Invoice not found');
-        await api.updateInvoice(invoiceId, { ...invoice, status }, user.id);
-        addToast(`Invoice marked as ${status.toLowerCase()}.`, 'success');
-        fetchData();
-      } catch (error) {
-        addToast('Failed to update invoice status.', 'error');
-      }
-    },
-    [data.invoices, user.id, addToast, fetchData],
-  );
-
   const projectMap = useMemo(() => new Map(data.projects.map(project => [project.id, project.name])), [data.projects]);
   const clientMap = useMemo(() => new Map(data.clients.map(client => [client.id, client.name])), [data.clients]);
 
@@ -386,10 +200,7 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
 
   const invoiceMetrics = useMemo(() => {
     return data.invoices.reduce(
-      (
-        acc,
-        invoice,
-      ) => {
+      (acc, invoice) => {
         const financials = getInvoiceFinancials(invoice);
         const derivedStatus = getDerivedStatus(invoice);
         acc.pipeline += financials.total;
@@ -636,8 +447,7 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
           <h3 className="text-lg font-semibold">Invoice pipeline</h3>
           <p className="text-3xl font-semibold">{formatCurrency(invoiceMetrics.pipeline, currency)}</p>
           <p className="text-sm text-muted-foreground">
-            {formatCurrency(invoiceMetrics.outstanding, currency)} outstanding • {formatCurrency(invoiceMetrics.overdue, currency)}
-            {' '}overdue
+            {formatCurrency(invoiceMetrics.outstanding, currency)} outstanding • {formatCurrency(invoiceMetrics.overdue, currency)} overdue
           </p>
         </Card>
         <Card className="p-6 space-y-2">
