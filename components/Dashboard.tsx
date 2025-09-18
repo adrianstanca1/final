@@ -311,12 +311,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
 
         try {
             const projectTasks = tasks.filter(task => task.projectId === project.id);
-
-
             const projectIncidents = openIncidents.filter(incident => incident.projectId === project.id);
             const projectExpenses = approvedExpenses.filter(expense => expense.projectId === project.id);
- 
-
             const summary = await generateProjectHealthSummary({
                 project,
                 tasks: projectTasks,
@@ -333,8 +329,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
         } finally {
             setIsGeneratingAiSummary(false);
         }
-    }, [aiSelectedProjectId, projects, tasks, openIncidents, expenses, addToast]);
-
     }, [aiSelectedProjectId, projects, tasks, openIncidents, approvedExpenses, addToast]);
  
     
