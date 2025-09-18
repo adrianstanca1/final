@@ -407,7 +407,8 @@ export const api = {
         ensureNotAborted(options?.signal);
         return db.timeEntries.map(te => ({...te, clockIn: new Date(te.clockIn!), clockOut: te.clockOut ? new Date(te.clockOut) : null })) as Timesheet[];
     },
-    getSafetyIncidentsByCompany: async (companyId: string): Promise<SafetyIncident[]> => {
+    getSafetyIncidentsByCompany: async (companyId: string, options?: RequestOptions): Promise<SafetyIncident[]> => {
+        ensureNotAborted(options?.signal);
         await delay();
         return db.safetyIncidents as SafetyIncident[];
     },
@@ -498,8 +499,6 @@ export const api = {
         const userIds = new Set(assignments.map(a => a.userId));
         return db.users.filter(u => userIds.has(u.id!)) as User[];
     },
-
-    getProjectInsights: async (projectId: string): Promise<ProjectInsight[]> => {
 
     getProjectInsights: async (projectId: string, options?: RequestOptions): Promise<ProjectInsight[]> => {
         ensureNotAborted(options?.signal);
