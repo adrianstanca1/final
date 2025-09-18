@@ -1,4 +1,5 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   User,
@@ -19,6 +20,8 @@ import {
   ProjectPortfolioSummary,
   OperationalInsights,
 =======
+=======
+>>>>>>> Stashed changes
 import './ui/storageUsage.css';
 // full contents of components/Dashboard.tsx
 >>>>>>> Stashed changes
@@ -432,6 +435,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                     <KpiCard title="Storage Usage" value={`${healthStats.storageUsageGB.toFixed(1)} GB`} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>}>
                         <div className="w-full bg-slate-200 rounded-full h-2">
                             <div className="bg-sky-500 h-2 rounded-full storage-usage-bar" style={{ '--storage-usage': `${(healthStats.storageUsageGB / healthStats.storageCapacityGB) * 100}%` } as React.CSSProperties}></div>
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
                         </div>
                         <Button variant="ghost" size="sm" onClick={() => setActiveView('projects')}>View all</Button>
