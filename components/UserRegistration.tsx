@@ -366,7 +366,7 @@ const SelectField = ({ label, name, value, onChange, error, options }: {label: s
     </div>
 );
 
-const RadioCard = ({ name, value, label, description, checked, onChange }: { name: string, value: string | CompanyType | Role, label: string, description: string, checked: boolean, onChange: any }) => (
+const RadioCard = ({ name, value, label, description, checked, onChange }: { key?: string | CompanyType | Role, name: string, value: string | CompanyType | Role, label: string, description: string, checked: boolean, onChange: any }) => (
     <label className={`block p-4 border rounded-md cursor-pointer transition-all ${checked ? 'bg-primary/10 border-primary ring-2 ring-primary' : 'hover:bg-accent'}`}>
         <input type="radio" name={name} value={value} checked={checked} onChange={e => onChange(name, e.target.value)} className="sr-only"/>
         <p className="font-semibold">{label}</p>

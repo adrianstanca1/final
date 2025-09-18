@@ -279,6 +279,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
         [tasks],
     );
 
+    const kpiData = useMemo(() => {
+        const budgetUtilization = portfolioSummary.pipelineValue > 0
+            ? Math.round((portfolioSummary.totalActualCost / portfolioSummary.pipelineValue) * 100)
+            : 0;
+        return {
+            activeProjectsCount: activeProjects.length,
+            atRisk: atRiskProjects.length,
+            openIncidents: openIncidents.length,
+            budgetUtilization,
+            teamSize: team.length,
+        };
+    }, [activeProjects.length, atRiskProjects.length, openIncidents.length, portfolioSummary.pipelineValue, portfolioSummary.totalActualCost, team.length]);
+
     const insight = operationalInsights;
     const operationalCurrency = insight?.financial.currency ?? 'GBP';
     const complianceRate = clampPercentage(insight?.workforce.complianceRate ?? 0);

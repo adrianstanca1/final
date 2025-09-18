@@ -17,8 +17,8 @@ import {
 } from '../types';
 
 const MODEL_NAME = 'gemini-2.0-flash-001';
-const API_KEY = typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY
-  ? import.meta.env.VITE_GEMINI_API_KEY
+const API_KEY = typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_GEMINI_API_KEY
+  ? (import.meta as any).env.VITE_GEMINI_API_KEY
   : typeof process !== 'undefined'
     ? (process.env?.GEMINI_API_KEY as string | undefined)
     : undefined;
@@ -389,7 +389,7 @@ ${buildSearchContext(input)}
 
 Respond with concise Markdown. Prioritise actionable insights, references to document names, task IDs, or incident statuses when relevant.`;
 
-  const response = await callGemini(prompt, { maxOutputTokens: 512 });
+  const response = await callGemini(prompt, { maxOutputTokens: 512 as any });
 
   if (response?.text) {
     const text = response.text.trim();
@@ -587,7 +587,7 @@ ${buildForecastContext({ ...input, horizonMonths }, snapshot)}
 
 Respond in Markdown using bullet points.`;
 
-  const response = await callGemini(prompt, { maxOutputTokens: 768, temperature: 0.3 });
+  const response = await callGemini(prompt, { maxOutputTokens: 768 as any, temperature: 0.3 as any });
 
   if (response?.text) {
     const text = response.text.trim();
