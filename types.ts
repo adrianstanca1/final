@@ -737,6 +737,27 @@ export interface OperationalAlert {
     message: string;
 }
 
+export type RoleOperationalPulseSentiment = 'positive' | 'neutral' | 'negative';
+
+export type RoleOperationalPulseMetricUnit = 'count' | 'percentage' | 'currency' | 'hours';
+
+export interface RoleOperationalPulseMetric {
+    id: string;
+    label: string;
+    value: number;
+    unit: RoleOperationalPulseMetricUnit;
+    trend?: number | null;
+    helper?: string;
+    currency?: string;
+}
+
+export interface RoleOperationalPulse {
+    sentiment: RoleOperationalPulseSentiment;
+    summary: string;
+    metrics: RoleOperationalPulseMetric[];
+    recommendations: string[];
+}
+
 export interface WorkforceTrendPoint {
     periodStart: string;
     periodLabel: string;
@@ -797,6 +818,11 @@ export interface OperationalInsights {
     };
     alerts: OperationalAlert[];
     trends: OperationalInsightsTrends;
+    rolePulse: {
+        owner: RoleOperationalPulse;
+        projectManager: RoleOperationalPulse;
+        foreman: RoleOperationalPulse;
+    };
 }
 
 export interface ProjectTemplate {

@@ -1462,6 +1462,222 @@ export const api = {
             };
         });
 
+        const latestWorkforcePoint = workforceTrend.length ? workforceTrend[workforceTrend.length - 1] : null;
+        const previousWorkforcePoint = workforceTrend.length > 1 ? workforceTrend[workforceTrend.length - 2] : null;
+        const complianceChange = latestWorkforcePoint && previousWorkforcePoint
+            ? Math.round((latestWorkforcePoint.complianceRate - previousWorkforcePoint.complianceRate) * 10) / 10
+            : null;
+
+        const normaliseCurrencyValue = (value: number) => Math.round(value * 100) / 100;
+
+        const ownerRiskScore =
+            (highSeverity > 0 ? 2 : 0) +
+            (complianceRate < 70 ? 2 : complianceRate < 85 ? 1 : 0) +
+            (outstandingReceivables > burnRatePerActiveProject * Math.max(1, activeProjects) ? 1 : 0) +
+            (atRiskActiveProjects > 0 ? 1 : 0);
+
+        const ownerSentiment = ownerRiskScore >= 3 ? 'negative'
+            : ownerRiskScore > 0 ? 'neutral'
+            : 'positive';
+
+        const ownerRecommendations: string[] = [];
+        if (highSeverity > 0) {
+            ownerRecommendations.push('Call a safety stand-down to resolve high severity incidents.');
+        }
+        if (outstandingReceivables > burnRatePerActiveProject * Math.max(1, activeProjects)) {
+            ownerRecommendations.push('Escalate collections on overdue receivables to protect cash flow.');
+        }
+        if (complianceRate < 85) {
+            ownerRecommendations.push('Request project teams clear pending timesheet approvals.');
+        }
+        if (ownerRecommendations.length === 0) {
+            ownerRecommendations.push('No critical portfolio actions. Continue monitoring weekly pulse.');
+        }
+
+        const ownerPulse = {
+            sentiment: ownerSentiment as const,
+            summary:
+                ownerSentiment === 'positive'
+                    ? 'Portfolio operating within guardrails.'
+                    : ownerSentiment === 'neutral'
+                    ? 'Cash flow and workforce compliance require active monitoring.'
+                    : 'Critical safety or compliance issues need leadership attention.',
+            metrics: [
+                {
+                    id: 'compliance',
+                    label: 'Timesheet compliance',
+                    value: Math.round(complianceRate * 10) / 10,
+                    unit: 'percentage' as const,
+                    trend: complianceChange,
+                    helper: 'Approved vs submitted',
+                },
+                {
+                    id: 'high-severity',
+                    label: 'High severity incidents',
+                    value: highSeverity,
+                    unit: 'count' as const,
+                    helper: 'Open cases',
+                },
+                {
+                    id: 'receivables',
+                    label: 'Outstanding receivables',
+                    value: normaliseCurrencyValue(outstandingReceivables),
+                    unit: 'currency' as const,
+                    currency: companyCurrency,
+                    helper: `${activeProjects} active projects`,
+                },
+                {
+                    id: 'burn-rate',
+                    label: 'Burn / active project',
+                    value: normaliseCurrencyValue(burnRatePerActiveProject),
+                    unit: 'currency' as const,
+                    currency: companyCurrency,
+                    helper: 'Approved spend this month',
+                },
+            ],
+            recommendations: ownerRecommendations,
+        };
+
+        const schedulePressureScore =
+            (overdueTasks > 5 ? 2 : overdueTasks > 0 ? 1 : 0) +
+            (tasksDueSoon > 8 ? 1 : 0) +
+            (pendingApprovals > 5 ? 1 : 0) +
+            (complianceRate < 75 ? 1 : 0);
+
+        const projectManagerSentiment = schedulePressureScore >= 3 ? 'negative'
+            : schedulePressureScore > 0 ? 'neutral'
+            : 'positive';
+
+        const projectManagerRecommendations: string[] = [];
+        if (overdueTasks > 0) {
+            projectManagerRecommendations.push(`Reprioritise ${overdueTasks} overdue task${overdueTasks === 1 ? '' : 's'} with site leads.`);
+        }
+        if (tasksDueSoon > 0) {
+            projectManagerRecommendations.push('Confirm hand-offs for upcoming tasks over the next 7 days.');
+        }
+        if (pendingApprovals > 0) {
+            projectManagerRecommendations.push('Clear pending timesheets to unblock payroll processing.');
+        }
+        if (projectManagerRecommendations.length === 0) {
+            projectManagerRecommendations.push('Delivery cadence is healthy. Keep reinforcing daily stand-ups.');
+        }
+
+        const projectManagerPulse = {
+            sentiment: projectManagerSentiment as const,
+            summary:
+                projectManagerSentiment === 'positive'
+                    ? 'Delivery cadence is on track across the programme.'
+                    : projectManagerSentiment === 'neutral'
+                    ? 'Upcoming commitments need focus to stay on schedule.'
+                    : 'Critical delivery risks require immediate re-planning.',
+            metrics: [
+                {
+                    id: 'overdue-tasks',
+                    label: 'Overdue tasks',
+                    value: overdueTasks,
+                    unit: 'count' as const,
+                    helper: 'Across active projects',
+                },
+                {
+                    id: 'due-soon',
+                    label: 'Due next 7 days',
+                    value: tasksDueSoon,
+                    unit: 'count' as const,
+                    helper: 'Schedule horizon',
+                },
+                {
+                    id: 'progress',
+                    label: 'Average progress',
+                    value: Math.round(portfolioSummary.averageProgress * 10) / 10,
+                    unit: 'percentage' as const,
+                    helper: 'Portfolio average',
+                },
+                {
+                    id: 'pending-approvals',
+                    label: 'Pending approvals',
+                    value: pendingApprovals,
+                    unit: 'count' as const,
+                    helper: 'Timesheets awaiting PM action',
+                },
+            ],
+            recommendations: projectManagerRecommendations,
+        };
+
+        const daysSinceLastIncidentValue = daysSinceLastIncident ?? 0;
+        const foremanPressureScore =
+            (pendingApprovals > 4 ? 1 : 0) +
+            (overtimeHours > 6 ? 1 : 0) +
+            (daysSinceLastIncident === 0 ? 2 : daysSinceLastIncident !== null && daysSinceLastIncident < 7 ? 1 : 0);
+
+        const foremanSentiment = foremanPressureScore >= 3 ? 'negative'
+            : foremanPressureScore > 0 ? 'neutral'
+            : 'positive';
+
+        const foremanRecommendations: string[] = [];
+        if (pendingApprovals > 0) {
+            foremanRecommendations.push('Close out crew timesheets waiting for approval before shift end.');
+        }
+        if (overtimeHours > 6) {
+            foremanRecommendations.push('Balance crew assignments to reduce overtime exposure.');
+        }
+        if (daysSinceLastIncident === 0) {
+            foremanRecommendations.push("Review today's incident with the team during toolbox talks.");
+        } else if (daysSinceLastIncident !== null && daysSinceLastIncident < 7) {
+            foremanRecommendations.push("Monitor corrective actions from this week's incident.");
+        }
+        if (foremanRecommendations.length === 0) {
+            foremanRecommendations.push('Site operations stable. Keep reinforcing daily safety briefings.');
+        }
+
+        const foremanPulse = {
+            sentiment: foremanSentiment as const,
+            summary:
+                foremanSentiment === 'positive'
+                    ? 'Crew performance and safety look healthy.'
+                    : foremanSentiment === 'neutral'
+                    ? 'Tidy up approvals and monitor recent incidents.'
+                    : 'Immediate site follow-up required to stabilise the shift.',
+            metrics: [
+                {
+                    id: 'crew-on-shift',
+                    label: 'Crew clocked in',
+                    value: activeTimesheets,
+                    unit: 'count' as const,
+                    helper: 'Across active projects',
+                },
+                {
+                    id: 'compliance-foreman',
+                    label: 'Timesheet compliance',
+                    value: Math.round(complianceRate * 10) / 10,
+                    unit: 'percentage' as const,
+                    trend: complianceChange,
+                    helper: 'Approved vs submitted',
+                },
+                {
+                    id: 'avg-hours',
+                    label: 'Avg hours / shift',
+                    value: Math.round(averageHours * 10) / 10,
+                    unit: 'hours' as const,
+                    helper: `${approvedThisWeek} approvals cleared this week`,
+                },
+                {
+                    id: 'overtime',
+                    label: 'Overtime hours',
+                    value: Math.round(overtimeHours * 10) / 10,
+                    unit: 'hours' as const,
+                    helper: overtimeHours > 0 ? 'Review rota balance' : 'No overtime logged',
+                },
+                {
+                    id: 'incident-gap',
+                    label: 'Days since incident',
+                    value: daysSinceLastIncidentValue,
+                    unit: 'count' as const,
+                    helper: daysSinceLastIncident === null ? 'No incidents recorded' : undefined,
+                },
+            ],
+            recommendations: foremanRecommendations,
+        };
+
         return {
             updatedAt: isoNow,
             safety: {
@@ -1496,6 +1712,11 @@ export const api = {
                 workforce: workforceTrend,
                 safety: safetyTrend,
                 financial: financialTrend,
+            },
+            rolePulse: {
+                owner: ownerPulse,
+                projectManager: projectManagerPulse,
+                foreman: foremanPulse,
             },
         };
     },

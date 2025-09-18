@@ -55,6 +55,11 @@ describe('mockApi operational insights', () => {
     expect(insights.trends.financial).toHaveLength(6);
     expect(insights.trends.workforce[insights.trends.workforce.length - 1].periodLabel).toBeTruthy();
     expect(insights.trends.financial[0].periodLabel).toMatch(/\d{4}/);
+    expect(['positive', 'neutral', 'negative']).toContain(insights.rolePulse.owner.sentiment);
+    expect(insights.rolePulse.owner.metrics.length).toBeGreaterThanOrEqual(4);
+    expect(insights.rolePulse.projectManager.recommendations.length).toBeGreaterThan(0);
+    const crewMetric = insights.rolePulse.foreman.metrics.find(metric => metric.id === 'crew-on-shift');
+    expect(crewMetric?.value).toBeGreaterThanOrEqual(0);
   });
 
   it('produces actionable alerts when compliance or tasks need attention', async () => {
@@ -66,5 +71,6 @@ describe('mockApi operational insights', () => {
 
     expect(Array.isArray(insights.alerts)).toBe(true);
     expect(insights.alerts.some(alert => alert.id === 'low-timesheet-compliance')).toBe(true);
+    expect(insights.rolePulse.foreman.recommendations.length).toBeGreaterThan(0);
   });
 });

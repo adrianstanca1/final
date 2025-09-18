@@ -233,7 +233,9 @@ const SiteUpdatesCard: React.FC<{ project: Project; user: User; addToast: (m:str
 };
 
 const OperationalPulseCard: React.FC<{ insights: OperationalInsights | null }> = ({ insights }) => {
-    if (!insights) {
+    const pulse = insights?.rolePulse.foreman ?? null;
+
+    if (!insights || !pulse) {
         return (
             <Card className="space-y-3 p-4">
                 <h2 className="text-lg font-semibold">Operational pulse</h2>
@@ -242,113 +244,79 @@ const OperationalPulseCard: React.FC<{ insights: OperationalInsights | null }> =
         );
     }
 
-    const compliance = clampPercentage(insights.workforce.complianceRate);
-    const pendingApprovals = insights.workforce.pendingApprovals;
-    const activeCrew = insights.workforce.activeTimesheets;
-    const averageHours = insights.workforce.averageHours;
-    const overtimeHours = insights.workforce.overtimeHours;
-    const daysSinceLastIncident = insights.safety.daysSinceLastIncident;
-    const tasksDueSoon = insights.schedule.tasksDueSoon;
-    const overdueTasks = insights.schedule.overdueTasks;
-    const approvedSpend = insights.financial.approvedExpensesThisMonth;
-    const currency = insights.financial.currency;
-    const alerts = insights.alerts;
-    const workforceTrend = insights.trends?.workforce ?? [];
-    const latestTrendPoint = workforceTrend.length ? workforceTrend[workforceTrend.length - 1] : null;
-    const previousTrendPoint = workforceTrend.length > 1 ? workforceTrend[workforceTrend.length - 2] : null;
-    const complianceShift = latestTrendPoint && previousTrendPoint
-        ? latestTrendPoint.complianceRate - previousTrendPoint.complianceRate
-        : null;
+    const sentimentStyles: Record<'positive' | 'neutral' | 'negative', { label: string; className: string }> = {
+        positive: {
+            label: 'Stable shift',
+            className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200 border border-emerald-500/30',
+        },
+        neutral: {
+            label: 'Monitor closely',
+            className: 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200 border border-amber-500/30',
+        },
+        negative: {
+            label: 'Take action',
+            className: 'bg-destructive/10 text-destructive border border-destructive/40',
+        },
+    };
+
+    const formatMetricValue = (metric: typeof pulse.metrics[number]) => {
+        if (metric.helper === 'No incidents recorded' && metric.value === 0) {
+            return '—';
+        }
+        switch (metric.unit) {
+            case 'percentage':
+                return `${metric.value.toFixed(1)}%`;
+            case 'currency':
+                return formatCurrency(metric.value, metric.currency ?? insights.financial.currency);
+            case 'hours':
+                return `${metric.value.toFixed(1)}h`;
+            default:
+                return metric.value.toLocaleString();
+        }
+    };
 
     return (
-        <Card className="space-y-3 p-4">
-            <h2 className="text-lg font-semibold">Operational pulse</h2>
-            <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Timesheet compliance</span>
-                    <span className={`font-semibold ${compliance < 80 ? 'text-amber-600' : 'text-foreground'}`}>{compliance}%</span>
-                </div>
-                <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Crew clocked in</span>
-                    <span className="font-semibold text-foreground">{activeCrew}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Pending approvals</span>
-                    <span className="font-semibold text-foreground">{pendingApprovals}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Tasks due next 7 days</span>
-                    <span className={`font-semibold ${tasksDueSoon > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>{tasksDueSoon}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Overdue tasks</span>
-                    <span className={`font-semibold ${overdueTasks > 0 ? 'text-destructive' : 'text-foreground'}`}>{overdueTasks}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Avg hours / shift</span>
-                    <span className="font-semibold text-foreground">{averageHours.toFixed(1)}h</span>
-                </div>
-                <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Approved cost (month)</span>
-                    <span className="font-semibold text-foreground">{formatCurrency(approvedSpend, currency)}</span>
-                </div>
+        <Card className="space-y-4 p-5">
+            <div className="flex flex-wrap items-center gap-3">
+                <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${sentimentStyles[pulse.sentiment].className}`}>
+                    <span className="h-2 w-2 rounded-full bg-current opacity-60" />
+                    {sentimentStyles[pulse.sentiment].label}
+                </span>
+                <p className="text-sm text-muted-foreground">Updated {new Date(insights.updatedAt).toLocaleString()}</p>
             </div>
-            <p className="text-xs text-muted-foreground">
-                {daysSinceLastIncident === null
-                    ? 'No incident history'
-                    : daysSinceLastIncident === 0
-                    ? 'Incident reported today'
-                    : `${daysSinceLastIncident} day${daysSinceLastIncident === 1 ? '' : 's'} since last incident`}
-                {overtimeHours > 0 ? ` • ${overtimeHours.toFixed(1)} overtime hrs` : ''}
-            </p>
-            {workforceTrend.length > 0 && (
-                <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        6-week compliance
-                    </p>
-                    <div className="flex h-16 items-end gap-1">
-                        {workforceTrend.map(point => {
-                            const height = Math.max(8, Math.min(100, point.complianceRate));
-                            return (
-                                <div key={point.periodStart} className="flex-1">
-                                    <div
-                                        className="w-full rounded-t bg-emerald-500/80"
-                                        style={{ height: `${height}%` }}
-                                        title={`${point.periodLabel}: ${point.complianceRate.toFixed(1)}%`}
-                                    />
-                                </div>
-                            );
-                        })}
+            <div>
+                <h2 className="text-lg font-semibold">Operational pulse</h2>
+                <p className="mt-1 text-sm text-muted-foreground">{pulse.summary}</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+                {pulse.metrics.map(metric => (
+                    <div key={metric.id} className="rounded-lg border border-border/60 bg-background/80 p-4 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{metric.label}</p>
+                        <div className="mt-2 flex items-baseline gap-2">
+                            <span className="text-2xl font-semibold text-foreground">{formatMetricValue(metric)}</span>
+                            {typeof metric.trend === 'number' && !Number.isNaN(metric.trend) && (
+                                <span className={`text-xs font-semibold ${metric.trend >= 0 ? 'text-emerald-500' : 'text-destructive'}`}>
+                                    {metric.trend >= 0 ? '▲' : '▼'} {Math.abs(metric.trend).toFixed(1)} pts
+                                </span>
+                            )}
+                        </div>
+                        {metric.helper && (
+                            <p className="mt-2 text-xs text-muted-foreground">{metric.helper}</p>
+                        )}
                     </div>
-                    {complianceShift !== null && (
-                        <p
-                            className={`text-[11px] font-medium ${
-                                complianceShift >= 0 ? 'text-emerald-600' : 'text-destructive'
-                            }`}
-                        >
-                            {complianceShift >= 0 ? '▲' : '▼'} {Math.abs(complianceShift).toFixed(1)} pts vs last week
-                        </p>
-                    )}
-                </div>
-            )}
-            {alerts.length > 0 && (
-                <ul className="space-y-1 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-muted-foreground">
-                    {alerts.slice(0, 2).map(alert => (
-                        <li key={alert.id} className="flex items-start gap-2">
-                            <span
-                                className={`mt-1 h-2 w-2 rounded-full ${
-                                    alert.severity === 'critical'
-                                        ? 'bg-destructive'
-                                        : alert.severity === 'warning'
-                                        ? 'bg-amber-500'
-                                        : 'bg-primary'
-                                }`}
-                            />
-                            <span>{alert.message}</span>
+                ))}
+            </div>
+            <div className="space-y-2 text-sm text-muted-foreground">
+                <p className="font-semibold text-foreground">Crew focus</p>
+                <ul className="grid gap-2">
+                    {pulse.recommendations.map((item, index) => (
+                        <li key={`${item}-${index}`} className="flex items-start gap-2 rounded-md bg-muted/60 p-3">
+                            <span className="mt-1 text-xs text-emerald-500">●</span>
+                            <span>{item}</span>
                         </li>
                     ))}
                 </ul>
-            )}
+            </div>
         </Card>
     );
 };

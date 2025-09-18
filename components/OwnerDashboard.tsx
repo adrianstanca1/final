@@ -138,6 +138,39 @@ const CostBreakdownList: React.FC<{ data: CostBreakdown[]; currency: string }> =
   );
 };
 
+type PulseMetric = OperationalInsights['rolePulse']['owner']['metrics'][number];
+
+const sentimentStyles: Record<OperationalInsights['rolePulse']['owner']['sentiment'], { label: string; className: string }> = {
+  positive: {
+    label: 'Steady',
+    className:
+      'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200 border border-emerald-500/30',
+  },
+  neutral: {
+    label: 'Monitor',
+    className:
+      'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200 border border-amber-500/30',
+  },
+  negative: {
+    label: 'Action required',
+    className:
+      'bg-destructive/10 text-destructive border border-destructive/40',
+  },
+};
+
+const formatPulseMetricValue = (metric: PulseMetric, fallbackCurrency: string) => {
+  switch (metric.unit) {
+    case 'percentage':
+      return `${metric.value.toFixed(1)}%`;
+    case 'currency':
+      return formatCurrency(metric.value, metric.currency ?? fallbackCurrency);
+    case 'hours':
+      return `${metric.value.toFixed(1)}h`;
+    default:
+      return metric.value.toLocaleString();
+  }
+};
+
 export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   user,
   addToast,
@@ -490,6 +523,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     return <Card>Loading executive overview…</Card>;
   }
 
+  const ownerPulse = operationalInsights?.rolePulse.owner ?? null;
+  const insightsUpdatedAt = operationalInsights?.updatedAt ?? null;
+
   return (
     <div className="space-y-6">
       <ViewHeader
@@ -537,6 +573,62 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           },
         ]}
       />
+
+      {ownerPulse && (
+        <Card className="relative overflow-hidden border border-primary/30 bg-gradient-to-br from-primary/5 via-background to-background p-6">
+          <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+          <div className="relative flex flex-col gap-6">
+            <div className="flex flex-wrap items-center gap-3">
+              <span
+                className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${sentimentStyles[ownerPulse.sentiment].className}`}
+              >
+                <span className="h-2 w-2 rounded-full bg-current opacity-60" />
+                {sentimentStyles[ownerPulse.sentiment].label}
+              </span>
+              {insightsUpdatedAt && (
+                <p className="text-sm text-muted-foreground">Updated {new Date(insightsUpdatedAt).toLocaleString()}</p>
+              )}
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Leadership pulse</h2>
+              <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{ownerPulse.summary}</p>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              {ownerPulse.metrics.map(metric => (
+                <div key={metric.id} className="rounded-lg border border-border/60 bg-background/80 p-4 shadow-sm">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{metric.label}</p>
+                  <div className="mt-2 flex items-baseline gap-2">
+                    <span className="text-2xl font-semibold text-foreground">
+                      {formatPulseMetricValue(metric, financialCurrency)}
+                    </span>
+                    {typeof metric.trend === 'number' && !Number.isNaN(metric.trend) && (
+                      <span
+                        className={`text-xs font-semibold ${metric.trend >= 0 ? 'text-emerald-500' : 'text-destructive'}`}
+                      >
+                        {metric.trend >= 0 ? '▲' : '▼'} {Math.abs(metric.trend).toFixed(1)} pts
+                      </span>
+                    )}
+                  </div>
+                  {metric.helper && (
+                    <p className="mt-2 text-xs text-muted-foreground">{metric.helper}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm font-semibold text-foreground">Focus actions</p>
+              <ul className="grid gap-2 sm:grid-cols-2">
+                {ownerPulse.recommendations.map((item, index) => (
+                  <li key={`${item}-${index}`} className="flex items-start gap-2 rounded-md bg-muted/60 p-3 text-sm text-muted-foreground">
+                    <span className="mt-1 text-xs text-primary">●</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </Card>
+      )}
 
       <section className="grid gap-6 xl:grid-cols-[2fr,1fr]">
         <Card className="space-y-6 p-6">

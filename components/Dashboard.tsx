@@ -96,6 +96,34 @@ const availabilityTagColor: Record<AvailabilityStatus, 'green' | 'blue' | 'gray'
     [AvailabilityStatus.ON_LEAVE]: 'gray',
 };
 
+type ManagerPulseMetric = OperationalInsights['rolePulse']['projectManager']['metrics'][number];
+
+const managerSentimentStyles: Record<OperationalInsights['rolePulse']['projectManager']['sentiment'], { label: string; className: string }> = {
+    positive: {
+        label: 'On track',
+        className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200 border border-emerald-500/30',
+    },
+    neutral: {
+        label: 'Monitor',
+        className: 'bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200 border border-amber-500/30',
+    },
+    negative: {
+        label: 'Immediate action',
+        className: 'bg-destructive/10 text-destructive border border-destructive/40',
+    },
+};
+
+const formatManagerPulseMetric = (metric: ManagerPulseMetric, currency: string) => {
+    switch (metric.unit) {
+        case 'percentage':
+            return `${metric.value.toFixed(1)}%`;
+        case 'currency':
+            return formatCurrency(metric.value, metric.currency ?? currency);
+        default:
+            return metric.value.toLocaleString();
+    }
+};
+
 // FIX: Local implementation of startOfWeek to resolve module export error.
 const startOfWeek = (date: Date, options?: { weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6 }): Date => {
     const weekStartsOn = options?.weekStartsOn ?? 0;
@@ -282,6 +310,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     const workforceComplianceDelta = latestWorkforcePoint && previousWorkforcePoint
         ? latestWorkforcePoint.complianceRate - previousWorkforcePoint.complianceRate
         : null;
+    const projectManagerPulse = insight?.rolePulse.projectManager ?? null;
+    const pulseUpdatedAt = insight?.updatedAt ?? null;
 
     const kpiData = useMemo(() => {
         const budgetData = activeProjects.reduce((acc, p) => {
@@ -377,6 +407,53 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                     },
                 ]}
             />
+
+            {projectManagerPulse && (
+                <Card className="relative overflow-hidden border border-blue-500/20 bg-gradient-to-br from-blue-500/10 via-background to-background p-6">
+                    <div className="pointer-events-none absolute -right-16 top-1/2 h-40 w-40 -translate-y-1/2 rounded-full bg-blue-500/20 blur-3xl" />
+                    <div className="relative flex flex-col gap-4">
+                        <div className="flex flex-wrap items-center gap-3">
+                            <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${managerSentimentStyles[projectManagerPulse.sentiment].className}`}>
+                                <span className="h-2 w-2 rounded-full bg-current opacity-60" />
+                                {managerSentimentStyles[projectManagerPulse.sentiment].label}
+                            </span>
+                            {pulseUpdatedAt && (
+                                <p className="text-sm text-muted-foreground">Updated {new Date(pulseUpdatedAt).toLocaleString()}</p>
+                            )}
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-semibold text-foreground">Operational pulse</h2>
+                            <p className="mt-1 text-sm text-muted-foreground">{projectManagerPulse.summary}</p>
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                            {projectManagerPulse.metrics.map(metric => (
+                                <div key={metric.id} className="rounded-lg border border-border/60 bg-background/80 p-4 shadow-sm">
+                                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{metric.label}</p>
+                                    <div className="mt-2 flex items-baseline gap-2">
+                                        <span className="text-2xl font-semibold text-foreground">
+                                            {formatManagerPulseMetric(metric, operationalCurrency)}
+                                        </span>
+                                    </div>
+                                    {metric.helper && (
+                                        <p className="mt-2 text-xs text-muted-foreground">{metric.helper}</p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        <div className="space-y-2 text-sm text-muted-foreground">
+                            <p className="font-semibold text-foreground">Next actions</p>
+                            <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                                {projectManagerPulse.recommendations.map((item, index) => (
+                                    <li key={`${item}-${index}`} className="flex items-start gap-2 rounded-md bg-muted/60 p-3">
+                                        <span className="mt-1 text-xs text-blue-500">●</span>
+                                        <span>{item}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                </Card>
+            )}
 
             <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                 <KpiCard
