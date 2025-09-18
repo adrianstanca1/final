@@ -136,7 +136,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
         if (bulkAction.type === 'priority') updates.priority = bulkAction.value as TodoPriority;
 
         const originalTodos = [...todos];
-        const selectedIdsArray = Array.from(selectedTaskIds);
+        const selectedIdsArray: (string | number)[] = Array.from(selectedTaskIds);
         setTodos(prev => prev.map(t => selectedIdsArray.includes(t.id) ? { ...t, ...updates } : t));
 
         try {

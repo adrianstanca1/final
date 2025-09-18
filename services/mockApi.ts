@@ -528,9 +528,11 @@ export const api = {
         ensureNotAborted(options?.signal);
         return db.timeEntries.map(te => ({...te, clockIn: new Date(te.clockIn!), clockOut: te.clockOut ? new Date(te.clockOut) : null })) as Timesheet[];
     },
-    getSafetyIncidentsByCompany: async (companyId: string): Promise<SafetyIncident[]> => {
+    getSafetyIncidentsByCompany: async (companyId: string, options?: RequestOptions): Promise<SafetyIncident[]> => {
+        ensureNotAborted(options?.signal);
         await delay();
-        return db.safetyIncidents as SafetyIncident[];
+        ensureNotAborted(options?.signal);
+        return db.safetyIncidents.filter(incident => resolveCompanyIdFromProject(incident.projectId) === companyId) as SafetyIncident[];
     },
     getConversationsForUser: async (userId: string, options?: RequestOptions): Promise<Conversation[]> => {
         ensureNotAborted(options?.signal);

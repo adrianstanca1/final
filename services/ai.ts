@@ -17,8 +17,8 @@ import {
 } from '../types';
 
 const MODEL_NAME = 'gemini-2.0-flash-001';
-const API_KEY = typeof import.meta !== 'undefined' && import.meta.env?.VITE_GEMINI_API_KEY
-  ? import.meta.env.VITE_GEMINI_API_KEY
+const API_KEY = typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_GEMINI_API_KEY
+  ? (import.meta as any).env.VITE_GEMINI_API_KEY
   : typeof process !== 'undefined'
     ? (process.env?.GEMINI_API_KEY as string | undefined)
     : undefined;
