@@ -358,6 +358,29 @@ export interface Project {
   workClassification: string;
 }
 
+export interface UpcomingProjectDeadline {
+  id: string;
+  name: string;
+  endDate: string;
+  daysRemaining: number;
+  status: ProjectStatus;
+  isOverdue: boolean;
+}
+
+export interface ProjectPortfolioSummary {
+  totalProjects: number;
+  activeProjects: number;
+  completedProjects: number;
+  atRiskProjects: number;
+  overdueProjects: number;
+  pipelineValue: number;
+  totalActualCost: number;
+  budgetVariance: number;
+  averageProgress: number;
+  statusBreakdown: Record<ProjectStatus, number>;
+  upcomingDeadlines: UpcomingProjectDeadline[];
+}
+
 export interface ProjectInsight {
   id: string;
   projectId: string;
@@ -704,6 +727,76 @@ export interface MonthlyFinancials {
 export interface CostBreakdown {
     category: string;
     amount: number;
+}
+
+export type OperationalAlertSeverity = 'info' | 'warning' | 'critical';
+
+export interface OperationalAlert {
+    id: string;
+    severity: OperationalAlertSeverity;
+    message: string;
+}
+
+export interface WorkforceTrendPoint {
+    periodStart: string;
+    periodLabel: string;
+    complianceRate: number;
+    approved: number;
+    submitted: number;
+    pending: number;
+}
+
+export interface SafetyTrendPoint {
+    periodStart: string;
+    periodLabel: string;
+    incidents: number;
+    highSeverity: number;
+}
+
+export interface FinancialTrendPoint {
+    periodStart: string;
+    periodLabel: string;
+    approvedExpenses: number;
+    outstandingReceivables: number;
+}
+
+export interface OperationalInsightsTrends {
+    workforce: WorkforceTrendPoint[];
+    safety: SafetyTrendPoint[];
+    financial: FinancialTrendPoint[];
+}
+
+export interface OperationalInsights {
+    updatedAt: string;
+    safety: {
+        openIncidents: number;
+        highSeverity: number;
+        daysSinceLastIncident: number | null;
+    };
+    workforce: {
+        complianceRate: number;
+        approvedThisWeek: number;
+        overtimeHours: number;
+        averageHours: number;
+        activeTimesheets: number;
+        pendingApprovals: number;
+    };
+    schedule: {
+        atRiskProjects: number;
+        overdueProjects: number;
+        tasksDueSoon: number;
+        overdueTasks: number;
+        tasksInProgress: number;
+        averageProgress: number;
+    };
+    financial: {
+        currency: string;
+        approvedExpensesThisMonth: number;
+        burnRatePerActiveProject: number;
+        outstandingReceivables: number;
+    };
+    alerts: OperationalAlert[];
+    trends: OperationalInsightsTrends;
 }
 
 export interface ProjectTemplate {

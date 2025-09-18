@@ -5,6 +5,7 @@ import { Login } from './components/Login';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { Dashboard } from './components/Dashboard';
+import { OwnerDashboard } from './components/OwnerDashboard';
 import { MyDayView } from './components/MyDayView';
 import { ForemanDashboard } from './components/ForemanDashboard';
 import { PrincipalAdminDashboard } from './components/PrincipalAdminDashboard';
@@ -303,6 +304,16 @@ function App() {
 
     switch (activeView) {
       case 'dashboard':
+        if (user.role === Role.OWNER || user.role === Role.ADMIN) {
+          return (
+            <OwnerDashboard
+              user={user}
+              addToast={addToast}
+              onSelectProject={handleSelectProject}
+              setActiveView={changeView}
+            />
+          );
+        }
         return (
           <Dashboard
             user={user}
