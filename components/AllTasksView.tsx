@@ -191,6 +191,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                         value={selectedProjectId}
                         onChange={e => setSelectedProjectId(e.target.value)}
                         className="rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none"
+                        title="Task filter"
                     >
                         <option value="all">All projects</option>
                         {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -202,6 +203,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                         <select
                             onChange={e => setBulkAction({ type: 'status', value: e.target.value })}
                             className="rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none"
+                            title="Status filter"
                         >
                             <option value="">Change status...</option>
                             {Object.values(TodoStatus).map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
@@ -209,6 +211,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                         <select
                             onChange={e => setBulkAction({ type: 'assignee', value: e.target.value })}
                             className="rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none"
+                            title="Assignee filter"
                         >
                             <option value="">Change assignee...</option>
                             <option value="unassigned">Unassigned</option>
@@ -217,6 +220,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                         <select
                             onChange={e => setBulkAction({ type: 'priority', value: e.target.value })}
                             className="rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none"
+                            title="Priority filter"
                         >
                             <option value="">Change priority...</option>
                             {Object.values(TodoPriority).map(p => <option key={p} value={p}>{p}</option>)}

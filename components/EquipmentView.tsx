@@ -95,7 +95,7 @@ const EquipmentModal: React.FC<{
                                 This item is currently <span className="font-semibold">In Use</span> based on the schedule. You can set its underlying status below for when the assignment ends.
                             </div>
                         )}
-                        <select value={persistentStatus} onChange={e => setPersistentStatus(e.target.value as EquipmentStatus)} className="w-full p-2 border bg-white rounded mt-2 dark:bg-slate-800 dark:border-slate-600" disabled={isSaving}>
+                        <select title="Equipment status" value={persistentStatus} onChange={e => setPersistentStatus(e.target.value as EquipmentStatus)} className="w-full p-2 border bg-white rounded mt-2 dark:bg-slate-800 dark:border-slate-600" disabled={isSaving}>
                             <option value={EquipmentStatus.AVAILABLE}>Available</option>
                             <option value={EquipmentStatus.MAINTENANCE}>Maintenance</option>
                         </select>

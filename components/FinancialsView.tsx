@@ -65,7 +65,6 @@ const BarChart: React.FC<{ data: { label: string; value: number }[]; barColor: s
       ))}
     </div>
   );
-};
 
 const InvoiceModal: React.FC<{ invoiceToEdit?: Invoice | null, isReadOnly?: boolean, onClose: () => void, onSuccess: () => void, user: User, clients: Client[], projects: Project[], addToast: (m:string,t:'success'|'error')=>void }> = ({ invoiceToEdit, isReadOnly = false, onClose, onSuccess, user, clients, projects, addToast }) => {
     const [clientId, setClientId] = useState<string>(invoiceToEdit?.clientId.toString() || '');
@@ -233,18 +232,6 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
 }) => {
   const [activeTab, setActiveTab] = useState<FinancialsTab>('dashboard');
   const [loading, setLoading] = useState(true);
-  const [data, setData] = useState({
-    kpis: null as FinancialKPIs | null,
-    monthly: [] as MonthlyFinancials[],
-    costs: [] as CostBreakdown[],
-    invoices: [] as Invoice[],
-    quotes: [] as Quote[],
-    expenses: [] as Expense[],
-    clients: [] as Client[],
-    projects: [] as Project[],
-    users: [] as User[],
-    forecasts: [] as FinancialForecast[],
-    companyName: null as string | null,
   const [data, setData] = useState<FinancialDataState>({
     kpis: null,
     monthly: [],
@@ -372,8 +359,6 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
     [data.invoices, user.id, addToast, fetchData],
   );
 
-  const projectMap = useMemo(() => new Map(data.projects.map(project => [project.id, project.name])), [data.projects]);
-  const clientMap = useMemo(() => new Map(data.clients.map(client => [client.id, client.name])), [data.clients]);
 
   const approvedExpenses = useMemo(
     () => data.expenses.filter(expense => expense.status === ExpenseStatus.APPROVED || expense.status === ExpenseStatus.PAID),

@@ -32,6 +32,7 @@ import { ViewHeader } from './layout/ViewHeader';
 import { format, eachDayOfInterval, isWithinInterval } from 'date-fns';
 import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
 import { generateProjectHealthSummary, ProjectHealthSummaryResult } from '../services/ai';
+import './ui/barChart.css';
 
 interface DashboardProps {
   user: User;
@@ -55,13 +56,17 @@ const KpiCard: React.FC<{ title: string; value: string; subtext?: string; icon: 
 );
 
 const BarChart: React.FC<{ data: { label: string, value: number }[], barColor: string }> = ({ data, barColor }) => {
-    const maxValue = Math.max(...data.map(d => d.value), 1); // Ensure maxValue is at least 1 to avoid division by zero
+    const maxValue = Math.max(...data.map(d => d.value), 1);
     return (
         <div className="w-full h-48 flex items-end justify-around gap-2 p-2">
             {data.map((item, index) => (
                 <div key={index} className="flex flex-col items-center justify-end h-full w-full group">
-                     <div className="text-xs font-bold text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{item.value}</div>
-                    <div className={`${barColor} w-full rounded-t-sm group-hover:opacity-80 transition-opacity`} style={{ height: `${(item.value / maxValue) * 90}%` }} title={`${item.label}: ${item.value}`}></div>
+                    <div className="text-xs font-bold text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{item.value}</div>
+                    <div
+                        className={`${barColor} w-full rounded-t-sm group-hover:opacity-80 transition-opacity bar-chart-bar`}
+                        style={{ '--bar-height': `${(item.value / maxValue) * 90}%` } as React.CSSProperties}
+                        title={`${item.label}: ${item.value}`}
+                    ></div>
                     <span className="text-xs mt-1 text-muted-foreground">{item.label}</span>
                 </div>
             ))}
@@ -573,7 +578,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                         <p className="text-sm text-muted-foreground">Add an active project to run an AI briefing.</p>
                     ) : (
                         <div className="flex flex-wrap items-center gap-3">
-                            <select
+                            <select title="Dashboard filter"
                                 value={aiSelectedProjectId ?? ''}
                                 onChange={event => setAiSelectedProjectId(event.target.value || null)}
                                 className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
