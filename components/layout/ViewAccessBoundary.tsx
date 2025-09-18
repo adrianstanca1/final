@@ -44,6 +44,8 @@ const PermissionRequirements: React.FC<{ permissions: Permission[]; anyGroups: P
           <div className="flex flex-wrap gap-2">
             {uniquePermissions.map((permission) => (
               <Tag key={String(permission)} label={humanise(String(permission))} color="red" statusIndicator="red" />
+              <Tag key={permission} label={humanise(String(permission))} color="red" statusIndicator="red" />
+ 
             ))}
           </div>
         </div>

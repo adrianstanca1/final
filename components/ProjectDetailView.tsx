@@ -315,6 +315,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
   const [taskForReminder, setTaskForReminder] = useState<Todo | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
   const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
   const [insightError, setInsightError] = useState<string | null>(null);
 
@@ -323,33 +324,40 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     abortControllerRef.current?.abort();
     abortControllerRef.current = controller;
 
+    if (!user.companyId) {
+      setTasks([]);
+      setDocuments([]);
+      setTeam([]);
+      setIncidents([]);
+      setExpenses([]);
+      setInsights([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      if (!user.companyId) return;
       const [taskData, docData, teamData, allIncidents, allExpenses, insightData] = await Promise.all([
         api.getTodosByProjectIds([project.id], { signal: controller.signal }),
         api.getDocumentsByProject(project.id, { signal: controller.signal }),
         api.getUsersByProject(project.id, { signal: controller.signal }),
-        api.getSafetyIncidentsByCompany(user.companyId, { signal: controller.signal }),
+        api.getSafetyIncidentsByCompany(user.companyId),
         api.getExpensesByCompany(user.companyId, { signal: controller.signal }),
-        api.getProjectInsights(project.id, { signal: controller.signal }),
+        api.getProjectInsights(project.id),
       ]);
+
       if (controller.signal.aborted) return;
 
       setTasks(taskData.sort((a, b) => (a.progress ?? 0) - (b.progress ?? 0)));
-      if (controller.signal.aborted) return;
       setDocuments(docData as Document[]);
-      if (controller.signal.aborted) return;
       setTeam(teamData);
-      if (controller.signal.aborted) return;
-      setIncidents(allIncidents.filter(i => i.projectId == project.id));
-      if (controller.signal.aborted) return;
-      setExpenses(allExpenses.filter(e => e.projectId == project.id));
-      if (controller.signal.aborted) return;
+      setIncidents(allIncidents.filter(incident => incident.projectId === project.id));
+      setExpenses(allExpenses.filter(expense => expense.projectId === project.id));
       setInsights(insightData);
       setInsightError(null);
     } catch (error) {
       if (controller.signal.aborted) return;
+      console.error('Failed to load project details', error);
       addToast('Failed to load project details.', 'error');
     } finally {
       if (controller.signal.aborted) return;
@@ -405,7 +413,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
 
   const handleTaskUpdate = async (taskId: string, updates: Partial<Todo>) => {
     const originalTasks = [...tasks];
-    setTasks(prevTasks => prevTasks.map(t => (t.id === taskId ? { ...t, ...updates } : t)));
+    setTasks(prevTasks => prevTasks.map(task => (task.id === taskId ? { ...task, ...updates } : task)));
     try {
       await api.updateTodo(taskId, updates, user.id);
       fetchData();
@@ -430,7 +438,9 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     fetchData();
   };
 
-  const handleProjectUpdate = (updatedProject: Project) => setProject(updatedProject);
+  const handleProjectUpdate = (updatedProject: Project) => {
+    setProject(updatedProject);
+  };
 
   const canManageTasks = hasPermission(user, Permission.MANAGE_ALL_TASKS);
 
@@ -551,8 +561,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
   );
 
   const renderFinancials = () => {
-    const totalInvoiced = 0; // Placeholder until invoice linkage is implemented
-    const totalExpenses = expenses.reduce((acc, exp) => acc + exp.amount, 0);
+    const totalInvoiced = 0;
+    const totalExpenses = expenses.reduce((acc, expense) => acc + expense.amount, 0);
     const profitability =
       project.budget > 0 ? ((project.budget - (project.actualCost + totalExpenses)) / project.budget) * 100 : 0;
 
@@ -579,22 +589,22 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         <Card>
           <h3 className="font-semibold text-lg mb-4">Expenses for this Project</h3>
           {expenses.length > 0 ? (
-            expenses.map(exp => (
-              <div key={exp.id} className="p-2 border-b flex justify-between items-center">
+            expenses.map(expense => (
+              <div key={expense.id} className="p-2 border-b flex justify-between items-center">
                 <div>
                   <p>
-                    {new Date(exp.submittedAt).toLocaleDateString()} - {exp.description}
+                    {new Date(expense.submittedAt).toLocaleDateString()} - {expense.description}
                   </p>
-                  <p className="text-sm text-muted-foreground">{exp.category}</p>
+                  <p className="text-sm text-muted-foreground">{expense.category}</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-semibold">{formatCurrency(exp.amount)}</p>
+                  <p className="font-semibold">{formatCurrency(expense.amount)}</p>
                   <Tag
-                    label={exp.status}
+                    label={expense.status}
                     color={
-                      exp.status === ExpenseStatus.APPROVED
+                      expense.status === ExpenseStatus.APPROVED
                         ? 'green'
-                        : exp.status === ExpenseStatus.REJECTED
+                        : expense.status === ExpenseStatus.REJECTED
                         ? 'red'
                         : 'yellow'
                     }
@@ -710,10 +720,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
         />
       )}
 
-      <button
-        onClick={onBack}
-        className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-      >
+      <button onClick={onBack} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
         &larr; Back to all projects
       </button>
 
@@ -747,3 +754,6 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({
     </div>
   );
 };
+
+// export { ProjectDetailView };
+

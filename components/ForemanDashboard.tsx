@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { User, Project, Todo, Equipment, Permission, Role, TodoStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, SafetyIncident, Timesheet, TodoPriority, IncidentStatus } from '../types';
+import { User, Project, Todo, Equipment, Permission, Role, TodoStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, SafetyIncident, Timesheet, TodoPriority, IncidentStatus, OperationalInsights } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Avatar } from './ui/Avatar';
@@ -36,6 +36,11 @@ const DashboardSkeleton = () => (
         </div>
     </div>
 );
+
+const formatCurrency = (value: number, currency: string = 'GBP') =>
+    new Intl.NumberFormat('en-GB', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value || 0);
+
+const clampPercentage = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
 
 // --- MODALS ---
 const ReportIncidentModal: React.FC<{ project: Project, user: User, onClose: () => void, addToast: (m:string,t:'success'|'error')=>void, onSuccess: () => void }> = ({ project, user, onClose, addToast, onSuccess }) => {
@@ -86,7 +91,6 @@ const ReportIncidentModal: React.FC<{ project: Project, user: User, onClose: () 
         </div>
     );
 };
-
 
 // --- DASHBOARD WIDGETS ---
 
@@ -228,6 +232,91 @@ const SiteUpdatesCard: React.FC<{ project: Project; user: User; addToast: (m:str
     );
 };
 
+const OperationalPulseCard: React.FC<{ insights: OperationalInsights | null }> = ({ insights }) => {
+    if (!insights) {
+        return (
+            <Card className="space-y-3 p-4">
+                <h2 className="text-lg font-semibold">Operational pulse</h2>
+                <p className="text-sm text-muted-foreground">Loading company signals…</p>
+            </Card>
+        );
+    }
+
+    const compliance = clampPercentage(insights.workforce.complianceRate);
+    const pendingApprovals = insights.workforce.pendingApprovals;
+    const activeCrew = insights.workforce.activeTimesheets;
+    const averageHours = insights.workforce.averageHours;
+    const overtimeHours = insights.workforce.overtimeHours;
+    const daysSinceLastIncident = insights.safety.daysSinceLastIncident;
+    const tasksDueSoon = insights.schedule.tasksDueSoon;
+    const overdueTasks = insights.schedule.overdueTasks;
+    const approvedSpend = insights.financial.approvedExpensesThisMonth;
+    const currency = insights.financial.currency;
+    const alerts = insights.alerts;
+
+    return (
+        <Card className="space-y-3 p-4">
+            <h2 className="text-lg font-semibold">Operational pulse</h2>
+            <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Timesheet compliance</span>
+                    <span className={`font-semibold ${compliance < 80 ? 'text-amber-600' : 'text-foreground'}`}>{compliance}%</span>
+                </div>
+                <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Crew clocked in</span>
+                    <span className="font-semibold text-foreground">{activeCrew}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Pending approvals</span>
+                    <span className="font-semibold text-foreground">{pendingApprovals}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Tasks due next 7 days</span>
+                    <span className={`font-semibold ${tasksDueSoon > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>{tasksDueSoon}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Overdue tasks</span>
+                    <span className={`font-semibold ${overdueTasks > 0 ? 'text-destructive' : 'text-foreground'}`}>{overdueTasks}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Avg hours / shift</span>
+                    <span className="font-semibold text-foreground">{averageHours.toFixed(1)}h</span>
+                </div>
+                <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Approved cost (month)</span>
+                    <span className="font-semibold text-foreground">{formatCurrency(approvedSpend, currency)}</span>
+                </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+                {daysSinceLastIncident === null
+                    ? 'No incident history'
+                    : daysSinceLastIncident === 0
+                    ? 'Incident reported today'
+                    : `${daysSinceLastIncident} day${daysSinceLastIncident === 1 ? '' : 's'} since last incident`}
+                {overtimeHours > 0 ? ` • ${overtimeHours.toFixed(1)} overtime hrs` : ''}
+            </p>
+            {alerts.length > 0 && (
+                <ul className="space-y-1 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-muted-foreground">
+                    {alerts.slice(0, 2).map(alert => (
+                        <li key={alert.id} className="flex items-start gap-2">
+                            <span
+                                className={`mt-1 h-2 w-2 rounded-full ${
+                                    alert.severity === 'critical'
+                                        ? 'bg-destructive'
+                                        : alert.severity === 'warning'
+                                        ? 'bg-amber-500'
+                                        : 'bg-primary'
+                                }`}
+                            />
+                            <span>{alert.message}</span>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </Card>
+    );
+};
+
 const TeamChatCard: React.FC<{ project: Project; user: User; onUpdate: ()=>void; messages: ProjectMessage[]; userMap: Map<string, User> }> = ({ project, user, onUpdate, messages, userMap }) => {
     const [content, setContent] = useState('');
     const [isSending, setIsSending] = useState(false);
@@ -287,6 +376,8 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false);
     const [projectIncidents, setProjectIncidents] = useState<SafetyIncident[]>([]);
+    const [operationalInsights, setOperationalInsights] = useState<OperationalInsights | null>(null);
+
 
     const userMap = useMemo(() => new Map(allUsers.map(u => [u.id, u])), [allUsers]);
     const abortControllerRef = useRef<AbortController | null>(null);
@@ -299,16 +390,19 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
         setLoading(true);
         try {
             if (!user.companyId) return;
-            const [userProjects, allCompanyUsers, tsData] = await Promise.all([
+            const [userProjects, allCompanyUsers, tsData, insightsData] = await Promise.all([
                 api.getProjectsByUser(user.id, { signal: controller.signal }),
                 api.getUsersByCompany(user.companyId, { signal: controller.signal }),
                 api.getTimesheetsByUser(user.id, { signal: controller.signal }),
+                api.getOperationalInsights(user.companyId, { signal: controller.signal }),
             ]);
 
             if (controller.signal.aborted) return;
             setAllUsers(allCompanyUsers);
             if (controller.signal.aborted) return;
             setActiveTimesheet(tsData.find(ts => ts.clockOut === null));
+            if (controller.signal.aborted) return;
+            setOperationalInsights(insightsData);
             const activeProject = userProjects.find(p => p.status === 'ACTIVE');
             if (controller.signal.aborted) return;
             setCurrentProject(activeProject || null);
@@ -375,10 +469,23 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
     const highSeverityCount = projectIncidents.filter(incident => incident.severity === IncidentSeverity.HIGH || incident.severity === IncidentSeverity.CRITICAL).length;
     const latestUpdate = siteUpdates[0] ?? null;
     const weatherSummary = weather ? `${weather.temperature}°C ${weather.condition}` : 'Checking forecast…';
+    const fieldInsights = operationalInsights;
+    const fieldCompliance = fieldInsights ? clampPercentage(fieldInsights.workforce.complianceRate) : 0;
+    const fieldPendingApprovals = fieldInsights?.workforce.pendingApprovals ?? 0;
+    const fieldActiveCrew = fieldInsights?.workforce.activeTimesheets ?? (activeTimesheet ? 1 : 0);
+
 
     return (
-       <ErrorBoundary>
-            {isIncidentModalOpen && <ReportIncidentModal project={currentProject} user={user} onClose={() => setIsIncidentModalOpen(false)} addToast={addToast} onSuccess={fetchData} />}
+        <ErrorBoundary>
+            {isIncidentModalOpen && (
+                <ReportIncidentModal
+                    project={currentProject}
+                    user={user}
+                    onClose={() => setIsIncidentModalOpen(false)}
+                    addToast={addToast}
+                    onSuccess={fetchData}
+                />
+            )}
             <div className="space-y-6">
                 <ViewHeader
                     title={`Field operations • ${currentProject.name}`}
@@ -387,8 +494,10 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
                         {
                             label: 'Crew on site',
                             value: crewCount.toString(),
-                            helper: `${openTaskCount} open tasks`,
-                            indicator: crewCount > 0 ? 'positive' : 'neutral',
+                            helper: fieldInsights
+                                ? `${openTaskCount} open tasks • ${fieldActiveCrew} clocked in`
+                                : `${openTaskCount} open tasks`,
+                            indicator: fieldActiveCrew > 0 ? 'positive' : crewCount > 0 ? 'neutral' : 'warning',
                         },
                         {
                             label: 'Safety alerts',
@@ -404,7 +513,11 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
                         {
                             label: 'Weather',
                             value: weatherSummary,
-                            helper: activeTimesheet ? 'On shift' : 'Clock-in ready',
+                            helper: fieldInsights
+                                ? `${fieldCompliance}% approvals • ${fieldPendingApprovals} pending`
+                                : activeTimesheet
+                                ? 'On shift'
+                                : 'Clock-in ready',
                         },
                     ]}
                 />
@@ -412,14 +525,34 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
                 <div className="grid grid-cols-1 xl:grid-cols-[2fr,1fr] gap-6">
                     <div className="space-y-6">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <TimeClockCard user={user} project={currentProject} addToast={addToast} onUpdate={fetchData} activeTimesheet={activeTimesheet} />
+                            <TimeClockCard
+                                user={user}
+                                project={currentProject}
+                                addToast={addToast}
+                                onUpdate={fetchData}
+                                activeTimesheet={activeTimesheet}
+                            />
                             <WeatherCard weather={weather} />
                         </div>
+                        <OperationalPulseCard insights={operationalInsights} />
                         <DailyAssignmentsCard tasks={myTasks} onTaskReorder={setMyTasks} />
-                        <SiteUpdatesCard project={currentProject} user={user} addToast={addToast} onUpdate={fetchData} siteUpdates={siteUpdates} userMap={userMap} />
+                        <SiteUpdatesCard
+                            project={currentProject}
+                            user={user}
+                            addToast={addToast}
+                            onUpdate={fetchData}
+                            siteUpdates={siteUpdates}
+                            userMap={userMap}
+                        />
                     </div>
                     <div className="space-y-6">
-                        <TeamChatCard project={currentProject} user={user} onUpdate={fetchData} messages={projectMessages} userMap={userMap} />
+                        <TeamChatCard
+                            project={currentProject}
+                            user={user}
+                            onUpdate={fetchData}
+                            messages={projectMessages}
+                            userMap={userMap}
+                        />
                         <Card className="space-y-3 p-4">
                             <h2 className="text-lg font-semibold">Crew roster</h2>
                             <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
@@ -453,12 +586,18 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
                         </Card>
                         <Card className="space-y-3 p-4">
                             <h2 className="text-lg font-semibold">Safety & quality</h2>
-                            <p className="text-sm text-muted-foreground">{openIncidentCount === 0 ? 'No open incidents logged.' : `${openIncidentCount} issue(s) in review • ${highSeverityCount} high severity`}</p>
-                            <Button variant="danger" className="w-full" onClick={() => setIsIncidentModalOpen(true)}>Report new issue</Button>
+                            <p className="text-sm text-muted-foreground">
+                                {openIncidentCount === 0
+                                    ? 'No open incidents logged.'
+                                    : `${openIncidentCount} issue(s) in review • ${highSeverityCount} high severity`}
+                            </p>
+                            <Button variant="danger" className="w-full" onClick={() => setIsIncidentModalOpen(true)}>
+                                Report new issue
+                            </Button>
                         </Card>
                     </div>
                 </div>
             </div>
-       </ErrorBoundary>
+        </ErrorBoundary>
     );
 };
