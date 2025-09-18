@@ -12,23 +12,30 @@ interface State {
 }
 
 export class ErrorBoundary extends Component<Props, State> {
-  public state: State = {
-    hasError: false,
-  };
+  public state: State;
+  public props: Props;
 
   constructor(props: Props) {
     super(props);
+    this.props = props;
+    this.state = {
+      hasError: false,
+    };
+  }
+
+  static getDerivedStateFromError(error: Error): State {
+
   }
 
   public static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
   }
 
-  public render() {
+  render(): ReactNode {
     if (this.state.hasError) {
       return (
         <Card className="border-destructive">

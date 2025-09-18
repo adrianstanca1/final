@@ -13,6 +13,8 @@ import {
   ExpenseStatus,
   InvoiceStatus,
   QuoteStatus,
+  InvoiceLineItem,
+  InvoiceLineItemDraft,
   FinancialForecast,
 } from '../types';
 import { api } from '../services/mockApi';
@@ -95,6 +97,18 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
 }) => {
   const [activeTab, setActiveTab] = useState<FinancialsTab>('dashboard');
   const [loading, setLoading] = useState(true);
+  const [data, setData] = useState({
+    kpis: null as FinancialKPIs | null,
+    monthly: [] as MonthlyFinancials[],
+    costs: [] as CostBreakdown[],
+    invoices: [] as Invoice[],
+    quotes: [] as Quote[],
+    expenses: [] as Expense[],
+    clients: [] as Client[],
+    projects: [] as Project[],
+    users: [] as User[],
+    forecasts: [] as FinancialForecast[],
+    companyName: null as string | null,
   const [data, setData] = useState<FinancialDataState>({
     kpis: null,
     monthly: [],
@@ -192,6 +206,35 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
       abortControllerRef.current?.abort();
     };
   }, [fetchData]);
+
+  const { projectMap, clientMap, userMap } = useMemo(
+    () => ({
+      projectMap: new Map(data.projects.map(p => [p.id, p.name])),
+      clientMap: new Map(data.clients.map(c => [c.id, c.name])),
+      userMap: new Map(data.users.map(u => [u.id, `${u.firstName} ${u.lastName}`])),
+    }),
+    [data.projects, data.clients, data.users],
+  );
+
+  const handleUpdateInvoiceStatus = useCallback(
+    async (invoiceId: string, status: InvoiceStatus) => {
+      if (status === InvoiceStatus.CANCELLED) {
+        if (!window.confirm('Are you sure you want to cancel this invoice? This action cannot be undone.')) {
+          return;
+        }
+      }
+      try {
+        const invoice = data.invoices.find(i => i.id === invoiceId);
+        if (!invoice) throw new Error('Invoice not found');
+        await api.updateInvoice(invoiceId, { ...invoice, status }, user.id);
+        addToast(`Invoice marked as ${status.toLowerCase()}.`, 'success');
+        fetchData();
+      } catch (error) {
+        addToast('Failed to update invoice status.', 'error');
+      }
+    },
+    [data.invoices, user.id, addToast, fetchData],
+  );
 
   const projectMap = useMemo(() => new Map(data.projects.map(project => [project.id, project.name])), [data.projects]);
   const clientMap = useMemo(() => new Map(data.clients.map(client => [client.id, client.name])), [data.clients]);
