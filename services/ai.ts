@@ -587,7 +587,7 @@ ${buildForecastContext({ ...input, horizonMonths }, snapshot)}
 
 Respond in Markdown using bullet points.`;
 
-  const response = await callGemini(prompt, { maxOutputTokens: 768 as any, temperature: 0.3 as any });
+  const response = await callGemini(prompt, { maxOutputTokens: 768, temperature: 0.3 });
 
   if (response?.text) {
     const text = response.text.trim();
