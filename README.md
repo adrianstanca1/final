@@ -18,3 +18,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1bxBJgk2nuKF5tvtdT-YfJQ
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Autonomous Deployment
+
+This repository ships with an automated deployment pipeline that continuously validates and promotes changes. The full plan, including branching strategy, environment requirements, and rollback guidance, is documented in [docs/deployment-plan.md](docs/deployment-plan.md).
