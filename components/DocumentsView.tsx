@@ -127,6 +127,9 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ user, addToast, is
                     <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Documents</h2>
 =======
                     <h2 className="text-3xl font-bold text-slate-800">Documents</h2>
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
                     <select title="Document filter"
                         value={currentProject?.id || ''}
