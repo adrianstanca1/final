@@ -2,7 +2,8 @@
 // Supports offline queuing for write operations.
 
 import { initialData } from './mockData';
-import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegisterCredentials, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority } from '../types';
+import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegistrationPayload, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority } from '../types';
+import { createPasswordRecord, sanitizeUser, upgradeLegacyPassword, verifyPassword } from '../utils/password';
 
 const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
 
@@ -18,6 +19,8 @@ const JWT_SECRET = 'your-super-secret-key-for-mock-jwt';
 const MOCK_ACCESS_TOKEN_LIFESPAN = 15 * 60 * 1000; // 15 minutes
 const MOCK_REFRESH_TOKEN_LIFESPAN = 7 * 24 * 60 * 60 * 1000; // 7 days
 const MOCK_RESET_TOKEN_LIFESPAN = 60 * 60 * 1000; // 1 hour
+
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
 // In-memory store for password reset tokens for this mock implementation
 const passwordResetTokens = new Map<string, { userId: string, expires: number }>();
@@ -111,6 +114,22 @@ let db: {
     projectInsights: hydrateData('projectInsights', (initialData as any).projectInsights || []),
 };
 
+const findUserByEmail = (email: string) => {
+    const normalized = normalizeEmail(email);
+    return db.users.find(u => u.email && u.email.toLowerCase() === normalized);
+};
+
+const sanitizeUserForReturn = (user: Partial<User>): User => sanitizeUser(user) as User;
+
+const sanitizeUsersForReturn = (users: Partial<User>[]): User[] => users.map(u => sanitizeUserForReturn(u));
+
+const legacyUsersToUpgrade = db.users.filter(u => u.password && (!u.passwordHash || !u.passwordSalt));
+if (legacyUsersToUpgrade.length > 0) {
+    Promise.all(legacyUsersToUpgrade.map(user => upgradeLegacyPassword(user as Partial<User>)))
+        .then(saveDb)
+        .catch(error => console.error('Failed to upgrade legacy user credentials', error));
+}
+
 const saveDb = () => {
     Object.entries(db).forEach(([key, value]) => {
         localStorage.setItem(`asagents_${key}`, JSON.stringify(value));
@@ -129,9 +148,21 @@ const addAuditLog = (actorId: string, action: string, target?: { type: string, i
 };
 
 export const authApi = {
-    register: async (credentials: Partial<RegisterCredentials & { companyName?: string; companyType?: CompanyType; companyEmail?: string; companyPhone?: string; companyWebsite?: string; companySelection?: 'create' | 'join', role?: Role }>): Promise<any> => {
+    register: async (credentials: RegistrationPayload): Promise<any> => {
         await delay();
-        if (db.users.some(u => u.email === credentials.email)) {
+
+        if (!credentials.email || !credentials.password) {
+            throw new Error('Email and password are required.');
+        }
+
+        const normalizedEmail = normalizeEmail(credentials.email);
+
+        const firstName = credentials.firstName?.trim();
+        const lastName = credentials.lastName?.trim();
+        const phone = credentials.phone?.trim();
+        const inviteToken = credentials.inviteToken?.trim();
+
+        if (findUserByEmail(normalizedEmail)) {
             throw new Error("An account with this email already exists.");
         }
 
@@ -139,13 +170,20 @@ export const authApi = {
         let userRole = credentials.role || Role.OPERATIVE;
 
         if (credentials.companySelection === 'create') {
+            const companyName = credentials.companyName?.trim();
+            const companyEmail = credentials.companyEmail ? normalizeEmail(credentials.companyEmail) : undefined;
+            const companyPhone = credentials.companyPhone?.trim();
+            const companyWebsite = credentials.companyWebsite?.trim();
+            if (!companyName || !credentials.companyType) {
+                throw new Error('Company information is incomplete.');
+            }
             const newCompany: Partial<Company> = {
                 id: String(Date.now()),
-                name: credentials.companyName,
+                name: companyName,
                 type: credentials.companyType || 'GENERAL_CONTRACTOR',
-                email: credentials.companyEmail,
-                phone: credentials.companyPhone,
-                website: credentials.companyWebsite,
+                email: companyEmail,
+                phone: companyPhone,
+                website: companyWebsite,
                 status: 'Active',
                 subscriptionPlan: 'FREE',
                 storageUsageGB: 0,
@@ -154,21 +192,24 @@ export const authApi = {
             companyId = newCompany.id!;
             userRole = Role.OWNER;
         } else if (credentials.companySelection === 'join') {
-            if (credentials.inviteToken !== 'JOIN-CONSTRUCTCO') {
-                 throw new Error("Invalid invite token.");
+            if (!inviteToken || inviteToken !== 'JOIN-CONSTRUCTCO') {
+                throw new Error("Invalid invite token.");
             }
             companyId = '1';
         } else {
             throw new Error("Invalid company selection.");
         }
 
+        const passwordRecord = await createPasswordRecord(credentials.password);
+
         const newUser: Partial<User> = {
             id: String(Date.now()),
-            firstName: credentials.firstName,
-            lastName: credentials.lastName,
-            email: credentials.email,
-            password: credentials.password,
-            phone: credentials.phone,
+            firstName,
+            lastName,
+            email: normalizedEmail,
+            passwordHash: passwordRecord.hash,
+            passwordSalt: passwordRecord.salt,
+            phone,
             role: userRole,
             companyId,
             isActive: true,
@@ -178,20 +219,37 @@ export const authApi = {
         db.users.push(newUser);
         saveDb();
 
-        const user = db.users.find(u => u.id === newUser.id) as User;
+        const user = db.users.find(u => u.id === newUser.id)!;
         const company = db.companies.find(c => c.id === companyId) as Company;
 
         const token = createToken({ userId: user.id, companyId: company.id, role: user.role }, MOCK_ACCESS_TOKEN_LIFESPAN);
         const refreshToken = createToken({ userId: user.id }, MOCK_REFRESH_TOKEN_LIFESPAN);
-        
-        return { success: true, token, refreshToken, user, company };
+
+        return { success: true, token, refreshToken, user: sanitizeUserForReturn(user), company };
     },
     login: async (credentials: LoginCredentials): Promise<any> => {
         await delay(200);
-        const user = db.users.find(u => u.email === credentials.email && u.password === credentials.password);
+        const normalizedEmail = normalizeEmail(credentials.email);
+        const user = findUserByEmail(normalizedEmail);
         if (!user) {
             throw new Error("Invalid email or password.");
         }
+
+        const needsUpgrade = !!user.password && (!user.passwordHash || !user.passwordSalt);
+        if (needsUpgrade) {
+            await upgradeLegacyPassword(user as Partial<User>);
+            saveDb();
+        }
+
+        if (!user.passwordHash || !user.passwordSalt) {
+            throw new Error("Invalid email or password.");
+        }
+
+        const isValid = await verifyPassword(credentials.password, user.passwordHash, user.passwordSalt);
+        if (!isValid) {
+            throw new Error("Invalid email or password.");
+        }
+
         if (user.mfaEnabled) {
             return { success: true, mfaRequired: true, userId: user.id };
         }
@@ -206,15 +264,15 @@ export const authApi = {
     },
     finalizeLogin: async (userId: string): Promise<any> => {
         await delay();
-        const user = db.users.find(u => u.id === userId) as User;
+        const user = db.users.find(u => u.id === userId);
         if (!user) throw new Error("User not found during finalization.");
         const company = db.companies.find(c => c.id === user.companyId) as Company;
         if (!company) throw new Error("Company not found for user.");
 
-        const token = createToken({ userId: user.id, companyId: company.id, role: user.role }, MOCK_ACCESS_TOKEN_LIFESPAN);
-        const refreshToken = createToken({ userId: user.id }, MOCK_REFRESH_TOKEN_LIFESPAN);
-        
-        return { success: true, token, refreshToken, user, company };
+        const token = createToken({ userId: user.id!, companyId: company.id, role: user.role }, MOCK_ACCESS_TOKEN_LIFESPAN);
+        const refreshToken = createToken({ userId: user.id! }, MOCK_REFRESH_TOKEN_LIFESPAN);
+
+        return { success: true, token, refreshToken, user: sanitizeUserForReturn(user), company };
     },
     refreshToken: async (refreshToken: string): Promise<{ token: string }> => {
         await delay();
@@ -234,14 +292,14 @@ export const authApi = {
         await delay();
         const decoded = decodeToken(token);
         if (!decoded) throw new Error("Invalid or expired token");
-        const user = db.users.find(u => u.id === decoded.userId) as User;
+        const user = db.users.find(u => u.id === decoded.userId);
         const company = db.companies.find(c => c.id === decoded.companyId) as Company;
         if (!user || !company) throw new Error("User or company not found");
-        return { user, company };
+        return { user: sanitizeUserForReturn(user), company };
     },
     requestPasswordReset: async (email: string): Promise<{ success: boolean }> => {
         await delay(300);
-        const user = db.users.find(u => u.email === email);
+        const user = email ? findUserByEmail(email) : undefined;
         if (user) {
             const token = `reset-${Date.now()}-${Math.random()}`;
             passwordResetTokens.set(token, { userId: user.id!, expires: Date.now() + MOCK_RESET_TOKEN_LIFESPAN });
@@ -260,7 +318,10 @@ export const authApi = {
         if (userIndex === -1) {
             throw new Error("User not found.");
         }
-        db.users[userIndex].password = newPassword;
+        const passwordRecord = await createPasswordRecord(newPassword);
+        db.users[userIndex].passwordHash = passwordRecord.hash;
+        db.users[userIndex].passwordSalt = passwordRecord.salt;
+        delete db.users[userIndex].password;
         saveDb();
         passwordResetTokens.delete(token);
         return { success: true };
@@ -401,7 +462,7 @@ export const api = {
         ensureNotAborted(options?.signal);
         await delay();
         ensureNotAborted(options?.signal);
-        return db.users.filter(u => u.companyId === companyId) as User[];
+        return sanitizeUsersForReturn(db.users.filter(u => u.companyId === companyId));
     },
     getEquipmentByCompany: async (companyId: string, options?: RequestOptions): Promise<Equipment[]> => {
         ensureNotAborted(options?.signal);
@@ -440,7 +501,7 @@ export const api = {
         ensureNotAborted(options?.signal);
         const assignments = db.projectAssignments.filter(pa => pa.projectId === projectId);
         const userIds = new Set(assignments.map(a => a.userId));
-        return db.users.filter(u => userIds.has(u.id!)) as User[];
+        return sanitizeUsersForReturn(db.users.filter(u => userIds.has(u.id!)));
     },
     getProjectInsights: async (projectId: string, options?: RequestOptions): Promise<ProjectInsight[]> => {
         ensureNotAborted(options?.signal);
@@ -856,27 +917,56 @@ export const api = {
         return { totalHours: 120, tasksCompleted: 15 };
     },
     createUser: async (data: any, userId: string): Promise<User> => {
-        const newUser = { ...data, id: String(Date.now()), companyId: db.users.find(u=>u.id===userId)?.companyId };
+        const newUser: Partial<User> = {
+            ...data,
+            id: String(Date.now()),
+            companyId: db.users.find(u => u.id === userId)?.companyId,
+        };
+
+        if (newUser.email) {
+            newUser.email = normalizeEmail(newUser.email);
+        }
+
+        if (data?.password) {
+            const passwordRecord = await createPasswordRecord(data.password);
+            newUser.passwordHash = passwordRecord.hash;
+            newUser.passwordSalt = passwordRecord.salt;
+            delete (newUser as any).password;
+        }
+
         db.users.push(newUser);
         saveDb();
-        return newUser as User;
+        return sanitizeUserForReturn(newUser);
     },
     updateUser: async (id: string, data: Partial<User>, projectIds: (string|number)[] | undefined, userId: string): Promise<User> => {
-        const index = db.users.findIndex(u=>u.id === id);
+        const index = db.users.findIndex(u => u.id === id);
         if (index === -1) throw new Error("User not found");
-        
-        // Merge existing user data with updates
-        db.users[index] = { ...db.users[index], ...data };
-        
+
+        const updates: Partial<User> = { ...data };
+
+        if (updates.email) {
+            updates.email = normalizeEmail(updates.email);
+        }
+
+        if ((data as any)?.password) {
+            const passwordRecord = await createPasswordRecord((data as any).password);
+            updates.passwordHash = passwordRecord.hash;
+            updates.passwordSalt = passwordRecord.salt;
+            delete (updates as any).password;
+        }
+
+        db.users[index] = { ...db.users[index], ...updates };
+        delete (db.users[index] as any).password;
+
         // Only update project assignments if the projectIds array is explicitly passed
         // This allows for profile-only updates by omitting the projectIds argument
         if (projectIds !== undefined) {
             db.projectAssignments = db.projectAssignments.filter(pa => pa.userId !== id);
-            projectIds.forEach(pid => db.projectAssignments.push({userId: id, projectId: String(pid)}));
+            projectIds.forEach(pid => db.projectAssignments.push({ userId: id, projectId: String(pid) }));
         }
-        
+
         saveDb();
-        return db.users[index] as User;
+        return sanitizeUserForReturn(db.users[index]);
     },
     prioritizeTasks: async (tasks: Todo[], projects: Project[], userId: string): Promise<{prioritizedTaskIds: string[]}> => {
         await delay(1000);

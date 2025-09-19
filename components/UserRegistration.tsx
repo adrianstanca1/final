@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Role, Permission, RolePermissions, CompanyType, RegisterCredentials } from '../types';
+import { Role, Permission, RolePermissions, CompanyType, RegisterCredentials, RegistrationPayload } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -80,11 +80,11 @@ const CreateCompanyModal: React.FC<{
             <Card className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
                 <h3 className="text-lg font-bold mb-4">Create Your Company</h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                     <InputField label="Company Name" name="name" value={name} onChange={(_, val) => setName(val)} error={errors.name} />
+                     <InputField label="Company Name" name="name" value={name} onChange={(_, val) => setName(val)} error={errors.name} autoComplete="organization" />
                      <SelectField label="Company Type" name="type" value={type} onChange={(_, val) => setType(val)} error={errors.type} options={companyTypeOptions}/>
-                     <InputField label="Company Email" name="email" type="email" value={email} onChange={(_, val) => setEmail(val)} error={errors.email} />
-                     <InputField label="Company Phone" name="phone" type="tel" value={phone} onChange={(_, val) => setPhone(val)} error={errors.phone} />
-                     <InputField label="Company Website (Optional)" name="website" type="url" value={website} onChange={(_, val) => setWebsite(val)} />
+                     <InputField label="Company Email" name="email" type="email" value={email} onChange={(_, val) => setEmail(val)} error={errors.email} autoComplete="email" />
+                     <InputField label="Company Phone" name="phone" type="tel" value={phone} onChange={(_, val) => setPhone(val)} error={errors.phone} autoComplete="tel" />
+                     <InputField label="Company Website (Optional)" name="website" type="url" value={website} onChange={(_, val) => setWebsite(val)} autoComplete="url" />
                      <div className="flex justify-end gap-2 pt-4 border-t">
                         <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
                         <Button type="submit">Save Company</Button>
@@ -185,8 +185,30 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
     const handleSubmit = async () => {
         if (!validateStep('terms')) return;
         setGeneralError(null);
+
+        const sanitizedPayload: RegistrationPayload = {};
+
+        if (formData.companySelection) sanitizedPayload.companySelection = formData.companySelection;
+        if (formData.role) sanitizedPayload.role = formData.role;
+
+        if (formData.firstName) sanitizedPayload.firstName = formData.firstName.trim();
+        if (formData.lastName) sanitizedPayload.lastName = formData.lastName.trim();
+        if (formData.email) sanitizedPayload.email = formData.email.trim().toLowerCase();
+        if (formData.password) sanitizedPayload.password = formData.password;
+        if (formData.phone) sanitizedPayload.phone = formData.phone.trim();
+
+        if (formData.companySelection === 'create') {
+            if (formData.companyName) sanitizedPayload.companyName = formData.companyName.trim();
+            if (formData.companyType) sanitizedPayload.companyType = formData.companyType;
+            if (formData.companyEmail) sanitizedPayload.companyEmail = formData.companyEmail.trim().toLowerCase();
+            if (formData.companyPhone) sanitizedPayload.companyPhone = formData.companyPhone.trim();
+            if (formData.companyWebsite) sanitizedPayload.companyWebsite = formData.companyWebsite.trim();
+        } else if (formData.companySelection === 'join') {
+            if (formData.inviteToken) sanitizedPayload.inviteToken = formData.inviteToken.trim();
+        }
+
         try {
-            await register(formData);
+            await register(sanitizedPayload);
             // On success, the AuthProvider will handle navigation.
         } catch (error: any) {
             // Error is handled by the context and set via useEffect
@@ -198,14 +220,14 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
             case 'personal': return (
                 <>
                     <div className="grid grid-cols-2 gap-4">
-                        <InputField label="First Name" name="firstName" value={formData.firstName || ''} onChange={handleChange} error={errors.firstName} />
-                        <InputField label="Last Name" name="lastName" value={formData.lastName || ''} onChange={handleChange} error={errors.lastName} />
+                        <InputField label="First Name" name="firstName" value={formData.firstName || ''} onChange={handleChange} error={errors.firstName} autoComplete="given-name" />
+                        <InputField label="Last Name" name="lastName" value={formData.lastName || ''} onChange={handleChange} error={errors.lastName} autoComplete="family-name" />
                     </div>
-                    <InputField label="Email" name="email" type="email" value={formData.email || ''} onChange={handleChange} error={errors.email} />
-                    <InputField label="Phone (Optional)" name="phone" type="tel" value={formData.phone || ''} onChange={handleChange} error={errors.phone} />
-                    <InputField label="Password" name="password" type="password" value={formData.password || ''} onChange={handleChange} error={errors.password} />
+                    <InputField label="Email" name="email" type="email" value={formData.email || ''} onChange={handleChange} error={errors.email} autoComplete="email" />
+                    <InputField label="Phone (Optional)" name="phone" type="tel" value={formData.phone || ''} onChange={handleChange} error={errors.phone} autoComplete="tel" />
+                    <InputField label="Password" name="password" type="password" value={formData.password || ''} onChange={handleChange} error={errors.password} autoComplete="new-password" />
                     <PasswordStrengthIndicator password={formData.password} />
-                    <InputField label="Confirm Password" name="confirmPassword" type="password" value={formData.confirmPassword || ''} onChange={handleChange} error={errors.confirmPassword} />
+                    <InputField label="Confirm Password" name="confirmPassword" type="password" value={formData.confirmPassword || ''} onChange={handleChange} error={errors.confirmPassword} autoComplete="new-password" />
                 </>
             );
             case 'company': return (
@@ -345,10 +367,10 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
 
 
 // --- Form Field Components ---
-const InputField = ({ label, name, type = 'text', value = '', onChange, error, maxLength, inputClassName = '', isLabelSrOnly = false, placeholder }: { label: string; name: string; type?: string; value?: string; onChange: (name: string, value: string) => void; error?: string; maxLength?: number; inputClassName?: string; isLabelSrOnly?: boolean; placeholder?: string }) => (
+const InputField = ({ label, name, type = 'text', value = '', onChange, error, maxLength, inputClassName = '', isLabelSrOnly = false, placeholder, autoComplete }: { label: string; name: string; type?: string; value?: string; onChange: (name: string, value: string) => void; error?: string; maxLength?: number; inputClassName?: string; isLabelSrOnly?: boolean; placeholder?: string; autoComplete?: string }) => (
     <div>
         <label htmlFor={name} className={isLabelSrOnly ? 'sr-only' : 'block text-sm font-medium text-muted-foreground'}>{label}</label>
-        <input id={name} name={name} type={type} value={value} maxLength={maxLength} onChange={e => onChange(name, e.target.value)} placeholder={placeholder}
+        <input id={name} name={name} type={type} value={value} maxLength={maxLength} onChange={e => onChange(name, e.target.value)} placeholder={placeholder} autoComplete={autoComplete}
                 className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm ${error ? 'border-destructive' : 'border-border'} ${inputClassName}`} />
         {error && <p className="text-xs text-destructive mt-1">{error}</p>}
     </div>

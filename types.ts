@@ -26,6 +26,17 @@ export interface RegisterCredentials {
   inviteToken?: string;
 }
 
+export type RegistrationPayload = Partial<RegisterCredentials & {
+  companyName?: string;
+  companyType?: CompanyType;
+  companyEmail?: string;
+  companyPhone?: string;
+  companyWebsite?: string;
+  companySelection?: 'create' | 'join';
+  inviteToken?: string;
+  role?: Role;
+}>;
+
 export interface Company {
   id: string;
   name: string;
@@ -93,6 +104,8 @@ export interface User {
   lastName: string;
   email: string;
   password?: string;
+  passwordHash?: string;
+  passwordSalt?: string;
   mfaEnabled?: boolean;
   phone?: string;
   avatar?: string;
