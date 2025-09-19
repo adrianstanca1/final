@@ -2,7 +2,7 @@
 // Supports offline queuing for write operations.
 
 import { initialData } from './mockData';
-import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegistrationPayload, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority } from '../types';
+import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegistrationPayload, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority, RolePermissions, Permission } from '../types';
 import { createPasswordRecord, sanitizeUser, upgradeLegacyPassword, verifyPassword } from '../utils/password';
 
 const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
@@ -21,9 +21,74 @@ const MOCK_REFRESH_TOKEN_LIFESPAN = 7 * 24 * 60 * 60 * 1000; // 7 days
 const MOCK_RESET_TOKEN_LIFESPAN = 60 * 60 * 1000; // 1 hour
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
+const normalizeInviteToken = (token: string) => token.trim().toUpperCase();
 
 // In-memory store for password reset tokens for this mock implementation
 const passwordResetTokens = new Map<string, { userId: string, expires: number }>();
+
+type InviteTokenConfig = {
+    companyId: string;
+    allowedRoles: Role[];
+    suggestedRole?: Role;
+};
+
+const inviteTokenDirectory = new Map<string, InviteTokenConfig>([
+    ['JOIN-CONSTRUCTCO', {
+        companyId: '1',
+        allowedRoles: [Role.ADMIN, Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE],
+        suggestedRole: Role.PROJECT_MANAGER,
+    }],
+    ['JOIN-RENOVATE', {
+        companyId: '2',
+        allowedRoles: [Role.ADMIN, Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE],
+        suggestedRole: Role.FOREMAN,
+    }],
+    ['JOIN-CLIENT', {
+        companyId: '3',
+        allowedRoles: [Role.CLIENT],
+        suggestedRole: Role.CLIENT,
+    }],
+]);
+
+const defaultCompanySettings = (): CompanySettings => ({
+    theme: 'light',
+    accessibility: { highContrast: false },
+    timeZone: 'Europe/London',
+    dateFormat: 'DD/MM/YYYY',
+    currency: 'GBP',
+    workingHours: {
+        start: '08:00',
+        end: '17:00',
+        workDays: [1, 2, 3, 4, 5],
+    },
+    features: {
+        projectManagement: true,
+        timeTracking: true,
+        financials: true,
+        documents: true,
+        safety: true,
+        equipment: true,
+        reporting: true,
+    },
+});
+
+const defaultUserPreferences = (): User['preferences'] => ({
+    theme: 'system',
+    language: 'en',
+    notifications: {
+        email: true,
+        push: false,
+        sms: false,
+        taskReminders: true,
+        projectUpdates: true,
+        systemAlerts: true,
+    },
+    dashboard: {
+        defaultView: 'dashboard',
+        pinnedWidgets: [],
+        hiddenWidgets: [],
+    },
+});
 
 const createToken = (payload: object, expiresIn: number): string => {
     const header = { alg: 'HS256', typ: 'JWT' };
@@ -136,6 +201,21 @@ const saveDb = () => {
     });
 };
 
+const ensureUserPermissionConsistency = () => {
+    let updated = false;
+    db.users.forEach(user => {
+        if (user.role && (!user.permissions || (user.permissions as Permission[]).length === 0)) {
+            user.permissions = Array.from(RolePermissions[user.role]);
+            updated = true;
+        }
+    });
+    if (updated) {
+        saveDb();
+    }
+};
+
+ensureUserPermissionConsistency();
+
 const addAuditLog = (actorId: string, action: string, target?: { type: string, id: string, name: string }) => {
     const newLog: AuditLog = {
         id: String(Date.now() + Math.random()),
@@ -155,55 +235,107 @@ export const authApi = {
             throw new Error('Email and password are required.');
         }
 
+        if (!credentials.termsAccepted) {
+            throw new Error('You must accept the terms and conditions to create an account.');
+        }
+
         const normalizedEmail = normalizeEmail(credentials.email);
+        if (findUserByEmail(normalizedEmail)) {
+            throw new Error('An account with this email already exists.');
+        }
+
+        const password = credentials.password.trim();
+        const passwordRequirements = [
+            password.length >= 8,
+            /[A-Z]/.test(password),
+            /[a-z]/.test(password),
+            /\d/.test(password),
+            /[^A-Za-z0-9]/.test(password),
+        ];
+        if (!passwordRequirements.every(Boolean)) {
+            throw new Error('Password does not meet the minimum complexity requirements.');
+        }
 
         const firstName = credentials.firstName?.trim();
         const lastName = credentials.lastName?.trim();
         const phone = credentials.phone?.trim();
-        const inviteToken = credentials.inviteToken?.trim();
-
-        if (findUserByEmail(normalizedEmail)) {
-            throw new Error("An account with this email already exists.");
-        }
 
         let companyId: string;
+        let companyRecord: Partial<Company> | undefined;
         let userRole = credentials.role || Role.OPERATIVE;
 
         if (credentials.companySelection === 'create') {
             const companyName = credentials.companyName?.trim();
+            const companyType = credentials.companyType;
             const companyEmail = credentials.companyEmail ? normalizeEmail(credentials.companyEmail) : undefined;
             const companyPhone = credentials.companyPhone?.trim();
             const companyWebsite = credentials.companyWebsite?.trim();
-            if (!companyName || !credentials.companyType) {
+
+            if (!companyName || !companyType) {
                 throw new Error('Company information is incomplete.');
             }
-            const newCompany: Partial<Company> = {
-                id: String(Date.now()),
+
+            const timestamp = String(Date.now());
+            companyId = timestamp;
+            companyRecord = {
+                id: companyId,
                 name: companyName,
-                type: credentials.companyType || 'GENERAL_CONTRACTOR',
+                type: companyType,
                 email: companyEmail,
                 phone: companyPhone,
                 website: companyWebsite,
                 status: 'Active',
                 subscriptionPlan: 'FREE',
                 storageUsageGB: 0,
+                settings: defaultCompanySettings(),
+                address: {
+                    street: '',
+                    city: '',
+                    state: '',
+                    zipCode: '',
+                    country: 'United Kingdom',
+                },
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
             };
-            db.companies.push(newCompany);
-            companyId = newCompany.id!;
+            db.companies.push(companyRecord);
+
+            inviteTokenDirectory.set(`JOIN-${companyId}`, {
+                companyId,
+                allowedRoles: [Role.ADMIN, Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE],
+                suggestedRole: Role.ADMIN,
+            });
+
             userRole = Role.OWNER;
         } else if (credentials.companySelection === 'join') {
-            if (!inviteToken || inviteToken !== 'JOIN-CONSTRUCTCO') {
-                throw new Error("Invalid invite token.");
+            const normalizedToken = credentials.inviteToken ? normalizeInviteToken(credentials.inviteToken) : '';
+            if (!normalizedToken) {
+                throw new Error('An invite token is required to join an existing company.');
             }
-            companyId = '1';
+            const inviteDetails = inviteTokenDirectory.get(normalizedToken);
+            if (!inviteDetails) {
+                throw new Error('Invalid invite token.');
+            }
+            companyId = inviteDetails.companyId;
+            companyRecord = db.companies.find(c => c.id === companyId);
+            if (!companyRecord) {
+                throw new Error('Company not found for invite token.');
+            }
+            if (credentials.role && !inviteDetails.allowedRoles.includes(credentials.role)) {
+                throw new Error('Selected role is not permitted for this invite.');
+            }
+            userRole = credentials.role && inviteDetails.allowedRoles.includes(credentials.role)
+                ? credentials.role
+                : inviteDetails.suggestedRole || inviteDetails.allowedRoles[0];
         } else {
-            throw new Error("Invalid company selection.");
+            throw new Error('Invalid company selection.');
         }
 
-        const passwordRecord = await createPasswordRecord(credentials.password);
+        const passwordRecord = await createPasswordRecord(password);
 
+        const createdAt = new Date().toISOString();
         const newUser: Partial<User> = {
-            id: String(Date.now()),
+            id: String(Date.now() + Math.random()),
             firstName,
             lastName,
             email: normalizedEmail,
@@ -211,12 +343,30 @@ export const authApi = {
             passwordSalt: passwordRecord.salt,
             phone,
             role: userRole,
+            permissions: Array.from(RolePermissions[userRole]),
             companyId,
             isActive: true,
-            isEmailVerified: true, // Mocking verification for simplicity
-            createdAt: new Date().toISOString(),
+            isEmailVerified: true,
+            mfaEnabled: false,
+            createdAt,
+            updatedAt: createdAt,
+            preferences: defaultUserPreferences(),
         };
+
+        if (credentials.updatesOptIn === false) {
+            newUser.preferences!.notifications.projectUpdates = false;
+        }
+
         db.users.push(newUser);
+
+        const resolvedCompany = companyRecord || db.companies.find(c => c.id === companyId);
+        if (resolvedCompany?.name) {
+            addAuditLog(newUser.id!, 'USER_REGISTERED', { type: 'Company', id: companyId, name: resolvedCompany.name });
+            if (credentials.companySelection === 'create') {
+                addAuditLog(newUser.id!, 'COMPANY_CREATED', { type: 'Company', id: companyId, name: resolvedCompany.name });
+            }
+        }
+
         saveDb();
 
         const user = db.users.find(u => u.id === newUser.id)!;
@@ -226,6 +376,36 @@ export const authApi = {
         const refreshToken = createToken({ userId: user.id }, MOCK_REFRESH_TOKEN_LIFESPAN);
 
         return { success: true, token, refreshToken, user: sanitizeUserForReturn(user), company };
+    },
+    checkEmailAvailability: async (email: string): Promise<{ available: boolean }> => {
+        await delay(120);
+        if (!email) {
+            return { available: false };
+        }
+        const normalized = normalizeEmail(email);
+        return { available: !findUserByEmail(normalized) };
+    },
+    lookupInviteToken: async (token: string): Promise<{ companyId: string; companyName: string; companyType?: CompanyType; allowedRoles: Role[]; suggestedRole?: Role }> => {
+        await delay(200);
+        if (!token) {
+            throw new Error('An invite token is required.');
+        }
+        const normalizedToken = normalizeInviteToken(token);
+        const details = inviteTokenDirectory.get(normalizedToken);
+        if (!details) {
+            throw new Error('Invite token not recognized.');
+        }
+        const company = db.companies.find(c => c.id === details.companyId);
+        if (!company) {
+            throw new Error('Company not found for invite token.');
+        }
+        return {
+            companyId: company.id!,
+            companyName: company.name || 'Unnamed Company',
+            companyType: company.type as CompanyType,
+            allowedRoles: details.allowedRoles,
+            suggestedRole: details.suggestedRole,
+        };
     },
     login: async (credentials: LoginCredentials): Promise<any> => {
         await delay(200);

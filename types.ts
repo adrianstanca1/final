@@ -35,6 +35,8 @@ export type RegistrationPayload = Partial<RegisterCredentials & {
   companySelection?: 'create' | 'join';
   inviteToken?: string;
   role?: Role;
+  updatesOptIn?: boolean;
+  termsAccepted?: boolean;
 }>;
 
 export interface Company {
