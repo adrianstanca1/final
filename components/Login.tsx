@@ -3,6 +3,8 @@ import { LoginCredentials } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { useAuth } from '../contexts/AuthContext';
+import { persistRememberedEmail, readRememberedEmail } from '../utils/authRememberMe';
+import { AuthEnvironmentNotice } from './auth/AuthEnvironmentNotice';
 
 interface LoginProps {
   onSwitchToRegister: () => void;
@@ -53,7 +55,7 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
     const [showPassword, setShowPassword] = useState(false);
     
     const [error, setError] = useState<string | null>(null);
-    const [validationErrors, setValidationErrors] = useState<{ email?: string; password?: string, mfa?: string }>({});
+    const [validationErrors, setValidationErrors] = useState<{ email?: string; password?: string; mfa?: string }>({});
     
     const [userId, setUserId] = useState<string | null>(null);
 
@@ -75,6 +77,17 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
       }
     }, [step]);
     
+    const clearValidationError = (field: 'email' | 'password' | 'mfa') => {
+        setValidationErrors(prev => {
+            if (!prev[field]) {
+                return prev;
+            }
+            const next = { ...prev };
+            delete next[field];
+            return next;
+        });
+    };
+
     const handleCredentialSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
@@ -94,6 +107,14 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
                 setUserId(res.userId);
                 setStep('mfa');
                 setMfaCode('');
+                setValidationErrors(prev => {
+                    if (!prev.mfa) {
+                        return prev;
+                    }
+                    const next = { ...prev };
+                    delete next.mfa;
+                    return next;
+                });
             } else {
                 persistRememberedEmail(rememberMe, trimmedEmail.toLowerCase());
             }
@@ -131,6 +152,12 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
             id="email"
             type="email"
             value={email}
+            onChange={e => {
+                setEmail(e.target.value);
+                clearValidationError('email');
+                setError(null);
+            }}
+
             onChange={e => setEmail(e.target.value)}
             required
             autoComplete="email"
@@ -145,6 +172,11 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
               id="password"
               type={showPassword ? 'text' : 'password'}
               value={password}
+              onChange={e => {
+                  setPassword(e.target.value);
+                  clearValidationError('password');
+                  setError(null);
+              }}
               onChange={e => setPassword(e.target.value)}
               required
               autoComplete="current-password"
@@ -189,6 +221,12 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
             type="text"
             ref={mfaInputRef}
             value={mfaCode}
+            onChange={e => {
+                const sanitized = e.target.value.replace(/\D/g, '');
+                setMfaCode(sanitized);
+                clearValidationError('mfa');
+                setError(null);
+            }}
             onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))}
             maxLength={6}
             required
@@ -221,6 +259,7 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
           </h2>
         </div>
         <Card className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+            <AuthEnvironmentNotice className="mb-4" />
             {error && <div className="mb-4 p-3 bg-destructive/10 text-destructive text-sm rounded-md border border-destructive/20">{error}</div>}
             {step === 'credentials' ? renderCredentialStep() : renderMfaStep()}
         </Card>

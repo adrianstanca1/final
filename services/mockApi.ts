@@ -1,9 +1,11 @@
-// A mock API using localStorage to simulate a backend.
+// A mock API that persists data using a browser-like storage adapter.
 // Supports offline queuing for write operations.
 
 import { initialData } from './mockData';
 import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegistrationPayload, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority, RolePermissions, Permission } from '../types';
 import { createPasswordRecord, sanitizeUser, upgradeLegacyPassword, verifyPassword } from '../utils/password';
+import { getStorage } from '../utils/storage';
+
 
 const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
 
@@ -25,6 +27,113 @@ const normalizeInviteToken = (token: string) => token.trim().toUpperCase();
 
 // In-memory store for password reset tokens for this mock implementation
 const passwordResetTokens = new Map<string, { userId: string, expires: number }>();
+const storage = getStorage();
+
+type InviteTokenConfig = {
+    companyId: string;
+    allowedRoles: Role[];
+    suggestedRole?: Role;
+};
+
+const BASE_INVITE_TOKENS: Array<[string, InviteTokenConfig]> = [
+    ['JOIN-CONSTRUCTCO', {
+        companyId: '1',
+        allowedRoles: [Role.ADMIN, Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE],
+        suggestedRole: Role.PROJECT_MANAGER,
+    }],
+    ['JOIN-RENOVATE', {
+        companyId: '2',
+        allowedRoles: [Role.ADMIN, Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE],
+        suggestedRole: Role.FOREMAN,
+    }],
+    ['JOIN-CLIENT', {
+        companyId: '3',
+        allowedRoles: [Role.CLIENT],
+        suggestedRole: Role.CLIENT,
+    }],
+];
+
+const inviteTokenDirectory = new Map<string, InviteTokenConfig>();
+
+const resetInviteTokens = () => {
+    inviteTokenDirectory.clear();
+    BASE_INVITE_TOKENS.forEach(([token, config]) => {
+        inviteTokenDirectory.set(token, { ...config });
+    });
+};
+
+resetInviteTokens();
+
+const defaultCompanySettings = (): CompanySettings => ({
+    theme: 'light',
+    accessibility: { highContrast: false },
+    timeZone: 'Europe/London',
+    dateFormat: 'DD/MM/YYYY',
+    currency: 'GBP',
+    workingHours: {
+        start: '08:00',
+        end: '17:00',
+        workDays: [1, 2, 3, 4, 5],
+    },
+    features: {
+        projectManagement: true,
+        timeTracking: true,
+        financials: true,
+        documents: true,
+        safety: true,
+        equipment: true,
+        reporting: true,
+    },
+});
+
+const mergeCompanySettings = (
+    current: CompanySettings,
+    updates: Partial<CompanySettings>
+): CompanySettings => {
+    const mergedWorkingHours = updates.workingHours
+        ? {
+              ...current.workingHours,
+              ...updates.workingHours,
+              ...(updates.workingHours.workDays
+                  ? { workDays: [...updates.workingHours.workDays] }
+                  : {}),
+          }
+        : current.workingHours;
+
+    const mergedFeatures = updates.features
+        ? { ...current.features, ...updates.features }
+        : current.features;
+
+    const mergedAccessibility = updates.accessibility
+        ? { ...current.accessibility, ...updates.accessibility }
+        : current.accessibility;
+
+    return {
+        ...current,
+        ...updates,
+        workingHours: mergedWorkingHours,
+        features: mergedFeatures,
+        accessibility: mergedAccessibility,
+    };
+};
+
+const defaultUserPreferences = (): User['preferences'] => ({
+    theme: 'system',
+    language: 'en',
+    notifications: {
+        email: true,
+        push: false,
+        sms: false,
+        taskReminders: true,
+        projectUpdates: true,
+        systemAlerts: true,
+    },
+    dashboard: {
+        defaultView: 'dashboard',
+        pinnedWidgets: [],
+        hiddenWidgets: [],
+    },
+});
 
 type InviteTokenConfig = {
     companyId: string;
@@ -118,18 +227,28 @@ const decodeToken = (token: string): any => {
     }
 };
 
-const hydrateData = <T extends { [key: string]: any }>(key: string, defaultData: T[]): T[] => {
+const STORAGE_PREFIX = 'asagents_';
+
+const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+
+const readJson = <T>(key: string, fallback: T): T => {
     try {
-        const stored = localStorage.getItem(`asagents_${key}`);
-        if (stored) return JSON.parse(stored);
-    } catch (e) {
-        console.error(`Failed to hydrate ${key} from localStorage`, e);
+        const stored = storage.getItem(key);
+        if (!stored) {
+            return fallback;
+        }
+        return JSON.parse(stored) as T;
+    } catch (error) {
+        console.error(`Failed to read ${key} from storage`, error);
+        return fallback;
     }
-    localStorage.setItem(`asagents_${key}`, JSON.stringify(defaultData));
-    return defaultData;
 };
 
-let db: {
+const writeJson = (key: string, value: unknown) => {
+    storage.setItem(key, JSON.stringify(value));
+};
+
+type DbCollections = {
     companies: Partial<Company>[];
     users: Partial<User>[];
     projects: Partial<Project>[];
@@ -153,31 +272,76 @@ let db: {
     whiteboardNotes: Partial<WhiteboardNote>[];
     documents: Partial<Document>[];
     projectInsights: Partial<ProjectInsight>[];
-} = {
-    companies: hydrateData('companies', initialData.companies),
-    users: hydrateData('users', initialData.users),
-    projects: hydrateData('projects', initialData.projects),
-    todos: hydrateData('todos', initialData.todos),
-    timeEntries: hydrateData('timeEntries', initialData.timeEntries),
-    safetyIncidents: hydrateData('safetyIncidents', initialData.safetyIncidents),
-    equipment: hydrateData('equipment', initialData.equipment),
-    clients: hydrateData('clients', initialData.clients),
-    invoices: hydrateData('invoices', initialData.invoices),
-    expenses: hydrateData('expenses', initialData.expenses),
-    siteUpdates: hydrateData('siteUpdates', initialData.siteUpdates),
-    projectMessages: hydrateData('projectMessages', initialData.projectMessages),
-    notifications: hydrateData('notifications', (initialData as any).notifications || []),
-    quotes: hydrateData('quotes', (initialData as any).quotes || []),
-    auditLogs: hydrateData('auditLogs', []),
-    resourceAssignments: hydrateData('resourceAssignments', []),
-    conversations: hydrateData('conversations', []),
-    messages: hydrateData('messages', []),
-    projectAssignments: hydrateData('projectAssignments', []),
-    projectTemplates: hydrateData('projectTemplates', []),
-    whiteboardNotes: hydrateData('whiteboardNotes', []),
-    documents: hydrateData('documents', []),
-    projectInsights: hydrateData('projectInsights', (initialData as any).projectInsights || []),
 };
+
+const DEFAULT_COLLECTIONS: Record<keyof DbCollections, any[]> = {
+    companies: clone(initialData.companies),
+    users: clone(initialData.users),
+    projects: clone(initialData.projects),
+    todos: clone(initialData.todos),
+    timeEntries: clone(initialData.timeEntries),
+    safetyIncidents: clone(initialData.safetyIncidents),
+    equipment: clone(initialData.equipment),
+    clients: clone(initialData.clients),
+    invoices: clone(initialData.invoices),
+    expenses: clone((initialData as any).expenses || []),
+    siteUpdates: clone(initialData.siteUpdates),
+    projectMessages: clone(initialData.projectMessages),
+    notifications: clone((initialData as any).notifications || []),
+    quotes: clone((initialData as any).quotes || []),
+    auditLogs: [],
+    resourceAssignments: [],
+    conversations: [],
+    messages: [],
+    projectAssignments: [],
+    projectTemplates: [],
+    whiteboardNotes: [],
+    documents: [],
+    projectInsights: clone((initialData as any).projectInsights || []),
+};
+
+const readCollection = <K extends keyof DbCollections>(key: K): DbCollections[K] => {
+    const storageKey = `${STORAGE_PREFIX}${String(key)}`;
+    try {
+        const stored = storage.getItem(storageKey);
+        if (stored) {
+            return JSON.parse(stored);
+        }
+    } catch (error) {
+        console.error(`Failed to hydrate ${String(key)} from storage`, error);
+    }
+    const fallback = clone(DEFAULT_COLLECTIONS[key]);
+    storage.setItem(storageKey, JSON.stringify(fallback));
+    return fallback;
+};
+
+const createDb = (): DbCollections => ({
+    companies: readCollection('companies'),
+    users: readCollection('users'),
+    projects: readCollection('projects'),
+    todos: readCollection('todos'),
+    timeEntries: readCollection('timeEntries'),
+    safetyIncidents: readCollection('safetyIncidents'),
+    equipment: readCollection('equipment'),
+    clients: readCollection('clients'),
+    invoices: readCollection('invoices'),
+    expenses: readCollection('expenses'),
+    siteUpdates: readCollection('siteUpdates'),
+    projectMessages: readCollection('projectMessages'),
+    notifications: readCollection('notifications'),
+    quotes: readCollection('quotes'),
+    auditLogs: readCollection('auditLogs'),
+    resourceAssignments: readCollection('resourceAssignments'),
+    conversations: readCollection('conversations'),
+    messages: readCollection('messages'),
+    projectAssignments: readCollection('projectAssignments'),
+    projectTemplates: readCollection('projectTemplates'),
+    whiteboardNotes: readCollection('whiteboardNotes'),
+    documents: readCollection('documents'),
+    projectInsights: readCollection('projectInsights'),
+});
+
+let db: DbCollections = createDb();
 
 const findUserByEmail = (email: string) => {
     const normalized = normalizeEmail(email);
@@ -196,10 +360,47 @@ if (legacyUsersToUpgrade.length > 0) {
 }
 
 const saveDb = () => {
-    Object.entries(db).forEach(([key, value]) => {
-        localStorage.setItem(`asagents_${key}`, JSON.stringify(value));
+    (Object.keys(db) as Array<keyof DbCollections>).forEach(key => {
+        storage.setItem(`${STORAGE_PREFIX}${String(key)}`, JSON.stringify(db[key]));
     });
 };
+
+const findUserByEmail = (email: string) => {
+    const normalized = normalizeEmail(email);
+    return db.users.find(u => u.email && u.email.toLowerCase() === normalized);
+};
+
+const sanitizeUserForReturn = (user: Partial<User>): User => sanitizeUser(user) as User;
+
+const sanitizeUsersForReturn = (users: Partial<User>[]): User[] => users.map(u => sanitizeUserForReturn(u));
+
+const upgradeLegacyUsers = () => {
+    const legacyUsersToUpgrade = db.users.filter(u => u.password && (!u.passwordHash || !u.passwordSalt));
+    if (legacyUsersToUpgrade.length === 0) {
+        return;
+    }
+    Promise.all(legacyUsersToUpgrade.map(user => upgradeLegacyPassword(user as Partial<User>)))
+        .then(() => {
+            saveDb();
+        })
+        .catch(error => console.error('Failed to upgrade legacy user credentials', error));
+};
+
+upgradeLegacyUsers();
+
+const ensureUserPermissionConsistency = () => {
+    let updated = false;
+    db.users.forEach(user => {
+        if (user.role && (!user.permissions || (user.permissions as Permission[]).length === 0)) {
+            user.permissions = Array.from(RolePermissions[user.role]);
+            updated = true;
+        }
+    });
+    if (updated) {
+        saveDb();
+    }
+};
+
 
 const ensureUserPermissionConsistency = () => {
     let updated = false;
@@ -225,6 +426,7 @@ const addAuditLog = (actorId: string, action: string, target?: { type: string, i
         timestamp: new Date().toISOString(),
     };
     db.auditLogs.push(newLog);
+    saveDb();
 };
 
 export const authApi = {
@@ -311,6 +513,12 @@ export const authApi = {
             const normalizedToken = credentials.inviteToken ? normalizeInviteToken(credentials.inviteToken) : '';
             if (!normalizedToken) {
                 throw new Error('An invite token is required to join an existing company.');
+            }
+            const inviteDetails = inviteTokenDirectory.get(normalizedToken);
+            if (!inviteDetails) {
+                throw new Error('Invalid invite token.');
+            }
+
             }
             const inviteDetails = inviteTokenDirectory.get(normalizedToken);
             if (!inviteDetails) {
@@ -509,12 +717,12 @@ export const authApi = {
 };
 
 type OfflineAction = { id: number, type: string, payload: any, retries: number, error?: string };
-let offlineQueue: OfflineAction[] = JSON.parse(localStorage.getItem('asagents_offline_queue') || '[]');
-let failedSyncActions: OfflineAction[] = JSON.parse(localStorage.getItem('asagents_failed_sync_actions') || '[]');
+let offlineQueue: OfflineAction[] = readJson<OfflineAction[]>('asagents_offline_queue', []);
+let failedSyncActions: OfflineAction[] = readJson<OfflineAction[]>('asagents_failed_sync_actions', []);
 
 const saveQueues = () => {
-    localStorage.setItem('asagents_offline_queue', JSON.stringify(offlineQueue));
-    localStorage.setItem('asagents_failed_sync_actions', JSON.stringify(failedSyncActions));
+    writeJson('asagents_offline_queue', offlineQueue);
+    writeJson('asagents_failed_sync_actions', failedSyncActions);
 };
 
 const addToOfflineQueue = (type: string, payload: any) => {
@@ -573,18 +781,63 @@ export const formatFailedActionForUI = (action: OfflineAction): FailedActionForU
     timestamp: new Date(action.id).toLocaleString(),
 });
 
+export const resetMockApi = () => {
+    (Object.keys(DEFAULT_COLLECTIONS) as Array<keyof DbCollections>).forEach(key => {
+        const defaults = clone(DEFAULT_COLLECTIONS[key]);
+        writeJson(`${STORAGE_PREFIX}${String(key)}`, defaults);
+    });
+
+    db = createDb();
+    offlineQueue = [];
+    failedSyncActions = [];
+    writeJson('asagents_offline_queue', offlineQueue);
+    writeJson('asagents_failed_sync_actions', failedSyncActions);
+    passwordResetTokens.clear();
+    resetInviteTokens();
+    upgradeLegacyUsers();
+};
+
 export const api = {
     getCompanySettings: async (companyId: string): Promise<CompanySettings> => {
         await delay();
-        return {
-            theme: 'light',
-            accessibility: { highContrast: false },
-            timeZone: 'GMT',
-            dateFormat: 'DD/MM/YYYY',
-            currency: 'GBP',
-            workingHours: { start: '08:00', end: '17:00', workDays: [1,2,3,4,5] },
-            features: { projectManagement: true, timeTracking: true, financials: true, documents: true, safety: true, equipment: true, reporting: true },
-        };
+        const company = db.companies.find(c => c.id === companyId);
+        if (!company) {
+            throw new Error('Company not found');
+        }
+
+        if (!company.settings) {
+            company.settings = defaultCompanySettings();
+            saveDb();
+        }
+
+        return clone(company.settings as CompanySettings);
+    },
+    updateCompanySettings: async (
+        companyId: string,
+        updates: Partial<CompanySettings>,
+        actorId?: string
+    ): Promise<CompanySettings> => {
+        await delay();
+        const company = db.companies.find(c => c.id === companyId);
+        if (!company) {
+            throw new Error('Company not found');
+        }
+
+        const currentSettings = (company.settings as CompanySettings) || defaultCompanySettings();
+        const merged = mergeCompanySettings(currentSettings, updates);
+        company.settings = clone(merged);
+        company.updatedAt = new Date().toISOString();
+        saveDb();
+
+        if (actorId && company.name) {
+            addAuditLog(actorId, 'COMPANY_SETTINGS_UPDATED', {
+                type: 'Company',
+                id: companyId,
+                name: company.name,
+            });
+        }
+
+        return clone(merged);
     },
     getTimesheetsByCompany: async (companyId: string, userId?: string, options?: RequestOptions): Promise<Timesheet[]> => {
         ensureNotAborted(options?.signal);
