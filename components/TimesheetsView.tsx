@@ -12,7 +12,6 @@ interface TimesheetsViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
 }
-
 const LogTimeModal: React.FC<{
     user: User;
     projects: Project[];

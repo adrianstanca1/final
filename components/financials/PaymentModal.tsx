@@ -13,7 +13,6 @@ interface PaymentModalProps {
     user: User;
     addToast: (message: string, type: 'success' | 'error') => void;
 }
-
 const PaymentModal: React.FC<PaymentModalProps> = ({ invoice, balance, onClose, onSuccess, user, addToast }) => {
     const [amount, setAmount] = useState<number | ''>(balance > 0 ? balance : '');
     const [method, setMethod] = useState<'CREDIT_CARD' | 'BANK_TRANSFER' | 'CASH'>('BANK_TRANSFER');

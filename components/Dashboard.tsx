@@ -40,7 +40,6 @@ interface DashboardProps {
   setActiveView: (view: View) => void;
   onSelectProject: (project: Project) => void;
 }
-
 const KpiCard: React.FC<{ title: string; value: string; subtext?: string; icon: React.ReactNode }> = ({ title, value, subtext, icon }) => (
     <Card className="flex items-center gap-4 animate-card-enter">
         <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-muted text-muted-foreground">
@@ -52,7 +51,6 @@ const KpiCard: React.FC<{ title: string; value: string; subtext?: string; icon: 
             {subtext && <p className="text-sm text-muted-foreground">{subtext}</p>}
         </div>
     </Card>
-);
 
 const BarChart: React.FC<{ data: { label: string, value: number }[], barColor: string }> = ({ data, barColor }) => {
     const maxValue = Math.max(...data.map(d => d.value), 1); // Ensure maxValue is at least 1 to avoid division by zero
@@ -333,8 +331,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
         } finally {
             setIsGeneratingAiSummary(false);
         }
-    }, [aiSelectedProjectId, projects, tasks, openIncidents, expenses, addToast]);
-
     }, [aiSelectedProjectId, projects, tasks, openIncidents, approvedExpenses, addToast]);
  
     

@@ -8,7 +8,6 @@ interface LoginProps {
   onSwitchToRegister: () => void;
   onSwitchToForgotPassword: () => void;
 }
-
 type LoginStep = 'credentials' | 'mfa';
 
 const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);

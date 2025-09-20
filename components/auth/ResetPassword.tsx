@@ -7,7 +7,6 @@ interface ResetPasswordProps {
   token: string;
   onSuccess: () => void;
 }
-
 const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password = '' }) => {
     const getStrength = () => {
         let score = 0;
@@ -36,7 +35,6 @@ const InputField = ({ label, name, type = 'text', value = '', onChange, error }:
                 className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm ${error ? 'border-destructive' : 'border-border'}`} />
         {error && <p className="text-xs text-destructive mt-1">{error}</p>}
     </div>
-);
 
 
 export const ResetPassword: React.FC<ResetPasswordProps> = ({ token, onSuccess }) => {

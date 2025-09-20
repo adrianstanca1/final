@@ -13,7 +13,6 @@ interface SettingsViewProps {
   settings: CompanySettings | null;
   onSettingsUpdate: (updatedSettings: Partial<CompanySettings>) => void;
 }
-
 const FailedSyncActions: React.FC<{ addToast: (m:string,t:'success'|'error')=>void }> = ({ addToast }) => {
     const [failedActions, setFailedActions] = useState<FailedActionForUI[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -185,7 +184,6 @@ const UserProfileSettings: React.FC<{ user: User, addToast: (m:string,t:'success
         </Card>
     )
 }
-
 const CompanySettingsComponent: React.FC<{ settings: CompanySettings, onSettingsUpdate: (updatedSettings: Partial<CompanySettings>) => void }> = ({ settings, onSettingsUpdate }) => {
     
     const handleSettingsChange = (key: keyof CompanySettings, value: any) => {

@@ -7,7 +7,6 @@ import { Button } from './ui/Button';
 interface UserRegistrationProps {
   onSwitchToLogin: () => void;
 }
-
 type Step = 'personal' | 'company' | 'role' | 'verify' | 'terms';
 
 const STEPS: { id: Step; name: string }[] = [
@@ -352,7 +351,6 @@ const InputField = ({ label, name, type = 'text', value = '', onChange, error, m
                 className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm ${error ? 'border-destructive' : 'border-border'} ${inputClassName}`} />
         {error && <p className="text-xs text-destructive mt-1">{error}</p>}
     </div>
-);
 
 const SelectField = ({ label, name, value, onChange, error, options }: {label: string, name: string, value: any, onChange: any, error?: string, options: {value:string, label:string}[]}) => (
     <div>
@@ -364,7 +362,6 @@ const SelectField = ({ label, name, value, onChange, error, options }: {label: s
         </select>
         {error && <p className="text-xs text-destructive mt-1">{error}</p>}
     </div>
-);
 
 const RadioCard = ({ name, value, label, description, checked, onChange }: { name: string, value: string | CompanyType | Role, label: string, description: string, checked: boolean, onChange: any }) => (
     <label className={`block p-4 border rounded-md cursor-pointer transition-all ${checked ? 'bg-primary/10 border-primary ring-2 ring-primary' : 'hover:bg-accent'}`}>
@@ -372,4 +369,3 @@ const RadioCard = ({ name, value, label, description, checked, onChange }: { nam
         <p className="font-semibold">{label}</p>
         {description && <p className="text-sm text-muted-foreground">{description}</p>}
     </label>
-);

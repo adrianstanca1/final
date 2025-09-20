@@ -10,7 +10,6 @@ interface ResourceSchedulerProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
 }
-
 const getWeekStart = (date: Date): Date => {
   const d = new Date(date);
   const day = d.getDay();

@@ -13,7 +13,6 @@ interface AllTasksViewProps {
   addToast: (message: string, type: 'success' | 'error') => void;
   isOnline: boolean;
 }
-
 export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOnline }) => {
     const [loading, setLoading] = useState(true);
     const [projects, setProjects] = useState<Project[]>([]);

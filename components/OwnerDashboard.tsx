@@ -33,7 +33,6 @@ interface OwnerDashboardProps {
   onSelectProject: (project: Project) => void;
   setActiveView?: (view: View) => void;
 }
-
 interface OwnerDashboardData {
   projects: Project[];
   kpis: FinancialKPIs | null;
@@ -49,7 +48,6 @@ interface OwnerDashboardData {
   operationalInsights: OperationalInsights | null;
 
 }
-
 const formatCurrency = (value: number, currency: string = 'GBP') =>
   new Intl.NumberFormat('en-GB', {
     style: 'currency',
@@ -358,7 +356,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   const operationalInsights = data.operationalInsights;
   const financialCurrency = operationalInsights?.financial.currency ?? currency;
-  const openIncidentsCount = operationalInsights?.safety.openIncidents ?? fallbackOpenIncidents.length;
   const openIncidentsCount = operationalInsights?.safety.openIncidents ?? openIncidents.length;
   const highSeverityCount = operationalInsights?.safety.highSeverity ?? fallbackHighSeverityIncidents.length;
   const daysSinceLastIncident = operationalInsights?.safety.daysSinceLastIncident ?? null;
@@ -494,9 +491,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Open incidents</span>
               <span className="font-semibold text-foreground">
-                {openIncidents.length}
-                {highSeverityIncidents.length > 0 && (
-                  <span className="text-xs font-medium text-destructive"> • {highSeverityIncidents.length} high</span>
                 {openIncidentsCount}
                 {highSeverityCount > 0 && (
                   <span className="text-xs font-medium text-destructive"> • {highSeverityCount} high</span>
@@ -775,9 +769,4 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   );
 }
 
-// OwnerDashboard.displayName = 'OwnerDashboard';
-
-// export { OwnerDashboard };
-);
-
-const OwnerDashboard = {}; // placeholder
+export { OwnerDashboard };

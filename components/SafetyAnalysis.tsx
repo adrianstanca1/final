@@ -12,7 +12,6 @@ interface SafetyAnalysisProps {
     user: User;
     addToast: (message: string, type: 'success' | 'error') => void;
 }
-
 export const SafetyAnalysis: React.FC<SafetyAnalysisProps> = ({ user, addToast }) => {
     const [projects, setProjects] = useState<Project[]>([]);
     const [incidents, setIncidents] = useState<SafetyIncident[]>([]);

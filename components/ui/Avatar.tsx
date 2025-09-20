@@ -6,7 +6,6 @@ interface AvatarProps {
     imageUrl?: string;
     className?: string;
 }
-
 export const Avatar: React.FC<AvatarProps> = ({ name, imageUrl, className = '' }) => {
     if (imageUrl) {
         return <img src={imageUrl} alt={name} title={name} className={`rounded-full object-cover ${className}`} />;

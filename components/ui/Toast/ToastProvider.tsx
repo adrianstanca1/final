@@ -14,14 +14,12 @@ export interface ToastOptions {
   };
   onDismiss?: () => void;
 }
-
 interface ToastContextType {
   addToast: (options: ToastOptions) => string;
   removeToast: (id: string) => void;
   clearAllToasts: () => void;
   updateToast: (id: string, updates: Partial<ToastOptions>) => void;
 }
-
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 export function useToast() {
@@ -31,12 +29,10 @@ export function useToast() {
   }
   return context;
 }
-
 interface ToastState extends ToastOptions {
   id: string;
   createdAt: number;
 }
-
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastState[]>([]);
   const timeoutRefs = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -111,12 +107,10 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     </ToastContext.Provider>
   );
 }
-
 interface ToastContainerProps {
   toasts: ToastState[];
   onDismiss: (id: string) => void;
 }
-
 function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
   if (toasts.length === 0) return null;
 
@@ -139,7 +133,6 @@ function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
     </div>
   );
 }
-
 // Convenience hook for common toast patterns
 export function useToastHelpers() {
   const { addToast } = useToast();

@@ -12,13 +12,11 @@ export interface MapMarkerData {
   popupContent?: React.ReactNode;
   status?: 'Planning' | 'Active' | 'Completed' | 'On Hold';
 }
-
 interface MapViewProps {
   markers: MapMarkerData[];
   height?: string;
   className?: string;
 }
-
 // Custom SVG Icon for project markers
 const createProjectIcon = (status: MapMarkerData['status']) => {
   let className = '';
@@ -52,7 +50,6 @@ const RecenterAutomatically: React.FC<{center: [number, number]}> = ({center}) =
     }, [center, map]);
    return null;
 }
-
 
 export const MapView: React.FC<MapViewProps> = ({ markers, height = '100%', className }) => {
     const mapRef = React.useRef<L.Map>(null);

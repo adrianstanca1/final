@@ -11,7 +11,6 @@ interface KanbanBoardProps {
   onTaskSelectionChange: (taskId: string | number) => void;
   selectedTaskIds: Set<string | number>;
 }
-
 const KanbanColumn: React.FC<{
   title: string;
   status: TodoStatus;

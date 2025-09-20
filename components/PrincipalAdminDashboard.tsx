@@ -9,7 +9,6 @@ interface PrincipalAdminDashboardProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
 }
-
 const KpiCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode }> = ({
   title,
   value,
@@ -24,7 +23,6 @@ const KpiCard: React.FC<{ title: string; value: string | number; icon: React.Rea
       <p className="text-3xl font-bold text-slate-900">{value}</p>
     </div>
   </Card>
-);
 
 const SystemHealthIndicator: React.FC<{ health: SystemHealth }> = ({ health }) => {
   const statusStyles = {

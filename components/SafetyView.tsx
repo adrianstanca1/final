@@ -20,7 +20,6 @@ const KpiCard: React.FC<{ title: string; value: string; subtext?: string; icon: 
             {subtext && <p className="text-sm text-slate-500">{subtext}</p>}
         </div>
     </Card>
-);
 
 // --- Modals for the Safety Hub ---
 
@@ -113,7 +112,6 @@ const IncidentDetailModal: React.FC<{ incident: SafetyIncident; project?: Projec
         </div>
     );
 }
-
 const SafetyAnalysisModal: React.FC<{ user: User, addToast: (m:string,t:'success'|'error')=>void, onClose: () => void }> = ({ user, addToast, onClose }) => {
     return (
          <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>

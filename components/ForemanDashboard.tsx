@@ -16,7 +16,6 @@ interface ForemanDashboardProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
 }
-
 const DashboardSkeleton = () => (
     <div className="space-y-6 animate-pulse">
         <div className="h-8 bg-muted rounded w-1/3"></div>
@@ -36,7 +35,6 @@ const DashboardSkeleton = () => (
             </div>
         </div>
     </div>
-);
 
 const formatCurrency = (value: number, currency: string = 'GBP') =>
     new Intl.NumberFormat('en-GB', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value || 0);
@@ -153,7 +151,6 @@ const WeatherCard: React.FC<{ weather: Weather | null }> = ({ weather }) => (
             </div>
         ) : <p className="text-muted-foreground">Loading weather...</p>}
     </Card>
-);
 
 const DailyAssignmentsCard: React.FC<{ tasks: Todo[]; onTaskReorder: (tasks: Todo[])=>void; }> = ({ tasks, onTaskReorder }) => {
     const dragItem = useRef<number | null>(null);

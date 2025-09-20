@@ -15,7 +15,6 @@ interface InvoiceModalProps {
     projects: Project[];
     addToast: (message: string, type: 'success' | 'error') => void;
 }
-
 const InvoiceModal: React.FC<InvoiceModalProps> = ({
     invoiceToEdit,
     isReadOnly = false,

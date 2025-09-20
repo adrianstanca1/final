@@ -35,7 +35,6 @@ interface ProjectDetailViewProps {
   isOnline: boolean;
   onStartChat: (recipient: User) => void;
 }
-
 type DetailTab = 'overview' | 'tasks' | 'whiteboard' | 'documents' | 'team' | 'safety' | 'financials';
 
 const formatCurrency = (amount: number) =>
@@ -316,7 +315,6 @@ const TaskItem: React.FC<{
     </div>
   );
 }
-
 // export { ProjectDetailView };
 
 };

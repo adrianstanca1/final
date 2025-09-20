@@ -10,7 +10,6 @@ export interface ViewHeaderMetaItem {
   helper?: string;
   indicator?: ViewHeaderIndicator;
 }
-
 interface ViewHeaderProps {
   title?: string;
   description?: string;
@@ -21,7 +20,6 @@ interface ViewHeaderProps {
   view?: View;
   className?: string;
 }
-
 const indicatorClasses: Record<ViewHeaderIndicator, string> = {
   neutral: 'border-border bg-muted/30 text-muted-foreground',
   positive: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',

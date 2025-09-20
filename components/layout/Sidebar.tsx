@@ -11,7 +11,6 @@ interface SidebarProps {
   openIncidentCount: number;
   unreadMessageCount: number;
 }
-
 interface NavItemProps {
   icon: React.ReactNode;
   label: string;
@@ -20,12 +19,10 @@ interface NavItemProps {
   setActiveView: (view: View) => void;
   badgeCount?: number;
 }
-
 interface NavSectionProps {
   title: string;
   children: React.ReactNode;
 }
-
 const NavSection: React.FC<NavSectionProps> = ({ title, children }) => (
   <div className="space-y-1">
     <h2 className="px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">{title}</h2>

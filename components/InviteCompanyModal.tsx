@@ -6,7 +6,6 @@ interface InviteCompanyModalProps {
     onClose: () => void;
     onInvite: (companyName: string, adminEmail: string) => Promise<void>;
 }
-
 export const InviteCompanyModal: React.FC<InviteCompanyModalProps> = ({ onClose, onInvite }) => {
     const [companyName, setCompanyName] = useState('');
     const [adminEmail, setAdminEmail] = useState('');

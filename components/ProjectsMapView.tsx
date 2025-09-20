@@ -11,7 +11,6 @@ interface ProjectsMapViewProps {
     user: User;
     addToast: (message: string, type: 'success' | 'error') => void;
 }
-
 export const ProjectsMapView: React.FC<ProjectsMapViewProps> = ({ user, addToast }) => {
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);

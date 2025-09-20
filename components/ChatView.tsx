@@ -12,7 +12,6 @@ interface ChatViewProps {
   addToast: (message: string, type: 'success' | 'error') => void;
   initialRecipient?: User | null;
 }
-
 const NewChatModal: React.FC<{
     user: User;
     personnel: User[];

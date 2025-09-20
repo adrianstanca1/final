@@ -11,7 +11,6 @@ interface ClientsViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
 }
-
 interface ClientFormState {
   name: string;
   contactPerson: string;
@@ -24,7 +23,6 @@ interface ClientFormState {
   isActive: boolean;
   address: Address;
 }
-
 const defaultClientFormState = (): ClientFormState => ({
   name: '',
   contactPerson: '',

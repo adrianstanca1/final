@@ -21,7 +21,6 @@ interface ProjectsViewProps {
   addToast: (message: string, type: 'success' | 'error') => void;
   onSelectProject: (project: Project) => void;
 }
-
 const statusAccent: Record<ProjectStatus, { bg: string; text: string }> = {
   PLANNING: { bg: 'bg-amber-500/10', text: 'text-amber-700 dark:text-amber-300' },
   ACTIVE: { bg: 'bg-emerald-500/10', text: 'text-emerald-700 dark:text-emerald-300' },
@@ -627,5 +626,4 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
     </div>
   );
 }
-
 // export { ProjectsView };

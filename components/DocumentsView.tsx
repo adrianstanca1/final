@@ -13,7 +13,6 @@ interface DocumentsViewProps {
   isOnline: boolean;
   settings: CompanySettings | null;
 }
-
 const FileUploadModal: React.FC<{ project: Project; onClose: () => void; onSuccess: () => void; addToast: (m:string, t:'success'|'error')=>void; user: User }> = ({ project, onClose, onSuccess, addToast, user }) => {
     const [file, setFile] = useState<File | null>(null);
     const [category, setCategory] = useState('General');

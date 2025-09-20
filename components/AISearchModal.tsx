@@ -11,7 +11,6 @@ interface AISearchModalProps {
   onClose: () => void;
   addToast: (message: string, type: 'success' | 'error') => void;
 }
-
 export const AISearchModal: React.FC<AISearchModalProps> = ({ user, currentProject, onClose, addToast }) => {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);

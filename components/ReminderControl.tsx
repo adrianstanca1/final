@@ -6,7 +6,6 @@ interface ReminderControlProps {
     todo: Todo;
     onClick: () => void;
 }
-
 export const ReminderControl: React.FC<ReminderControlProps> = ({ todo, onClick }) => {
     const hasReminder = !!(todo as any).reminderAt;
     

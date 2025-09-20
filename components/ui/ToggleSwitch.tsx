@@ -5,7 +5,6 @@ interface ToggleSwitchProps {
   onChange: (checked: boolean) => void;
   disabled?: boolean;
 }
-
 export const ToggleSwitch: React.FC<ToggleSwitchProps> = ({ checked, onChange, disabled = false }) => {
   return (
     <button

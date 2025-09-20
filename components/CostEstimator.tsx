@@ -13,7 +13,6 @@ interface CostEstimatorProps {
   addToast: (message: string, type: 'success' | 'error') => void;
   onBack: () => void;
 }
-
 interface Estimate {
     totalEstimate: number;
     breakdown: {
@@ -24,7 +23,6 @@ interface Estimate {
     contingency: number;
     summary: string;
 }
-
 const formatCurrency = (amount: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 0 }).format(amount);
 
 export const CostEstimator: React.FC<CostEstimatorProps> = ({ user, addToast, onBack }) => {

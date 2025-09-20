@@ -11,7 +11,6 @@ interface AISiteInspectorProps {
   addToast: (message: string, type: 'success' | 'error') => void;
   onBack: () => void;
 }
-
 export const AISiteInspector: React.FC<AISiteInspectorProps> = ({ user, addToast, onBack }) => {
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [isLoading, setIsLoading] = useState(false);

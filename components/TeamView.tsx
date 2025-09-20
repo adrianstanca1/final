@@ -14,7 +14,6 @@ interface TeamViewProps {
   addToast: (message: string, type: 'success' | 'error') => void;
   onStartChat: (recipient: User) => void;
 }
-
 const availabilityTagColor: Record<AvailabilityStatus, 'green' | 'blue' | 'gray'> = {
     [AvailabilityStatus.AVAILABLE]: 'green',
     [AvailabilityStatus.ON_PROJECT]: 'blue',

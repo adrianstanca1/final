@@ -19,7 +19,6 @@ interface ViewAccessBoundaryProps {
   onNavigate?: (view: View) => void;
   children: React.ReactNode;
 }
-
 const humanise = (value: string): string =>
   value
     .split('_')
