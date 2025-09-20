@@ -252,6 +252,48 @@ CMD ["npm", "start"]
   console.log('✅ Docker image built');
 }
 
+async function deployToSurge() {
+  console.log('🌊 Deploying to Surge...');
+  
+  const surgeConfig = deployConfig.targets.surge;
+  const domain = surgeConfig.domain;
+  
+  // Create CNAME file for custom domain
+  if (domain && !domain.includes('.surge.sh')) {
+    if (!dryRun) {
+      writeFileSync('dist/CNAME', domain);
+    }
+  }
+  
+  // Create 200.html for SPA routing support
+  if (surgeConfig.spa && existsSync('dist/index.html')) {
+    if (!dryRun) {
+      const indexContent = readFileSync('dist/index.html', 'utf8');
+      writeFileSync('dist/200.html', indexContent);
+    }
+  }
+  
+  // Add security headers via surge headers
+  const headers = surgeConfig.headers;
+  if (headers && !dryRun) {
+    const headerContent = Object.entries(headers)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join('\n');
+    writeFileSync('dist/_headers', headerContent);
+  }
+  
+  // Deploy to Surge
+  const surgeCommand = domain 
+    ? `npx surge ${surgeConfig.project} ${domain}` 
+    : `npx surge ${surgeConfig.project}`;
+    
+  if (!dryRun) {
+    await runCommand(surgeCommand, 'Deploying to Surge');
+  }
+  
+  console.log(`✅ Deployed to Surge: ${domain || 'surge-generated-domain'}`);
+}
+
 async function runPostDeploymentChecks() {
   console.log('🔍 Running post-deployment checks...');
   
@@ -313,6 +355,9 @@ async function deploy() {
         break;
       case 'docker':
         await deployToDocker();
+        break;
+      case 'surge':
+        await deployToSurge();
         break;
       default:
         console.error(`❌ Unsupported deployment target: ${target}`);

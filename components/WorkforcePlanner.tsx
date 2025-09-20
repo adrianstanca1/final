@@ -36,7 +36,7 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
                     ...u,
                     projectId: null
                 }));
-                
+
                 setUsers(usersWithAssignments);
                 setProjects(projectsResponse);
             }
@@ -53,7 +53,7 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
 
     useEffect(() => {
         fetchData();
-        
+
         return () => {
             abortControllerRef.current?.abort();
         };
@@ -68,7 +68,7 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
                 await api.unassignUserFromProject(userId);
                 addToast('User unassigned successfully', 'success');
             }
-            
+
             setUsers(prevUsers =>
                 prevUsers.map(u =>
                     u.id === userId ? { ...u, projectId } : u
@@ -161,7 +161,7 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
                             {projects.map(project => {
                                 const projectUsers = assignedUsers.filter(u => u.projectId === project.id);
                                 if (projectUsers.length === 0) return null;
-                                
+
                                 return (
                                     <div key={project.id} className="border rounded-lg p-3">
                                         <h3 className="font-medium text-gray-900 mb-2">{project.name}</h3>

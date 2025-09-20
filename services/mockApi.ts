@@ -2,7 +2,7 @@
 // Supports offline queuing for write operations.
 
 import { initialData } from './mockData';
-import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegistrationPayload, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority, RolePermissions, Permission } from '../types';
+import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegistrationPayload, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority, RolePermissions, Permission } from '../types';
 import { createPasswordRecord, sanitizeUser, upgradeLegacyPassword, verifyPassword } from '../utils/password';
 import { getStorage } from '../utils/storage';
 import { apiCache } from './cacheService';

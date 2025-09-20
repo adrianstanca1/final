@@ -244,6 +244,34 @@ export const deployConfig = {
         PORT: '3000',
       },
     },
+
+    surge: {
+      domain: process.env.SURGE_DOMAIN || 'construction-app-final.surge.sh',
+      project: 'dist',
+      teardown: false,
+      https: true,
+      spa: true, // Single Page Application support
+      routes: {
+        '/': '/index.html',
+        '/api/*': '/index.html',
+        '/*': '/index.html',
+      },
+      headers: {
+        'X-Frame-Options': 'DENY',
+        'X-Content-Type-Options': 'nosniff',
+        'Referrer-Policy': 'strict-origin-when-cross-origin',
+        'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self)',
+      },
+      compression: true,
+      cache: {
+        '**/*.js': '1y',
+        '**/*.css': '1y', 
+        '**/*.html': '1h',
+        '**/*.png': '1y',
+        '**/*.jpg': '1y',
+        '**/*.svg': '1y',
+      },
+    },
   },
 
   // CI/CD configuration

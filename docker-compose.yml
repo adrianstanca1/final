@@ -1,55 +1,179 @@
-version : '3.8'
+services:
+  # Agent Coordinator - Central coordination service
+  coordinator:
+    build:
+      context: .
+      target: coordinator
+      dockerfile: Dockerfile
+    ports:
+      - "3100:3000"
+    environment:
+      - NODE_ENV=development
+      - AGENT_ROLE=coordinator
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./services:/app/services:ro
+      - ./types.ts:/app/types.ts:ro
+      - agent-shared:/app/shared
+    depends_on:
+      - redis
+    restart: unless-stopped
 
-          services :
-#PostgreSQL Database
-    postgres : image : postgres : 15 -
-                       alpine
-                           container_name : construction_postgres
-                                                restart : unless -
-                                                          stopped
-                                                                  environment : POSTGRES_DB : construction_db
-                                                                                                  POSTGRES_USER : construction_user
-                                                                                                                      POSTGRES_PASSWORD : construction_pass
-                                                                                                                                              ports : -"5432:5432" volumes : -postgres_data : /
-                                                                                                                                                                                              var / lib / postgresql / data -
-                                                              ./ backend / database / init.sql : / docker - entrypoint - initdb.d / init.sql networks : -construction_network healthcheck : test : [ "CMD-SHELL", "pg_isready -U construction_user -d construction_db" ] interval : 10s timeout : 5s retries : 5
+  # Primary Agent - Main development agent
+  agent-primary:
+    build:
+      context: .
+      target: agent
+      dockerfile: Dockerfile
+    ports:
+      - "3101:3000"
+    environment:
+      - NODE_ENV=development
+      - AGENT_ROLE=primary
+      - AGENT_ID=agent-primary-001
+      - COORDINATOR_URL=http://coordinator:3000
+    volumes:
+      - .:/app:cached
+      - /app/node_modules
+      - agent-shared:/app/shared
+    depends_on:
+      - coordinator
+    restart: unless-stopped
 
-#Redis Cache
-                                                                                                                                                                                                   redis : image : redis : 7 -
-                                                          alpine
-                                                              container_name : construction_redis
-                                                                                   restart : unless -
-                                                                                             stopped
-                                                                                                     ports : -"6379:6379" volumes : -redis_data : /
-                                                                                                                                                  data
-                                                                                                                                                      networks : -construction_network
-                                                                                                                                                                     healthcheck : test : [ "CMD", "redis-cli", "ping" ] interval : 10s timeout : 5s retries : 5 command : redis -
-                                                                                             server-- appendonly yes
+  # Frontend Specialist Agent
+  agent-frontend:
+    build:
+      context: .
+      target: agent
+      dockerfile: Dockerfile
+    ports:
+      - "3102:3000"
+    environment:
+      - NODE_ENV=development
+      - AGENT_ROLE=specialist
+      - AGENT_ID=agent-frontend-001
+      - AGENT_SPECIALTY=frontend
+      - COORDINATOR_URL=http://coordinator:3000
+    volumes:
+      - ./components:/app/components:cached
+      - ./hooks:/app/hooks:cached
+      - ./utils:/app/utils:cached
+      - ./types.ts:/app/types.ts:cached
+      - agent-shared:/app/shared
+    depends_on:
+      - coordinator
+    restart: unless-stopped
 
-#Backend API
-                                                                                                     backend : build : context :./
-                                                                                                 backend
-                                                                                                     dockerfile : Dockerfile
-                                                                                                                      container_name : construction_backend
-                                                                                                                                           restart : unless -
-                                                                                             stopped
-                                                                                                 environment : NODE_ENV : development
-                                                                                                                              PORT : 4000 DATABASE_URL : postgresql :                     // construction_user:construction_pass@postgres:5432/construction_db
-                                                                                                                                                                      REDIS_URL : redis : // redis:6379
-                                                                                                                                                                                          JWT_SECRET : your -
-                                                                                                                                                                                                       super - secret - jwt - key - change - in - production CORS_ORIGINS : http : // localhost:3000,http://localhost:8080
-                                                                                                                                                                                                                                                                                   GEMINI_API_KEY : ${GEMINI_API_KEY} ports : -"4000:4000" volumes : -./
-                                                                                                                                                                                                                                                      backend : / app -
-                                                                                                                                                                                                       / app / node_modules -./ uploads : / app / uploads networks : -construction_network depends_on : postgres : condition : service_healthy redis : condition : service_healthy healthcheck : test : [ "CMD", "curl", "-f", "http://localhost:4000/health" ] interval : 30s timeout : 10s retries : 5
+  # Backend Specialist Agent  
+  agent-backend:
+    build:
+      context: .
+      target: agent
+      dockerfile: Dockerfile
+    ports:
+      - "3103:3000"
+    environment:
+      - NODE_ENV=development
+      - AGENT_ROLE=specialist
+      - AGENT_ID=agent-backend-001
+      - AGENT_SPECIALTY=backend
+      - COORDINATOR_URL=http://coordinator:3000
+    volumes:
+      - ./services:/app/services:cached
+      - ./backend:/app/backend:cached
+      - ./api:/app/api:cached
+      - ./types.ts:/app/types.ts:cached
+      - agent-shared:/app/shared
+    depends_on:
+      - coordinator
+    restart: unless-stopped
 
-#Frontend(Development)
-                                                                                                                                                                                                                                                                                                                                                                                                        frontend : build : context :.dockerfile : Dockerfile.frontend container_name : construction_frontend restart : unless -
-                                                                                                                                                                                                       stopped
-                                                                                                                                                                                                               environment : VITE_API_URL : http : // localhost:4000
-                                                                                                                                                                                                                                                   VITE_GEMINI_API_KEY : ${GEMINI_API_KEY} ports : -"3000:3000" volumes : -. : /
-                                                                                                                                                                                                                                                                                                                               app -
-                                                                                                                                                                                                       / app / node_modules networks : -construction_network depends_on : -backend
+  # Deployment Agent
+  agent-deployment:
+    build:
+      context: .
+      target: agent
+      dockerfile: Dockerfile
+    ports:
+      - "3104:3000"
+    environment:
+      - NODE_ENV=development
+      - AGENT_ROLE=specialist
+      - AGENT_ID=agent-deployment-001
+      - AGENT_SPECIALTY=deployment
+      - COORDINATOR_URL=http://coordinator:3000
+    volumes:
+      - ./scripts:/app/scripts:cached
+      - ./deploy.config.js:/app/deploy.config.js:cached
+      - ./Dockerfile:/app/Dockerfile:cached
+      - ./docker-compose.yml:/app/docker-compose.yml:ro
+      - agent-shared:/app/shared
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - coordinator
+    restart: unless-stopped
 
-                                                                                                                                                                                                                                                                              volumes : postgres_data : driver : local redis_data : driver : local
+  # Review Agent - Quality assurance and conflict resolution
+  agent-reviewer:
+    build:
+      context: .
+      target: agent
+      dockerfile: Dockerfile
+    ports:
+      - "3105:3000"
+    environment:
+      - NODE_ENV=development
+      - AGENT_ROLE=reviewer
+      - AGENT_ID=agent-reviewer-001
+      - COORDINATOR_URL=http://coordinator:3000
+    volumes:
+      - .:/app:ro
+      - agent-shared:/app/shared
+    depends_on:
+      - coordinator
+    restart: unless-stopped
 
-                                                                                                                                                                                                                                                                                                                                                 networks : construction_network : driver : bridge
+  # Production Application
+  app:
+    build:
+      context: .
+      target: production
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    profiles:
+      - production
+
+  # Redis for agent coordination
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+  # Monitoring and logging
+  monitoring:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    profiles:
+      - monitoring
+    restart: unless-stopped
+
+volumes:
+  agent-shared:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  default:
+    name: multi-agent-network
+    driver: bridge

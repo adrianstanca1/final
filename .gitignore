@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 oracleJdk-25/
 .vercel
+
+# Local Netlify folder
+.netlify

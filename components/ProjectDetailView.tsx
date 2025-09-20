@@ -20,29 +20,29 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId,
         setLoading(true);
         // Mock API calls - replace with actual API
         const mockProject: Project = {
-            id: 'project-1',
-            name: 'Sample Construction Project',
-            description: 'This is a mock project for demonstration purposes',
-            status: 'ACTIVE' as ProjectStatus,
-            startDate: '2024-01-01',
-            endDate: '2024-12-31',
-            budget: 1000000,
-            spent: 250000,
-            progress: 25,
-            actualCost: 275000,
-            companyId: 'company-1',
-            clientId: 'client-1',
-            managerId: 'manager-1',
-            projectType: 'COMMERCIAL',
-            workClassification: 'NEW_CONSTRUCTION',
-            location: {
-                address: '123 Construction St, Building City, BC 12345',
-                lat: 49.2827,
-                lng: -123.1207
-            },
-            createdAt: '2024-01-01T00:00:00Z',
-            updatedAt: '2024-01-01T00:00:00Z'
-        };        const mockTasks: Task[] = [
+          id: 'project-1',
+          name: 'Sample Construction Project',
+          description: 'This is a mock project for demonstration purposes',
+          status: 'ACTIVE' as ProjectStatus,
+          startDate: '2024-01-01',
+          endDate: '2024-12-31',
+          budget: 1000000,
+          spent: 250000,
+          progress: 25,
+          actualCost: 275000,
+          companyId: 'company-1',
+          clientId: 'client-1',
+          managerId: 'manager-1',
+          projectType: 'COMMERCIAL',
+          workClassification: 'NEW_CONSTRUCTION',
+          location: {
+            address: '123 Construction St, Building City, BC 12345',
+            lat: 49.2827,
+            lng: -123.1207
+          },
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z'
+        }; const mockTasks: Task[] = [
           {
             id: '1',
             title: 'Foundation Work',
@@ -73,7 +73,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId,
     }
   }, [projectId, user.id, user.companyId]);
 
-  const filteredTasks = tasks.filter(task => 
+  const filteredTasks = tasks.filter(task =>
     filter === 'all' || task.status === filter
   );
 

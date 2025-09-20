@@ -4,7 +4,6 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "install": "node ./scripts/install-deps.mjs",
     "dev": "vite",
     "dev:vercel": "vercel dev",
     "mm:py": "uvicorn mm_service.main:app --reload --port 8010",
@@ -23,10 +22,17 @@
     "deploy:vercel": "node scripts/deploy.js production vercel",
     "deploy:netlify": "node scripts/deploy.js production netlify",
     "deploy:docker": "node scripts/deploy.js production docker",
+    "deploy:surge": "node scripts/deploy.js production surge",
     "deploy:dry-run": "node scripts/deploy.js production vercel --dry-run",
     "start": "npm run preview",
     "analyze": "ANALYZE_BUNDLE=true npm run build",
-    "deploy:gh": "npm run build && gh-pages -d dist"
+    "deploy:gh": "npm run build && gh-pages -d dist",
+    "docker:build": "docker build -t construction-app .",
+    "docker:build:dev": "docker build --target development -t construction-app:dev .",
+    "docker:run": "docker run -p 8080:80 construction-app",
+    "docker:run:dev": "docker run -p 3000:3000 -v $(pwd):/app construction-app:dev",
+    "surge:deploy": "npm run build && npx surge dist construction-app-final.surge.sh",
+    "surge:teardown": "npx surge teardown construction-app-final.surge.sh"
   },
   "dependencies": {
     "@google/genai": "^1.17.0",
