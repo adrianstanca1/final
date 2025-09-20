@@ -23,6 +23,13 @@ export type InvitePreview = {
 
 export type EmailAvailability = { available: boolean };
 
+export type AuthConnectionInfo = {
+    mode: 'backend' | 'mock';
+    baseUrl: string | null;
+    baseHost: string | null;
+    allowMockFallback: boolean;
+};
+
 class BackendUnavailableError extends Error {
     constructor(message: string, public cause?: unknown) {
         super(message);
@@ -55,8 +62,31 @@ const detectBaseUrl = (): string | null => {
 };
 
 const initialBaseUrl = detectBaseUrl();
+const initialAllowMockFallback = !initialBaseUrl;
 let runtimeBaseUrl = initialBaseUrl;
-let allowMockFallback = !runtimeBaseUrl;
+let allowMockFallback = initialAllowMockFallback;
+
+type AuthClientListener = () => void;
+const subscribers = new Set<AuthClientListener>();
+
+const notifySubscribers = () => {
+    subscribers.forEach(listener => {
+        try {
+            listener();
+        } catch (error) {
+            if (typeof console !== 'undefined' && typeof console.error === 'function') {
+                console.error('[authClient] subscriber callback failed', error);
+            }
+        }
+    });
+};
+
+export const subscribeToAuthClientChanges = (listener: AuthClientListener): (() => void) => {
+    subscribers.add(listener);
+    return () => {
+        subscribers.delete(listener);
+    };
+};
 
 const buildHeaders = (headers: HeadersInit | undefined, body: BodyInit | null | undefined) => {
     const composed = new Headers(headers ?? {});
@@ -128,21 +158,35 @@ const withAuthFallback = async <T>(path: string, init: RequestInit, fallback: ()
 };
 
 export const configureAuthClient = (options: { baseUrl?: string | null; allowMockFallback?: boolean } = {}) => {
+    let nextBaseUrl = runtimeBaseUrl;
+    let nextAllowMockFallback = allowMockFallback;
+
     if (Object.prototype.hasOwnProperty.call(options, 'baseUrl')) {
-        runtimeBaseUrl = sanitizeBaseUrl(options.baseUrl ?? null);
+        nextBaseUrl = sanitizeBaseUrl(options.baseUrl ?? null);
         if (Object.prototype.hasOwnProperty.call(options, 'allowMockFallback')) {
-            allowMockFallback = !!options.allowMockFallback;
+            nextAllowMockFallback = !!options.allowMockFallback;
         } else {
-            allowMockFallback = !runtimeBaseUrl;
+            nextAllowMockFallback = !nextBaseUrl;
         }
     } else if (Object.prototype.hasOwnProperty.call(options, 'allowMockFallback')) {
-        allowMockFallback = !!options.allowMockFallback;
+        nextAllowMockFallback = !!options.allowMockFallback;
+    }
+
+    const hasChanged = nextBaseUrl !== runtimeBaseUrl || nextAllowMockFallback !== allowMockFallback;
+    if (hasChanged) {
+        runtimeBaseUrl = nextBaseUrl;
+        allowMockFallback = nextAllowMockFallback;
+        notifySubscribers();
     }
 };
 
 export const resetAuthClient = () => {
+    const hasChanged = runtimeBaseUrl !== initialBaseUrl || allowMockFallback !== initialAllowMockFallback;
     runtimeBaseUrl = initialBaseUrl;
-    allowMockFallback = !runtimeBaseUrl;
+    allowMockFallback = initialAllowMockFallback;
+    if (hasChanged) {
+        notifySubscribers();
+    }
 };
 
 const formatBaseHost = (baseUrl: string | null) => {
@@ -156,7 +200,7 @@ const formatBaseHost = (baseUrl: string | null) => {
     }
 };
 
-export const getAuthConnectionInfo = () => ({
+export const getAuthConnectionInfo = (): AuthConnectionInfo => ({
     mode: runtimeBaseUrl ? ('backend' as const) : ('mock' as const),
     baseUrl: runtimeBaseUrl,
     baseHost: formatBaseHost(runtimeBaseUrl),

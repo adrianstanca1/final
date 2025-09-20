@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { webcrypto } from 'node:crypto';
-import { authClient, configureAuthClient, getAuthConnectionInfo, resetAuthClient } from '../authClient';
+import {
+    authClient,
+    configureAuthClient,
+    getAuthConnectionInfo,
+    resetAuthClient,
+    subscribeToAuthClientChanges,
+} from '../authClient';
 import { resetMockApi } from '../mockApi';
 import { resetInMemoryStorage } from '../../utils/storage';
 
@@ -77,6 +83,24 @@ describe('authClient', () => {
             /authentication service is currently unavailable/i
         );
         expect(fetchSpy).toHaveBeenCalled();
+    });
+
+    it('notifies subscribers when connection details change', () => {
+        const listener = vi.fn();
+        const unsubscribe = subscribeToAuthClientChanges(listener);
+
+        configureAuthClient({ baseUrl: 'https://api.example.test', allowMockFallback: false });
+        expect(listener).toHaveBeenCalledTimes(1);
+
+        configureAuthClient({ allowMockFallback: true });
+        expect(listener).toHaveBeenCalledTimes(2);
+
+        resetAuthClient();
+        expect(listener).toHaveBeenCalledTimes(3);
+
+        unsubscribe();
+        configureAuthClient({ baseUrl: null });
+        expect(listener).toHaveBeenCalledTimes(3);
     });
 });
 

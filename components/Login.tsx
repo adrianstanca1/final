@@ -51,7 +51,7 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
     const [showPassword, setShowPassword] = useState(false);
     
     const [error, setError] = useState<string | null>(null);
-    const [validationErrors, setValidationErrors] = useState<{ email?: string; password?: string, mfa?: string }>({});
+    const [validationErrors, setValidationErrors] = useState<{ email?: string; password?: string; mfa?: string }>({});
     
     const [userId, setUserId] = useState<string | null>(null);
 
@@ -73,6 +73,17 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
       }
     }, [step]);
     
+    const clearValidationError = (field: 'email' | 'password' | 'mfa') => {
+        setValidationErrors(prev => {
+            if (!prev[field]) {
+                return prev;
+            }
+            const next = { ...prev };
+            delete next[field];
+            return next;
+        });
+    };
+
     const handleCredentialSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
@@ -92,6 +103,14 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
                 setUserId(res.userId);
                 setStep('mfa');
                 setMfaCode('');
+                setValidationErrors(prev => {
+                    if (!prev.mfa) {
+                        return prev;
+                    }
+                    const next = { ...prev };
+                    delete next.mfa;
+                    return next;
+                });
             } else {
                 persistRememberedEmail(rememberMe, trimmedEmail.toLowerCase());
             }
@@ -129,7 +148,11 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
             id="email"
             type="email"
             value={email}
-            onChange={e => setEmail(e.target.value)}
+            onChange={e => {
+                setEmail(e.target.value);
+                clearValidationError('email');
+                setError(null);
+            }}
             required
             autoComplete="email"
             className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm ${validationErrors.email ? 'border-destructive' : 'border-border'}`}
@@ -143,7 +166,11 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
               id="password"
               type={showPassword ? 'text' : 'password'}
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={e => {
+                  setPassword(e.target.value);
+                  clearValidationError('password');
+                  setError(null);
+              }}
               required
               autoComplete="current-password"
               className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm pr-12 ${validationErrors.password ? 'border-destructive' : 'border-border'}`}
@@ -187,7 +214,12 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
             type="text"
             ref={mfaInputRef}
             value={mfaCode}
-            onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))}
+            onChange={e => {
+                const sanitized = e.target.value.replace(/\D/g, '');
+                setMfaCode(sanitized);
+                clearValidationError('mfa');
+                setError(null);
+            }}
             maxLength={6}
             required
             inputMode="numeric"

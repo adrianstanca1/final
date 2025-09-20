@@ -1,13 +1,15 @@
-import React from 'react';
-import { getAuthConnectionInfo } from '../../services/authClient';
+import React, { useMemo, useSyncExternalStore } from 'react';
+import { getAuthConnectionInfo, subscribeToAuthClientChanges, type AuthConnectionInfo } from '../../services/authClient';
 
 interface AuthEnvironmentNoticeProps {
     align?: 'left' | 'center';
     className?: string;
 }
 
-const formatMessage = () => {
-    const info = getAuthConnectionInfo();
+const useAuthConnectionInfo = () =>
+    useSyncExternalStore(subscribeToAuthClientChanges, getAuthConnectionInfo, getAuthConnectionInfo);
+
+const formatMessage = (info: AuthConnectionInfo) => {
     if (info.mode === 'backend') {
         const host = info.baseHost || info.baseUrl || 'configured backend';
         const fallbackNote = info.allowMockFallback
@@ -19,7 +21,11 @@ const formatMessage = () => {
 };
 
 export const AuthEnvironmentNotice: React.FC<AuthEnvironmentNoticeProps> = ({ align = 'center', className = '' }) => {
-    const message = React.useMemo(() => formatMessage(), []);
+    const info = useAuthConnectionInfo();
+    const message = useMemo(
+        () => formatMessage(info),
+        [info.mode, info.baseHost, info.baseUrl, info.allowMockFallback]
+    );
     const alignmentClass = align === 'left' ? 'text-left' : 'text-center';
     return (
         <p className={`text-xs text-muted-foreground ${alignmentClass} ${className}`.trim()}>{message}</p>
