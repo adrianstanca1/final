@@ -3,7 +3,7 @@ import { LoginCredentials } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { useAuth } from '../contexts/AuthContext';
-import { getStorage } from '../utils/storage';
+import { persistRememberedEmail, readRememberedEmail } from '../utils/authRememberMe';
 import { AuthEnvironmentNotice } from './auth/AuthEnvironmentNotice';
 
 interface LoginProps {
@@ -14,31 +14,6 @@ interface LoginProps {
 type LoginStep = 'credentials' | 'mfa';
 
 const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
-const REMEMBERED_EMAIL_KEY = 'asagents_remembered_email';
-
-const storage = getStorage();
-
-const readRememberedEmail = () => {
-    try {
-        return storage.getItem(REMEMBERED_EMAIL_KEY) || '';
-    } catch (error) {
-        console.warn('Unable to read remembered email', error);
-        return '';
-    }
-};
-
-const persistRememberedEmail = (shouldRemember: boolean, email: string) => {
-    try {
-        if (shouldRemember && email) {
-            storage.setItem(REMEMBERED_EMAIL_KEY, email);
-        } else {
-            storage.removeItem(REMEMBERED_EMAIL_KEY);
-        }
-    } catch (error) {
-        console.warn('Unable to persist remembered email', error);
-    }
-};
 
 export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForgotPassword }) => {
     const { login, verifyMfaAndFinalize, error: authError, loading: isLoading } = useAuth();

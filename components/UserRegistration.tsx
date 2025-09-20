@@ -1,16 +1,22 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { useAuth } from '../contexts/AuthContext';
 import { authClient, InvitePreview } from '../services/authClient';
 import { CompanyType, RegistrationPayload, Role } from '../types';
 import { AuthEnvironmentNotice } from './auth/AuthEnvironmentNotice';
+import {
+    clearRegistrationDraft,
+    loadRegistrationDraft,
+    saveRegistrationDraft,
+    type RegistrationStep,
+    registrationDraftHasContent,
+} from '../utils/registrationDraft';
+import { persistRememberedEmail } from '../utils/authRememberMe';
 
 interface UserRegistrationProps {
     onSwitchToLogin: () => void;
 }
-
-type StepId = 'account' | 'workspace' | 'confirm';
 
 type FormErrors = Partial<Record<keyof RegistrationState, string>>;
 
@@ -52,13 +58,13 @@ const INITIAL_STATE: RegistrationState = {
     termsAccepted: false,
 };
 
-const STEP_SEQUENCE: { id: StepId; title: string; description: string }[] = [
+const STEP_SEQUENCE: { id: RegistrationStep; title: string; description: string }[] = [
     { id: 'account', title: 'Account', description: 'Introduce yourself and secure access.' },
     { id: 'workspace', title: 'Workspace', description: 'Create a company or join an existing team.' },
     { id: 'confirm', title: 'Confirm', description: 'Review details and accept the terms.' },
 ];
 
-const STEP_FIELDS: Record<StepId, Array<keyof RegistrationState>> = {
+const STEP_FIELDS: Record<RegistrationStep, Array<keyof RegistrationState>> = {
     account: ['firstName', 'lastName', 'email', 'phone', 'password', 'confirmPassword'],
     workspace: ['companySelection', 'companyName', 'companyType', 'companyEmail', 'companyPhone', 'companyWebsite', 'inviteToken', 'role'],
     confirm: ['termsAccepted'],
@@ -139,7 +145,7 @@ const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password }) => 
     );
 };
 
-const StepIndicator: React.FC<{ currentStep: StepId }> = ({ currentStep }) => (
+const StepIndicator: React.FC<{ currentStep: RegistrationStep }> = ({ currentStep }) => (
     <ol className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {STEP_SEQUENCE.map((step, index) => {
             const isCompleted = STEP_SEQUENCE.findIndex(s => s.id === currentStep) > index;
@@ -261,7 +267,7 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
 export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLogin }) => {
     const { register, error: authError, loading: isSubmitting } = useAuth();
 
-    const [step, setStep] = useState<StepId>('account');
+    const [step, setStep] = useState<RegistrationStep>('account');
     const [form, setForm] = useState<RegistrationState>(INITIAL_STATE);
     const [errors, setErrors] = useState<FormErrors>({});
     const [generalError, setGeneralError] = useState<string | null>(null);
@@ -270,6 +276,9 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
     const [invitePreview, setInvitePreview] = useState<InvitePreview | null>(null);
     const [inviteError, setInviteError] = useState<string | null>(null);
     const [isCheckingInvite, setIsCheckingInvite] = useState(false);
+    const [draftRestored, setDraftRestored] = useState(false);
+
+    const hasHydratedDraftRef = useRef(false);
 
     useEffect(() => {
         setGeneralError(authError);
@@ -287,6 +296,76 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
             });
         }
     }, [emailStatus]);
+
+    useEffect(() => {
+        if (hasHydratedDraftRef.current) {
+            return;
+        }
+
+        let isMounted = true;
+        const draft = loadRegistrationDraft();
+        if (draft) {
+            setStep(draft.step);
+            setForm(prev => ({
+                ...prev,
+                firstName: draft.firstName,
+                lastName: draft.lastName,
+                email: draft.email,
+                phone: draft.phone,
+                companySelection: draft.companySelection,
+                companyName: draft.companyName,
+                companyType: draft.companyType,
+                companyEmail: draft.companyEmail,
+                companyPhone: draft.companyPhone,
+                companyWebsite: draft.companyWebsite,
+                inviteToken: draft.inviteToken,
+                role: draft.role,
+                updatesOptIn: draft.updatesOptIn,
+                termsAccepted: draft.termsAccepted,
+            }));
+            setDraftRestored(registrationDraftHasContent(draft));
+            setInviteError(null);
+            setEmailStatus('idle');
+
+            if (draft.companySelection === 'join' && draft.inviteToken) {
+                setIsCheckingInvite(true);
+                authClient
+                    .lookupInviteToken(draft.inviteToken)
+                    .then(preview => {
+                        if (!isMounted) return;
+                        setInvitePreview(preview);
+                        setErrors(prev => {
+                            const next = { ...prev };
+                            delete next.inviteToken;
+                            delete next.role;
+                            return next;
+                        });
+                        if (!preview.allowedRoles.includes(draft.role as Role)) {
+                            setForm(prev => ({
+                                ...prev,
+                                role: preview.suggestedRole || preview.allowedRoles[0] || '',
+                            }));
+                        }
+                    })
+                    .catch(error => {
+                        if (!isMounted) return;
+                        setInvitePreview(null);
+                        const message = error?.message || 'We could not validate that invite token. Please double-check and try again.';
+                        setInviteError(message);
+                        setErrors(prev => ({ ...prev, inviteToken: message }));
+                    })
+                    .finally(() => {
+                        if (!isMounted) return;
+                        setIsCheckingInvite(false);
+                    });
+            }
+        }
+
+        hasHydratedDraftRef.current = true;
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     const companySelection = form.companySelection;
 
@@ -345,6 +424,9 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
             setInvitePreview(null);
             setInviteError(null);
         }
+        if (draftRestored) {
+            setDraftRestored(false);
+        }
     };
 
     const handleEmailBlur = async () => {
@@ -396,7 +478,47 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
         }
     };
 
-    const validateStep = (currentStep: StepId): boolean => {
+    useEffect(() => {
+        if (!hasHydratedDraftRef.current) {
+            return;
+        }
+
+        saveRegistrationDraft({
+            step,
+            firstName: form.firstName,
+            lastName: form.lastName,
+            email: form.email,
+            phone: form.phone,
+            companySelection: form.companySelection,
+            companyName: form.companyName,
+            companyType: form.companyType,
+            companyEmail: form.companyEmail,
+            companyPhone: form.companyPhone,
+            companyWebsite: form.companyWebsite,
+            inviteToken: form.inviteToken,
+            role: form.role,
+            updatesOptIn: form.updatesOptIn,
+            termsAccepted: form.termsAccepted,
+        });
+    }, [
+        step,
+        form.firstName,
+        form.lastName,
+        form.email,
+        form.phone,
+        form.companySelection,
+        form.companyName,
+        form.companyType,
+        form.companyEmail,
+        form.companyPhone,
+        form.companyWebsite,
+        form.inviteToken,
+        form.role,
+        form.updatesOptIn,
+        form.termsAccepted,
+    ]);
+
+    const validateStep = (currentStep: RegistrationStep): boolean => {
         const nextErrors: FormErrors = {};
         const clearTargets = STEP_FIELDS[currentStep];
 
@@ -526,9 +648,24 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
 
         try {
             await register(payload);
+            clearRegistrationDraft();
+            persistRememberedEmail(true, payload.email);
         } catch (error) {
             // Errors are surfaced through auth context
         }
+    };
+
+    const handleResetDraft = () => {
+        clearRegistrationDraft();
+        setForm(() => ({ ...INITIAL_STATE }));
+        setStep('account');
+        setErrors({});
+        setGeneralError(null);
+        setInvitePreview(null);
+        setInviteError(null);
+        setEmailStatus('idle');
+        setDraftRestored(false);
+        setIsCheckingInvite(false);
     };
 
     const handleFormSubmit = (event: React.FormEvent) => {
@@ -798,6 +935,21 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
 
                     <StepIndicator currentStep={step} />
 
+                    {draftRestored && (
+                        <div className="flex flex-col gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+                            <span className="sm:pr-4">
+                                We restored your saved registration details. Continue where you left off or start over.
+                            </span>
+                            <button
+                                type="button"
+                                onClick={handleResetDraft}
+                                className="self-start text-sm font-medium text-primary hover:text-primary/80 sm:self-center"
+                            >
+                                Start over
+                            </button>
+                        </div>
+                    )}
+
                     {generalError && (
                         <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
                             {generalError}
@@ -815,7 +967,14 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                             Back
                                         </Button>
                                     ) : (
-                                        <button type="button" onClick={onSwitchToLogin} className="text-sm font-medium text-primary hover:text-primary/80">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                clearRegistrationDraft();
+                                                onSwitchToLogin();
+                                            }}
+                                            className="text-sm font-medium text-primary hover:text-primary/80"
+                                        >
                                             Already have an account? Sign in
                                         </button>
                                     )}
