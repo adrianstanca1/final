@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { useAuth } from '../contexts/AuthContext';
-import { authApi } from '../services/mockApi';
+import { authClient, InvitePreview } from '../services/authClient';
 import { CompanyType, RegistrationPayload, Role } from '../types';
+import { AuthEnvironmentNotice } from './auth/AuthEnvironmentNotice';
 
 interface UserRegistrationProps {
     onSwitchToLogin: () => void;
@@ -12,14 +13,6 @@ interface UserRegistrationProps {
 type StepId = 'account' | 'workspace' | 'confirm';
 
 type FormErrors = Partial<Record<keyof RegistrationState, string>>;
-
-interface InvitePreview {
-    companyId: string;
-    companyName: string;
-    companyType?: CompanyType;
-    allowedRoles: Role[];
-    suggestedRole?: Role;
-}
 
 interface RegistrationState {
     firstName: string;
@@ -348,7 +341,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
         }
         setEmailStatus('checking');
         try {
-            const { available } = await authApi.checkEmailAvailability(trimmed);
+            const { available } = await authClient.checkEmailAvailability(trimmed);
             setEmailStatus(available ? 'available' : 'unavailable');
             if (!available) {
                 setErrors(prev => ({ ...prev, email: 'An account with this email already exists. Try signing in instead.' }));
@@ -369,7 +362,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
         setIsCheckingInvite(true);
         setInviteError(null);
         try {
-            const preview = await authApi.lookupInviteToken(token);
+            const preview = await authClient.lookupInviteToken(token);
             setInvitePreview(preview);
             setErrors(prev => {
                 const next = { ...prev };
@@ -788,6 +781,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
 
                     <Card>
                         <form className="space-y-6" onSubmit={handleFormSubmit} noValidate>
+                            <AuthEnvironmentNotice align="left" className="rounded-md bg-muted/40 px-3 py-2" />
                             {currentStepContent()}
                             <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
                                 <div className="flex items-center gap-3">

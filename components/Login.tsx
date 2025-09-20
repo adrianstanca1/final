@@ -4,6 +4,7 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { useAuth } from '../contexts/AuthContext';
 import { getStorage } from '../utils/storage';
+import { AuthEnvironmentNotice } from './auth/AuthEnvironmentNotice';
 
 interface LoginProps {
   onSwitchToRegister: () => void;
@@ -218,6 +219,7 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
           </h2>
         </div>
         <Card className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+            <AuthEnvironmentNotice className="mb-4" />
             {error && <div className="mb-4 p-3 bg-destructive/10 text-destructive text-sm rounded-md border border-destructive/20">{error}</div>}
             {step === 'credentials' ? renderCredentialStep() : renderMfaStep()}
         </Card>
