@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Role, Permission, RolePermissions, CompanyType, RegisterCredentials } from '../types';
+import { Role, RolePermissions, CompanyType, RegisterCredentials } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -31,11 +31,20 @@ const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password =
     };
     const strength = getStrength();
     const width = (strength / 5) * 100;
-    const color = strength < 3 ? 'bg-destructive' : strength < 5 ? 'bg-yellow-500' : 'bg-green-500';
+    let color: string;
+    if (strength < 3) {
+        color = 'bg-destructive';
+    } else if (strength < 5) {
+        color = 'bg-yellow-500';
+    } else {
+        color = 'bg-green-500';
+    }
 
     return (
         <div className="w-full bg-muted rounded-full h-1.5 mt-1">
-            <div className={`h-1.5 rounded-full transition-all duration-300 ${color}`} style={{ width: `${width}%` }}></div>
+            <div className={`h-1.5 rounded-full transition-all duration-300 ${color}`}
+                style={{ '--progress-width': `${width}%`, width: 'var(--progress-width)' } as React.CSSProperties}
+            ></div>
         </div>
     );
 };
@@ -82,7 +91,11 @@ const CreateCompanyModal: React.FC<{
 
     return (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
-            <div className="absolute inset-0 bg-transparent" onClick={onClose} />
+            <button
+                className="absolute inset-0 bg-transparent border-0 cursor-default"
+                onClick={onClose}
+                aria-label="Close modal"
+            />
             <Card className="w-full max-w-lg relative">
                 <h3 className="text-lg font-bold mb-4">Create Your Company</h3>
                 <form onSubmit={handleSubmit} className="space-y-4">

@@ -54,10 +54,13 @@ export const MyDayView: React.FC<MyDayViewProps> = ({ user, addToast }) => {
             }
         } catch (error) {
             if (controller.signal.aborted) return;
+            console.error('Failed to load daily data:', error);
             addToast("Failed to load daily data.", "error");
         } finally {
-            if (controller.signal.aborted) return;
-            setLoading(false);
+            const isAborted = controller.signal.aborted;
+            if (!isAborted) {
+                setLoading(false);
+            }
         }
     }, [user, addToast]);
 
@@ -76,6 +79,7 @@ export const MyDayView: React.FC<MyDayViewProps> = ({ user, addToast }) => {
             setAllTodos(prev => prev.map(t => t.id === taskId ? updatedTodo : t)); // Also update the global list for dependencies
             addToast(`Task moved to ${newStatus}.`, 'success');
         } catch (error) {
+            console.error('Failed to update task status:', error);
             addToast("Failed to update task status.", 'error');
         }
     };
@@ -100,6 +104,7 @@ export const MyDayView: React.FC<MyDayViewProps> = ({ user, addToast }) => {
             });
             addToast("Tasks prioritized by AI.", "success");
         } catch (error) {
+            console.error('AI prioritization failed:', error);
             addToast("AI prioritization failed.", "error");
         } finally {
             setIsPrioritizing(false);

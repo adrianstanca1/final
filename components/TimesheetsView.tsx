@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 // FIX: Corrected import paths to be relative.
-import { User, Timesheet, Project, Role, Permission, TimesheetStatus } from '../types';
+import { User, Timesheet, Project, Permission, TimesheetStatus } from '../types';
 // FIX: Corrected API import
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
@@ -70,33 +70,36 @@ const LogTimeModal: React.FC<{
     };
 
     return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+        <div
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 cursor-pointer"
+            onClick={onClose}
+        >
             <Card className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
                 <h2 className="text-2xl font-bold text-slate-800 mb-4">{timesheetToEdit ? 'Edit' : 'Log'} Time</h2>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Project</label>
-                        <select value={projectId} onChange={e => setProjectId(e.target.value)} className="mt-1 w-full p-2 border rounded-md bg-white">
+                        <label htmlFor="timesheet-project" className="block text-sm font-medium text-gray-700">Project</label>
+                        <select id="timesheet-project" value={projectId} onChange={e => setProjectId(e.target.value)} className="mt-1 w-full p-2 border rounded-md bg-white">
                             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Date</label>
-                        <input type="date" value={date} onChange={e => setDate(e.target.value)} className="mt-1 w-full p-2 border rounded-md" />
+                        <label htmlFor="timesheet-date" className="block text-sm font-medium text-gray-700">Date</label>
+                        <input id="timesheet-date" type="date" value={date} onChange={e => setDate(e.target.value)} className="mt-1 w-full p-2 border rounded-md" />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Start Time</label>
-                            <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="mt-1 w-full p-2 border rounded-md" />
+                            <label htmlFor="timesheet-start-time" className="block text-sm font-medium text-gray-700">Start Time</label>
+                            <input id="timesheet-start-time" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="mt-1 w-full p-2 border rounded-md" />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">End Time</label>
-                            <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="mt-1 w-full p-2 border rounded-md" />
+                            <label htmlFor="timesheet-end-time" className="block text-sm font-medium text-gray-700">End Time</label>
+                            <input id="timesheet-end-time" type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="mt-1 w-full p-2 border rounded-md" />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Notes (Optional)</label>
-                        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="mt-1 w-full p-2 border rounded-md" />
+                        <label htmlFor="timesheet-notes" className="block text-sm font-medium text-gray-700">Notes (Optional)</label>
+                        <textarea id="timesheet-notes" value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="mt-1 w-full p-2 border rounded-md" />
                     </div>
                     <div className="flex justify-end gap-2 pt-4 border-t">
                         <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
@@ -141,17 +144,19 @@ export const TimesheetsView: React.FC<TimesheetsViewProps> = ({ user, addToast }
             ]);
 
             if (controller.signal.aborted) return;
-            setTimesheets(tsData.sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime()));
+            const sortedTimesheets = [...tsData].sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime());
+            setTimesheets(sortedTimesheets);
             if (controller.signal.aborted) return;
             setProjects(projData);
             if (controller.signal.aborted) return;
             setUsers(usersData);
 
         } catch (error) {
-            if (controller.signal.aborted) return;
+            const isAborted = controller.signal.aborted;
+            if (isAborted) return;
+            console.error('Failed to load timesheet data:', error);
             addToast("Failed to load timesheet data.", "error");
         } finally {
-            if (controller.signal.aborted) return;
             setLoading(false);
         }
     }, [user, addToast]);
@@ -179,6 +184,7 @@ export const TimesheetsView: React.FC<TimesheetsViewProps> = ({ user, addToast }
             addToast(`Timesheet ${status.toLowerCase()}.`, 'success');
             fetchData();
         } catch (error) {
+            console.error('Failed to update timesheet:', error);
             addToast("Failed to update timesheet.", "error");
         }
     };

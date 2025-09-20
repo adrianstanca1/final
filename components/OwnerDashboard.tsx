@@ -1,3 +1,4 @@
+// Fixed OwnerDashboard.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   User,
@@ -26,6 +27,7 @@ import { ViewHeader } from './layout/ViewHeader';
 import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
 import { getDerivedStatus, getInvoiceFinancials } from '../utils/finance';
 import { generateFinancialForecast } from '../services/ai';
+import { useOfflineSync } from '../hooks/useOfflineSync';
 
 interface OwnerDashboardProps {
   user: User;
@@ -62,8 +64,8 @@ const clampPercentage = (value: number) => Math.max(0, Math.min(100, Math.round(
 const renderMarkdownSummary = (summary: string) =>
   summary
     .split('\n')
-    .map(line => line.trim())
-    .filter(line => line.length > 0)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
     .map((line, index) => (
       <p
         key={`${line}-${index}`}
@@ -84,24 +86,26 @@ const MiniBarChart: React.FC<{
   if (!data.length) {
     return <p className="text-sm text-muted-foreground">{emptyLabel}</p>;
   }
-
-  const max = Math.max(...data.map(item => item.value), 1);
-  const color =
-    accent === 'emerald'
-      ? 'bg-emerald-500'
-      : accent === 'amber'
-        ? 'bg-amber-500'
-        : 'bg-primary';
-
+  const max = Math.max(...data.map((item) => item.value), 1);
+  let color: string;
+  if (accent === 'emerald') {
+    color = 'bg-emerald-500';
+  } else if (accent === 'amber') {
+    color = 'bg-amber-500';
+  } else {
+    color = 'bg-primary';
+  }
   return (
     <div className="flex items-end gap-2">
-      {data.map(item => (
-        <div key={item.label} className="flex flex-1 flex-col items-center gap-1">
+      {data.map((item) => (
+        <div className="flex flex-1 flex-col items-center gap-1" key={item.label}>
           <div className="text-xs font-semibold text-muted-foreground">{item.label}</div>
           <div className="flex h-32 w-full items-end overflow-hidden rounded bg-muted/60">
             <div
               className={`${color} w-full rounded-t transition-all`}
-              style={{ height: `${Math.max(6, (item.value / max) * 100)}%` }}
+              style={{
+                height: `${Math.max(6, (item.value / max) * 100)}%`
+              } as React.CSSProperties}
               title={`${item.label}: ${item.value.toLocaleString()}`}
             />
           </div>
@@ -115,21 +119,24 @@ const CostBreakdownList: React.FC<{ data: CostBreakdown[]; currency: string }> =
   if (!data.length) {
     return <p className="text-sm text-muted-foreground">No approved costs recorded.</p>;
   }
-
   const total = data.reduce((sum, entry) => sum + (entry.amount || 0), 0) || 1;
-
   return (
     <div className="space-y-3">
-      {data.map(entry => {
+      {data.map((entry) => {
         const share = Math.round(((entry.amount || 0) / total) * 100);
         return (
-          <div key={entry.category} className="space-y-1">
+          <div className="space-y-1" key={entry.category}>
             <div className="flex items-center justify-between text-sm font-semibold text-foreground">
               <span>{entry.category}</span>
               <span>{formatCurrency(entry.amount || 0, currency)}</span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded bg-muted">
-              <div className="h-full rounded bg-primary/80" style={{ width: `${share}%` }} />
+              <div
+                className="h-full rounded bg-primary/80"
+                style={{
+                  width: `${share}%`
+                } as React.CSSProperties}
+              />
             </div>
             <p className="text-xs text-muted-foreground">{share}% of tracked spend</p>
           </div>
@@ -159,12 +166,12 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     companyName: null,
     users: [],
     operationalInsights: null,
-
   });
   const [briefError, setBriefError] = useState<string | null>(null);
   const [isGeneratingBrief, setIsGeneratingBrief] = useState(false);
   const [selectedHorizon, setSelectedHorizon] = useState(3);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const { isOnline } = useOfflineSync(addToast);
 
   const currency = data.kpis?.currency ?? 'GBP';
 
@@ -173,13 +180,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       setLoading(false);
       return;
     }
-
     const controller = new AbortController();
     abortControllerRef.current?.abort();
     abortControllerRef.current = controller;
-
     setLoading(true);
-
     try {
       const [
         projects,
@@ -192,7 +196,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         timesheets,
         forecasts,
         operationalInsights,
-
         companies,
       ] = await Promise.all([
         api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
@@ -205,21 +208,14 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         api.getTimesheetsByCompany(user.companyId, user.id, { signal: controller.signal }),
         api.getFinancialForecasts(user.companyId, { signal: controller.signal }),
         api.getOperationalInsights(user.companyId, { signal: controller.signal }),
-
         api.getCompanies({ signal: controller.signal }),
       ]);
-
-      if (controller.signal.aborted) {
-        return;
-      }
+      if (controller.signal.aborted) return;
 
       const incidents = await api.getSafetyIncidentsByCompany(user.companyId);
+      if (controller.signal.aborted) return;
 
-      if (controller.signal.aborted) {
-        return;
-      }
-
-      const companyName = companies.find(company => company.id === user.companyId)?.name ?? null;
+      const companyName = companies.find((company) => company.id === user.companyId)?.name ?? null;
 
       setData({
         projects,
@@ -236,15 +232,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         operationalInsights,
       });
     } catch (error) {
-      if (controller.signal.aborted) {
-        return;
-      }
+      if (controller.signal.aborted) return;
       console.error('Failed to load owner dashboard', error);
       addToast('Unable to load the executive dashboard right now.', 'error');
     } finally {
-      if (!controller.signal.aborted) {
-        setLoading(false);
-      }
+      if (!controller.signal.aborted) setLoading(false);
     }
   }, [user.companyId, user.id, addToast]);
 
@@ -255,12 +247,12 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   const portfolioSummary: ProjectPortfolioSummary = useMemo(
     () => computeProjectPortfolioSummary(data.projects),
-    [data.projects],
+    [data.projects]
   );
 
   const atRiskProjects = useMemo(() => {
     return data.projects
-      .map(project => {
+      .map((project) => {
         const budget = project.budget ?? 0;
         const actual = project.actualCost ?? project.spent ?? 0;
         const progress = project.progress ?? 0;
@@ -270,16 +262,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           (project.status === 'ON_HOLD' ? 1.3 : 1) *
           (project.status === 'CANCELLED' ? 0 : 1) *
           (progress < 40 ? 1.2 : 1) *
-          (portfolioSummary.upcomingDeadlines.some(deadline => deadline.id === project.id && deadline.isOverdue) ? 1.3 : 1);
-        return {
-          project,
-          budget,
-          actual,
-          progress,
-          riskScore,
-        };
+          (portfolioSummary.upcomingDeadlines.some((d) => d.id === project.id && d.isOverdue) ? 1.3 : 1);
+        return { project, budget, actual, progress, riskScore };
       })
-      .filter(entry => entry.project.status !== 'COMPLETED' && entry.project.status !== 'CANCELLED')
+      .filter((entry) => entry.project.status !== 'COMPLETED' && entry.project.status !== 'CANCELLED')
       .sort((a, b) => b.riskScore - a.riskScore)
       .slice(0, 4);
   }, [data.projects, portfolioSummary.upcomingDeadlines]);
@@ -291,69 +277,56 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         acc.outstandingReceivables += balance;
         acc.invoicePipeline += total;
         const derivedStatus = getDerivedStatus(invoice);
-        if (derivedStatus === InvoiceStatus.OVERDUE) {
-          acc.overdueReceivables += balance;
-        }
+        if (derivedStatus === InvoiceStatus.OVERDUE) acc.overdueReceivables += balance;
         return acc;
       },
-      { outstandingReceivables: 0, overdueReceivables: 0, invoicePipeline: 0 },
+      { outstandingReceivables: 0, overdueReceivables: 0, invoicePipeline: 0 }
     );
   }, [data.invoices]);
 
   const fallbackApprovedExpenseTotal = useMemo(
     () =>
       data.expenses
-        .filter(expense => expense.status === 'APPROVED' || expense.status === 'PAID')
+        .filter((expense) => expense.status === 'APPROVED' || expense.status === 'PAID')
         .reduce((sum, expense) => sum + (expense.amount || 0), 0),
-    [data.expenses],
+    [data.expenses]
   );
 
   const approvedExpenses = useMemo(
-    () =>
-      data.expenses.filter(expense => expense.status === 'APPROVED' || expense.status === 'PAID'),
-    [data.expenses],
+    () => data.expenses.filter((expense) => expense.status === 'APPROVED' || expense.status === 'PAID'),
+    [data.expenses]
   );
 
   const approvedExpenseTotal = useMemo(
     () => approvedExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0),
-    [approvedExpenses],
+    [approvedExpenses]
   );
 
   const openIncidents = useMemo(
-    () => data.incidents.filter(incident => incident.status !== IncidentStatus.RESOLVED),
-    [data.incidents],
+    () => data.incidents.filter((incident) => incident.status !== IncidentStatus.RESOLVED),
+    [data.incidents]
   );
 
   const fallbackHighSeverityIncidents = useMemo(
-    () =>
-      openIncidents.filter(
-        incident => incident.severity === IncidentSeverity.HIGH || incident.severity === IncidentSeverity.CRITICAL,
-      ),
-    [openIncidents],
-  );
-
-  const highSeverityIncidents = useMemo(
-    () => openIncidents.filter(incident => incident.severity === IncidentSeverity.HIGH || incident.severity === IncidentSeverity.CRITICAL),
-    [openIncidents],
+    () => openIncidents.filter((i) => i.severity === IncidentSeverity.HIGH || i.severity === IncidentSeverity.CRITICAL),
+    [openIncidents]
   );
 
   const complianceRate = useMemo(() => {
-    const submitted = data.timesheets.filter(ts => ts.status !== TimesheetStatus.DRAFT);
-    if (!submitted.length) {
-      return 0;
-    }
-    const approved = submitted.filter(ts => ts.status === TimesheetStatus.APPROVED).length;
+    const submitted = data.timesheets.filter((ts) => ts.status !== TimesheetStatus.DRAFT);
+    if (!submitted.length) return 0;
+    const approved = submitted.filter((ts) => ts.status === TimesheetStatus.APPROVED).length;
     return clampPercentage((approved / submitted.length) * 100);
   }, [data.timesheets]);
 
   const revenueTrend = useMemo(
-    () => data.monthly.slice(-6).map(entry => ({ label: entry.month, value: entry.revenue })),
-    [data.monthly],
+    () => data.monthly.slice(-6).map((entry) => ({ label: entry.month, value: entry.revenue })),
+    [data.monthly]
   );
 
   const profitTrend = useMemo(
-    () => data.monthly.slice(-6).map(entry => ({ label: entry.month, value: entry.profit })),
-    [data.monthly],
+    () => data.monthly.slice(-6).map((entry) => ({ label: entry.month, value: entry.profit })),
+    [data.monthly]
   );
 
   const operationalInsights = data.operationalInsights;
@@ -369,19 +342,14 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const overtimeHours = operationalInsights?.workforce.overtimeHours ?? null;
   const operationalAlerts = operationalInsights?.alerts ?? [];
 
-
   const latestForecast = data.forecasts[0] ?? null;
   const previousForecasts = data.forecasts.slice(1, 4);
 
   const handleGenerateBrief = useCallback(
     async (horizon: number) => {
-      if (!user.companyId) {
-        return;
-      }
-
+      if (!user.companyId) return;
       setIsGeneratingBrief(true);
       setBriefError(null);
-
       try {
         const forecast = await generateFinancialForecast({
           companyName: data.companyName ?? 'Portfolio',
@@ -393,7 +361,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           invoices: data.invoices,
           expenses: data.expenses,
         });
-
         const saved = await api.createFinancialForecast(
           {
             companyId: user.companyId,
@@ -402,13 +369,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             metadata: { ...forecast.metadata, source: 'owner-dashboard' },
             model: forecast.model,
           },
-          user.id,
+          user.id
         );
-
-        setData(prev => ({
-          ...prev,
-          forecasts: [saved, ...prev.forecasts],
-        }));
+        setData((prev) => ({ ...prev, forecasts: [saved, ...prev.forecasts] }));
         addToast('Executive outlook refreshed.', 'success');
       } catch (error) {
         console.error('Failed to generate financial forecast', error);
@@ -418,18 +381,17 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         setIsGeneratingBrief(false);
       }
     },
-    [user.companyId, user.id, data.companyName, data.kpis, data.monthly, data.costs, data.invoices, data.expenses, currency, addToast],
+    [user.companyId, user.id, data.companyName, data.kpis, data.monthly, data.costs, data.invoices, data.expenses, currency, addToast]
   );
 
-  if (loading) {
-    return <Card>Loading executive overview…</Card>;
-  }
+  if (loading) return <>Loading executive overview…</>;
 
   return (
     <div className="space-y-6">
       <ViewHeader
         title="Executive control centre"
         description="Monitor the commercial pulse and operational risk across the portfolio."
+        isOnline={isOnline}
         actions={
           setActiveView
             ? (
@@ -462,18 +424,27 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           {
             label: 'Workforce',
             value: `${data.users.length}`,
-            helper:
-              complianceRate > 0
-                ? `${complianceRate}% approvals${crewOnShift ? ` • ${crewOnShift} clocked in` : ''}`
-                : crewOnShift
-                  ? `${crewOnShift} team members clocked in`
-                  : 'No approvals submitted',
-            indicator: complianceRate < 80 ? 'warning' : crewOnShift > 0 ? 'positive' : 'neutral',
+            helper: (() => {
+              if (complianceRate > 0) {
+                const baseText = `${complianceRate}% approvals`;
+                const crewText = crewOnShift ? ` • ${crewOnShift} clocked in` : '';
+                return baseText + crewText;
+              } else if (crewOnShift) {
+                return `${crewOnShift} team members clocked in`;
+              } else {
+                return 'No approvals submitted';
+              }
+            })(),
+            indicator: (() => {
+              if (complianceRate < 80) return 'warning';
+              if (crewOnShift > 0) return 'positive';
+              return 'neutral';
+            })(),
           },
         ]}
       />
 
-      <section className="grid gap-6 xl:grid-cols-[2fr,1fr]">
+      <section className="grid gap-6 xl:grid-cols-[2fr,1fr]">{/* rest of content */}
         <Card className="space-y-6 p-6">
           <div className="flex flex-col gap-2">
             <h2 className="text-lg font-semibold text-foreground">Financial pulse</h2>
@@ -502,11 +473,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Days since last incident</span>
               <span className="font-semibold text-foreground">
-                {daysSinceLastIncident === null
-                  ? '—'
-                  : daysSinceLastIncident === 0
-                    ? 'Today'
-                    : `${daysSinceLastIncident} day${daysSinceLastIncident === 1 ? '' : 's'}`}
+                {(() => {
+                  if (daysSinceLastIncident === null) return '—';
+                  if (daysSinceLastIncident === 0) return 'Today';
+                  return `${daysSinceLastIncident} day${daysSinceLastIncident === 1 ? '' : 's'}`;
+                })()}
               </span>
             </div>
             <div className="flex items-center justify-between">
@@ -553,12 +524,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 {operationalAlerts.map(alert => (
                   <li key={alert.id} className="flex items-start gap-2">
                     <span
-                      className={`mt-1 h-2 w-2 rounded-full ${alert.severity === 'critical'
-                        ? 'bg-destructive'
-                        : alert.severity === 'warning'
-                          ? 'bg-amber-500'
-                          : 'bg-primary'
-                        }`}
+                      className={`mt-1 h-2 w-2 rounded-full ${(() => {
+                        if (alert.severity === 'critical') return 'bg-destructive';
+                        if (alert.severity === 'warning') return 'bg-amber-500';
+                        return 'bg-primary';
+                      })()}`}
                     />
                     <span className="text-muted-foreground">{alert.message}</span>
                   </li>
@@ -597,7 +567,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                     </div>
                     <Tag
                       label={project.status.replace(/_/g, ' ')}
-                      color={project.status === 'ACTIVE' ? 'green' : project.status === 'ON_HOLD' ? 'yellow' : 'red'}
+                      color={(() => {
+                        if (project.status === 'ACTIVE') return 'green';
+                        if (project.status === 'ON_HOLD') return 'yellow';
+                        return 'red';
+                      })()}
                     />
                   </div>
                   <div className="grid grid-cols-3 gap-3 text-xs text-muted-foreground">
@@ -713,7 +687,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
               <p className="text-xs text-muted-foreground">
                 Generated {new Date(latestForecast.createdAt).toLocaleString()}
                 {latestForecast.model ? ` • ${latestForecast.model}` : ''}
-                {(latestForecast.metadata as Record<string, unknown>)?.['isFallback'] ? ' • Offline summary' : ''}
+                {latestForecast.metadata?.['isFallback'] ? ' • Offline summary' : ''}
               </p>
             </div>
           ) : (
@@ -758,7 +732,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                   </div>
                   <Tag
                     label={member.availability ?? 'Unknown'}
-                    color={member.availability === 'ON_PROJECT' ? 'blue' : member.availability === 'ON_LEAVE' ? 'gray' : 'green'}
+                    color={(() => {
+                      if (member.availability === 'ON_PROJECT') return 'blue';
+                      if (member.availability === 'ON_LEAVE') return 'gray';
+                      return 'green';
+                    })()}
                   />
                 </li>
               ))}

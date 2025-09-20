@@ -60,7 +60,7 @@ FROM node:20-alpine AS agent
 WORKDIR /app
 
 # Install development tools and runtime dependencies
-RUN apk add --no-cache curl git docker-cli
+RUN apk add --no-cache curl docker-cli git
 
 # Copy package files and install all dependencies
 COPY package*.json ./

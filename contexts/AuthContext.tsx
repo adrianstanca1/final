@@ -22,6 +22,7 @@ const parseJwt = (token: string) => {
     try {
         return JSON.parse(atob(token.split('.')[1]));
     } catch (e) {
+        console.warn('Failed to parse JWT:', e);
         return null;
     }
 };
@@ -68,40 +69,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     }, []);
 
+    // Token refresh is now handled automatically by Supabase auth state listener
+    // No need for manual token refresh scheduling
+
     /**
-     * Proactively schedules a token refresh before the current access token expires.
-     * This improves UX by preventing the user from being logged out during an active session.
+     * Initializes authentication state from Supabase session
      */
-    const scheduleTokenRefresh = useCallback((token: string) => {
-        if (tokenRefreshTimeout) {
-            clearTimeout(tokenRefreshTimeout);
-        }
-        const decoded = parseJwt(token);
-        if (decoded && decoded.exp) {
-            // Refresh 1 minute before expiry to be safe
-            const expiresIn = (decoded.exp * 1000) - Date.now() - 60000;
-            if (expiresIn > 0) {
-                tokenRefreshTimeout = setTimeout(async () => {
-                    const storedRefreshToken = localStorage.getItem('refreshToken');
-                    if (storedRefreshToken) {
-                        try {
-                            console.log("Proactively refreshing token...");
-                            // Token refresh will be handled by Supabase automatically
-                            // Token refresh handled by Supabase auth state listener
-                            console.log("Token refresh will be handled automatically by Supabase");
-                        } catch (error) {
-                            console.error("Proactive token refresh failed", error);
-                            logout();
-                        }
-                    }
-                }, expiresIn);
-            } else {
-                // Token already expired or about to, attempt a reactive refresh or log out.
-                console.warn("Token is already expired or has less than a minute left. Logging out.");
-                logout();
-            }
-        }
-    }, [logout]);
 
     // This function is no longer used with Supabase, but keeping commented for reference
     // Token refresh is handled by Supabase auth state listener

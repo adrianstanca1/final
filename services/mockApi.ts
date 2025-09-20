@@ -2,7 +2,7 @@
 // Supports offline queuing for write operations.
 
 import { initialData } from './mockData';
-import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegistrationPayload, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority, RolePermissions, Permission } from '../types';
+import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegistrationPayload, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority, RolePermissions } from '../types';
 import { createPasswordRecord, sanitizeUser, upgradeLegacyPassword, verifyPassword } from '../utils/password';
 import { getStorage } from '../utils/storage';
 import { apiCache } from './cacheService';
@@ -289,11 +289,11 @@ const DEFAULT_COLLECTIONS: Record<keyof DbCollections, any[]> = {
     equipment: clone(initialData.equipment),
     clients: clone(initialData.clients),
     invoices: clone(initialData.invoices),
-    expenses: clone((initialData as any).expenses || []),
+    expenses: clone(initialData.expenses || []),
     siteUpdates: clone(initialData.siteUpdates),
     projectMessages: clone(initialData.projectMessages),
-    notifications: clone((initialData as any).notifications || []),
-    quotes: clone((initialData as any).quotes || []),
+    notifications: clone(initialData.notifications || []),
+    quotes: clone(initialData.quotes || []),
     auditLogs: [],
     resourceAssignments: [],
     conversations: [],
@@ -302,7 +302,7 @@ const DEFAULT_COLLECTIONS: Record<keyof DbCollections, any[]> = {
     projectTemplates: [],
     whiteboardNotes: [],
     documents: [],
-    projectInsights: clone((initialData as any).projectInsights || []),
+    projectInsights: clone(initialData.projectInsights || []),
 };
 
 const readCollection = <K extends keyof DbCollections>(key: K): DbCollections[K] => {
@@ -368,7 +368,7 @@ const upgradeLegacyUsers = () => {
     if (legacyUsersToUpgrade.length === 0) {
         return;
     }
-    Promise.all(legacyUsersToUpgrade.map(user => upgradeLegacyPassword(user as Partial<User>)))
+    Promise.all(legacyUsersToUpgrade.map(user => upgradeLegacyPassword(user)))
         .then(() => {
             saveDb();
         })
@@ -380,7 +380,7 @@ upgradeLegacyUsers();
 const ensureUserPermissionConsistency = () => {
     let updated = false;
     db.users.forEach(user => {
-        if (user.role && (!user.permissions || (user.permissions as Permission[]).length === 0)) {
+        if (user.role && (!user.permissions || user.permissions.length === 0)) {
             user.permissions = Array.from(RolePermissions[user.role]);
             updated = true;
         }
@@ -404,109 +404,131 @@ const addAuditLog = (actorId: string, action: string, target?: { type: string, i
     saveDb();
 };
 
+// Helper functions for registration
+const validateBasicCredentials = (credentials: RegistrationPayload) => {
+    if (!credentials.email || !credentials.password) {
+        throw new Error('Email and password are required.');
+    }
+
+    if (!credentials.termsAccepted) {
+        throw new Error('You must accept the terms and conditions to create an account.');
+    }
+
+    const normalizedEmail = normalizeEmail(credentials.email);
+    if (findUserByEmail(normalizedEmail)) {
+        throw new Error('An account with this email already exists.');
+    }
+
+    return normalizedEmail;
+};
+
+const createNewCompany = (credentials: RegistrationPayload): { companyId: string; companyRecord: Partial<Company>; userRole: Role } => {
+    const companyName = credentials.companyName?.trim();
+    const companyType = credentials.companyType;
+    const companyEmail = credentials.companyEmail ? normalizeEmail(credentials.companyEmail) : undefined;
+    const companyPhone = credentials.companyPhone?.trim();
+    const companyWebsite = credentials.companyWebsite?.trim();
+
+    if (!companyName || !companyType) {
+        throw new Error('Company information is incomplete.');
+    }
+
+    const timestamp = String(Date.now());
+    const companyId = timestamp;
+    const companyRecord: Partial<Company> = {
+        id: companyId,
+        name: companyName,
+        type: companyType,
+        email: companyEmail,
+        phone: companyPhone,
+        website: companyWebsite,
+        status: 'Active',
+        subscriptionPlan: 'FREE',
+        storageUsageGB: 0,
+        settings: defaultCompanySettings(),
+        address: {
+            street: '',
+            city: '',
+            state: '',
+            zipCode: '',
+            country: 'United Kingdom',
+        },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+    };
+    db.companies.push(companyRecord);
+
+    inviteTokenDirectory.set(`JOIN-${companyId}`, {
+        companyId,
+        allowedRoles: [Role.ADMIN, Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE],
+        suggestedRole: Role.ADMIN,
+    });
+
+    return { companyId, companyRecord, userRole: Role.OWNER };
+};
+
+const joinExistingCompany = (credentials: RegistrationPayload): { companyId: string; companyRecord: Partial<Company>; userRole: Role } => {
+    const normalizedToken = credentials.inviteToken ? normalizeInviteToken(credentials.inviteToken) : '';
+    if (!normalizedToken) {
+        throw new Error('An invite token is required to join an existing company.');
+    }
+    const inviteDetails = inviteTokenDirectory.get(normalizedToken);
+    if (!inviteDetails) {
+        throw new Error('Invalid invite token.');
+    }
+    const companyId = inviteDetails.companyId;
+    const companyRecord = db.companies.find(c => c.id === companyId);
+    if (!companyRecord) {
+        throw new Error('Company not found for invite token.');
+    }
+    if (credentials.role && !inviteDetails.allowedRoles.includes(credentials.role)) {
+        throw new Error('Selected role is not permitted for this invite.');
+    }
+    const userRole = credentials.role && inviteDetails.allowedRoles.includes(credentials.role)
+        ? credentials.role
+        : inviteDetails.suggestedRole || inviteDetails.allowedRoles[0];
+
+    return { companyId, companyRecord, userRole };
+};
+
+const validatePassword = (password: string) => {
+    const trimmedPassword = password.trim();
+    const passwordRequirements = [
+        trimmedPassword.length >= 8,
+        /[A-Z]/.test(trimmedPassword),
+        /[a-z]/.test(trimmedPassword),
+        /\d/.test(trimmedPassword),
+        /[^A-Za-z0-9]/.test(trimmedPassword),
+    ];
+    if (!passwordRequirements.every(Boolean)) {
+        throw new Error('Password does not meet the minimum complexity requirements.');
+    }
+    return trimmedPassword;
+};
+
 export const authApi = {
     register: async (credentials: RegistrationPayload): Promise<any> => {
         await delay();
 
-        if (!credentials.email || !credentials.password) {
-            throw new Error('Email and password are required.');
-        }
-
-        if (!credentials.termsAccepted) {
-            throw new Error('You must accept the terms and conditions to create an account.');
-        }
-
-        const normalizedEmail = normalizeEmail(credentials.email);
-        if (findUserByEmail(normalizedEmail)) {
-            throw new Error('An account with this email already exists.');
-        }
-
-        const password = credentials.password.trim();
-        const passwordRequirements = [
-            password.length >= 8,
-            /[A-Z]/.test(password),
-            /[a-z]/.test(password),
-            /\d/.test(password),
-            /[^A-Za-z0-9]/.test(password),
-        ];
-        if (!passwordRequirements.every(Boolean)) {
-            throw new Error('Password does not meet the minimum complexity requirements.');
-        }
+        const normalizedEmail = validateBasicCredentials(credentials);
+        const password = validatePassword(credentials.password);
 
         const firstName = credentials.firstName?.trim();
         const lastName = credentials.lastName?.trim();
         const phone = credentials.phone?.trim();
 
-        let companyId: string;
-        let companyRecord: Partial<Company> | undefined;
-        let userRole = credentials.role || Role.OPERATIVE;
-
+        // Handle company creation or joining
+        let result: { companyId: string; companyRecord: Partial<Company>; userRole: Role };
+        
         if (credentials.companySelection === 'create') {
-            const companyName = credentials.companyName?.trim();
-            const companyType = credentials.companyType;
-            const companyEmail = credentials.companyEmail ? normalizeEmail(credentials.companyEmail) : undefined;
-            const companyPhone = credentials.companyPhone?.trim();
-            const companyWebsite = credentials.companyWebsite?.trim();
-
-            if (!companyName || !companyType) {
-                throw new Error('Company information is incomplete.');
-            }
-
-            const timestamp = String(Date.now());
-            companyId = timestamp;
-            companyRecord = {
-                id: companyId,
-                name: companyName,
-                type: companyType,
-                email: companyEmail,
-                phone: companyPhone,
-                website: companyWebsite,
-                status: 'Active',
-                subscriptionPlan: 'FREE',
-                storageUsageGB: 0,
-                settings: defaultCompanySettings(),
-                address: {
-                    street: '',
-                    city: '',
-                    state: '',
-                    zipCode: '',
-                    country: 'United Kingdom',
-                },
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-            };
-            db.companies.push(companyRecord);
-
-            inviteTokenDirectory.set(`JOIN-${companyId}`, {
-                companyId,
-                allowedRoles: [Role.ADMIN, Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE],
-                suggestedRole: Role.ADMIN,
-            });
-
-            userRole = Role.OWNER;
+            result = createNewCompany(credentials);
         } else if (credentials.companySelection === 'join') {
-            const normalizedToken = credentials.inviteToken ? normalizeInviteToken(credentials.inviteToken) : '';
-            if (!normalizedToken) {
-                throw new Error('An invite token is required to join an existing company.');
-            }
-            const inviteDetails = inviteTokenDirectory.get(normalizedToken);
-            if (!inviteDetails) {
-                throw new Error('Invalid invite token.');
-            }
-            companyId = inviteDetails.companyId;
-            companyRecord = db.companies.find(c => c.id === companyId);
-            if (!companyRecord) {
-                throw new Error('Company not found for invite token.');
-            }
-            if (credentials.role && !inviteDetails.allowedRoles.includes(credentials.role)) {
-                throw new Error('Selected role is not permitted for this invite.');
-            }
-            userRole = credentials.role && inviteDetails.allowedRoles.includes(credentials.role)
-                ? credentials.role
-                : inviteDetails.suggestedRole || inviteDetails.allowedRoles[0];
+            result = joinExistingCompany(credentials);
         } else {
             throw new Error('Invalid company selection.');
         }
+
+        const { companyId, companyRecord, userRole } = result;
 
         const passwordRecord = await createPasswordRecord(password);
 
@@ -531,22 +553,22 @@ export const authApi = {
         };
 
         if (credentials.updatesOptIn === false) {
-            newUser.preferences!.notifications.projectUpdates = false;
+            newUser.preferences.notifications.projectUpdates = false;
         }
 
         db.users.push(newUser);
 
         const resolvedCompany = companyRecord || db.companies.find(c => c.id === companyId);
         if (resolvedCompany?.name) {
-            addAuditLog(newUser.id!, 'USER_REGISTERED', { type: 'Company', id: companyId, name: resolvedCompany.name });
+            addAuditLog(newUser.id, 'USER_REGISTERED', { type: 'Company', id: companyId, name: resolvedCompany.name });
             if (credentials.companySelection === 'create') {
-                addAuditLog(newUser.id!, 'COMPANY_CREATED', { type: 'Company', id: companyId, name: resolvedCompany.name });
+                addAuditLog(newUser.id, 'COMPANY_CREATED', { type: 'Company', id: companyId, name: resolvedCompany.name });
             }
         }
 
         saveDb();
 
-        const user = db.users.find(u => u.id === newUser.id)!;
+        const user = db.users.find(u => u.id === newUser.id);
         const company = db.companies.find(c => c.id === companyId) as Company;
 
         const token = createToken({ userId: user.id, companyId: company.id, role: user.role }, MOCK_ACCESS_TOKEN_LIFESPAN);
@@ -577,9 +599,9 @@ export const authApi = {
             throw new Error('Company not found for invite token.');
         }
         return {
-            companyId: company.id!,
+            companyId: company.id,
             companyName: company.name || 'Unnamed Company',
-            companyType: company.type as CompanyType,
+            companyType: company.type,
             allowedRoles: details.allowedRoles,
             suggestedRole: details.suggestedRole,
         };
@@ -594,7 +616,7 @@ export const authApi = {
 
         const needsUpgrade = !!user.password && (!user.passwordHash || !user.passwordSalt);
         if (needsUpgrade) {
-            await upgradeLegacyPassword(user as Partial<User>);
+            await upgradeLegacyPassword(user);
             saveDb();
         }
 
@@ -610,7 +632,7 @@ export const authApi = {
         if (user.mfaEnabled) {
             return { success: true, mfaRequired: true, userId: user.id };
         }
-        return authApi.finalizeLogin(user.id as string);
+        return authApi.finalizeLogin(user.id);
     },
     verifyMfa: async (userId: string, code: string): Promise<any> => {
         await delay(200);
@@ -626,8 +648,8 @@ export const authApi = {
         const company = db.companies.find(c => c.id === user.companyId) as Company;
         if (!company) throw new Error("Company not found for user.");
 
-        const token = createToken({ userId: user.id!, companyId: company.id, role: user.role }, MOCK_ACCESS_TOKEN_LIFESPAN);
-        const refreshToken = createToken({ userId: user.id! }, MOCK_REFRESH_TOKEN_LIFESPAN);
+        const token = createToken({ userId: user.id, companyId: company.id, role: user.role }, MOCK_ACCESS_TOKEN_LIFESPAN);
+        const refreshToken = createToken({ userId: user.id }, MOCK_REFRESH_TOKEN_LIFESPAN);
 
         return { success: true, token, refreshToken, user: sanitizeUserForReturn(user), company };
     },
@@ -659,7 +681,7 @@ export const authApi = {
         const user = email ? findUserByEmail(email) : undefined;
         if (user) {
             const token = `reset-${Date.now()}-${Math.random()}`;
-            passwordResetTokens.set(token, { userId: user.id!, expires: Date.now() + MOCK_RESET_TOKEN_LIFESPAN });
+            passwordResetTokens.set(token, { userId: user.id, expires: Date.now() + MOCK_RESET_TOKEN_LIFESPAN });
             console.log(`Password reset for ${email}. Token: ${token}`); // Simulate sending email
         }
         // Always return success to prevent user enumeration attacks
@@ -779,7 +801,7 @@ export const api = {
             saveDb();
         }
 
-        return clone(company.settings as CompanySettings);
+        return clone(company.settings);
     },
     updateCompanySettings: async (
         companyId: string,
@@ -792,7 +814,7 @@ export const api = {
             throw new Error('Company not found');
         }
 
-        const currentSettings = (company.settings as CompanySettings) || defaultCompanySettings();
+        const currentSettings = company.settings || defaultCompanySettings();
         const merged = mergeCompanySettings(currentSettings, updates);
         company.settings = clone(merged);
         company.updatedAt = new Date().toISOString();
@@ -812,7 +834,7 @@ export const api = {
         ensureNotAborted(options?.signal);
         await delay();
         ensureNotAborted(options?.signal);
-        return db.timeEntries.map(te => ({...te, clockIn: new Date(te.clockIn!), clockOut: te.clockOut ? new Date(te.clockOut) : null })) as Timesheet[];
+        return db.timeEntries.map(te => ({...te, clockIn: new Date(te.clockIn), clockOut: te.clockOut ? new Date(te.clockOut) : null })) as Timesheet[];
     },
     getSafetyIncidentsByCompany: async (companyId: string, options?: RequestOptions): Promise<SafetyIncident[]> => {
         ensureNotAborted(options?.signal);
@@ -830,7 +852,7 @@ export const api = {
         ensureNotAborted(options?.signal);
         await delay();
         ensureNotAborted(options?.signal);
-        return db.notifications.filter(n => n.userId === userId).map(n => ({...n, timestamp: new Date(n.timestamp!)})) as Notification[];
+        return db.notifications.filter(n => n.userId === userId).map(n => ({...n, timestamp: new Date(n.timestamp)})) as Notification[];
     },
     markAllNotificationsAsRead: async (userId: string): Promise<void> => {
         await delay();
@@ -852,7 +874,7 @@ export const api = {
         ensureNotAborted(options?.signal);
         await delay();
         ensureNotAborted(options?.signal);
-        return db.projects.filter(p => (p as any).managerId === managerId) as Project[];
+        return db.projects.filter(p => ('managerId' in p) && (p as any).managerId === managerId);
     },
     getUsersByCompany: async (companyId: string, options?: RequestOptions): Promise<User[]> => {
         ensureNotAborted(options?.signal);
@@ -891,7 +913,7 @@ export const api = {
         await delay();
         ensureNotAborted(options?.signal);
         const idSet = new Set(projectIds);
-        return db.todos.filter(t => idSet.has(t.projectId!)) as Todo[];
+        return db.todos.filter(t => idSet.has(t.projectId)) as Todo[];
     },
     getDocumentsByProject: async (projectId: string, options?: RequestOptions): Promise<Document[]> => {
         ensureNotAborted(options?.signal);
@@ -905,7 +927,7 @@ export const api = {
         ensureNotAborted(options?.signal);
         const assignments = db.projectAssignments.filter(pa => pa.projectId === projectId);
         const userIds = new Set(assignments.map(a => a.userId));
-        return sanitizeUsersForReturn(db.users.filter(u => userIds.has(u.id!)));
+        return sanitizeUsersForReturn(db.users.filter(u => userIds.has(u.id)));
     },
 
     getProjectInsights: async (projectId: string, options?: RequestOptions): Promise<ProjectInsight[]> => {
@@ -916,10 +938,10 @@ export const api = {
             .filter(insight => insight.projectId === projectId)
             .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
             .map(insight => ({
-                id: insight.id!,
-                projectId: insight.projectId!,
+                id: insight.id,
+                projectId: insight.projectId,
                 summary: insight.summary || '',
-                type: (insight.type as ProjectInsight['type']) || 'CUSTOM',
+                type: insight.type || 'CUSTOM',
                 createdAt: insight.createdAt || new Date().toISOString(),
                 createdBy: insight.createdBy || 'system',
                 model: insight.model,
@@ -948,7 +970,7 @@ export const api = {
 
         db.projectInsights.push(newInsight);
         const project = db.projects.find(p => p.id === data.projectId);
-        addAuditLog(userId, 'generated_project_insight', project ? { type: 'project', id: project.id!, name: project.name || '' } : undefined);
+        addAuditLog(userId, 'generated_project_insight', project ? { type: 'project', id: project.id, name: project.name || '' } : undefined);
         saveDb();
         return newInsight;
     },
@@ -965,7 +987,7 @@ export const api = {
                 summary: forecast.summary || '',
                 horizonMonths: typeof forecast.horizonMonths === 'number'
                     ? forecast.horizonMonths
-                    : Number((forecast.metadata as any)?.horizonMonths) || 3,
+                    : Number(forecast.metadata?.horizonMonths) || 3,
                 createdAt: forecast.createdAt || new Date().toISOString(),
                 createdBy: forecast.createdBy || 'system',
                 model: forecast.model,
@@ -997,7 +1019,7 @@ export const api = {
         addAuditLog(
             userId,
             'generated_financial_forecast',
-            company ? { type: 'company', id: company.id!, name: company.name || '' } : undefined,
+            company ? { type: 'company', id: company.id, name: company.name || '' } : undefined,
         );
         saveDb();
         return newForecast;
@@ -1007,7 +1029,7 @@ export const api = {
         await delay();
         ensureNotAborted(options?.signal);
         const projectIds = new Set(db.projects.filter(p => p.companyId === companyId).map(p => p.id));
-        return db.expenses.filter(e => projectIds.has(e.projectId!)) as Expense[];
+        return db.expenses.filter(e => projectIds.has(e.projectId)) as Expense[];
     },
     updateTodo: async (todoId: string, updates: Partial<Todo>, userId: string): Promise<Todo> => {
         await delay();
@@ -1023,7 +1045,7 @@ export const api = {
         ensureNotAborted(options?.signal);
         const assignments = db.projectAssignments.filter(pa => pa.userId === userId);
         const projectIds = new Set(assignments.map(a => a.projectId));
-        return db.projects.filter(p => projectIds.has(p.id!)) as Project[];
+        return db.projects.filter(p => projectIds.has(p.id)) as Project[];
     },
     updateEquipment: async (equipmentId: string, updates: Partial<Equipment>, userId: string): Promise<Equipment> => {
         await delay();
@@ -1131,7 +1153,7 @@ export const api = {
     },
     updateTimesheetStatus: async (id: string, status: TimesheetStatus, userId: string, reason?: string): Promise<Timesheet> => {
         const index = db.timeEntries.findIndex(t => t.id === id);
-        db.timeEntries[index]!.status = status;
+        db.timeEntries[index].status = status;
         if (reason) (db.timeEntries[index] as any).rejectionReason = reason;
         saveDb();
         return db.timeEntries[index] as Timesheet;
@@ -1226,7 +1248,7 @@ export const api = {
                     expense: 0,
                 });
             }
-            return monthlyMap.get(key)!;
+            return monthlyMap.get(key) || { month: key.split('-')[1], year: parseInt(key.split('-')[0]), revenue: 0, expenses: 0, profit: 0 };
         };
 
         for (const invoice of db.invoices) {
@@ -1358,7 +1380,15 @@ export const api = {
             if (!value) {
                 return null;
             }
-            const status = String(value).toUpperCase();
+            let status: string | null;
+            if (typeof value === 'string') {
+                status = value.toUpperCase();
+            } else if (typeof value === 'number') {
+                status = String(value).toUpperCase();
+            } else {
+                status = null;
+            }
+            if (!status) return null;
             return Object.values(TodoStatus).includes(status as TodoStatus) ? (status as TodoStatus) : null;
         };
 
@@ -1366,7 +1396,15 @@ export const api = {
             if (!value) {
                 return null;
             }
-            const status = String(value).toUpperCase();
+            let status: string | null;
+            if (typeof value === 'string') {
+                status = value.toUpperCase();
+            } else if (typeof value === 'number') {
+                status = String(value).toUpperCase();
+            } else {
+                status = null;
+            }
+            if (!status) return null;
             return Object.values(TimesheetStatus).includes(status as TimesheetStatus)
                 ? (status as TimesheetStatus)
                 : null;
@@ -1376,7 +1414,15 @@ export const api = {
             if (!value) {
                 return false;
             }
-            const status = String(value).toUpperCase();
+            let status: string | null;
+            if (typeof value === 'string') {
+                status = value.toUpperCase();
+            } else if (typeof value === 'number') {
+                status = String(value).toUpperCase();
+            } else {
+                status = null;
+            }
+            if (!status) return false;
             return status === ExpenseStatus.APPROVED || status === ExpenseStatus.PAID;
         };
 
@@ -1630,7 +1676,9 @@ export const api = {
     },
     createClient: async (data:any, userId:string): Promise<Client> => {
         const timestamp = new Date().toISOString();
-        const companyId = db.users.find(u=>u.id===userId)!.companyId;
+        const user = db.users.find(u => u.id === userId);
+        if (!user) throw new Error('User not found');
+        const companyId = user.companyId;
         const newClient = {
             isActive: true,
             createdAt: timestamp,
@@ -1654,7 +1702,7 @@ export const api = {
         const index = db.invoices.findIndex(i => i.id === id);
         if (index === -1) throw new Error("Invoice not found");
 
-        const existingInvoice = db.invoices[index]!;
+        const existingInvoice = db.invoices[index];
         const companyId = existingInvoice.companyId ?? db.users.find(u => u.id === userId)?.companyId;
         const updatedInvoiceNumber = (data.invoiceNumber ?? existingInvoice.invoiceNumber) as string | undefined;
 
@@ -1702,7 +1750,8 @@ export const api = {
 
         const extractNumber = (invoiceNumber?: string): number => {
             if (!invoiceNumber) return 0;
-            const match = invoiceNumber.match(/(\d+)$/);
+            const regex = /(\d+)$/;
+            const match = regex.exec(invoiceNumber);
             return match ? parseInt(match[1], 10) : 0;
         };
 
@@ -1713,7 +1762,7 @@ export const api = {
         );
 
         let counter = companyInvoices.reduce((max, inv) => {
-            const numeric = extractNumber(inv.invoiceNumber as string | undefined);
+            const numeric = extractNumber(inv.invoiceNumber);
             return Math.max(max, numeric);
         }, 0);
 
@@ -1743,7 +1792,8 @@ export const api = {
         await delay();
         const index = db.invoices.findIndex(i => i.id === id);
         if (index === -1) throw new Error("Invoice not found");
-        const inv = db.invoices[index]!;
+        const inv = db.invoices[index];
+        if (!inv) throw new Error('Invoice not found');
         if (!inv.payments) inv.payments = [];
         const newPayment = { ...data, id: String(Date.now()), createdBy: userId, date: new Date().toISOString(), invoiceId: id };
         inv.payments.push(newPayment);
@@ -1789,7 +1839,7 @@ export const api = {
     },
     getTimesheetsByUser: async (userId: string, options?: RequestOptions): Promise<Timesheet[]> => {
         ensureNotAborted(options?.signal);
-        return db.timeEntries.filter(t => t.userId === userId).map(te => ({...te, clockIn: new Date(te.clockIn!), clockOut: te.clockOut ? new Date(te.clockOut) : null })) as Timesheet[];
+        return db.timeEntries.filter(t => t.userId === userId).map(te => ({...te, clockIn: new Date(te.clockIn), clockOut: te.clockOut ? new Date(te.clockOut) : null })) as Timesheet[];
     },
     createSafetyIncident: async (data: any, userId: string): Promise<SafetyIncident> => {
         const newIncident = { ...data, id: String(Date.now()), reportedById: userId, timestamp: new Date().toISOString(), status: IncidentStatus.REPORTED };
@@ -1799,7 +1849,8 @@ export const api = {
     },
     updateSafetyIncidentStatus: async (id: string, status: IncidentStatus, userId: string): Promise<SafetyIncident> => {
         const index = db.safetyIncidents.findIndex(i => i.id === id);
-        db.safetyIncidents[index]!.status = status;
+        if (index === -1) throw new Error('Safety incident not found');
+        db.safetyIncidents[index].status = status;
         saveDb();
         return db.safetyIncidents[index] as SafetyIncident;
     },
@@ -1888,11 +1939,12 @@ export const api = {
     },
     prioritizeTasks: async (tasks: Todo[], projects: Project[], userId: string): Promise<{prioritizedTaskIds: string[]}> => {
         await delay(1000);
-        return { prioritizedTaskIds: tasks.sort((a,b) => (b.priority === TodoPriority.HIGH ? 1 : -1) - (a.priority === TodoPriority.HIGH ? 1 : -1)).map(t=>t.id) };
+        const sortedTasks = tasks.toSorted((a,b) => (b.priority === TodoPriority.HIGH ? 1 : -1) - (a.priority === TodoPriority.HIGH ? 1 : -1));
+        return { prioritizedTaskIds: sortedTasks.map(t=>t.id) };
     },
     getMessagesForConversation: async (conversationId: string, userId: string, options?: RequestOptions): Promise<Message[]> => {
         ensureNotAborted(options?.signal);
-        return db.messages.filter(m => m.conversationId === conversationId).map(m=>({...m, timestamp: new Date(m.timestamp!)})) as Message[];
+        return db.messages.filter(m => m.conversationId === conversationId).map(m=>({...m, timestamp: new Date(m.timestamp)})) as Message[];
     },
     sendMessage: async (senderId: string, recipientId: string, content: string, conversationId?: string): Promise<{conversation: Conversation, message: Message}> => {
         let convo = conversationId ? db.conversations.find(c => c.id === conversationId) : db.conversations.find(c => c.participantIds?.includes(senderId) && c.participantIds?.includes(recipientId));
@@ -1935,7 +1987,7 @@ export const api = {
     bulkUpdateTodos: async (ids: (string|number)[], updates: Partial<Todo>, userId: string): Promise<void> => {
         const idSet = new Set(ids.map(String));
         db.todos.forEach(t => {
-            if (idSet.has(t.id!)) {
+            if (idSet.has(t.id)) {
                 Object.assign(t, updates);
             }
         });
@@ -1964,5 +2016,30 @@ export const api = {
         db.projectMessages.push(newMessage);
         saveDb();
         return newMessage as ProjectMessage;
+    },
+
+    assignUserToProject: async (userId: string, projectId: string | null): Promise<void> => {
+        await delay();
+        const user = db.users.find(u => u.id === userId);
+        if (!user) throw new Error("User not found");
+        
+        if (projectId) {
+            const project = db.projects.find(p => p.id === projectId);
+            if (!project) throw new Error("Project not found");
+            user.currentProjectId = projectId;
+        } else {
+            user.currentProjectId = undefined;
+        }
+        
+        saveDb();
+    },
+
+    unassignUserFromProject: async (userId: string): Promise<void> => {
+        await delay();
+        const user = db.users.find(u => u.id === userId);
+        if (!user) throw new Error("User not found");
+        
+        user.currentProjectId = undefined;
+        saveDb();
     }
 };

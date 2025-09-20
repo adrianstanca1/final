@@ -121,13 +121,19 @@ const UserModal: React.FC<{
                 {renderSelectField('Availability', 'availability', Object.values(AvailabilityStatus))}
             </div>
             <div className="mt-4">
-                <label className="block text-sm font-medium text-muted-foreground">Skills</label>
+                <label htmlFor="skills-input" className="block text-sm font-medium text-muted-foreground">Skills</label>
                 <div className="flex flex-wrap gap-2 mt-1">
                     {formData.skills?.map(skill => <Tag key={skill} label={skill} onDoubleClick={canManage ? () => handleSkillRemove(skill) : undefined} />)}
                 </div>
                 {canManage && (
                     <div className="flex gap-2 mt-2">
-                        <input value={newSkill} onChange={e => setNewSkill(e.target.value)} placeholder="Add a skill" className="flex-grow p-1 border rounded bg-background" />
+                        <input
+                            id="skills-input"
+                            value={newSkill}
+                            onChange={e => setNewSkill(e.target.value)}
+                            placeholder="Add a skill"
+                            className="flex-grow p-1 border rounded bg-background"
+                        />
                         <Button type="button" size="sm" variant="secondary" onClick={handleSkillAdd}>Add</Button>
                     </div>
                 )}
@@ -135,29 +141,46 @@ const UserModal: React.FC<{
         </>
     );
 
-    const renderFormField = (label: string, type: string, field: keyof User, forceEditable = true) => (
-        <div>
-            <label className="block text-sm font-medium text-muted-foreground">{label}</label>
-            {canManage && forceEditable ? (
-                <input type={type} value={String(formData[field] || '')} onChange={e => handleInputChange(field, e.target.value)} className="w-full p-2 border rounded bg-background" />
-            ) : (
-                <p className="p-2 text-foreground">{String(formData[field] || 'N/A')}</p>
-            )}
-        </div>
-    );
+    const renderFormField = (label: string, type: string, field: keyof User, forceEditable = true) => {
+        const fieldId = `${field}-input`;
+        return (
+            <div>
+                <label htmlFor={fieldId} className="block text-sm font-medium text-muted-foreground">{label}</label>
+                {canManage && forceEditable ? (
+                    <input
+                        id={fieldId}
+                        type={type}
+                        value={String(formData[field] || '')}
+                        onChange={e => handleInputChange(field, e.target.value)}
+                        className="w-full p-2 border rounded bg-background"
+                    />
+                ) : (
+                    <p className="p-2 text-foreground">{String(formData[field] || 'N/A')}</p>
+                )}
+            </div>
+        );
+    };
 
-    const renderSelectField = (label: string, field: keyof User, options: string[]) => (
-        <div>
-            <label className="block text-sm font-medium text-muted-foreground">{label}</label>
-            {canManage ? (
-                <select value={String(formData[field] || '')} onChange={e => handleInputChange(field, e.target.value)} className="w-full p-2 border rounded bg-background">
-                    {options.map(opt => <option key={opt} value={opt}>{opt.replace(/_/g, ' ')}</option>)}
-                </select>
-            ) : (
-                <p className="p-2 text-foreground">{String(formData[field] || 'N/A').replace(/_/g, ' ')}</p>
-            )}
-        </div>
-    );
+    const renderSelectField = (label: string, field: keyof User, options: string[]) => {
+        const fieldId = `${field}-select`;
+        return (
+            <div>
+                <label htmlFor={fieldId} className="block text-sm font-medium text-muted-foreground">{label}</label>
+                {canManage ? (
+                    <select
+                        id={fieldId}
+                        value={String(formData[field] || '')}
+                        onChange={e => handleInputChange(field, e.target.value)}
+                        className="w-full p-2 border rounded bg-background"
+                    >
+                        {options.map(opt => <option key={opt} value={opt}>{opt.replace(/_/g, ' ')}</option>)}
+                    </select>
+                ) : (
+                    <p className="p-2 text-foreground">{String(formData[field] || 'N/A').replace(/_/g, ' ')}</p>
+                )}
+            </div>
+        );
+    };
 
     const renderPerformanceTab = () => (
         <div className="space-y-4">

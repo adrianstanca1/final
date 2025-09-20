@@ -82,20 +82,32 @@ const EquipmentModal: React.FC<{
     };
 
     return (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+        <div
+            className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
+            onClick={onClose}
+            onKeyDown={(e) => e.key === 'Escape' && onClose()}
+            role="dialog"
+            aria-modal="true"
+        >
             <Card className="w-full max-w-xl" onClick={e => e.stopPropagation()}>
                 <h3 className="font-bold text-lg mb-4">{equipmentToEdit ? 'Equipment Details' : 'Add Equipment'}</h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Equipment Name" className="w-full p-2 border rounded" required />
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-slate-300">Status</label>
+                        <label htmlFor="equipment-status" className="block text-sm font-medium text-gray-700 dark:text-slate-300">Status</label>
                         {isCurrentlyInUse && (
                             <div className="p-2 mt-1 bg-sky-50 dark:bg-sky-900/50 rounded-md text-sm text-sky-800 dark:text-sky-200">
                                 This item is currently <span className="font-semibold">In Use</span> based on the schedule. You can set its underlying status below for when the assignment ends.
                             </div>
                         )}
-                        <select value={persistentStatus} onChange={e => setPersistentStatus(e.target.value as EquipmentStatus)} className="w-full p-2 border bg-white rounded mt-2 dark:bg-slate-800 dark:border-slate-600" disabled={isSaving}>
+                        <select
+                            id="equipment-status"
+                            value={persistentStatus}
+                            onChange={e => setPersistentStatus(e.target.value as EquipmentStatus)}
+                            className="w-full p-2 border bg-white rounded mt-2 dark:bg-slate-800 dark:border-slate-600"
+                            disabled={isSaving}
+                        >
                             <option value={EquipmentStatus.AVAILABLE}>Available</option>
                             <option value={EquipmentStatus.MAINTENANCE}>Maintenance</option>
                         </select>
@@ -169,10 +181,13 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) 
             setAssignments(assignData);
         } catch (error) {
             if (controller.signal.aborted) return;
+            console.error('Failed to load equipment data:', error);
             addToast("Failed to load equipment data.", "error");
         } finally {
-            if (controller.signal.aborted) return;
-            setLoading(false);
+            const isAborted = controller.signal.aborted;
+            if (!isAborted) {
+                setLoading(false);
+            }
         }
     }, [user.companyId, addToast]);
 
@@ -259,7 +274,7 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) 
                                     <td className="px-6 py-4"><EquipmentStatusBadge status={getDerivedStatus(item)} /></td>
                                     <td className="px-6 py-4">
                                         {currentAssignments.has(item.id)
-                                            ? projectMap.get(currentAssignments.get(item.id)!.projectId)
+                                            ? projectMap.get(currentAssignments.get(item.id)?.projectId)
                                             : 'Unassigned'}
                                     </td>
                                     {canManage && (

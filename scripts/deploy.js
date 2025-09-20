@@ -252,6 +252,7 @@ CMD ["npm", "start"]
   console.log('✅ Docker image built');
 }
 
+<<<<<<< HEAD
 async function deployToSurge() {
   console.log('🌊 Deploying to Surge...');
   
@@ -294,6 +295,8 @@ async function deployToSurge() {
   console.log(`✅ Deployed to Surge: ${domain || 'surge-generated-domain'}`);
 }
 
+=======
+>>>>>>> a7fe77a (feat: complete service adoption and deployment preparation)
 async function runPostDeploymentChecks() {
   console.log('🔍 Running post-deployment checks...');
   
@@ -356,9 +359,12 @@ async function deploy() {
       case 'docker':
         await deployToDocker();
         break;
+<<<<<<< HEAD
       case 'surge':
         await deployToSurge();
         break;
+=======
+>>>>>>> a7fe77a (feat: complete service adoption and deployment preparation)
       default:
         console.error(`❌ Unsupported deployment target: ${target}`);
         process.exit(1);

@@ -358,7 +358,12 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
   const selectedInvoiceStatus = selectedInvoice ? getDerivedStatus(selectedInvoice) : null;
   const selectedInvoiceFinancials = selectedInvoice ? getInvoiceFinancials(selectedInvoice) : null;
   const selectedAging = selectedInvoice ? getAgingInfo(selectedInvoice) : null;
-  const collectionIndicator = summary.collectionRate >= 90 ? 'positive' : summary.collectionRate >= 75 ? 'warning' : 'negative';
+  let collectionIndicator = 'negative';
+  if (summary.collectionRate >= 90) {
+    collectionIndicator = 'positive';
+  } else if (summary.collectionRate >= 75) {
+    collectionIndicator = 'warning';
+  }
 
   return (
     <div className="relative space-y-6">
@@ -626,8 +631,11 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
               value={formatCurrency(summary.overdue)}
               helper={
                 statusCounts[InvoiceStatus.OVERDUE] > 0
-                  ? `${statusCounts[InvoiceStatus.OVERDUE]} invoice${statusCounts[InvoiceStatus.OVERDUE] === 1 ? '' : 's'
-                  } require attention.`
+                  ? (() => {
+                    const count = statusCounts[InvoiceStatus.OVERDUE];
+                    const plural = count === 1 ? '' : 's';
+                    return `${count} invoice${plural} require attention.`;
+                  })()
                   : 'No invoices are overdue right now.'
               }
               tone={summary.overdue > 0 ? 'danger' : 'success'}
@@ -646,13 +654,11 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
                   ? 'Collections are on track.'
                   : 'Aim for at least 90% to maintain healthy cash flow.'
               }
-              tone={
-                summary.collectionRate >= 90
-                  ? 'success'
-                  : summary.collectionRate >= 60
-                    ? 'warning'
-                    : 'danger'
-              }
+              tone={(() => {
+                if (summary.collectionRate >= 90) return 'success';
+                if (summary.collectionRate >= 60) return 'warning';
+                return 'danger';
+              })()}
             />
           </div>
 

@@ -1,41 +1,18 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
-import { User, View, Project, Role, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
-import { useState, useEffect, useCallback, useRef } from 'react';
-import type { User, View, Project, Notification, CompanySettings } from './types';
+import { User, View, Project, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
 import { api } from './services/mockApi';
+import { notificationService } from './services/notificationService';
+import { analytics } from './services/analyticsService';
+import { backupService } from './services/backupService';
 import { Login } from './components/Login';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
-import { Dashboard } from './components/Dashboard';
-import { MyDayView } from './components/MyDayView';
-import { ForemanDashboard } from './components/ForemanDashboard';
-import { PrincipalAdminDashboard } from './components/PrincipalAdminDashboard';
-import { ProjectsView } from './components/ProjectsView';
-import { ProjectDetailView } from './components/ProjectDetailView';
-import { AllTasksView } from './components/AllTasksView';
-import { ProjectsMapView } from './components/ProjectsMapView';
-import { TimeTrackingView } from './components/TimeTrackingView';
-import { TimesheetsView } from './components/TimesheetsView';
-import { DocumentsView } from './components/DocumentsView';
-import { SafetyView } from './components/SafetyView';
-import { FinancialsView } from './components/FinancialsView';
-import { TeamView } from './components/TeamView';
-import { EquipmentView } from './components/EquipmentView';
-import { TemplatesView } from './components/TemplatesView';
-import { ToolsView } from './components/ToolsView';
-import { AuditLogView } from './components/AuditLogView';
-import { SettingsView } from './components/SettingsView';
-import { ChatView } from './components/ChatView';
 import { AISearchModal } from './components/AISearchModal';
 import { CommandPalette } from './components/CommandPalette';
 import { useOfflineSync } from './hooks/useOfflineSync';
 import { useCommandPalette } from './hooks/useCommandPalette';
 import { useReminderService } from './hooks/useReminderService';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { ClientsView } from './components/ClientsView';
-import { InvoicesView } from './components/InvoicesView';
 import { PageErrorBoundary } from './components/ErrorBoundary';
-import { UserRegistration } from './components/UserRegistration';
 import { useAuth } from './contexts/AuthContext';
 import { ForgotPassword } from './components/auth/ForgotPassword';
 import { ResetPassword } from './components/auth/ResetPassword';
@@ -46,7 +23,7 @@ import { evaluateViewAccess, getDefaultViewForUser } from './utils/viewAccess';
 const Dashboard = React.lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
 const OwnerDashboard = React.lazy(() => import('./components/OwnerDashboard').then(m => ({ default: m.OwnerDashboard })));
 const MyDayView = React.lazy(() => import('./components/MyDayView').then(m => ({ default: m.MyDayView })));
-const ForemanDashboard = React.lazy(() => import('./components/ForemanDashboard').then(m => ({ default: m.ForemanDashboard })));
+const ForemanDashboard = React.lazy(() => import('./components/ForemanDashboard'));
 const PrincipalAdminDashboard = React.lazy(() => import('./components/PrincipalAdminDashboard').then(m => ({ default: m.PrincipalAdminDashboard })));
 const ProjectsView = React.lazy(() => import('./components/ProjectsView').then(m => ({ default: m.ProjectsView })));
 const ProjectDetailView = React.lazy(() => import('./components/ProjectDetailView').then(m => ({ default: m.ProjectDetailView })));
@@ -67,9 +44,8 @@ const ChatView = React.lazy(() => import('./components/ChatView').then(m => ({ d
 const ClientsView = React.lazy(() => import('./components/ClientsView').then(m => ({ default: m.ClientsView })));
 const InvoicesView = React.lazy(() => import('./components/InvoicesView').then(m => ({ default: m.InvoicesView })));
 const UserRegistration = React.lazy(() => import('./components/UserRegistration').then(m => ({ default: m.UserRegistration })));
-import { ToastProvider, useToastHelpers } from './components/ui/Toast';
+import { ToastProvider } from './components/ui/Toast';
 import { setupGlobalErrorHandling } from './utils/errorHandling';
-import { useErrorHandling } from './hooks/useErrorHandling';
 
 
 interface Toast {
@@ -108,7 +84,14 @@ const ToastMessage: React.FC<{ toast: Toast; onDismiss: (id: number) => void }> 
   };
 
   const toastStyle = isNotification ? typeClasses.notification : typeClasses[toast.type];
-  const title = isNotification ? "New Notification" : (toast.type === 'success' ? "Success" : "Error");
+  let title: string;
+  if (isNotification) {
+    title = "New Notification";
+  } else if (toast.type === 'success') {
+    title = "Success";
+  } else {
+    title = "Error";
+  }
 
   return (
     <div className={`${baseClasses} ${toastStyle}`}>
@@ -137,6 +120,38 @@ function AppContent() {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [initialChatRecipient, setInitialChatRecipient] = useState<User | null>(null);
 
+  // Initialize services when user logs in
+  useEffect(() => {
+    if (user && isAuthenticated) {
+      // Initialize notification service
+      notificationService.connect(user.id);
+
+      // Subscribe to notifications
+      const unsubscribe = notificationService.subscribe((notification) => {
+        addToast(notification.message, 'success', notification);
+      });
+
+      // Identify user for analytics
+      analytics.identify(user.id, {
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        companyId: user.companyId,
+      });
+
+      // Track login event
+      analytics.track('user_login', {
+        user_role: user.role,
+        company_id: user.companyId,
+      });
+
+      return () => {
+        unsubscribe();
+        notificationService.disconnect();
+      };
+    }
+  }, [user, isAuthenticated]);
+
   // States for sidebar badge counts
   const [pendingTimesheetCount, setPendingTimesheetCount] = useState(0);
   const [openIncidentCount, setOpenIncidentCount] = useState(0);
@@ -147,16 +162,30 @@ function AppContent() {
 
   const changeView = useCallback(
     (view: View) => {
+      // Track page view for analytics
+      analytics.trackPageView(view, selectedProject ? `${view} - ${selectedProject.name}` : view);
+
       if (view !== 'project-detail') {
         setSelectedProject(null);
       }
       setActiveView(view);
     },
-    []
+    [selectedProject]
   );
 
   const addToast = useCallback((message: string, type: 'success' | 'error' = 'success', notification?: Notification) => {
-    setToasts(currentToasts => [...currentToasts, { id: Date.now(), message, type, notification }]);
+    const id = Date.now();
+    setToasts(currentToasts => [...currentToasts, { id, message, type, notification }]);
+
+    // Track toast events for analytics
+    analytics.track('toast_shown', {
+      message_type: type,
+      has_notification: !!notification,
+      notification_type: notification?.type,
+    });
+
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => dismissToast(id), 5000);
   }, []);
 
   const dismissToast = (id: number) => {
@@ -168,15 +197,15 @@ function AppContent() {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     if (token) {
-        setResetToken(token);
-        setAuthView('reset-password');
+      setResetToken(token);
+      setAuthView('reset-password');
     }
   }, []);
 
   const { isOnline } = useOfflineSync(addToast);
   const { isCommandPaletteOpen, setIsCommandPaletteOpen } = useCommandPalette();
   useReminderService(user);
-  
+
   useEffect(() => {
     if (user?.companyId) {
       api.getCompanySettings(user.companyId).then(setCompanySettings);
@@ -184,7 +213,7 @@ function AppContent() {
   }, [user]);
 
   useEffect(() => {
-    if(companySettings) {
+    if (companySettings) {
       document.documentElement.classList.toggle('dark', companySettings.theme === 'dark');
     }
   }, [companySettings]);
@@ -208,7 +237,7 @@ function AppContent() {
       setPendingTimesheetCount(timesheets.filter(t => t.status === TimesheetStatus.PENDING).length);
       setOpenIncidentCount(incidents.filter(i => i.status !== IncidentStatus.RESOLVED).length);
       setUnreadMessageCount(conversations.filter(c => c.lastMessage && !c.lastMessage.isRead && c.lastMessage.senderId !== user.id).length);
-      
+
       const unreadNotifications = fetchedNotifications.filter(n => !n.isRead);
       setUnreadNotificationCount(unreadNotifications.length);
 
@@ -217,10 +246,10 @@ function AppContent() {
 
       if (newUnreadNotifications.length > 0) {
         newUnreadNotifications.forEach(n => {
-            addToast(n.message, 'success', n);
+          addToast(n.message, 'success', n);
         });
       }
-      
+
       previousNotificationsRef.current = fetchedNotifications;
       setNotifications(fetchedNotifications);
 
@@ -228,7 +257,7 @@ function AppContent() {
       console.error("Could not update notification counts.", error);
     }
   }, [addToast]);
-  
+
   useEffect(() => {
     if (user) {
       api.getNotificationsForUser(user.id).then(initialNotifications => {
@@ -239,27 +268,42 @@ function AppContent() {
     }
 
     const interval = setInterval(() => {
-        if (user) {
-            updateBadgeCounts(user);
-        }
+      if (user) {
+        updateBadgeCounts(user);
+      }
     }, 5000);
     return () => clearInterval(interval);
   }, [user, updateBadgeCounts]);
 
   const handleLogout = () => {
+    // Track logout event
+    analytics.track('user_logout', {
+      session_duration: Date.now() - (analytics.getSessionData().startTime || 0),
+    });
+
+    // Create backup before logout
+    backupService.createBackup({}, { userId: user?.id || 'unknown' }).catch(console.error);
+
     logout();
     setAuthView('login');
     changeView('dashboard');
   };
 
   const handleSelectProject = (project: Project) => {
+    // Track project selection
+    analytics.track('project_selected', {
+      project_id: project.id,
+      project_name: project.name,
+      project_status: project.status,
+    });
+
     setSelectedProject(project);
     setActiveView('project-detail');
   };
-  
+
   const handleStartChat = (recipient: User) => {
-      setInitialChatRecipient(recipient);
-      setActiveView('chat');
+    setInitialChatRecipient(recipient);
+    setActiveView('chat');
   };
 
   const handleNotificationClick = useCallback(async (notification: Notification) => {
@@ -326,7 +370,7 @@ function AppContent() {
     if (activeView === 'project-detail' && selectedProject) {
       return (
         <ProjectDetailView
-          project={selectedProject}
+          projectId={selectedProject.id}
           user={user}
           onBack={() => changeView('projects')}
           addToast={addToast}
@@ -350,7 +394,7 @@ function AppContent() {
       case 'my-day': return <MyDayView user={user} addToast={addToast} />;
       case 'foreman-dashboard': return <ForemanDashboard user={user} addToast={addToast} />;
       case 'principal-dashboard': return <PrincipalAdminDashboard user={user} addToast={addToast} />;
-      case 'projects': return <ProjectsView user={user} addToast={addToast} onSelectProject={handleSelectProject} />;
+      case 'projects': return <ProjectsView user={user} addToast={addToast} onProjectSelect={handleSelectProject} />;
       case 'all-tasks': return <AllTasksView user={user} addToast={addToast} isOnline={isOnline} />;
       case 'map': return <ProjectsMapView user={user} addToast={addToast} />;
       case 'time':
@@ -366,20 +410,10 @@ function AppContent() {
       case 'tools':
         return <ToolsView user={user} addToast={addToast} setActiveView={changeView} />;
       case 'audit-log': return <AuditLogView user={user} addToast={addToast} />;
-      case 'settings': return <SettingsView user={user} addToast={addToast} settings={companySettings} onSettingsUpdate={(s) => setCompanySettings(prev => ({...prev, ...s}))} />;
-      case 'chat': return <ChatView user={user} addToast={addToast} initialRecipient={initialChatRecipient}/>;
-      case 'clients': return <ClientsView user={user} addToast={addToast} />;
+      case 'settings': return <SettingsView user={user} addToast={addToast} settings={companySettings} onSettingsUpdate={(s) => setCompanySettings(prev => ({ ...prev, ...s }))} />;
+      case 'chat': return <ChatView user={user} addToast={addToast} initialRecipient={initialChatRecipient} />;
+      case 'clients': return <ClientsView user={user} addToast={addToast} setActiveView={changeView} />;
       case 'invoices': return <InvoicesView user={user} addToast={addToast} />;
-      default:
-        return (
-          <Dashboard
-            user={user}
-            addToast={addToast}
-            activeView={activeView}
-            setActiveView={changeView}
-            onSelectProject={handleSelectProject}
-          />
-        );
     }
   };
 
@@ -392,21 +426,21 @@ function AppContent() {
   }
 
   if (!isAuthenticated || !user) {
-    switch(authView) {
-        case 'login':
-            return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
-        case 'register':
-            return <UserRegistration onSwitchToLogin={() => setAuthView('login')} />;
-        case 'forgot-password':
-            return <ForgotPassword onSwitchToLogin={() => setAuthView('login')} />;
-        case 'reset-password':
-            if (resetToken) {
-                return <ResetPassword token={resetToken} onSuccess={() => { setAuthView('login'); setResetToken(null); window.history.pushState({}, '', window.location.pathname); }} />;
-            }
-            // Fallback to login if no token
-            return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
-        default:
-             return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
+    switch (authView) {
+      case 'login':
+        return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
+      case 'register':
+        return <UserRegistration onSwitchToLogin={() => setAuthView('login')} />;
+      case 'forgot-password':
+        return <ForgotPassword onSwitchToLogin={() => setAuthView('login')} />;
+      case 'reset-password':
+        if (resetToken) {
+          return <ResetPassword token={resetToken} onSuccess={() => { setAuthView('login'); setResetToken(null); window.history.pushState({}, '', window.location.pathname); }} />;
+        }
+        // Fallback to login if no token
+        return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
+      default:
+        return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
     }
   }
 
@@ -447,9 +481,7 @@ function AppContent() {
             <ViewAccessBoundary
               user={user}
               view={activeView}
-              evaluation={viewEvaluation}
-              fallbackView={viewEvaluation.fallbackView}
-              onNavigate={changeView}
+              fallback={<div className="p-6 text-center">Access denied</div>}
             >
               <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading view…</div>}>
                 {viewContent}
@@ -465,6 +497,7 @@ function AppContent() {
           user={user}
           onClose={() => setIsCommandPaletteOpen(false)}
           setActiveView={changeView}
+          onProjectSelect={handleSelectProject}
         />
       )}
 
@@ -479,6 +512,34 @@ function AppContent() {
 
 // Main App component with enhanced error handling and toast provider
 function App() {
+  useEffect(() => {
+    // Set up global error handling
+    const handleError = (error: ErrorEvent) => {
+      analytics.trackError(new Error(error.message), {
+        filename: error.filename,
+        lineno: error.lineno,
+        colno: error.colno,
+      });
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      analytics.trackError(new Error(event.reason), {
+        type: 'unhandled_promise_rejection',
+      });
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+    // Track initial page load
+    analytics.trackPageView(window.location.pathname, document.title);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
+
   return (
     <ToastProvider>
       <AppContent />

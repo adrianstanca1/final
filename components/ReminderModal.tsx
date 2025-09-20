@@ -20,7 +20,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ todo, user, onClos
     const [duration, setDuration] = useState('10m'); // 10m, 1h, 1d
     const [customDateTime, setCustomDateTime] = useState('');
     const [isSaving, setIsSaving] = useState(false);
-    
+
     // FIX: Cast todo to any to access reminderAt, as it's a dynamic property in the mock data
     const todoWithReminder = todo as any;
 
@@ -60,7 +60,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ todo, user, onClos
         }
 
         let reminderTime: Date | null = null;
-        
+
         if (mode === 'duration') {
             if (!todo.dueDate) {
                 addToast("Cannot set a duration-based reminder without a due date.", "error");
@@ -92,12 +92,13 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ todo, user, onClos
             onSuccess();
             onClose();
         } catch (error) {
+            console.error('Failed to set reminder:', error);
             addToast("Failed to set reminder.", "error");
         } finally {
             setIsSaving(false);
         }
     };
-    
+
     const handleRemove = async () => {
         setIsSaving(true);
         try {
@@ -106,6 +107,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ todo, user, onClos
             onSuccess();
             onClose();
         } catch (error) {
+            console.error('Failed to remove reminder:', error);
             addToast("Failed to remove reminder.", "error");
         } finally {
             setIsSaving(false);
@@ -124,14 +126,25 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ todo, user, onClos
                     {!todo.dueDate && mode === 'duration' && <p className="text-xs text-red-500 text-center">A due date must be set for this option.</p>}
 
                     {mode === 'duration' && todo.dueDate && (
-                        <select value={duration} onChange={e => setDuration(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-700">
+                        <select
+                            aria-label="Reminder duration before due date"
+                            value={duration}
+                            onChange={e => setDuration(e.target.value)}
+                            className="w-full p-2 border rounded bg-white dark:bg-slate-700"
+                        >
                             <option value="10m">10 minutes before</option>
                             <option value="1h">1 hour before</option>
                             <option value="1d">1 day before</option>
                         </select>
                     )}
                     {mode === 'custom' && (
-                        <input type="datetime-local" value={customDateTime} onChange={e => setCustomDateTime(e.target.value)} className="w-full p-2 border rounded" />
+                        <input
+                            aria-label="Custom reminder date and time"
+                            type="datetime-local"
+                            value={customDateTime}
+                            onChange={e => setCustomDateTime(e.target.value)}
+                            className="w-full p-2 border rounded"
+                        />
                     )}
                 </div>
                 <div className="flex justify-between items-center mt-6 pt-4 border-t dark:border-slate-700">

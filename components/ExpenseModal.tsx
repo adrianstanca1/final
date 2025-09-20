@@ -22,6 +22,7 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ user, onClose, onSuccess, a
       addToast('Expense created successfully', 'success');
       onSuccess();
     } catch (error) {
+      console.error('Failed to create expense:', error);
       addToast('Failed to create expense', 'error');
     }
   };
@@ -32,8 +33,9 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ user, onClose, onSuccess, a
         <h2 className="text-xl font-bold mb-4">Add Expense</h2>
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Amount</label>
+            <label htmlFor="amount" className="block text-sm font-medium mb-2">Amount</label>
             <input
+              id="amount"
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
@@ -42,8 +44,9 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ user, onClose, onSuccess, a
             />
           </div>
           <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Category</label>
+            <label htmlFor="category" className="block text-sm font-medium mb-2">Category</label>
             <select
+              id="category"
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="w-full p-2 border rounded"
@@ -56,8 +59,9 @@ const ExpenseModal: React.FC<ExpenseModalProps> = ({ user, onClose, onSuccess, a
             </select>
           </div>
           <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Description</label>
+            <label htmlFor="description" className="block text-sm font-medium mb-2">Description</label>
             <textarea
+              id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               className="w-full p-2 border rounded"

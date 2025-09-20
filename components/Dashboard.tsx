@@ -6,9 +6,7 @@ import {
     Todo,
     Equipment,
     AuditLog,
-    ResourceAssignment,
     Role,
-    Permission,
     TodoStatus,
     AvailabilityStatus,
     SafetyIncident,
@@ -23,7 +21,8 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 // FIX: Corrected API import from mockApi
 import { api } from '../services/mockApi';
-import { hasPermission } from '../services/auth';
+import { useOfflineSync } from '../hooks/useOfflineSync';
+
 import { Avatar } from './ui/Avatar';
 import { EquipmentStatusBadge } from './ui/StatusBadge';
 import { Tag } from './ui/Tag';
@@ -59,9 +58,15 @@ const BarChart: React.FC<{ data: { label: string, value: number }[], barColor: s
     return (
         <div className="w-full h-48 flex items-end justify-around gap-2 p-2">
             {data.map((item, index) => (
-                <div key={index} className="flex flex-col items-center justify-end h-full w-full group">
+                <div key={`bar-${item.label}-${index}`} className="flex flex-col items-center justify-end h-full w-full group">
                     <div className="text-xs font-bold text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{item.value}</div>
-                    <div className={`${barColor} w-full rounded-t-sm group-hover:opacity-80 transition-opacity`} style={{ height: `${(item.value / maxValue) * 90}%` }} title={`${item.label}: ${item.value}`}></div>
+                    <div
+                        className={`${barColor} w-full rounded-t-sm group-hover:opacity-80 transition-opacity`}
+                        style={{
+                            height: `${(item.value / maxValue) * 90}%`
+                        } as React.CSSProperties}
+                        title={`${item.label}: ${item.value}`}
+                    ></div>
                     <span className="text-xs mt-1 text-muted-foreground">{item.label}</span>
                 </div>
             ))}
@@ -118,6 +123,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     const [incidents, setIncidents] = useState<SafetyIncident[]>([]);
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [operationalInsights, setOperationalInsights] = useState<OperationalInsights | null>(null);
+    const { isOnline } = useOfflineSync(addToast);
 
     const [aiSelectedProjectId, setAiSelectedProjectId] = useState<string | null>(null);
     const [aiSummary, setAiSummary] = useState<ProjectHealthSummaryResult | null>(null);
@@ -151,7 +157,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
 
             // FIX: Use uppercase 'ACTIVE' for ProjectStatus enum comparison.
             const activeProjectIds = new Set(projData.filter(p => p.status === 'ACTIVE').map(p => p.id));
-            const tasksData = await api.getTodosByProjectIds(Array.from(activeProjectIds), { signal: controller.signal });
+            const tasksData = await api.getTodosByProjectIds(Array.from(activeProjectIds) as string[], { signal: controller.signal });
             if (controller.signal.aborted) return;
             setTasks(tasksData);
 
@@ -180,10 +186,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
 
         } catch (error) {
             if (controller.signal.aborted) return;
+            console.error('Dashboard data load failed:', error);
             addToast("Failed to load dashboard data.", 'error');
         } finally {
-            if (controller.signal.aborted) return;
-            setLoading(false);
+            const isAborted = controller.signal.aborted;
+            if (!isAborted) {
+                setLoading(false);
+            }
         }
     }, [user, addToast]);
 
@@ -351,6 +360,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
             <ViewHeader
                 title={`Welcome back, ${user.firstName}!`}
                 description="Your live delivery and commercial snapshot."
+                isOnline={isOnline}
                 actions={<Button variant="secondary" onClick={() => setActiveView('projects')}>Open projects workspace</Button>}
                 meta={[
                     {
@@ -429,7 +439,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                                         </div>
                                         <Tag
                                             label={project.status.replace(/_/g, ' ')}
-                                            color={project.status === 'ACTIVE' ? 'green' : project.status === 'ON_HOLD' ? 'yellow' : 'red'}
+                                            color={(() => {
+                                                if (project.status === 'ACTIVE') return 'green';
+                                                if (project.status === 'ON_HOLD') return 'yellow';
+                                                return 'red';
+                                            })()}
                                         />
                                     </div>
                                     <div className="grid grid-cols-3 gap-3 text-xs text-muted-foreground">
@@ -522,12 +536,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                                 {operationalAlerts.slice(0, 3).map(alert => (
                                     <li key={alert.id} className="flex items-start gap-2">
                                         <span
-                                            className={`mt-1 h-2 w-2 rounded-full ${alert.severity === 'critical'
-                                                ? 'bg-destructive'
-                                                : alert.severity === 'warning'
-                                                    ? 'bg-amber-500'
-                                                    : 'bg-primary'
-                                                }`}
+                                            className={`mt-1 h-2 w-2 rounded-full ${(() => {
+                                                if (alert.severity === 'critical') return 'bg-destructive';
+                                                if (alert.severity === 'warning') return 'bg-amber-500';
+                                                return 'bg-primary';
+                                            })()}`}
                                         />
                                         <span>{alert.message}</span>
                                     </li>
@@ -571,6 +584,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                     ) : (
                         <div className="flex flex-wrap items-center gap-3">
                             <select
+                                aria-label="Select project for analysis"
                                 value={aiSelectedProjectId ?? ''}
                                 onChange={event => setAiSelectedProjectId(event.target.value || null)}
                                 className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"

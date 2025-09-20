@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 // FIX: Corrected import paths to be relative.
-import { User, Project, Permission, ProjectStatus } from '../types';
+import { User, Project, Permission } from '../types';
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
 import { Card } from './ui/Card';
@@ -38,10 +38,13 @@ export const ProjectsMapView: React.FC<ProjectsMapViewProps> = ({ user, addToast
             setProjects(fetchedProjects);
         } catch (error) {
             if (controller.signal.aborted) return;
+            console.error('Failed to load project locations:', error);
             addToast("Failed to load project locations.", 'error');
         } finally {
-            if (controller.signal.aborted) return;
-            setLoading(false);
+            const isAborted = controller.signal.aborted;
+            if (!isAborted) {
+                setLoading(false);
+            }
         }
     }, [user, addToast]);
 
@@ -55,7 +58,7 @@ export const ProjectsMapView: React.FC<ProjectsMapViewProps> = ({ user, addToast
     const markers: MapMarkerData[] = useMemo(() => {
         const toPascalCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
         return projects
-            .filter(p => p.location && p.location.lat && p.location.lng)
+            .filter(p => p.location?.lat && p.location?.lng)
             .map(p => ({
                 id: p.id,
                 title: p.name,

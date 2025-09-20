@@ -73,7 +73,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
         setIsSaving(true);
         try {
             const finalLineItems = lineItems
-                .filter(li => li.description && li.quantity! > 0 && li.unitPrice! > 0)
+                .filter(li => li.description && li.quantity > 0 && li.unitPrice > 0)
                 .map(li => ({
                     id: li.id!.toString().startsWith('new-') ? String(Date.now() + Math.random()) : li.id!,
                     description: li.description!,
@@ -111,6 +111,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
             onSuccess();
             onClose();
         } catch (error) {
+            console.error('Failed to save invoice:', error);
             addToast('Failed to save invoice.', 'error');
         } finally {
             setIsSaving(false);

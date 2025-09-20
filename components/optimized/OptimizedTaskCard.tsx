@@ -1,5 +1,9 @@
 import React, { memo, useMemo, useCallback } from 'react';
+<<<<<<< HEAD
 import { Todo, User, TodoStatus } from '../../types';
+=======
+import type { Todo, User, TodoStatus } from '../../types';
+>>>>>>> f51d9fd (d)
 
 interface TaskCardProps {
   todo: Todo;

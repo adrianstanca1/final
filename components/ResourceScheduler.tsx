@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { User, Project, Equipment, ResourceAssignment } from '../types';
+import { User, Project, Equipment } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -35,7 +35,6 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
     const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
     const [currentWeek, setCurrentWeek] = useState(getWeekStart(new Date()));
     const [loading, setLoading] = useState(true);
-    const [selectedResource, setSelectedResource] = useState<{ type: 'user' | 'equipment'; id: string } | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
 
     const weekDays = useMemo(() => {
@@ -103,6 +102,7 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
             }
         } catch (error) {
             if (!controller.signal.aborted) {
+                console.error('Failed to fetch resource data:', error);
                 addToast('Failed to fetch resource data', 'error');
             }
         } finally {
@@ -134,37 +134,6 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
         );
     };
 
-    const updateSchedule = async (resourceType: 'user' | 'equipment', resourceId: string, date: Date, projectId: string, hours: number) => {
-        try {
-            const dateStr = dateToYMD(date);
-            const existingIndex = schedule.findIndex(item =>
-                item.type === resourceType &&
-                item.resourceId === resourceId &&
-                item.date === dateStr
-            );
-
-            if (existingIndex >= 0) {
-                const newSchedule = [...schedule];
-                newSchedule[existingIndex] = { ...newSchedule[existingIndex], projectId, hours };
-                setSchedule(newSchedule);
-            } else {
-                const newItem: ScheduleItem = {
-                    id: `${resourceType}-${resourceId}-${dateStr}`,
-                    type: resourceType,
-                    resourceId,
-                    projectId,
-                    date: dateStr,
-                    hours
-                };
-                setSchedule(prev => [...prev, newItem]);
-            }
-
-            addToast('Schedule updated successfully', 'success');
-        } catch (error) {
-            addToast('Failed to update schedule', 'error');
-        }
-    };
-
     if (loading) {
         return (
             <div className="p-6">
@@ -172,7 +141,7 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
                     <div className="h-8 bg-gray-300 rounded w-1/3"></div>
                     <div className="grid grid-cols-8 gap-2">
                         {[...Array(56)].map((_, i) => (
-                            <div key={i} className="h-16 bg-gray-300 rounded"></div>
+                            <div key={`loading-skeleton`} className="h-16 bg-gray-300 rounded"></div>
                         ))}
                     </div>
                 </div>

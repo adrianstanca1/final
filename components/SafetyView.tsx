@@ -25,6 +25,7 @@ export const SafetyView: React.FC<SafetyViewProps> = ({ user, addToast, setActiv
         setIncidents(incidentsResult);
         setProjects(projectsResult);
       } catch (error) {
+        console.error('Failed to load safety data:', error);
         addToast('Failed to load safety data', 'error');
       } finally {
         setLoading(false);

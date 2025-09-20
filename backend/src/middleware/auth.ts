@@ -22,7 +22,7 @@ export const authMiddleware = async (
   try {
     const authHeader = req.headers.authorization;
     
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader?.startsWith('Bearer ')) {
       res.status(401).json({
         error: 'Access denied',
         message: 'No token provided or invalid format',
@@ -52,7 +52,7 @@ export const authMiddleware = async (
         },
       });
 
-      if (!user || !user.isActive) {
+      if (!user?.isActive) {
         res.status(401).json({
           error: 'Access denied',
           message: 'User not found or inactive',

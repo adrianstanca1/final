@@ -35,6 +35,7 @@ const FailedSyncActions: React.FC<{ addToast: (m: string, t: 'success' | 'error'
             await retryFailedAction(id);
             addToast("Retrying action...", "success");
         } catch (error) {
+            console.error('Retry operation failed:', error);
             addToast("Retry failed immediately.", "error");
         }
         loadFailedActions();
@@ -156,13 +157,13 @@ const UserProfileSettings: React.FC<{ user: User, addToast: (m: string, t: 'succ
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium">First Name</label>
-                        <input value={formData.firstName} onChange={e => handleChange('firstName', e.target.value)} className={`w-full p-2 border rounded ${errors.firstName ? 'border-destructive' : 'border-border'}`} />
+                        <label htmlFor="settings-firstName" className="block text-sm font-medium">First Name</label>
+                        <input id="settings-firstName" value={formData.firstName} onChange={e => handleChange('firstName', e.target.value)} className={`w-full p-2 border rounded ${errors.firstName ? 'border-destructive' : 'border-border'}`} />
                         {errors.firstName && <p className="text-xs text-destructive mt-1">{errors.firstName}</p>}
                     </div>
                     <div>
-                        <label className="block text-sm font-medium">Last Name</label>
-                        <input value={formData.lastName} onChange={e => handleChange('lastName', e.target.value)} className={`w-full p-2 border rounded ${errors.lastName ? 'border-destructive' : 'border-border'}`} />
+                        <label htmlFor="settings-lastName" className="block text-sm font-medium">Last Name</label>
+                        <input id="settings-lastName" value={formData.lastName} onChange={e => handleChange('lastName', e.target.value)} className={`w-full p-2 border rounded ${errors.lastName ? 'border-destructive' : 'border-border'}`} />
                         {errors.lastName && <p className="text-xs text-destructive mt-1">{errors.lastName}</p>}
                     </div>
                     <div>
@@ -170,8 +171,8 @@ const UserProfileSettings: React.FC<{ user: User, addToast: (m: string, t: 'succ
                         <p className="p-2 ">{user.email}</p>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium">Phone</label>
-                        <input type="tel" value={formData.phone} onChange={e => handleChange('phone', e.target.value)} className="w-full p-2 border rounded" />
+                        <label htmlFor="settings-phone" className="block text-sm font-medium">Phone</label>
+                        <input id="settings-phone" type="tel" value={formData.phone} onChange={e => handleChange('phone', e.target.value)} className="w-full p-2 border rounded" />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-muted-foreground">Role</label>
@@ -195,7 +196,7 @@ const CompanySettingsComponent: React.FC<{ settings: CompanySettings, onSettings
     };
 
     const handleAccessibilityChange = (key: keyof CompanySettings['accessibility'], value: any) => {
-        if (settings && settings.accessibility && settings.accessibility[key] !== value) {
+        if (settings?.accessibility && settings.accessibility[key] !== value) {
             onSettingsUpdate({
                 accessibility: { ...settings.accessibility, [key]: value }
             });

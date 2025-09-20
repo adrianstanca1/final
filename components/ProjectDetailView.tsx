@@ -6,9 +6,13 @@ import { Button } from './ui/Button';
 interface ProjectDetailViewProps {
   projectId: string;
   user: User;
+  onBack?: () => void;
+  addToast?: (message: string, type?: 'success' | 'error', notification?: any) => void;
+  isOnline?: boolean;
+  onStartChat?: (recipient: User) => void;
 }
 
-export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId, user }) => {
+export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId, user, onBack, addToast, isOnline, onStartChat }) => {
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);

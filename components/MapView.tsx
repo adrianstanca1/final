@@ -53,8 +53,8 @@ export const MapView: React.FC<MapViewProps> = ({ markers, height = '100%', clas
   return (
     <div
       ref={mapRef}
-      className={`bg-gray-100 rounded-lg flex items-center justify-center ${className}`}
-      style={{ height }}
+      className={`map-container w-full overflow-hidden bg-gray-100 rounded-lg flex items-center justify-center ${className}`}
+      data-map-height={height}
     >
       <div className="text-center p-6">
         <div className="text-4xl mb-2">🗺️</div>

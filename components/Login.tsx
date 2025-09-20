@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { LoginCredentials } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { useAuth } from '../contexts/AuthContext';

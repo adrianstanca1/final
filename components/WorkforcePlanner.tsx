@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { User, Project, ProjectAssignment } from '../types';
+import { User, Project } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Avatar } from './ui/Avatar';
@@ -42,6 +42,7 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
             }
         } catch (error) {
             if (!controller.signal.aborted) {
+                console.error('Failed to fetch workforce data:', error);
                 addToast('Failed to fetch workforce data', 'error');
             }
         } finally {
@@ -75,6 +76,7 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
                 )
             );
         } catch (error) {
+            console.error('Failed to update assignment:', error);
             addToast('Failed to update assignment', 'error');
         }
     };
@@ -85,8 +87,8 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
                 <div className="animate-pulse space-y-4">
                     <div className="h-8 bg-gray-300 rounded w-1/3"></div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {[...Array(6)].map((_, i) => (
-                            <Card key={i}>
+                        {Array.from({ length: 6 }, (_, i) => (
+                            <Card key={`loading-card-${i}`}>
                                 <div className="h-24 bg-gray-300 rounded"></div>
                             </Card>
                         ))}
@@ -129,6 +131,7 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
                                         </div>
                                     </div>
                                     <select
+                                        aria-label={`Assign ${user.firstName} ${user.lastName} to project`}
                                         value=""
                                         onChange={(e) => assignUserToProject(user.id, e.target.value || null)}
                                         className="px-3 py-1 border rounded text-sm"
