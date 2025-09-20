@@ -1,3 +1,4 @@
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { User, View, Project, Role, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -39,10 +40,10 @@ import { UserRegistration } from './components/UserRegistration';
 import { useAuth } from './contexts/AuthContext';
 import { ForgotPassword } from './components/auth/ForgotPassword';
 import { ResetPassword } from './components/auth/ResetPassword';
+import { ViewHeader } from './components/layout/ViewHeader';
+import { getViewMetadata } from './utils/viewMetadata';
 import { ViewAccessBoundary } from './components/layout/ViewAccessBoundary';
 import { evaluateViewAccess, getDefaultViewForUser } from './utils/viewAccess';
-
-// Lazy-load heavy view components to reduce initial bundle size
 const Dashboard = React.lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
 const OwnerDashboard = React.lazy(() => import('./components/OwnerDashboard').then(m => ({ default: m.OwnerDashboard })));
 const MyDayView = React.lazy(() => import('./components/MyDayView').then(m => ({ default: m.MyDayView })));
@@ -123,6 +124,8 @@ const ToastMessage: React.FC<{ toast: Toast; onDismiss: (id: number) => void }> 
 };
 
 
+function App() {
+  const { isAuthenticated, user, loading, logout, company } = useAuth();
 // Setup global error handling on app initialization
 setupGlobalErrorHandling();
 
@@ -136,6 +139,11 @@ function AppContent() {
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [initialChatRecipient, setInitialChatRecipient] = useState<User | null>(null);
+
+  const navigateToView = useCallback((view: View) => {
+    setSelectedProject(current => (view === 'project-detail' ? current : null));
+    setActiveView(view);
+  }, [setActiveView, setSelectedProject]);
 
   // States for sidebar badge counts
   const [pendingTimesheetCount, setPendingTimesheetCount] = useState(0);
@@ -249,6 +257,7 @@ function AppContent() {
   const handleLogout = () => {
     logout();
     setAuthView('login');
+    navigateToView('dashboard');
     changeView('dashboard');
   };
 
@@ -265,6 +274,58 @@ function AppContent() {
   const handleNotificationClick = useCallback(async (notification: Notification) => {
     if (!user) return;
 
+    try {
+      await api.markNotificationAsRead(notification.id);
+    } catch (error) {
+      console.error('Failed to mark notification as read', error);
+    }
+
+    setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, isRead: true } : n));
+
+    let targetView: View | null = null;
+    let project: Project | null = null;
+
+    if (notification.metadata?.projectId) {
+      try {
+        project = await api.getProjectById(notification.metadata.projectId);
+      } catch (error) {
+        console.error('Failed to resolve project from notification metadata', error);
+      }
+    }
+
+    if (project) {
+      setSelectedProject(project);
+      targetView = 'project-detail';
+    } else if (notification.metadata?.view) {
+      targetView = notification.metadata.view as View;
+    } else {
+      switch (notification.type) {
+        case NotificationType.NEW_MESSAGE:
+          targetView = 'chat';
+          break;
+        case NotificationType.SAFETY_ALERT:
+          targetView = 'safety';
+          break;
+        case NotificationType.APPROVAL_REQUEST:
+          targetView = 'timesheets';
+          break;
+        case NotificationType.TASK_ASSIGNED:
+          targetView = 'all-tasks';
+          break;
+        case NotificationType.DOCUMENT_COMMENT:
+          targetView = 'documents';
+          break;
+        default:
+          targetView = null;
+      }
+    }
+
+    if (targetView) {
+      navigateToView(targetView);
+    }
+
+    updateBadgeCounts(user);
+  }, [user, updateBadgeCounts, setSelectedProject, navigateToView]);
     const wasUnread = !(notification.isRead ?? notification.read);
 
     try {
@@ -324,6 +385,11 @@ function AppContent() {
   const renderView = () => {
     if (!user) return null;
     if (activeView === 'project-detail' && selectedProject) {
+      return <ProjectDetailView project={selectedProject} user={user} onBack={() => navigateToView('projects')} addToast={addToast} isOnline={isOnline} onStartChat={handleStartChat}/>;
+    }
+
+    switch (activeView) {
+      case 'dashboard': return <Dashboard user={user} addToast={addToast} activeView={activeView} setActiveView={navigateToView} onSelectProject={handleSelectProject} />;
       return (
         <ProjectDetailView
           project={selectedProject}
@@ -353,6 +419,10 @@ function AppContent() {
       case 'projects': return <ProjectsView user={user} addToast={addToast} onSelectProject={handleSelectProject} />;
       case 'all-tasks': return <AllTasksView user={user} addToast={addToast} isOnline={isOnline} />;
       case 'map': return <ProjectsMapView user={user} addToast={addToast} />;
+      case 'time': return <TimeTrackingView user={user} addToast={addToast} setActiveView={navigateToView} />;
+      case 'timesheets': return <TimesheetsView user={user} addToast={addToast} />;
+      case 'documents': return <DocumentsView user={user} addToast={addToast} isOnline={isOnline} settings={companySettings} />;
+      case 'safety': return <SafetyView user={user} addToast={addToast} setActiveView={navigateToView} />;
       case 'time':
         return <TimeTrackingView user={user} addToast={addToast} setActiveView={changeView} />;
       case 'timesheets': return <TimesheetsView user={user} addToast={addToast} />;
@@ -363,6 +433,8 @@ function AppContent() {
       case 'users': return <TeamView user={user} addToast={addToast} onStartChat={handleStartChat} />;
       case 'equipment': return <EquipmentView user={user} addToast={addToast} />;
       case 'templates': return <TemplatesView user={user} addToast={addToast} />;
+      case 'tools': return <ToolsView user={user} addToast={addToast} setActiveView={navigateToView} />;
+
       case 'tools':
         return <ToolsView user={user} addToast={addToast} setActiveView={changeView} />;
       case 'audit-log': return <AuditLogView user={user} addToast={addToast} />;
@@ -370,6 +442,7 @@ function AppContent() {
       case 'chat': return <ChatView user={user} addToast={addToast} initialRecipient={initialChatRecipient}/>;
       case 'clients': return <ClientsView user={user} addToast={addToast} />;
       case 'invoices': return <InvoicesView user={user} addToast={addToast} />;
+      default: return <Dashboard user={user} addToast={addToast} activeView={activeView} setActiveView={navigateToView} onSelectProject={handleSelectProject} />;
       default:
         return (
           <Dashboard
@@ -382,6 +455,35 @@ function AppContent() {
         );
     }
   };
+
+  const viewMetadata = useMemo(() => (
+    getViewMetadata(activeView, { selectedProject, userRole: user?.role ?? null })
+  ), [activeView, selectedProject, user?.role]);
+
+  const headerStats = useMemo(() => {
+    switch (activeView) {
+      case 'timesheets':
+        return [{
+          label: 'Pending approvals',
+          value: pendingTimesheetCount,
+          tone: pendingTimesheetCount > 0 ? 'warning' : 'success',
+        }];
+      case 'safety':
+        return [{
+          label: 'Open incidents',
+          value: openIncidentCount,
+          tone: openIncidentCount > 0 ? 'warning' : 'success',
+        }];
+      case 'chat':
+        return [{
+          label: 'Unread conversations',
+          value: unreadMessageCount,
+          tone: unreadMessageCount > 0 ? 'info' : 'neutral',
+        }];
+      default:
+        return undefined;
+    }
+  }, [activeView, pendingTimesheetCount, openIncidentCount, unreadMessageCount]);
 
   if (loading) {
     return (
@@ -420,12 +522,15 @@ function AppContent() {
       <Sidebar
         user={user}
         activeView={activeView}
+        setActiveView={navigateToView}
         setActiveView={changeView}
         onLogout={handleLogout}
         pendingTimesheetCount={pendingTimesheetCount}
         openIncidentCount={openIncidentCount}
         unreadMessageCount={unreadMessageCount}
+        companyName={company?.name}
       />
+      <div className="flex-1 flex flex-col overflow-hidden">
       <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
         <Header
           user={user}
@@ -443,6 +548,19 @@ function AppContent() {
           addToast={addToast}
         />
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
+          <ViewHeader
+            title={viewMetadata.title}
+            description={viewMetadata.description}
+            icon={viewMetadata.icon}
+            accentColorClass={viewMetadata.accentColorClass}
+            contextPill={viewMetadata.contextPill}
+            stats={headerStats}
+            isOnline={isOnline}
+          />
+
+          <ErrorBoundary>
+            {renderView()}
+          </ErrorBoundary>
           <PageErrorBoundary>
             <ViewAccessBoundary
               user={user}
@@ -464,6 +582,11 @@ function AppContent() {
         <CommandPalette
           user={user}
           onClose={() => setIsCommandPaletteOpen(false)}
+          setActiveView={navigateToView}
+          onProjectSelect={handleSelectProject}
+        />
+      )}
+      
           setActiveView={changeView}
         />
       )}

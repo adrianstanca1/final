@@ -143,6 +143,23 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ user
                 {notifications.length === 0 ? (
                     <p className="p-8 text-center text-muted-foreground">You have no notifications.</p>
                 ) : (
+                    notifications.map(n => (
+                        <div
+                            key={n.id}
+                            onClick={() => {
+                                onNotificationClick(n);
+                                onClose();
+                            }}
+                            className={`flex items-start gap-3 p-4 border-b border-border hover:bg-accent cursor-pointer ${!n.read ? 'bg-primary/10' : ''}`}
+                        >
+                            {!n.read && <div className="w-2 h-2 rounded-full bg-primary mt-1.5 flex-shrink-0"></div>}
+                            <div className={`flex-shrink-0 ${n.read ? 'ml-4' : ''}`}>
+                                <NotificationIcon type={n.type} />
+                            </div>
+                            <div className="flex-grow">
+                                <p className="text-sm text-card-foreground">{n.message}</p>
+                                <p className="text-xs text-muted-foreground mt-1">{formatDistanceToNow(new Date(n.createdAt))} ago</p>
+
                     notifications.map(n => {
                         const isRead = n.isRead ?? n.read;
                         return (

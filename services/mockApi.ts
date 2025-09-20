@@ -595,6 +595,14 @@ export const api = {
     markNotificationAsRead: async (notificationId: string): Promise<void> => {
         await delay();
         const notification = db.notifications.find(n => n.id === notificationId);
+        if (notification) {
+            notification.isRead = true;
+            notification.read = true;
+            saveDb();
+        }
+    },
+    getProjectsByManager: async (managerId: string): Promise<Project[]> => {
+
         if (!notification) {
             throw new Error('Notification not found');
         }
@@ -604,10 +612,18 @@ export const api = {
     },
     getProjectsByManager: async (managerId: string, options?: RequestOptions): Promise<Project[]> => {
         ensureNotAborted(options?.signal);
+ 
         await delay();
         ensureNotAborted(options?.signal);
         return db.projects.filter(p => (p as any).managerId === managerId) as Project[];
     },
+    getProjectById: async (projectId: string): Promise<Project | null> => {
+        await delay();
+        const project = db.projects.find(p => p.id === projectId);
+        return project ? project as Project : null;
+    },
+    getUsersByCompany: async (companyId: string): Promise<User[]> => {
+
     getProjectById: async (projectId: string, options?: RequestOptions): Promise<Project | null> => {
         ensureNotAborted(options?.signal);
         await delay();
