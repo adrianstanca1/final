@@ -26,8 +26,15 @@ By default the registration and login flows use the encrypted in-browser mock AP
 
 ## Deployment automation
 
-This project ships with a fully automated CI/CD pipeline backed by GitHub Actions. Pull requests run tests and builds via the [`CI` workflow](.github/workflows/ci.yml), while merges to `main` trigger the [`Deploy to GitHub Pages` workflow](.github/workflows/deploy.yml) to publish the production site.
+This project ships with a fully automated CI/CD pipeline backed by GitHub Actions and Vercel.
 
-- **Runbooks & responsibilities**: [docs/deployment-plan.md](docs/deployment-plan.md) details the end-to-end automation flow, operational checklists, and ownership model for engineers, reviewers, QA, and on-call.
-- **Secrets**: store the shared Gemini credential as `GEMINI_API_KEY` in repository secrets; developers keep personal keys in `.env.local` as `VITE_GEMINI_API_KEY`.
+- Pull requests run tests and builds via the [`CI` workflow](.github/workflows/ci.yml).
+- Previews and production releases are handled by the [`Deploy to Vercel` workflow](.github/workflows/vercel-deploy.yml). Pushes to `main` promote the build to the production environment; pull requests publish preview URLs for QA.
+- The legacy GitHub Pages workflow remains available in [.github/workflows/deploy.yml](.github/workflows/deploy.yml) for static exports if you need an alternative host.
+
+### Operations playbooks & secrets
+
+- **Runbooks & responsibilities**: [docs/deployment-plan.md](docs/deployment-plan.md) outlines the automation flow, operational checklists, and ownership model for engineers, reviewers, QA, and on-call.
+- **Vercel-specific setup**: follow [docs/vercel-deployment.md](docs/vercel-deployment.md) to connect the repository to Vercel and provision the required secrets (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`).
+- **Gemini credentials**: store the shared Gemini credential as `GEMINI_API_KEY` in repository secrets and mirror it to `VITE_GEMINI_API_KEY` (or provide a separate client-safe key). Developers keep personal keys in `.env.local` for local runs.
 - **Monitoring**: follow the plan's observability section to wire synthetic uptime checks and error tracking so deployments stay production ready.
