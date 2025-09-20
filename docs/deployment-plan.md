@@ -30,7 +30,7 @@
 - **Quality gates**:
   - `npm run test -- --run` executes Vitest in run mode to surface failing suites.
   - `npm run build` ensures the static bundle compiles before merge.
-- **Gemini credentials**: the build step reads `GEMINI_API_KEY`/`VITE_GEMINI_API_KEY` from repository secrets so tests that rely on the configuration can use fallbacks safely without exposing keys.
+- **Gemini credentials**: the build step reads `GEMINI_API_KEY` from repository secrets so tests that rely on the configuration can use fallbacks safely without exposing keys.
 
 ### 2. Continuous Deployment (`.github/workflows/deploy.yml`)
 
