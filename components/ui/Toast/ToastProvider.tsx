@@ -13,11 +13,15 @@ export interface ToastOptions {
     onClick: () => void;
   };
   onDismiss?: () => void;
+}
+
 interface ToastContextType {
   addToast: (options: ToastOptions) => string;
   removeToast: (id: string) => void;
   clearAllToasts: () => void;
   updateToast: (id: string, updates: Partial<ToastOptions>) => void;
+}
+
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 export function useToast() {
@@ -26,16 +30,20 @@ export function useToast() {
     throw new Error('useToast must be used within a ToastProvider');
   }
   return context;
+}
+
 interface ToastState extends ToastOptions {
   id: string;
   createdAt: number;
+}
+
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastState[]>([]);
   const timeoutRefs = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   const removeToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(toast => toast.id !== id));
-    
+
     // Clear timeout if it exists
     const timeoutId = timeoutRefs.current.get(id);
     if (timeoutId) {
@@ -47,7 +55,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const addToast = useCallback((options: ToastOptions): string => {
     const id = options.id || `toast_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const duration = options.duration ?? (options.type === 'error' ? 8000 : 5000);
-    
+
     const toast: ToastState = {
       ...options,
       id,
@@ -57,7 +65,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts(prev => {
       // Remove existing toast with same ID if it exists
       const filtered = prev.filter(t => t.id !== id);
-      
+
       // Add new toast at the beginning
       return [toast, ...filtered];
     });
@@ -67,7 +75,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       const timeoutId = setTimeout(() => {
         removeToast(id);
       }, duration);
-      
+
       timeoutRefs.current.set(id, timeoutId);
     }
 
@@ -78,12 +86,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     // Clear all timeouts
     timeoutRefs.current.forEach(timeoutId => clearTimeout(timeoutId));
     timeoutRefs.current.clear();
-    
+
     setToasts([]);
   }, []);
 
   const updateToast = useCallback((id: string, updates: Partial<ToastOptions>) => {
-    setToasts(prev => prev.map(toast => 
+    setToasts(prev => prev.map(toast =>
       toast.id === id ? { ...toast, ...updates } : toast
     ));
   }, []);
@@ -102,9 +110,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
     </ToastContext.Provider>
   );
+}
+
 interface ToastContainerProps {
   toasts: ToastState[];
   onDismiss: (id: string) => void;
+}
+
 function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
   if (toasts.length === 0) return null;
 
@@ -126,31 +138,33 @@ function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
       ))}
     </div>
   );
+}
+
 // Convenience hook for common toast patterns
 export function useToastHelpers() {
   const { addToast } = useToast();
 
   return {
-    success: useCallback((message: string, title?: string) => 
+    success: useCallback((message: string, title?: string) =>
       addToast({ type: 'success', message, title }), [addToast]),
-    
-    error: useCallback((message: string, title?: string, options?: { persistent?: boolean; action?: ToastOptions['action'] }) => 
-      addToast({ 
-        type: 'error', 
-        message, 
+
+    error: useCallback((message: string, title?: string, options?: { persistent?: boolean; action?: ToastOptions['action'] }) =>
+      addToast({
+        type: 'error',
+        message,
         title: title || 'Error',
         persistent: options?.persistent,
         action: options?.action,
       }), [addToast]),
-    
-    warning: useCallback((message: string, title?: string) => 
+
+    warning: useCallback((message: string, title?: string) =>
       addToast({ type: 'warning', message, title }), [addToast]),
-    
-    info: useCallback((message: string, title?: string) => 
+
+    info: useCallback((message: string, title?: string) =>
       addToast({ type: 'info', message, title }), [addToast]),
 
     // Error-specific helpers
-    networkError: useCallback(() => 
+    networkError: useCallback(() =>
       addToast({
         type: 'error',
         title: 'Connection Error',
@@ -162,7 +176,7 @@ export function useToastHelpers() {
         },
       }), [addToast]),
 
-    sessionExpired: useCallback(() => 
+    sessionExpired: useCallback(() =>
       addToast({
         type: 'warning',
         title: 'Session Expired',
@@ -178,7 +192,7 @@ export function useToastHelpers() {
         },
       }), [addToast]),
 
-    permissionDenied: useCallback(() => 
+    permissionDenied: useCallback(() =>
       addToast({
         type: 'error',
         title: 'Permission Denied',
@@ -186,14 +200,14 @@ export function useToastHelpers() {
         duration: 6000,
       }), [addToast]),
 
-    operationSuccess: useCallback((operation: string) => 
+    operationSuccess: useCallback((operation: string) =>
       addToast({
         type: 'success',
         message: `${operation} completed successfully.`,
         duration: 3000,
       }), [addToast]),
 
-    operationFailed: useCallback((operation: string, canRetry = true) => 
+    operationFailed: useCallback((operation: string, canRetry = true) =>
       addToast({
         type: 'error',
         title: 'Operation Failed',

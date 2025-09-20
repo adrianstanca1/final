@@ -595,6 +595,12 @@ export const api = {
     markNotificationAsRead: async (notificationId: string): Promise<void> => {
         await delay();
         const notification = db.notifications.find(n => n.id === notificationId);
+        if (notification) {
+            notification.isRead = true;
+            notification.read = true;
+            saveDb();
+        }
+    },
         if (!notification) {
             throw new Error('Notification not found');
         }

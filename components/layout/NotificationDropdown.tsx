@@ -9,6 +9,8 @@ interface NotificationDropdownProps {
   addToast: (message: string, type: 'success' | 'error') => void;
   onNotificationClick: (notification: Notification) => Promise<void> | void;
   onMarkAllAsRead: () => Promise<void> | void;
+}
+
 const formatDistanceToNow = (date: Date): string => {
     const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
     let interval = seconds / 31536000;

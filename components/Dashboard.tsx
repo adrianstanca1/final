@@ -1,32 +1,34 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
-  User,
-  View,
-  Project,
-  Todo,
-  Equipment,
-  AuditLog,
-  ResourceAssignment,
-  Role,
-  Permission,
-  TodoStatus,
-  AvailabilityStatus,
-  SafetyIncident,
-  Expense,
-  IncidentStatus,
-  ExpenseStatus,
-  ProjectPortfolioSummary,
-  OperationalInsights,
+    User,
+    View,
+    Project,
+    Todo,
+    Equipment,
+    AuditLog,
+    ResourceAssignment,
+    Role,
+    Permission,
+    TodoStatus,
+    AvailabilityStatus,
+    SafetyIncident,
+    Expense,
+    IncidentStatus,
+    ExpenseStatus,
+    ProjectPortfolioSummary,
+    OperationalInsights,
 
 } from '../types';
 import { Card } from './ui/Card';
-import { Button } from './ui/Button';
+import Button from './ui/Button';
 // FIX: Corrected API import from mockApi
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
 import { Avatar } from './ui/Avatar';
-import { EquipmentStatusBadge } from './ui/StatusBadge';
-import { Tag } from './ui/Tag';
+import * as TagModule from './ui/Tag';
+// Fallback: support both named (Tag) and default export forms.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const Tag: any = (TagModule as any).Tag || (TagModule as any).default;
 import { ViewHeader } from './layout/ViewHeader';
 // FIX: Removed `startOfWeek` from import and added a local implementation to resolve the module export error.
 import { format, eachDayOfInterval, isWithinInterval } from 'date-fns';
@@ -34,11 +36,13 @@ import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
 import { generateProjectHealthSummary, ProjectHealthSummaryResult } from '../services/ai';
 
 interface DashboardProps {
-  user: User;
-  addToast: (message: string, type: 'success' | 'error') => void;
-  activeView: View;
-  setActiveView: (view: View) => void;
-  onSelectProject: (project: Project) => void;
+    user: User;
+    addToast: (message: string, type: 'success' | 'error') => void;
+    activeView: View;
+    setActiveView: (view: View) => void;
+    onSelectProject: (project: Project) => void;
+}
+
 const KpiCard: React.FC<{ title: string; value: string; subtext?: string; icon: React.ReactNode }> = ({ title, value, subtext, icon }) => (
     <Card className="flex items-center gap-4 animate-card-enter">
         <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-muted text-muted-foreground">
@@ -58,13 +62,15 @@ const BarChart: React.FC<{ data: { label: string, value: number }[], barColor: s
         <div className="w-full h-48 flex items-end justify-around gap-2 p-2">
             {data.map((item, index) => (
                 <div key={index} className="flex flex-col items-center justify-end h-full w-full group">
-                     <div className="text-xs font-bold text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{item.value}</div>
+                    <div className="text-xs font-bold text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{item.value}</div>
                     <div className={`${barColor} w-full rounded-t-sm group-hover:opacity-80 transition-opacity`} style={{ height: `${(item.value / maxValue) * 90}%` }} title={`${item.label}: ${item.value}`}></div>
                     <span className="text-xs mt-1 text-muted-foreground">{item.label}</span>
                 </div>
             ))}
         </div>
     );
+};
+
 const renderMarkdownSummary = (summary: string) =>
     summary
         .split('\n')
@@ -91,6 +97,27 @@ const availabilityTagColor: Record<AvailabilityStatus, 'green' | 'blue' | 'gray'
     [AvailabilityStatus.AVAILABLE]: 'green',
     [AvailabilityStatus.ON_PROJECT]: 'blue',
     [AvailabilityStatus.ON_LEAVE]: 'gray',
+};
+// Local replacement for missing EquipmentStatusBadge export.
+const EquipmentStatusBadge: React.FC<{ status: Equipment['status'] }> = ({ status }) => {
+    const normalized = (status || '').toUpperCase();
+    const className =
+        normalized === 'AVAILABLE' || normalized === 'OPERATIONAL'
+            ? 'bg-green-100 text-green-800 border-green-200'
+            : normalized === 'IN_USE' || normalized === 'ALLOCATED'
+                ? 'bg-blue-100 text-blue-800 border-blue-200'
+                : normalized === 'MAINTENANCE' || normalized === 'SERVICE'
+                    ? 'bg-amber-100 text-amber-800 border-amber-200'
+                    : normalized === 'OUT_OF_SERVICE' || normalized === 'DOWN'
+                        ? 'bg-red-100 text-red-800 border-red-200'
+                        : 'bg-gray-100 text-gray-800 border-gray-200';
+    return (
+        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${className}`}>
+            {normalized ? normalized.replace(/_/g, ' ') : 'UNKNOWN'}
+        </span>
+    );
+};
+
 // FIX: Local implementation of startOfWeek to resolve module export error.
 const startOfWeek = (date: Date, options?: { weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6 }): Date => {
     const weekStartsOn = options?.weekStartsOn ?? 0;
@@ -100,6 +127,8 @@ const startOfWeek = (date: Date, options?: { weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 
     d.setDate(d.getDate() - diff);
     d.setHours(0, 0, 0, 0);
     return d;
+};
+
 export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveView, onSelectProject }) => {
     const [loading, setLoading] = useState(true);
     const [projects, setProjects] = useState<Project[]>([]);
@@ -154,7 +183,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
             setEquipment(equipData.filter(e => assignedEquipmentIds.has(e.id)));
 
             if (controller.signal.aborted) return;
-            setActivityLog(logsData.filter(l => l.action.includes('task')).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+            setActivityLog(logsData.filter(l => l.action.includes('task')).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
 
             if (controller.signal.aborted) return;
             setOperationalInsights(insightsData);
@@ -185,7 +214,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
             abortControllerRef.current?.abort();
         };
     }, [fetchData]);
-    
+
     const userMap = useMemo(() => new Map(team.map(u => [u.id, u])), [team]);
 
     const portfolioSummary: ProjectPortfolioSummary = useMemo(
@@ -252,7 +281,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
 
         return daysOfWeek.map(day => ({
             label: format(day, 'E'),
-            value: tasks.filter(t => t.completedAt && isWithinInterval(new Date(t.completedAt), {start: day, end: new Date(day).setHours(23,59,59,999)})).length
+            value: tasks.filter(t => t.completedAt && isWithinInterval(new Date(t.completedAt), { start: day, end: new Date(day).setHours(23, 59, 59, 999) })).length
         }));
     }, [tasks]);
 
@@ -286,6 +315,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     const scheduleInProgress = insight?.schedule.tasksInProgress ?? tasksInProgress;
     const operationalAlerts = insight?.alerts ?? [];
 
+    const kpiData = useMemo(() => ({
+        activeProjectsCount: activeProjects.length,
+        atRisk: atRiskProjects.length,
+        openIncidents: openIncidentsCount,
+        budgetUtilization: portfolioSummary.totalActualCost / portfolioSummary.pipelineValue * 100 || 0,
+        teamSize: team.length
+    }), [activeProjects.length, atRiskProjects.length, openIncidentsCount, portfolioSummary.totalActualCost, portfolioSummary.pipelineValue, team.length]);
+
     const handleGenerateProjectBrief = useCallback(async () => {
         if (!aiSelectedProjectId) {
             setAiError('Select a project to analyse.');
@@ -307,7 +344,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
 
             const projectIncidents = openIncidents.filter(incident => incident.projectId === project.id);
             const projectExpenses = approvedExpenses.filter(expense => expense.projectId === project.id);
- 
+
 
             const summary = await generateProjectHealthSummary({
                 project,
@@ -327,7 +364,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
         }
     }, [aiSelectedProjectId, projects, tasks, openIncidents, expenses, addToast]);
 
-    }, [aiSelectedProjectId, projects, tasks, openIncidents, approvedExpenses, addToast]);
+
 
     if (loading) return <Card>Loading project manager dashboard…</Card>;
 
@@ -507,13 +544,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                                 {operationalAlerts.slice(0, 3).map(alert => (
                                     <li key={alert.id} className="flex items-start gap-2">
                                         <span
-                                            className={`mt-1 h-2 w-2 rounded-full ${
-                                                alert.severity === 'critical'
-                                                    ? 'bg-destructive'
-                                                    : alert.severity === 'warning'
+                                            className={`mt-1 h-2 w-2 rounded-full ${alert.severity === 'critical'
+                                                ? 'bg-destructive'
+                                                : alert.severity === 'warning'
                                                     ? 'bg-amber-500'
                                                     : 'bg-primary'
-                                            }`}
+                                                }`}
                                         />
                                         <span>{alert.message}</span>
                                     </li>
@@ -668,3 +704,5 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
         </div>
     );
 };
+
+export default Dashboard;

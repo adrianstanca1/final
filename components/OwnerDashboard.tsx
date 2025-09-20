@@ -32,6 +32,8 @@ interface OwnerDashboardProps {
   addToast: (message: string, type: 'success' | 'error') => void;
   onSelectProject: (project: Project) => void;
   setActiveView?: (view: View) => void;
+}
+
 interface OwnerDashboardData {
   projects: Project[];
   kpis: FinancialKPIs | null;
@@ -45,6 +47,7 @@ interface OwnerDashboardData {
   companyName: string | null;
   users: User[];
   operationalInsights: OperationalInsights | null;
+}
 
 const formatCurrency = (value: number, currency: string = 'GBP') =>
   new Intl.NumberFormat('en-GB', {

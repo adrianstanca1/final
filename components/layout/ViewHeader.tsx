@@ -9,6 +9,8 @@ export interface ViewHeaderMetaItem {
   value: string;
   helper?: string;
   indicator?: ViewHeaderIndicator;
+}
+
 interface ViewHeaderProps {
   title?: string;
   description?: string;
@@ -18,11 +20,15 @@ interface ViewHeaderProps {
   breadcrumbs?: Array<{ label: string; onClick?: () => void; view?: View }>;
   view?: View;
   className?: string;
+}
+
 const indicatorClasses: Record<ViewHeaderIndicator, string> = {
   neutral: 'border-border bg-muted/30 text-muted-foreground',
   positive: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
   warning: 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300',
   negative: 'border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-300',
+};
+
 export const ViewHeader: React.FC<ViewHeaderProps> = ({
   title,
   description,
@@ -83,9 +89,8 @@ export const ViewHeader: React.FC<ViewHeaderProps> = ({
           {meta.map((item) => (
             <div
               key={`${item.label}-${item.value}`}
-              className={`rounded-lg border px-4 py-3 text-sm shadow-sm transition-colors ${
-                indicatorClasses[item.indicator ?? 'neutral']
-              }`}
+              className={`rounded-lg border px-4 py-3 text-sm shadow-sm transition-colors ${indicatorClasses[item.indicator ?? 'neutral']
+                }`}
             >
               <p className="text-xs font-semibold uppercase tracking-wide opacity-75">{item.label}</p>
               <p className="mt-2 text-xl font-semibold text-foreground">{item.value}</p>
@@ -96,3 +101,4 @@ export const ViewHeader: React.FC<ViewHeaderProps> = ({
       ) : null}
     </section>
   );
+};

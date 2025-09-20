@@ -9,6 +9,8 @@ interface BidPackageGeneratorProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
   onBack: () => void;
+}
+
 export const BidPackageGenerator: React.FC<BidPackageGeneratorProps> = ({ user, addToast, onBack }) => {
     const [tenderUrl, setTenderUrl] = useState('');
     const [companyStrengths, setCompanyStrengths] = useState('');

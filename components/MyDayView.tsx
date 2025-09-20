@@ -8,6 +8,8 @@ import { KanbanBoard } from './KanbanBoard';
 interface MyDayViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
+}
+
 export const MyDayView: React.FC<MyDayViewProps> = ({ user, addToast }) => {
     const [loading, setLoading] = useState(true);
     const [projects, setProjects] = useState<Project[]>([]);

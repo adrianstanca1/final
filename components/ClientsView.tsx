@@ -21,6 +21,8 @@ interface ClientFormState {
   paymentTerms: string;
   isActive: boolean;
   address: Address;
+}
+
 const defaultClientFormState = (): ClientFormState => ({
   name: '',
   contactPerson: '',

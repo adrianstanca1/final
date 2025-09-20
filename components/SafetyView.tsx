@@ -119,6 +119,8 @@ const SafetyAnalysisModal: React.FC<{ user: User, addToast: (m:string,t:'success
             </div>
         </div>
     );
+};
+
 type SortKey = 'timestamp' | 'severity' | 'status';
 
 const SortableHeader: React.FC<{ 
@@ -136,6 +138,7 @@ const SortableHeader: React.FC<{
             </div>
         </th>
     );
+};
 
 // --- Main Safety Hub Component ---
 

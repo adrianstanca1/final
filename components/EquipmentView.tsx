@@ -9,6 +9,8 @@ import { EquipmentStatusBadge } from './ui/StatusBadge';
 interface EquipmentViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
+}
+
 const EquipmentModal: React.FC<{
     equipmentToEdit: Equipment | null;
     projects: Project[];

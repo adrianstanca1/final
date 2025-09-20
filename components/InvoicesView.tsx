@@ -95,6 +95,8 @@ const SummaryCard: React.FC<{ title: string; value: string; helper?: string; ton
 interface InvoicesViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
+}
+
 export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);

@@ -13,6 +13,8 @@ interface HeaderProps {
   onNotificationClick: (notification: Notification) => Promise<void> | void;
   onMarkAllNotificationsAsRead: () => Promise<void> | void;
   addToast: (message: string, type: 'success' | 'error') => void;
+}
+
 export const Header: React.FC<HeaderProps> = ({ user, onLogout, onSearchClick, onCommandPaletteClick, unreadNotificationCount, notifications, onNotificationClick, onMarkAllNotificationsAsRead, addToast }) => {
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);

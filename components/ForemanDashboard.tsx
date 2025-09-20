@@ -15,6 +15,8 @@ import { ViewHeader } from './layout/ViewHeader';
 interface ForemanDashboardProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
+}
+
 const DashboardSkeleton = () => (
     <div className="space-y-6 animate-pulse">
         <div className="h-8 bg-muted rounded w-1/3"></div>
@@ -350,6 +352,7 @@ const TeamChatCard: React.FC<{ project: Project; user: User; onUpdate: ()=>void;
             </div>
         </Card>
     );
+};
 
 export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToast }) => {
     const [loading, setLoading] = useState(true);
