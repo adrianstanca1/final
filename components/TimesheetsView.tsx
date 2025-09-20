@@ -11,8 +11,6 @@ import { hasPermission } from '../services/auth';
 interface TimesheetsViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 const LogTimeModal: React.FC<{
     user: User;
     projects: Project[];
@@ -106,8 +104,6 @@ const LogTimeModal: React.FC<{
             </Card>
         </div>
     );
-};
-
 
 export const TimesheetsView: React.FC<TimesheetsViewProps> = ({ user, addToast }) => {
     const [timesheets, setTimesheets] = useState<Timesheet[]>([]);

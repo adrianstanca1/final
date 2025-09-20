@@ -66,8 +66,6 @@ const ReportIncidentModal: React.FC<{ projects: Project[], user: User, onClose: 
             </Card>
         </div>
     );
-};
-
 const IncidentDetailModal: React.FC<{ incident: SafetyIncident; project?: Project; user?: User; manager: User; onClose: () => void; onSuccess: () => void; addToast: (m:string,t:'success'|'error')=>void; }> = ({ incident, project, user, manager, onClose, onSuccess, addToast }) => {
     const canManage = hasPermission(manager, Permission.MANAGE_SAFETY_REPORTS);
     const [newStatus, setNewStatus] = useState(incident.status);
@@ -112,8 +110,6 @@ const IncidentDetailModal: React.FC<{ incident: SafetyIncident; project?: Projec
             </Card>
         </div>
     );
-}
-
 const SafetyAnalysisModal: React.FC<{ user: User, addToast: (m:string,t:'success'|'error')=>void, onClose: () => void }> = ({ user, addToast, onClose }) => {
     return (
          <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -123,8 +119,6 @@ const SafetyAnalysisModal: React.FC<{ user: User, addToast: (m:string,t:'success
             </div>
         </div>
     );
-};
-
 type SortKey = 'timestamp' | 'severity' | 'status';
 
 const SortableHeader: React.FC<{ 
@@ -142,8 +136,6 @@ const SortableHeader: React.FC<{
             </div>
         </th>
     );
-};
-
 
 // --- Main Safety Hub Component ---
 

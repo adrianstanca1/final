@@ -15,8 +15,6 @@ import { ViewHeader } from './layout/ViewHeader';
 interface ForemanDashboardProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 const DashboardSkeleton = () => (
     <div className="space-y-6 animate-pulse">
         <div className="h-8 bg-muted rounded w-1/3"></div>
@@ -91,8 +89,6 @@ const ReportIncidentModal: React.FC<{ project: Project, user: User, onClose: () 
             </Card>
         </div>
     );
-};
-
 
 // --- DASHBOARD WIDGETS ---
 
@@ -137,8 +133,6 @@ const TimeClockCard: React.FC<{ user: User; project: Project; addToast: (m:strin
             )}
         </Card>
     );
-};
-
 const WeatherCard: React.FC<{ weather: Weather | null }> = ({ weather }) => (
     <Card>
         <h3 className="font-semibold mb-2">Site Weather</h3>
@@ -184,8 +178,6 @@ const DailyAssignmentsCard: React.FC<{ tasks: Todo[]; onTaskReorder: (tasks: Tod
             ) : <p className="text-muted-foreground">No active tasks assigned.</p>}
         </Card>
     );
-};
-
 const SiteUpdatesCard: React.FC<{ project: Project; user: User; addToast: (m:string,t:'success'|'error')=>void; onUpdate: ()=>void; siteUpdates: SiteUpdate[]; userMap: Map<string, User> }> = ({ project, user, addToast, onUpdate, siteUpdates, userMap }) => {
     const [text, setText] = useState('');
     const [photo, setPhoto] = useState<File|null>(null);
@@ -232,8 +224,6 @@ const SiteUpdatesCard: React.FC<{ project: Project; user: User; addToast: (m:str
             </form>
         </Card>
     );
-};
-
 const OperationalPulseCard: React.FC<{ insights: OperationalInsights | null }> = ({ insights }) => {
     if (!insights) {
         return (
@@ -317,8 +307,6 @@ const OperationalPulseCard: React.FC<{ insights: OperationalInsights | null }> =
             )}
         </Card>
     );
-};
-
 const TeamChatCard: React.FC<{ project: Project; user: User; onUpdate: ()=>void; messages: ProjectMessage[]; userMap: Map<string, User> }> = ({ project, user, onUpdate, messages, userMap }) => {
     const [content, setContent] = useState('');
     const [isSending, setIsSending] = useState(false);
@@ -362,8 +350,6 @@ const TeamChatCard: React.FC<{ project: Project; user: User; onUpdate: ()=>void;
             </div>
         </Card>
     );
-};
-
 
 export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToast }) => {
     const [loading, setLoading] = useState(true);

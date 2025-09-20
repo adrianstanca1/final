@@ -9,8 +9,6 @@ import { Button } from './ui/Button';
 interface TemplatesViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 const CreateTemplateModal: React.FC<{
     user: User;
     onClose: () => void;
@@ -83,8 +81,6 @@ const CreateTemplateModal: React.FC<{
             </Card>
         </div>
     );
-};
-
 
 export const TemplatesView: React.FC<TemplatesViewProps> = ({ user, addToast }) => {
     const [templates, setTemplates] = useState<ProjectTemplate[]>([]);

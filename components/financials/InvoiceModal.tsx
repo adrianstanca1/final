@@ -14,8 +14,6 @@ interface InvoiceModalProps {
     clients: Client[];
     projects: Project[];
     addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 const InvoiceModal: React.FC<InvoiceModalProps> = ({
     invoiceToEdit,
     isReadOnly = false,
@@ -317,6 +315,4 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
             </Card>
         </div>
     );
-};
-
 export default InvoiceModal;

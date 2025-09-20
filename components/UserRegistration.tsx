@@ -6,8 +6,6 @@ import { Button } from './ui/Button';
 
 interface UserRegistrationProps {
   onSwitchToLogin: () => void;
-}
-
 type Step = 'personal' | 'company' | 'role' | 'verify' | 'terms';
 
 const STEPS: { id: Step; name: string }[] = [
@@ -38,8 +36,6 @@ const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password =
             <div className={`h-1.5 rounded-full transition-all duration-300 ${color}`} style={{ width: `${width}%` }}></div>
         </div>
     );
-};
-
 const CreateCompanyModal: React.FC<{
     onClose: () => void;
     onSave: (data: { name: string; type: CompanyType; email: string; phone: string; website: string; }) => void;
@@ -93,8 +89,6 @@ const CreateCompanyModal: React.FC<{
             </Card>
         </div>
     );
-};
-
 export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLogin }) => {
     const { register, error: authError, loading: isLoading } = useAuth();
     const [step, setStep] = useState<Step>('personal');
@@ -341,8 +335,6 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
             </div>
         </>
     );
-};
-
 
 // --- Form Field Components ---
 const InputField = ({ label, name, type = 'text', value = '', onChange, error, maxLength, inputClassName = '', isLabelSrOnly = false, placeholder }: { label: string; name: string; type?: string; value?: string; onChange: (name: string, value: string) => void; error?: string; maxLength?: number; inputClassName?: string; isLabelSrOnly?: boolean; placeholder?: string }) => (

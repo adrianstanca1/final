@@ -13,8 +13,6 @@ interface ReminderModalProps {
     onClose: () => void;
     onSuccess: () => void;
     addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 export const ReminderModal: React.FC<ReminderModalProps> = ({ todo, user, onClose, onSuccess, addToast }) => {
     const [mode, setMode] = useState<'duration' | 'custom'>('duration');
     const [duration, setDuration] = useState('10m'); // 10m, 1h, 1d

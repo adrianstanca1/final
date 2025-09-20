@@ -34,8 +34,6 @@ interface ProjectDetailViewProps {
   addToast: (message: string, type: 'success' | 'error') => void;
   isOnline: boolean;
   onStartChat: (recipient: User) => void;
-}
-
 type DetailTab = 'overview' | 'tasks' | 'whiteboard' | 'documents' | 'team' | 'safety' | 'financials';
 
 const formatCurrency = (amount: number) =>
@@ -169,8 +167,6 @@ const ProjectHealthSummary: React.FC<{
       )}
     </Card>
   );
-};
-
 const TaskItem: React.FC<{
   task: Todo;
   allProjectTasks: Todo[];
@@ -290,8 +286,6 @@ const TaskItem: React.FC<{
       </div>
     </div>
   );
-};
-
 
   return (
     <div className="space-y-6">
@@ -315,9 +309,5 @@ const TaskItem: React.FC<{
       </div>
     </div>
   );
-}
-
-// export { ProjectDetailView };
-
-};
+export { ProjectDetailView };
 

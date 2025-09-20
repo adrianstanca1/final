@@ -20,32 +20,24 @@ interface ProjectsViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
   onSelectProject: (project: Project) => void;
-}
-
 const statusAccent: Record<ProjectStatus, { bg: string; text: string }> = {
   PLANNING: { bg: 'bg-amber-500/10', text: 'text-amber-700 dark:text-amber-300' },
   ACTIVE: { bg: 'bg-emerald-500/10', text: 'text-emerald-700 dark:text-emerald-300' },
   ON_HOLD: { bg: 'bg-amber-500/10', text: 'text-amber-700 dark:text-amber-300' },
   COMPLETED: { bg: 'bg-primary/10', text: 'text-primary dark:text-primary-200' },
   CANCELLED: { bg: 'bg-slate-500/10', text: 'text-slate-500 dark:text-slate-300' },
-};
-
 const statusBarColor: Record<ProjectStatus, string> = {
   PLANNING: 'bg-sky-500',
   ACTIVE: 'bg-emerald-500',
   ON_HOLD: 'bg-amber-500',
   COMPLETED: 'bg-primary',
   CANCELLED: 'bg-rose-500',
-};
-
 const statusTagColor: Record<ProjectStatus, 'green' | 'blue' | 'red' | 'gray' | 'yellow'> = {
   PLANNING: 'blue',
   ACTIVE: 'green',
   ON_HOLD: 'yellow',
   COMPLETED: 'green',
   CANCELLED: 'red',
-};
-
 type SortKey = 'startDate' | 'endDate' | 'name' | 'budget' | 'progress';
 
 const SORT_OPTIONS: Array<{ value: SortKey; label: string }> = [
@@ -87,8 +79,6 @@ const formatDeadlineLabel = (daysRemaining: number, isOverdue: boolean): string 
   const suffix = absolute === 1 ? 'day' : 'days';
 
   return isOverdue ? `${absolute} ${suffix} overdue` : `In ${absolute} ${suffix}`;
-};
-
 const ProjectCard: React.FC<{ project: Project; onSelect: () => void }> = ({ project, onSelect }) => {
   const budgetUtilization = project.budget > 0 ? (project.actualCost / project.budget) * 100 : 0;
   const statusStyles = statusAccent[project.status] ?? statusAccent.PLANNING;
@@ -142,8 +132,6 @@ const ProjectCard: React.FC<{ project: Project; onSelect: () => void }> = ({ pro
       </div>
     </Card>
   );
-};
-
 export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSelectProject }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -626,6 +614,4 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
       ) : null}
     </div>
   );
-}
-
 // export { ProjectsView };

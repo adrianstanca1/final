@@ -108,16 +108,12 @@ const DraggablePostIt: React.FC<{
             )}
         </div>
     );
-};
-
 
 // Main Whiteboard View Component
 interface WhiteboardViewProps {
   project: Project;
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 export const WhiteboardView: React.FC<WhiteboardViewProps> = ({ project, user, addToast }) => {
     const [notes, setNotes] = useState<WhiteboardNote[]>([]);
     const [loading, setLoading] = useState(true);

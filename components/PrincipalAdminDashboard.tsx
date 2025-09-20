@@ -8,8 +8,6 @@ import { InviteCompanyModal } from './InviteCompanyModal';
 interface PrincipalAdminDashboardProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 const KpiCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode }> = ({
   title,
   value,
@@ -80,8 +78,6 @@ const SystemHealthIndicator: React.FC<{ health: SystemHealth }> = ({ health }) =
       </div>
     </div>
   );
-};
-
 export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = ({ user, addToast }) => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);

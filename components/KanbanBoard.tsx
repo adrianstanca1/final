@@ -10,8 +10,6 @@ interface KanbanBoardProps {
   onTaskStatusChange: (taskId: string | number, newStatus: TodoStatus) => void;
   onTaskSelectionChange: (taskId: string | number) => void;
   selectedTaskIds: Set<string | number>;
-}
-
 const KanbanColumn: React.FC<{
   title: string;
   status: TodoStatus;
@@ -62,8 +60,6 @@ const KanbanColumn: React.FC<{
             </div>
         </div>
     );
-};
-
 export const KanbanBoard: React.FC<KanbanBoardProps> = ({ todos, allTodos, user, personnel, onTaskStatusChange, onTaskSelectionChange, selectedTaskIds }) => {
   const [draggedTaskId, setDraggedTaskId] = useState<string | number | null>(null);
 

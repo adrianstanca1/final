@@ -4,8 +4,6 @@ import { formatCurrency } from '../../utils/finance';
 interface BarChartProps {
     data: { label: string; value: number }[];
     barColor: string;
-}
-
 const BarChart: React.FC<BarChartProps> = ({ data, barColor }) => {
     const maxValue = Math.max(...data.map(d => d.value), 0);
     return (
@@ -22,6 +20,4 @@ const BarChart: React.FC<BarChartProps> = ({ data, barColor }) => {
             ))}
         </div>
     );
-};
-
 export default BarChart;

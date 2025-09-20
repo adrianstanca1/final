@@ -9,8 +9,6 @@ interface CommandPaletteProps {
   user: User;
   onClose: () => void;
   setActiveView: (view: View) => void;
-}
-
 interface Command {
   id: string;
   type: 'navigation' | 'project' | 'action';
@@ -19,8 +17,6 @@ interface Command {
   action: () => void;
   keywords?: string;
   icon: React.ReactNode;
-}
-
 export const CommandPalette: React.FC<CommandPaletteProps> = ({ user, onClose, setActiveView }) => {
     const [search, setSearch] = useState('');
     const [projects, setProjects] = useState<Project[]>([]);

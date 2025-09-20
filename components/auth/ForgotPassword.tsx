@@ -5,8 +5,6 @@ import { Button } from '../ui/Button';
 
 interface ForgotPasswordProps {
   onSwitchToLogin: () => void;
-}
-
 const InputField = ({ label, name, type = 'text', value = '', onChange, error }: { label: string; name: string; type?: string; value?: string; onChange: (name: string, value: string) => void; error?: string;}) => (
     <div>
         <label htmlFor={name} className="block text-sm font-medium text-muted-foreground">{label}</label>

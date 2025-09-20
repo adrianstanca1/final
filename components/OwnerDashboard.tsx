@@ -32,8 +32,6 @@ interface OwnerDashboardProps {
   addToast: (message: string, type: 'success' | 'error') => void;
   onSelectProject: (project: Project) => void;
   setActiveView?: (view: View) => void;
-}
-
 interface OwnerDashboardData {
   projects: Project[];
   kpis: FinancialKPIs | null;
@@ -47,8 +45,6 @@ interface OwnerDashboardData {
   companyName: string | null;
   users: User[];
   operationalInsights: OperationalInsights | null;
-
-}
 
 const formatCurrency = (value: number, currency: string = 'GBP') =>
   new Intl.NumberFormat('en-GB', {
@@ -109,8 +105,6 @@ const MiniBarChart: React.FC<{
       ))}
     </div>
   );
-};
-
 const CostBreakdownList: React.FC<{ data: CostBreakdown[]; currency: string }> = ({ data, currency }) => {
   if (!data.length) {
     return <p className="text-sm text-muted-foreground">No approved costs recorded.</p>;
@@ -137,8 +131,6 @@ const CostBreakdownList: React.FC<{ data: CostBreakdown[]; currency: string }> =
       })}
     </div>
   );
-};
-
 export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   user,
   addToast,
@@ -773,8 +765,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       </section>
     </div>
   );
-}
-
 // OwnerDashboard.displayName = 'OwnerDashboard';
 
 // export { OwnerDashboard };

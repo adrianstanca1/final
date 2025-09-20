@@ -9,8 +9,6 @@ import { EquipmentStatusBadge } from './ui/StatusBadge';
 interface EquipmentViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 const EquipmentModal: React.FC<{
     equipmentToEdit: Equipment | null;
     projects: Project[];
@@ -135,8 +133,6 @@ const EquipmentModal: React.FC<{
             </Card>
         </div>
     );
-};
-
 
 export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) => {
     const [equipment, setEquipment] = useState<Equipment[]>([]);

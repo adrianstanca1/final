@@ -13,8 +13,6 @@ interface DailySummaryGeneratorProps {
     user: User;
     addToast: (message: string, type: 'success' | 'error') => void;
     onBack: () => void;
-}
-
 export const DailySummaryGenerator: React.FC<DailySummaryGeneratorProps> = ({ user, addToast, onBack }) => {
     const [projects, setProjects] = useState<Project[]>([]);
     const [selectedProjectId, setSelectedProjectId] = useState<string>('');

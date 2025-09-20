@@ -12,8 +12,6 @@ interface SettingsViewProps {
   addToast: (message: string, type: 'success' | 'error') => void;
   settings: CompanySettings | null;
   onSettingsUpdate: (updatedSettings: Partial<CompanySettings>) => void;
-}
-
 const FailedSyncActions: React.FC<{ addToast: (m:string,t:'success'|'error')=>void }> = ({ addToast }) => {
     const [failedActions, setFailedActions] = useState<FailedActionForUI[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -70,8 +68,6 @@ const FailedSyncActions: React.FC<{ addToast: (m:string,t:'success'|'error')=>vo
             </div>
         </Card>
     );
-};
-
 const UserProfileSettings: React.FC<{ user: User, addToast: (m:string,t:'success'|'error')=>void }> = ({ user, addToast }) => {
     const { updateUserProfile } = useAuth();
     const [formData, setFormData] = useState({
@@ -184,8 +180,6 @@ const UserProfileSettings: React.FC<{ user: User, addToast: (m:string,t:'success
             </form>
         </Card>
     )
-}
-
 const CompanySettingsComponent: React.FC<{ settings: CompanySettings, onSettingsUpdate: (updatedSettings: Partial<CompanySettings>) => void }> = ({ settings, onSettingsUpdate }) => {
     
     const handleSettingsChange = (key: keyof CompanySettings, value: any) => {
@@ -239,8 +233,6 @@ const CompanySettingsComponent: React.FC<{ settings: CompanySettings, onSettings
             </Card>
         </div>
     );
-};
-
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ user, addToast, settings, onSettingsUpdate }) => {
     const [activeTab, setActiveTab] = useState('profile');

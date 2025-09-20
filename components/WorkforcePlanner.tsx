@@ -9,13 +9,9 @@ import { Avatar } from './ui/Avatar';
 interface WorkforcePlannerProps {
     user: User;
     addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 interface AssignedUser extends User {
     // FIX: Changed projectId to allow string for temporary IDs.
     projectId: string | null;
-}
-
 export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToast }) => {
     const [users, setUsers] = useState<AssignedUser[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);

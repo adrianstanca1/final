@@ -13,14 +13,10 @@ interface TeamViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
   onStartChat: (recipient: User) => void;
-}
-
 const availabilityTagColor: Record<AvailabilityStatus, 'green' | 'blue' | 'gray'> = {
     [AvailabilityStatus.AVAILABLE]: 'green',
     [AvailabilityStatus.ON_PROJECT]: 'blue',
     [AvailabilityStatus.ON_LEAVE]: 'gray',
-};
-
 
 // --- User Profile & Management Modal ---
 const UserModal: React.FC<{
@@ -249,8 +245,6 @@ const UserModal: React.FC<{
             </form>
         </div>
     )
-};
-
 
 // --- Main Team View Component ---
 export const TeamView: React.FC<TeamViewProps> = ({ user, addToast, onStartChat }) => {

@@ -9,8 +9,6 @@ interface NotificationDropdownProps {
   addToast: (message: string, type: 'success' | 'error') => void;
   onNotificationClick: (notification: Notification) => Promise<void> | void;
   onMarkAllAsRead: () => Promise<void> | void;
-}
-
 const formatDistanceToNow = (date: Date): string => {
     const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
     let interval = seconds / 31536000;
@@ -24,8 +22,6 @@ const formatDistanceToNow = (date: Date): string => {
     interval = seconds / 60;
     if (interval > 1) return `${Math.floor(interval)}m`;
     return `${Math.floor(seconds)}s ago`;
-};
-
 const NotificationIcon: React.FC<{ type: NotificationType }> = ({ type }) => {
     const wrapper = (content: React.ReactNode, className: string) => (
         <span className={`flex h-8 w-8 items-center justify-center rounded-full ${className}`}>
@@ -106,8 +102,6 @@ const NotificationIcon: React.FC<{ type: NotificationType }> = ({ type }) => {
                 'bg-slate-100 text-slate-600'
             );
     }
-};
-
 export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ user: _user, notifications, onClose, addToast, onNotificationClick, onMarkAllAsRead }) => {
     const [isMarkingAll, setIsMarkingAll] = React.useState(false);
     const hasUnread = notifications.some(n => !(n.isRead ?? n.read));

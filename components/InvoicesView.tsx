@@ -30,8 +30,6 @@ const STATUS_ORDER: Record<InvoiceStatus, number> = {
   [InvoiceStatus.DRAFT]: 2,
   [InvoiceStatus.PAID]: 3,
   [InvoiceStatus.CANCELLED]: 4,
-};
-
 const formatCurrency = (amount: number): string =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(amount || 0);
 
@@ -40,8 +38,6 @@ const formatDate = (value?: string): string => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return '—';
   return format(parsed, 'd MMM yyyy');
-};
-
 const getDueDate = (invoice: Invoice): string | undefined => invoice.dueAt || invoice.dueDate;
 
 const getIssuedDate = (invoice: Invoice): string | undefined => invoice.issuedAt || invoice.issueDate;
@@ -51,8 +47,6 @@ const getDateValue = (value?: string): number | null => {
   const parsed = new Date(value);
   const timestamp = parsed.getTime();
   return Number.isNaN(timestamp) ? null : timestamp;
-};
-
 const getDueDateValue = (invoice: Invoice): number | null => getDateValue(getDueDate(invoice));
 
 const getIssuedDateValue = (invoice: Invoice): number | null => getDateValue(getIssuedDate(invoice));
@@ -77,8 +71,6 @@ const getAgingInfo = (invoice: Invoice) => {
   }
 
   return { label: `${Math.abs(diff)} day${Math.abs(diff) === 1 ? '' : 's'} overdue`, color: 'red' as const };
-};
-
 const SummaryCard: React.FC<{ title: string; value: string; helper?: string; tone?: SummaryTone }> = ({
   title,
   value,
@@ -100,13 +92,9 @@ const SummaryCard: React.FC<{ title: string; value: string; helper?: string; ton
       {helper && <p className="mt-2 text-xs text-muted-foreground">{helper}</p>}
     </Card>
   );
-};
-
 interface InvoicesViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);

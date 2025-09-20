@@ -9,15 +9,11 @@ import { Avatar } from './ui/Avatar';
 interface ResourceSchedulerProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 const getWeekStart = (date: Date): Date => {
   const d = new Date(date);
   const day = d.getDay();
   const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
   return new Date(new Date(d.setDate(diff)).setHours(0, 0, 0, 0));
-};
-
 const dateToYMD = (date: Date) => date.toISOString().split('T')[0];
 
 const AssignmentModal: React.FC<{
@@ -84,8 +80,6 @@ const AssignmentModal: React.FC<{
             </Card>
         </div>
     );
-};
-
 
 export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addToast }) => {
     const [assignments, setAssignments] = useState<ResourceAssignment[]>([]);

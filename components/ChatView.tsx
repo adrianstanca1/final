@@ -11,8 +11,6 @@ interface ChatViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
   initialRecipient?: User | null;
-}
-
 const NewChatModal: React.FC<{
     user: User;
     personnel: User[];
@@ -40,8 +38,6 @@ const NewChatModal: React.FC<{
             </Card>
         </div>
     );
-};
-
 export const ChatView: React.FC<ChatViewProps> = ({ user, addToast, initialRecipient }) => {
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [activeConversationId, setActiveConversationId] = useState<string | null>(null);

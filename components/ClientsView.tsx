@@ -10,8 +10,6 @@ import { Tag } from './ui/Tag';
 interface ClientsViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 interface ClientFormState {
   name: string;
   contactPerson: string;
@@ -23,8 +21,6 @@ interface ClientFormState {
   paymentTerms: string;
   isActive: boolean;
   address: Address;
-}
-
 const defaultClientFormState = (): ClientFormState => ({
   name: '',
   contactPerson: '',
@@ -319,8 +315,6 @@ const CreateClientModal: React.FC<{
       </Card>
     </div>
   );
-};
-
 export const ClientsView: React.FC<ClientsViewProps> = ({ user, addToast }) => {
     const [clients, setClients] = useState<Client[]>([]);
     const [loading, setLoading] = useState(true);

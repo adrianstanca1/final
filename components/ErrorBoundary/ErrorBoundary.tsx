@@ -9,15 +9,11 @@ interface Props {
   level?: 'page' | 'section' | 'component';
   resetKeys?: Array<string | number>;
   resetOnPropsChange?: boolean;
-}
-
 interface State {
   hasError: boolean;
   error?: Error;
   errorInfo?: ErrorInfo;
   errorId: string;
-}
-
 /**
  * Enhanced Error Boundary with better error reporting, retry mechanisms,
  * and different fallback strategies based on error level
@@ -237,8 +233,6 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return this.props.children;
   }
-}
-
 // Convenience wrapper components for different error levels
 export const PageErrorBoundary: React.FC<Omit<Props, 'level'>> = (props) => (
   <ErrorBoundary {...props} level="page" />
