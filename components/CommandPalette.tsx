@@ -23,8 +23,6 @@ interface Command {
 }
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({ user, onClose, setActiveView, onProjectSelect }) => {
-
-export const CommandPalette: React.FC<CommandPaletteProps> = ({ user, onClose, setActiveView }) => {
     const [search, setSearch] = useState('');
     const [projects, setProjects] = useState<Project[]>([]);
     const [activeIndex, setActiveIndex] = useState(0);

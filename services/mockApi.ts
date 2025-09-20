@@ -622,7 +622,12 @@ export const api = {
         const project = db.projects.find(p => p.id === projectId);
         return project ? project as Project : null;
     },
-    getUsersByCompany: async (companyId: string): Promise<User[]> => {
+    getUsersByCompany: async (companyId: string, options?: RequestOptions): Promise<User[]> => {
+        ensureNotAborted(options?.signal);
+        await delay();
+        ensureNotAborted(options?.signal);
+        return db.users.filter(u => u.companyId === companyId) as User[];
+    },
 
     getProjectById: async (projectId: string, options?: RequestOptions): Promise<Project | null> => {
         ensureNotAborted(options?.signal);
@@ -630,12 +635,6 @@ export const api = {
         ensureNotAborted(options?.signal);
         const project = db.projects.find(p => p.id === projectId);
         return project ? project as Project : null;
-    },
-    getUsersByCompany: async (companyId: string, options?: RequestOptions): Promise<User[]> => {
-        ensureNotAborted(options?.signal);
-        await delay();
-        ensureNotAborted(options?.signal);
-        return db.users.filter(u => u.companyId === companyId) as User[];
     },
     getEquipmentByCompany: async (companyId: string, options?: RequestOptions): Promise<Equipment[]> => {
         ensureNotAborted(options?.signal);
