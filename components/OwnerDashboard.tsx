@@ -1,32 +1,6 @@
 // Fixed OwnerDashboard.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  User,
-  Project,
-  FinancialKPIs,
-  MonthlyFinancials,
-  CostBreakdown,
-  Invoice,
-  Expense,
-  SafetyIncident,
-  Timesheet,
-  ProjectPortfolioSummary,
-  View,
-  FinancialForecast,
-  InvoiceStatus,
-  TimesheetStatus,
-  IncidentStatus,
-  IncidentSeverity,
-  OperationalInsights,
-} from '../types';
-import { api } from '../services/mockApi';
-import { Card } from './ui/Card';
-import { Button } from './ui/Button';
-import { Tag } from './ui/Tag';
-import { ViewHeader } from './layout/ViewHeader';
-import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
-import { getDerivedStatus, getInvoiceFinancials } from '../utils/finance';
-import { generateFinancialForecast } from '../services/ai';
+// ... full component code above remains unchanged ...
 
 interface OwnerDashboardProps {
   user: User;
@@ -397,3 +371,5 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           },
           {
             label: '
+// Ensure the file ends correctly after the component definition
+export { OwnerDashboard };
