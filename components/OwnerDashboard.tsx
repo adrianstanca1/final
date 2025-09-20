@@ -134,6 +134,8 @@ const CostBreakdownList: React.FC<{ data: CostBreakdown[]; currency: string }> =
       })}
     </div>
   );
+};
+
 export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   user,
   addToast,

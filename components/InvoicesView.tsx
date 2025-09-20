@@ -30,6 +30,8 @@ const STATUS_ORDER: Record<InvoiceStatus, number> = {
   [InvoiceStatus.DRAFT]: 2,
   [InvoiceStatus.PAID]: 3,
   [InvoiceStatus.CANCELLED]: 4,
+};
+
 const formatCurrency = (amount: number): string =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(amount || 0);
 
