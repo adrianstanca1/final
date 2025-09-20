@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
-import { User, View, Project, Role, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
-import { useState, useEffect, useCallback, useRef } from 'react';
-import type { User, View, Project, Notification, CompanySettings } from './types';
+import type { User, View, Project, Role, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
 import { api } from './services/mockApi';
 import { Login } from './components/Login';
 import { Sidebar } from './components/layout/Sidebar';

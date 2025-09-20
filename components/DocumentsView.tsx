@@ -123,14 +123,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ user, addToast, is
             )}
             <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
                 <div className="flex items-center gap-4">
-<<<<<<< Updated upstream
                     <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Documents</h2>
-=======
-                    <h2 className="text-3xl font-bold text-slate-800">Documents</h2>
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
                     <select title="Document filter"
                         value={currentProject?.id || ''}
                         onChange={e => handleProjectChange(e.target.value)}
@@ -147,9 +140,6 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ user, addToast, is
                         </Button>
                     )}
                 </div>}
-            </div>
-                    </Button>
-                )}
             </div>
             
             <Card>
