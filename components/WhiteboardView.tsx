@@ -108,7 +108,7 @@ const DraggablePostIt: React.FC<{
             )}
         </div>
     );
-
+};
 // Main Whiteboard View Component
 interface WhiteboardViewProps {
   project: Project;
@@ -209,3 +209,4 @@ export const WhiteboardView: React.FC<WhiteboardViewProps> = ({ project, user, a
         </div>
     );
 };
+export default WhiteboardView;

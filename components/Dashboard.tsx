@@ -5,13 +5,25 @@ import { Button } from './ui/Button';
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
 import { ViewHeader } from './layout/ViewHeader';
-
 interface DashboardProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
-  setActiveView?: (view: string) => void;
-  onSelectProject?: (projectId: string) => void;
+  activeView: View;
+  setActiveView: (view: View) => void;
+  onSelectProject: (project: Project) => void;
 }
+const KpiCard: React.FC<{ title: string; value: string; subtext?: string; icon: React.ReactNode }> = ({ title, value, subtext, icon }) => (
+    <Card className="flex items-center gap-4 animate-card-enter">
+        <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-muted text-muted-foreground">
+            {icon}
+        </div>
+        <div>
+            <h3 className="font-semibold text-muted-foreground">{title}</h3>
+            <p className="text-3xl font-bold text-foreground">{value}</p>
+            {subtext && <p className="text-sm text-muted-foreground">{subtext}</p>}
+        </div>
+    </Card>
+);
 
 export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveView, onSelectProject }) => {
   const [loading, setLoading] = useState(true);

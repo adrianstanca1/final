@@ -318,3 +318,4 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
         </div>
     );
 export default InvoiceModal;
+};

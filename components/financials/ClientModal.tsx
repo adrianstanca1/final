@@ -99,3 +99,4 @@ const ClientModal: React.FC<ClientModalProps> = ({ clientToEdit, onClose, onSucc
         </div>
     );
 export default ClientModal;
+};
