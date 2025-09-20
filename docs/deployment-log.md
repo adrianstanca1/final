@@ -2,6 +2,14 @@
 
 This log captures each run of the autonomous deployment plan in the local container environment.
 
+## 2025-09-20 (Run 5)
+
+| Step | Command | Result | Notes |
+|------|---------|--------|-------|
+| 1 | `npm ci` | ✅ Success | Fresh install finished in 4s; npm flagged 5 moderate advisories for monitoring. |
+| 2 | `npm run test -- --run` | ✅ Success | All 22 Vitest suites passed; expected mock fallback warning logged for offline auth client tests. |
+| 3 | `GEMINI_API_KEY=test VITE_GEMINI_API_KEY=test npm run build` | ✅ Success | Production build completed in 4.1s; Rollup chunk-size warning remains under observation. |
+
 ## 2025-09-20 (Run 4)
 
 | Step | Command | Result | Notes |
