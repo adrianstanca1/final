@@ -15,6 +15,8 @@ import {
   InvoiceStatus,
   ExpenseStatus,
 } from '../types';
+import { apiCache } from './cacheService';
+import { wrapError, withRetry } from '../utils/errorHandling';
 
 const MODEL_NAME = 'gemini-2.0-flash-001';
 const API_KEY = typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_GEMINI_API_KEY
@@ -59,15 +61,45 @@ const callGemini = async (
     return null;
   }
 
+  // Check cache first
+  const cacheKey = `ai:${btoa(prompt).slice(0, 50)}:${JSON.stringify(overrides)}`;
+  const cached = apiCache.get<GenerateContentResponse>(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   try {
     const config = { ...DEFAULT_GENERATION_CONFIG, ...overrides };
-    return await client.models.generateContent({
-      model: MODEL_NAME,
-      contents: prompt,
-      config,
-    });
+
+    // Use retry mechanism for API calls
+    const result = await withRetry(
+      async () => {
+        return await client.models.generateContent({
+          model: MODEL_NAME,
+          contents: prompt,
+          config,
+        });
+      },
+      {
+        maxAttempts: 3,
+        delay: 1000,
+        backoff: 'exponential',
+      }
+    );
+
+    // Cache successful responses for 10 minutes
+    if (result) {
+      apiCache.set(cacheKey, result, 10 * 60 * 1000);
+    }
+
+    return result;
   } catch (error) {
-    console.error('Gemini request failed', error);
+    const wrappedError = wrapError(error, {
+      operation: 'callGemini',
+      component: 'ai-service',
+      metadata: { prompt: prompt.slice(0, 100), config: overrides },
+    });
+    console.error('Gemini request failed', wrappedError);
     return null;
   }
 };

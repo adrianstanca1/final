@@ -2,6 +2,9 @@
 // Supports offline queuing for write operations.
 
 import { initialData } from './mockData';
+import { apiCache, cacheKeys } from './cacheService';
+import { ValidationService, securityValidation } from './validationService';
+import { notificationService } from './notificationService';
 import {
     User,
     Company,
@@ -67,6 +70,42 @@ type ProjectSummaryOptions = RequestOptions & { projectIds?: string[] };
 const ensureNotAborted = (signal?: AbortSignal) => {
     if (signal?.aborted) {
         throw new DOMException('Aborted', 'AbortError');
+    }
+};
+
+// Removed duplicate delay function - already exists elsewhere
+
+// Enhanced API with caching, validation, and rate limiting
+const withCache = <T>(key: string, fetcher: () => Promise<T>, ttl?: number): Promise<T> => {
+    const cached = apiCache.get<T>(key);
+    if (cached) return Promise.resolve(cached);
+
+    return fetcher().then(result => {
+        apiCache.set(key, result, ttl);
+        return result;
+    });
+};
+
+const withValidation = <T>(data: Partial<T>, rules: any[]): T => {
+    const result = ValidationService.validate(data, rules);
+    if (!result.isValid) {
+        throw new Error(`Validation failed: ${Object.values(result.errors).flat().join(', ')}`);
+    }
+    return result.sanitizedData as T;
+};
+
+const withRateLimit = (key: string, limit: number = 100, windowMs: number = 60000): void => {
+    if (!securityValidation.checkRateLimit(key, limit, windowMs)) {
+        throw new Error('Rate limit exceeded. Please try again later.');
+    }
+};
+
+const withSecurity = (input: string): void => {
+    if (securityValidation.checkSqlInjection(input)) {
+        throw new Error('Invalid input detected');
+    }
+    if (securityValidation.checkXss(input)) {
+        throw new Error('Invalid input detected');
     }
 };
 
