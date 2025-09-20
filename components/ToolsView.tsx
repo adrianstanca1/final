@@ -20,8 +20,6 @@ interface ToolsViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
   setActiveView: (view: View) => void;
-}
-
 type Tool = 'ai-advisor' | 'bid-generator' | 'cost-estimator' | 'daily-summary' | 'funding-bot' | 'risk-bot' | 'safety-analysis' | 'site-inspector' | 'workforce-planner' | 'resource-scheduler';
 
 interface ToolConfig {
@@ -31,8 +29,6 @@ interface ToolConfig {
     icon: React.ReactNode;
     component: React.ReactNode;
     permission: boolean;
-}
-
 export const ToolsView: React.FC<ToolsViewProps> = ({ user, addToast, setActiveView }) => {
     const [activeTool, setActiveTool] = useState<Tool | null>(null);
 

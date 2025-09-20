@@ -12,8 +12,6 @@ interface ExpenseModalProps {
     user: User;
     projects: Project[];
     addToast: (m: string, t: 'success' | 'error') => void;
-}
-
 const CUSTOM_CATEGORY_VALUE = '__custom__';
 
 export const ExpenseModal: React.FC<ExpenseModalProps> = ({ expenseToEdit, onClose, onSuccess, user, projects, addToast }) => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 // FIX: Corrected import paths to be relative.
 import { User, Timesheet, Project, Role, Permission, TimesheetStatus } from '../types';
 // FIX: Corrected API import
@@ -11,8 +11,6 @@ import { hasPermission } from '../services/auth';
 interface TimesheetsViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 const LogTimeModal: React.FC<{
     user: User;
     projects: Project[];
@@ -106,8 +104,6 @@ const LogTimeModal: React.FC<{
             </Card>
         </div>
     );
-};
-
 
 export const TimesheetsView: React.FC<TimesheetsViewProps> = ({ user, addToast }) => {
     const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
@@ -117,6 +113,7 @@ export const TimesheetsView: React.FC<TimesheetsViewProps> = ({ user, addToast }
     const [activeTab, setActiveTab] = useState<'review' | 'my-timesheets'>('my-timesheets');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTimesheet, setEditingTimesheet] = useState<Timesheet | null>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const canManage = hasPermission(user, Permission.MANAGE_TIMESHEETS);
 
@@ -126,29 +123,41 @@ export const TimesheetsView: React.FC<TimesheetsViewProps> = ({ user, addToast }
     }, [canManage]);
 
     const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         setLoading(true);
         try {
             if (!user.companyId) return;
 
             const [tsData, projData, usersData] = await Promise.all([
-                api.getTimesheetsByCompany(user.companyId, user.id),
-                api.getProjectsByCompany(user.companyId),
-                api.getUsersByCompany(user.companyId),
+                api.getTimesheetsByCompany(user.companyId, user.id, { signal: controller.signal }),
+                api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
+                api.getUsersByCompany(user.companyId, { signal: controller.signal }),
             ]);
-            
+
+            if (controller.signal.aborted) return;
             setTimesheets(tsData.sort((a,b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime()));
+            if (controller.signal.aborted) return;
             setProjects(projData);
+            if (controller.signal.aborted) return;
             setUsers(usersData);
 
         } catch (error) {
+            if (controller.signal.aborted) return;
             addToast("Failed to load timesheet data.", "error");
         } finally {
+            if (controller.signal.aborted) return;
             setLoading(false);
         }
     }, [user, addToast]);
 
     useEffect(() => {
         fetchData();
+        return () => {
+            abortControllerRef.current?.abort();
+        };
     }, [fetchData]);
     
     // FIX: Correctly map user ID to full name.

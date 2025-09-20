@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 // FIX: Corrected import paths to be relative.
 import { User, Project, Equipment, ResourceAssignment } from '../types';
 import { api } from '../services/mockApi';
@@ -9,15 +9,11 @@ import { Avatar } from './ui/Avatar';
 interface ResourceSchedulerProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 const getWeekStart = (date: Date): Date => {
   const d = new Date(date);
   const day = d.getDay();
   const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
   return new Date(new Date(d.setDate(diff)).setHours(0, 0, 0, 0));
-};
-
 const dateToYMD = (date: Date) => date.toISOString().split('T')[0];
 
 const AssignmentModal: React.FC<{
@@ -84,8 +80,6 @@ const AssignmentModal: React.FC<{
             </Card>
         </div>
     );
-};
-
 
 export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addToast }) => {
     const [assignments, setAssignments] = useState<ResourceAssignment[]>([]);
@@ -96,30 +90,44 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState<ResourceAssignment | null>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         setLoading(true);
         try {
             if(!user.companyId) return;
             const [assignData, projData, userData, equipData] = await Promise.all([
-                api.getResourceAssignments(user.companyId),
-                api.getProjectsByCompany(user.companyId),
-                api.getUsersByCompany(user.companyId),
-                api.getEquipmentByCompany(user.companyId),
+                api.getResourceAssignments(user.companyId, { signal: controller.signal }),
+                api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
+                api.getUsersByCompany(user.companyId, { signal: controller.signal }),
+                api.getEquipmentByCompany(user.companyId, { signal: controller.signal }),
             ]);
+            if (controller.signal.aborted) return;
             setAssignments(assignData);
+            if (controller.signal.aborted) return;
             setProjects(projData);
+            if (controller.signal.aborted) return;
             setUsers(userData.filter(u => u.companyId)); // Exclude principal admin
+            if (controller.signal.aborted) return;
             setEquipment(equipData);
         } catch (error) {
+            if (controller.signal.aborted) return;
             addToast("Failed to load scheduler data", "error");
         } finally {
+            if (controller.signal.aborted) return;
             setLoading(false);
         }
     }, [user.companyId, addToast]);
 
     useEffect(() => {
         fetchData();
+        return () => {
+            abortControllerRef.current?.abort();
+        };
     }, [fetchData]);
     
     const openModal = (assignment: ResourceAssignment | null) => {

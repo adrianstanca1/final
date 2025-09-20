@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // FIX: Corrected import paths to be relative.
 import { User, View, Project, Timesheet, TimesheetStatus } from '../types';
 import { api } from '../services/mockApi';
@@ -11,8 +11,6 @@ interface TimeTrackingViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
   setActiveView: (view: View) => void;
-}
-
 const Timer: React.FC<{ startTime: Date }> = ({ startTime }) => {
     const [duration, setDuration] = useState('');
 
@@ -31,14 +29,13 @@ const Timer: React.FC<{ startTime: Date }> = ({ startTime }) => {
     }, [startTime]);
 
     return <p className="text-4xl font-mono font-bold text-center">{duration}</p>;
-};
-
 export const TimeTrackingView: React.FC<TimeTrackingViewProps> = ({ user, addToast, setActiveView }) => {
     const [loading, setLoading] = useState(true);
     const [projects, setProjects] = useState<Project[]>([]);
     const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
     const [selectedProjectId, setSelectedProjectId] = useState<string>('');
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const selectedProject = useMemo(() => {
         if (!selectedProjectId) return null;
@@ -62,29 +59,42 @@ export const TimeTrackingView: React.FC<TimeTrackingViewProps> = ({ user, addToa
     const activeTimesheet = useMemo(() => timesheets.find(ts => ts.clockOut === null), [timesheets]);
     
     const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         setLoading(true);
         try {
             const [projData, tsData] = await Promise.all([
-                api.getProjectsByUser(user.id),
-                api.getTimesheetsByUser(user.id),
+                api.getProjectsByUser(user.id, { signal: controller.signal }),
+                api.getTimesheetsByUser(user.id, { signal: controller.signal }),
             ]);
+            if (controller.signal.aborted) return;
             setProjects(projData);
+            if (controller.signal.aborted) return;
             setTimesheets(tsData.sort((a,b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime()));
+            if (controller.signal.aborted) return;
             if (activeTimesheet) {
                 setSelectedProjectId(activeTimesheet.projectId.toString());
             } else if(projData.length > 0 && !selectedProjectId) {
+                if (controller.signal.aborted) return;
                 setSelectedProjectId(projData[0].id.toString());
             }
         } catch (error) {
+            if (controller.signal.aborted) return;
             addToast("Failed to load time tracking data", "error");
         } finally {
+            if (controller.signal.aborted) return;
             setLoading(false);
         }
     }, [user.id, addToast, selectedProjectId, activeTimesheet]);
 
     useEffect(() => {
         fetchData();
-    }, []);
+        return () => {
+            abortControllerRef.current?.abort();
+        };
+    }, [fetchData]);
 
     useEffect(() => {
         watchLocation();

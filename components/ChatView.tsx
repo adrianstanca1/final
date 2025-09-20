@@ -11,8 +11,6 @@ interface ChatViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
   initialRecipient?: User | null;
-}
-
 const NewChatModal: React.FC<{
     user: User;
     personnel: User[];
@@ -40,8 +38,6 @@ const NewChatModal: React.FC<{
             </Card>
         </div>
     );
-};
-
 export const ChatView: React.FC<ChatViewProps> = ({ user, addToast, initialRecipient }) => {
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
@@ -52,6 +48,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ user, addToast, initialRecip
     const [isSending, setIsSending] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const userMap = useMemo(() => new Map(personnel.map(p => [p.id, p])), [personnel]);
 
@@ -60,17 +57,24 @@ export const ChatView: React.FC<ChatViewProps> = ({ user, addToast, initialRecip
     }, [conversations, activeConversationId]);
     
     const fetchData = useCallback(async (isInitialLoad = false) => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         if(isInitialLoad) setLoading(true);
         try {
             if (!user.companyId) return;
             const [convoData, personnelData] = await Promise.all([
-                api.getConversationsForUser(user.id),
-                api.getUsersByCompany(user.companyId)
+                api.getConversationsForUser(user.id, { signal: controller.signal }),
+                api.getUsersByCompany(user.companyId, { signal: controller.signal })
             ]);
+            if (controller.signal.aborted) return;
             setConversations(convoData);
+            if (controller.signal.aborted) return;
             setPersonnel(personnelData);
-            
+
             if (isInitialLoad) {
+                if (controller.signal.aborted) return;
                 if (initialRecipient) {
                     handleStartConversation(initialRecipient);
                 } else if (convoData.length > 0) {
@@ -78,14 +82,18 @@ export const ChatView: React.FC<ChatViewProps> = ({ user, addToast, initialRecip
                 }
             }
         } catch (error) {
+            if (controller.signal.aborted) return;
             addToast("Failed to load chat data", "error");
         } finally {
-            if(isInitialLoad) setLoading(false);
+            if(isInitialLoad && !controller.signal.aborted) setLoading(false);
         }
     }, [user, addToast, initialRecipient]);
 
     useEffect(() => {
         fetchData(true);
+        return () => {
+            abortControllerRef.current?.abort();
+        };
     }, [fetchData]);
 
      useEffect(() => {

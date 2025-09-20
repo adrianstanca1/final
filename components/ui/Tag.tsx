@@ -4,8 +4,6 @@ interface TagProps extends React.HTMLAttributes<HTMLSpanElement> {
   label: string;
   color?: 'green' | 'blue' | 'red' | 'gray' | 'yellow';
   statusIndicator?: 'green' | 'blue' | 'red' | 'gray' | 'yellow';
-}
-
 export const Tag: React.FC<TagProps> = ({ label, color = 'gray', className, statusIndicator, ...props }) => {
     const colorClasses = {
         green: 'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300',

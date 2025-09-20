@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { User, Company, SystemHealth, UsageMetric } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
@@ -8,8 +8,6 @@ import { InviteCompanyModal } from './InviteCompanyModal';
 interface PrincipalAdminDashboardProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 const KpiCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode }> = ({
   title,
   value,
@@ -80,8 +78,6 @@ const SystemHealthIndicator: React.FC<{ health: SystemHealth }> = ({ health }) =
       </div>
     </div>
   );
-};
-
 export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = ({ user, addToast }) => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
@@ -89,31 +85,50 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
   const [loading, setLoading] = useState(true);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [systemHealth] = useState<SystemHealth>({ status: 'OK', message: 'All systems are operational.' });
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(async () => {
+    const controller = new AbortController();
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     try {
       const [companiesData, metricsData] = await Promise.all([
-        api.getCompanies(),
-        api.getPlatformUsageMetrics(),
+        api.getCompanies({ signal: controller.signal }),
+        api.getPlatformUsageMetrics({ signal: controller.signal }),
       ]);
 
-      const usersByCompany = await Promise.all(companiesData.map((company) => api.getUsersByCompany(company.id)));
+      if (controller.signal.aborted) return;
+
+      const usersByCompany = await Promise.all(
+        companiesData.map((company) => api.getUsersByCompany(company.id, { signal: controller.signal }))
+      );
+
+      if (controller.signal.aborted) return;
       const allUsers = usersByCompany.flat();
 
       const tenantCompanies = companiesData.filter((company) => company.id !== '0');
+      if (controller.signal.aborted) return;
       setCompanies(tenantCompanies as Company[]);
+      if (controller.signal.aborted) return;
       setTotalUsers(allUsers.filter((userRecord) => userRecord.companyId !== '0').length);
+      if (controller.signal.aborted) return;
       setMetrics(metricsData);
     } catch (error) {
+      if (controller.signal.aborted) return;
       addToast('Failed to load platform data.', 'error');
     } finally {
+      if (controller.signal.aborted) return;
       setLoading(false);
     }
   }, [addToast]);
 
   useEffect(() => {
     fetchData();
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [fetchData]);
 
   const handleInvite = async (companyName: string, adminEmail: string) => {

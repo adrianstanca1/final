@@ -12,8 +12,6 @@ interface RiskBotProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
   onBack: () => void;
-}
-
 export const RiskBot: React.FC<RiskBotProps> = ({ user, addToast, onBack }) => {
     const [textToAnalyze, setTextToAnalyze] = useState('');
     const [isLoading, setIsLoading] = useState(false);

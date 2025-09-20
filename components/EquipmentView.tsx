@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User, Equipment, Project, Permission, EquipmentStatus, ResourceAssignment } from '../types';
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
@@ -9,8 +9,6 @@ import { EquipmentStatusBadge } from './ui/StatusBadge';
 interface EquipmentViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 const EquipmentModal: React.FC<{
     equipmentToEdit: Equipment | null;
     projects: Project[];
@@ -135,8 +133,6 @@ const EquipmentModal: React.FC<{
             </Card>
         </div>
     );
-};
-
 
 export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) => {
     const [equipment, setEquipment] = useState<Equipment[]>([]);
@@ -145,30 +141,43 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) 
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const canManage = hasPermission(user, Permission.MANAGE_EQUIPMENT);
 
     const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         setLoading(true);
         try {
             if (!user.companyId) return;
             const [equipData, projData, assignData] = await Promise.all([
-                api.getEquipmentByCompany(user.companyId),
-                api.getProjectsByCompany(user.companyId),
-                api.getResourceAssignments(user.companyId),
+                api.getEquipmentByCompany(user.companyId, { signal: controller.signal }),
+                api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
+                api.getResourceAssignments(user.companyId, { signal: controller.signal }),
             ]);
+            if (controller.signal.aborted) return;
             setEquipment(equipData);
+            if (controller.signal.aborted) return;
             setProjects(projData);
+            if (controller.signal.aborted) return;
             setAssignments(assignData);
         } catch (error) {
+            if (controller.signal.aborted) return;
             addToast("Failed to load equipment data.", "error");
         } finally {
+            if (controller.signal.aborted) return;
             setLoading(false);
         }
     }, [user.companyId, addToast]);
 
     useEffect(() => {
         fetchData();
+        return () => {
+            abortControllerRef.current?.abort();
+        };
     }, [fetchData]);
     
     const projectMap = useMemo(() => new Map(projects.map(p => [p.id, p.name])), [projects]);

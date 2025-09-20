@@ -1,6 +1,6 @@
 
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 // FIX: Corrected import paths to be relative.
 import { User, Project, SafetyIncident, Permission } from '../types';
 import { api } from '../services/mockApi';
@@ -11,34 +11,45 @@ import { hasPermission } from '../services/auth';
 interface SafetyAnalysisProps {
     user: User;
     addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 export const SafetyAnalysis: React.FC<SafetyAnalysisProps> = ({ user, addToast }) => {
     const [projects, setProjects] = useState<Project[]>([]);
     const [incidents, setIncidents] = useState<SafetyIncident[]>([]);
     const [selectedProjectId, setSelectedProjectId] = useState<string>('');
     const [isLoading, setIsLoading] = useState(false);
     const [report, setReport] = useState<string | null>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         if (!user.companyId) return;
         try {
             const [projData, incidentData] = await Promise.all([
-                api.getProjectsByCompany(user.companyId),
-                api.getSafetyIncidentsByCompany(user.companyId)
+                api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
+                api.getSafetyIncidentsByCompany(user.companyId, { signal: controller.signal })
             ]);
+            if (controller.signal.aborted) return;
             setProjects(projData);
+            if (controller.signal.aborted) return;
             setIncidents(incidentData);
+            if (controller.signal.aborted) return;
             if (projData.length > 0) {
+                if (controller.signal.aborted) return;
                 setSelectedProjectId(projData[0].id.toString());
             }
         } catch (error) {
+            if (controller.signal.aborted) return;
             addToast("Failed to load data for analysis.", 'error');
         }
     }, [user.companyId, addToast]);
 
     useEffect(() => {
         fetchData();
+        return () => {
+            abortControllerRef.current?.abort();
+        };
     }, [fetchData]);
 
     const handleGenerate = async () => {

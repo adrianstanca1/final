@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User, SafetyIncident, Project, Permission, IncidentStatus, IncidentSeverity, View } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
@@ -66,8 +66,6 @@ const ReportIncidentModal: React.FC<{ projects: Project[], user: User, onClose: 
             </Card>
         </div>
     );
-};
-
 const IncidentDetailModal: React.FC<{ incident: SafetyIncident; project?: Project; user?: User; manager: User; onClose: () => void; onSuccess: () => void; addToast: (m:string,t:'success'|'error')=>void; }> = ({ incident, project, user, manager, onClose, onSuccess, addToast }) => {
     const canManage = hasPermission(manager, Permission.MANAGE_SAFETY_REPORTS);
     const [newStatus, setNewStatus] = useState(incident.status);
@@ -112,8 +110,6 @@ const IncidentDetailModal: React.FC<{ incident: SafetyIncident; project?: Projec
             </Card>
         </div>
     );
-}
-
 const SafetyAnalysisModal: React.FC<{ user: User, addToast: (m:string,t:'success'|'error')=>void, onClose: () => void }> = ({ user, addToast, onClose }) => {
     return (
          <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -123,8 +119,6 @@ const SafetyAnalysisModal: React.FC<{ user: User, addToast: (m:string,t:'success
             </div>
         </div>
     );
-};
-
 type SortKey = 'timestamp' | 'severity' | 'status';
 
 const SortableHeader: React.FC<{ 
@@ -142,8 +136,6 @@ const SortableHeader: React.FC<{
             </div>
         </th>
     );
-};
-
 
 // --- Main Safety Hub Component ---
 
@@ -166,28 +158,41 @@ export const SafetyView: React.FC<{
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'timestamp', direction: 'desc' });
 
     const canSubmit = hasPermission(user, Permission.SUBMIT_SAFETY_REPORT);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         setLoading(true);
         try {
             if (!user.companyId) return;
             const [incidentsData, projectsData, usersData] = await Promise.all([
-                api.getSafetyIncidentsByCompany(user.companyId),
-                api.getProjectsByCompany(user.companyId),
-                api.getUsersByCompany(user.companyId)
+                api.getSafetyIncidentsByCompany(user.companyId, { signal: controller.signal }),
+                api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
+                api.getUsersByCompany(user.companyId, { signal: controller.signal })
             ]);
+            if (controller.signal.aborted) return;
             setIncidents(incidentsData);
+            if (controller.signal.aborted) return;
             setProjects(projectsData);
+            if (controller.signal.aborted) return;
             setUsers(usersData);
         } catch (error) {
+            if (controller.signal.aborted) return;
             addToast("Failed to load safety data.", "error");
         } finally {
+            if (controller.signal.aborted) return;
             setLoading(false);
         }
     }, [user.companyId, addToast]);
 
     useEffect(() => {
         fetchData();
+        return () => {
+            abortControllerRef.current?.abort();
+        };
     }, [fetchData]);
     
     const { projectMap, userMap } = useMemo(() => ({

@@ -1,6 +1,6 @@
 // full contents of components/WorkforcePlanner.tsx
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { User, Project, ProjectAssignment } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
@@ -9,27 +9,30 @@ import { Avatar } from './ui/Avatar';
 interface WorkforcePlannerProps {
     user: User;
     addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 interface AssignedUser extends User {
     // FIX: Changed projectId to allow string for temporary IDs.
     projectId: string | null;
-}
-
 export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToast }) => {
     const [users, setUsers] = useState<AssignedUser[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         setLoading(true);
         try {
             if (!user.companyId) return;
             const [usersData, assignmentsData, projectsData] = await Promise.all([
-                api.getUsersByCompany(user.companyId),
-                api.getProjectAssignmentsByCompany(user.companyId),
-                api.getProjectsByCompany(user.companyId),
+                api.getUsersByCompany(user.companyId, { signal: controller.signal }),
+                api.getProjectAssignmentsByCompany(user.companyId, { signal: controller.signal }),
+                api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
             ]);
+
+            if (controller.signal.aborted) return;
 
             // FIX: Changed map value type to support string IDs.
             const userToProjectMap = new Map<string, string>();
@@ -40,18 +43,25 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
                 projectId: userToProjectMap.get(u.id) || null,
             }));
 
+            if (controller.signal.aborted) return;
             setUsers(assignedUsers);
             // FIX: Corrected state update from assignmentsData to projectsData
+            if (controller.signal.aborted) return;
             setProjects(projectsData);
         } catch (error) {
+            if (controller.signal.aborted) return;
             addToast("Failed to load workforce data.", "error");
         } finally {
+            if (controller.signal.aborted) return;
             setLoading(false);
         }
     }, [user.companyId, addToast]);
 
     useEffect(() => {
         fetchData();
+        return () => {
+            abortControllerRef.current?.abort();
+        };
     }, [fetchData]);
 
     const handleDragStart = (e: React.DragEvent<HTMLDivElement>, userId: string) => {

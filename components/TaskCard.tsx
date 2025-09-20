@@ -12,8 +12,6 @@ interface TaskCardProps {
     isSelected: boolean;
     onSelectionChange: (id: string | number) => void;
     onDragStart?: () => void;
-}
-
 export const TaskCard: React.FC<TaskCardProps> = ({ todo, allTodos, user, personnel, isSelected, onSelectionChange, onDragStart }) => {
     // FIX: Corrected assignee lookup property
     const assignee = React.useMemo(() => personnel.find(p => p.id === (todo as any).assigneeId), [personnel, todo]);

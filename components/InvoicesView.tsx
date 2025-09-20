@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { differenceInCalendarDays, format } from 'date-fns';
 import { api } from '../services/mockApi';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 import { InvoiceStatusBadge } from './ui/StatusBadge';
 import { Tag } from './ui/Tag';
+import { ViewHeader } from './layout/ViewHeader';
 import { Client, Invoice, InvoiceStatus, Project, User } from '../types';
 import { getDerivedStatus, getInvoiceFinancials } from '../utils/finance';
 
@@ -29,8 +30,6 @@ const STATUS_ORDER: Record<InvoiceStatus, number> = {
   [InvoiceStatus.DRAFT]: 2,
   [InvoiceStatus.PAID]: 3,
   [InvoiceStatus.CANCELLED]: 4,
-};
-
 const formatCurrency = (amount: number): string =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(amount || 0);
 
@@ -39,8 +38,6 @@ const formatDate = (value?: string): string => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return '—';
   return format(parsed, 'd MMM yyyy');
-};
-
 const getDueDate = (invoice: Invoice): string | undefined => invoice.dueAt || invoice.dueDate;
 
 const getIssuedDate = (invoice: Invoice): string | undefined => invoice.issuedAt || invoice.issueDate;
@@ -50,8 +47,6 @@ const getDateValue = (value?: string): number | null => {
   const parsed = new Date(value);
   const timestamp = parsed.getTime();
   return Number.isNaN(timestamp) ? null : timestamp;
-};
-
 const getDueDateValue = (invoice: Invoice): number | null => getDateValue(getDueDate(invoice));
 
 const getIssuedDateValue = (invoice: Invoice): number | null => getDateValue(getIssuedDate(invoice));
@@ -76,8 +71,6 @@ const getAgingInfo = (invoice: Invoice) => {
   }
 
   return { label: `${Math.abs(diff)} day${Math.abs(diff) === 1 ? '' : 's'} overdue`, color: 'red' as const };
-};
-
 const SummaryCard: React.FC<{ title: string; value: string; helper?: string; tone?: SummaryTone }> = ({
   title,
   value,
@@ -99,13 +92,9 @@ const SummaryCard: React.FC<{ title: string; value: string; helper?: string; ton
       {helper && <p className="mt-2 text-xs text-muted-foreground">{helper}</p>}
     </Card>
   );
-};
-
 interface InvoicesViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -118,36 +107,49 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('BANK_TRANSFER');
   const [isRecordingPayment, setIsRecordingPayment] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(
     async (showLoader = false) => {
+      const controller = new AbortController();
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = controller;
+
       if (showLoader) setLoading(true);
 
       if (!user.companyId) {
+        if (controller.signal.aborted) return null;
         setInvoices([]);
+        if (controller.signal.aborted) return null;
         setProjects([]);
+        if (controller.signal.aborted) return null;
         setClients([]);
-        if (showLoader) setLoading(false);
+        if (showLoader && !controller.signal.aborted) setLoading(false);
         return null;
       }
 
       try {
         const [invoiceData, projectData, clientData] = await Promise.all([
-          api.getInvoicesByCompany(user.companyId),
-          api.getProjectsByCompany(user.companyId),
-          api.getClientsByCompany(user.companyId),
+          api.getInvoicesByCompany(user.companyId, { signal: controller.signal }),
+          api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
+          api.getClientsByCompany(user.companyId, { signal: controller.signal }),
         ]);
 
+        if (controller.signal.aborted) return null;
         setInvoices(invoiceData);
+        if (controller.signal.aborted) return null;
         setProjects(projectData);
+        if (controller.signal.aborted) return null;
         setClients(clientData);
         return { invoiceData, projectData, clientData };
       } catch (error) {
         console.error('Failed to load invoices', error);
-        addToast('Failed to load invoices.', 'error');
+        if (!controller.signal.aborted) {
+          addToast('Failed to load invoices.', 'error');
+        }
         return null;
       } finally {
-        if (showLoader) setLoading(false);
+        if (showLoader && !controller.signal.aborted) setLoading(false);
       }
     },
     [user.companyId, addToast],
@@ -155,6 +157,9 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
 
   useEffect(() => {
     fetchData(true);
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [fetchData]);
 
   useEffect(() => {
@@ -341,6 +346,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
   const selectedInvoiceStatus = selectedInvoice ? getDerivedStatus(selectedInvoice) : null;
   const selectedInvoiceFinancials = selectedInvoice ? getInvoiceFinancials(selectedInvoice) : null;
   const selectedAging = selectedInvoice ? getAgingInfo(selectedInvoice) : null;
+  const collectionIndicator = summary.collectionRate >= 90 ? 'positive' : summary.collectionRate >= 75 ? 'warning' : 'negative';
 
   return (
     <div className="relative space-y-6">
@@ -554,22 +560,39 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
         </div>
       )}
 
-      <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Invoices</h1>
-          <p className="text-sm text-muted-foreground">
-            Monitor billing health, follow up on overdue accounts, and record payments as they arrive.
-          </p>
-        </div>
-        <Button
-          variant="secondary"
-          onClick={() =>
-            addToast('Invoice creation is available from the Financials workspace.', 'success')
-          }
-        >
-          New invoice
-        </Button>
-      </div>
+      <ViewHeader
+        view="invoices"
+        actions={
+          <Button
+            variant="secondary"
+            onClick={() =>
+              addToast('Invoice creation is available from the Financials workspace.', 'success')
+            }
+          >
+            New invoice
+          </Button>
+        }
+        meta={[
+          {
+            label: 'Outstanding balance',
+            value: formatCurrency(summary.outstanding),
+            helper: summary.outstanding > 0 ? 'Across open invoices' : 'All invoices settled',
+            indicator: summary.outstanding > 0 ? 'warning' : 'positive',
+          },
+          {
+            label: 'Overdue exposure',
+            value: formatCurrency(summary.overdue),
+            helper: summary.overdue > 0 ? 'Requires follow up' : 'No overdue balances',
+            indicator: summary.overdue > 0 ? 'negative' : 'positive',
+          },
+          {
+            label: 'Collection rate',
+            value: `${summary.collectionRate}%`,
+            helper: 'Paid in the last 30 days',
+            indicator: collectionIndicator,
+          },
+        ]}
+      />
 
       {loading ? (
         <Card>Loading invoices...</Card>

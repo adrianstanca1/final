@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User, AuditLog } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
@@ -8,8 +8,6 @@ import { Button } from './ui/Button';
 interface AuditLogViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 const formatDistanceToNow = (date: Date): string => {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
   const intervals = [
@@ -28,8 +26,6 @@ const formatDistanceToNow = (date: Date): string => {
   }
 
   return `${seconds}s ago`;
-};
-
 const downloadCsv = (data: Record<string, unknown>[], filename: string) => {
   if (data.length === 0) return;
   const headers = Object.keys(data[0]);
@@ -61,8 +57,6 @@ const downloadCsv = (data: Record<string, unknown>[], filename: string) => {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-};
-
 export const AuditLogView: React.FC<AuditLogViewProps> = ({ user, addToast }) => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [users, setUsers] = useState<Map<string, User>>(new Map());
@@ -73,26 +67,38 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ user, addToast }) =>
     startDate: '',
     endDate: '',
   });
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(async () => {
+    const controller = new AbortController();
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     try {
       if (!user.companyId) return;
       const [logsData, usersData] = await Promise.all([
-        api.getAuditLogsByCompany(user.companyId),
-        api.getUsersByCompany(user.companyId),
+        api.getAuditLogsByCompany(user.companyId, { signal: controller.signal }),
+        api.getUsersByCompany(user.companyId, { signal: controller.signal }),
       ]);
+      if (controller.signal.aborted) return;
       setLogs(logsData);
+      if (controller.signal.aborted) return;
       setUsers(new Map(usersData.map((entry) => [entry.id, entry])));
     } catch (error) {
+      if (controller.signal.aborted) return;
       addToast('Failed to load audit logs.', 'error');
     } finally {
+      if (controller.signal.aborted) return;
       setLoading(false);
     }
   }, [user.companyId, addToast]);
 
   useEffect(() => {
     fetchData();
+    return () => {
+      abortControllerRef.current?.abort();
+    };
   }, [fetchData]);
 
   const uniqueActionTypes = useMemo(() => [...new Set(logs.map((log) => log.action))], [logs]);

@@ -1,6 +1,6 @@
 // full contents of components/DocumentsView.tsx
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User, Document, Project, Permission, CompanySettings } from '../types';
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
@@ -12,8 +12,6 @@ interface DocumentsViewProps {
   addToast: (message: string, type: 'success' | 'error') => void;
   isOnline: boolean;
   settings: CompanySettings | null;
-}
-
 const FileUploadModal: React.FC<{ project: Project; onClose: () => void; onSuccess: () => void; addToast: (m:string, t:'success'|'error')=>void; user: User }> = ({ project, onClose, onSuccess, addToast, user }) => {
     const [file, setFile] = useState<File | null>(null);
     const [category, setCategory] = useState('General');
@@ -55,8 +53,6 @@ const FileUploadModal: React.FC<{ project: Project; onClose: () => void; onSucce
             </Card>
         </div>
     );
-};
-
 
 export const DocumentsView: React.FC<DocumentsViewProps> = ({ user, addToast, isOnline, settings }) => {
     const [documents, setDocuments] = useState<Document[]>([]);
@@ -64,29 +60,41 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ user, addToast, is
     const [loading, setLoading] = useState(true);
     const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const canUpload = hasPermission(user, Permission.UPLOAD_DOCUMENTS);
 
     const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         setLoading(true);
         try {
             if (!user.companyId) return;
             const [docData, projData] = await Promise.all([
-                api.getDocumentsByCompany(user.companyId),
-                api.getProjectsByCompany(user.companyId),
+                api.getDocumentsByCompany(user.companyId, { signal: controller.signal }),
+                api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
             ]);
             // FIX: Cast docData to any to resolve type mismatch.
+            if (controller.signal.aborted) return;
             setDocuments(docData as any);
+            if (controller.signal.aborted) return;
             setProjects(projData);
         } catch (error) {
+            if (controller.signal.aborted) return;
             addToast("Failed to load documents.", "error");
         } finally {
+            if (controller.signal.aborted) return;
             setLoading(false);
         }
     }, [user.companyId, addToast]);
 
     useEffect(() => {
         fetchData();
+        return () => {
+            abortControllerRef.current?.abort();
+        };
     }, [fetchData]);
     
     const filteredDocuments = useMemo(() => {

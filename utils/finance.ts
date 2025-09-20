@@ -1,5 +1,15 @@
 import { Invoice, InvoiceStatus } from '../types';
 
+export const formatCurrency = (amount: number, currency: string = 'GBP') => {
+    return new Intl.NumberFormat('en-GB', {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(amount);
+};
+
+
 export interface InvoiceFinancials {
   subtotal: number;
   taxAmount: number;
@@ -82,7 +92,7 @@ export const getInvoiceFinancials = (invoice: Invoice): InvoiceFinancials => {
       ? Math.min(storedBalanceValue, Math.max(0, total))
       : computedBalance;
 
-  const amountPaid = Math.max(rawAmountPaid, Math.max(0, total - balance));
+  const amountPaid = rawAmountPaid;
 
   return { subtotal, taxAmount, retentionAmount, total, amountPaid, balance, payments };
 };

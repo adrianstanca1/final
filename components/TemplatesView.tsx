@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 // FIX: Corrected import paths to be relative.
 // FIX: Replaced Todo with Task
 import { User, ProjectTemplate, Task as Todo } from '../types';
@@ -9,8 +9,6 @@ import { Button } from './ui/Button';
 interface TemplatesViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 const CreateTemplateModal: React.FC<{
     user: User;
     onClose: () => void;
@@ -83,29 +81,38 @@ const CreateTemplateModal: React.FC<{
             </Card>
         </div>
     );
-};
-
 
 export const TemplatesView: React.FC<TemplatesViewProps> = ({ user, addToast }) => {
     const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
         setLoading(true);
         try {
             if (!user.companyId) return;
-            const data = await api.getProjectTemplates(user.companyId);
+            const data = await api.getProjectTemplates(user.companyId, { signal: controller.signal });
+            if (controller.signal.aborted) return;
             setTemplates(data);
         } catch (error) {
+            if (controller.signal.aborted) return;
             addToast("Failed to load templates.", "error");
         } finally {
+            if (controller.signal.aborted) return;
             setLoading(false);
         }
     }, [user.companyId, addToast]);
 
     useEffect(() => {
         fetchData();
+        return () => {
+            abortControllerRef.current?.abort();
+        };
     }, [fetchData]);
 
     if (loading) return <Card><p>Loading templates...</p></Card>;

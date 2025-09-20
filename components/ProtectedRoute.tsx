@@ -9,8 +9,6 @@ interface ProtectedRouteProps {
   allowedRoles?: Role[];
   requiredPermission?: Permission;
   fallback?: ReactNode;
-}
-
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   allowedRoles,

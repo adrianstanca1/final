@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 // FIX: Corrected import paths to be relative.
 import { User, Project, Permission, ProjectStatus } from '../types';
 import { api } from '../services/mockApi';
@@ -10,35 +10,45 @@ import { MapView, MapMarkerData } from './MapView';
 interface ProjectsMapViewProps {
     user: User;
     addToast: (message: string, type: 'success' | 'error') => void;
-}
-
 export const ProjectsMapView: React.FC<ProjectsMapViewProps> = ({ user, addToast }) => {
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
+    const abortControllerRef = useRef<AbortController | null>(null);
+
+    const fetchData = useCallback(async () => {
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
+
+        setLoading(true);
+        try {
+            if (!user.companyId) return;
+
+            let projectsPromise: Promise<Project[]>;
+            if (hasPermission(user, Permission.VIEW_ALL_PROJECTS)) {
+                projectsPromise = api.getProjectsByCompany(user.companyId, { signal: controller.signal });
+            } else {
+                projectsPromise = api.getProjectsByUser(user.id, { signal: controller.signal });
+            }
+
+            const fetchedProjects = await projectsPromise;
+            if (controller.signal.aborted) return;
+            setProjects(fetchedProjects);
+        } catch (error) {
+            if (controller.signal.aborted) return;
+            addToast("Failed to load project locations.", 'error');
+        } finally {
+            if (controller.signal.aborted) return;
+            setLoading(false);
+        }
+    }, [user, addToast]);
 
     useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                if (!user.companyId) return;
-
-                let projectsPromise: Promise<Project[]>;
-                if (hasPermission(user, Permission.VIEW_ALL_PROJECTS)) {
-                    projectsPromise = api.getProjectsByCompany(user.companyId);
-                } else {
-                    projectsPromise = api.getProjectsByUser(user.id);
-                }
-                
-                const fetchedProjects = await projectsPromise;
-                setProjects(fetchedProjects);
-            } catch (error) {
-                addToast("Failed to load project locations.", 'error');
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchData();
-    }, [user, addToast]);
+        return () => {
+            abortControllerRef.current?.abort();
+        };
+    }, [fetchData]);
 
     const markers: MapMarkerData[] = useMemo(() => {
         const toPascalCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
