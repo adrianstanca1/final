@@ -85,6 +85,37 @@ const defaultCompanySettings = (): CompanySettings => ({
     },
 });
 
+const mergeCompanySettings = (
+    current: CompanySettings,
+    updates: Partial<CompanySettings>
+): CompanySettings => {
+    const mergedWorkingHours = updates.workingHours
+        ? {
+              ...current.workingHours,
+              ...updates.workingHours,
+              ...(updates.workingHours.workDays
+                  ? { workDays: [...updates.workingHours.workDays] }
+                  : {}),
+          }
+        : current.workingHours;
+
+    const mergedFeatures = updates.features
+        ? { ...current.features, ...updates.features }
+        : current.features;
+
+    const mergedAccessibility = updates.accessibility
+        ? { ...current.accessibility, ...updates.accessibility }
+        : current.accessibility;
+
+    return {
+        ...current,
+        ...updates,
+        workingHours: mergedWorkingHours,
+        features: mergedFeatures,
+        accessibility: mergedAccessibility,
+    };
+};
+
 const defaultUserPreferences = (): User['preferences'] => ({
     theme: 'system',
     language: 'en',
@@ -668,15 +699,44 @@ export const resetMockApi = () => {
 export const api = {
     getCompanySettings: async (companyId: string): Promise<CompanySettings> => {
         await delay();
-        return {
-            theme: 'light',
-            accessibility: { highContrast: false },
-            timeZone: 'GMT',
-            dateFormat: 'DD/MM/YYYY',
-            currency: 'GBP',
-            workingHours: { start: '08:00', end: '17:00', workDays: [1,2,3,4,5] },
-            features: { projectManagement: true, timeTracking: true, financials: true, documents: true, safety: true, equipment: true, reporting: true },
-        };
+        const company = db.companies.find(c => c.id === companyId);
+        if (!company) {
+            throw new Error('Company not found');
+        }
+
+        if (!company.settings) {
+            company.settings = defaultCompanySettings();
+            saveDb();
+        }
+
+        return clone(company.settings as CompanySettings);
+    },
+    updateCompanySettings: async (
+        companyId: string,
+        updates: Partial<CompanySettings>,
+        actorId?: string
+    ): Promise<CompanySettings> => {
+        await delay();
+        const company = db.companies.find(c => c.id === companyId);
+        if (!company) {
+            throw new Error('Company not found');
+        }
+
+        const currentSettings = (company.settings as CompanySettings) || defaultCompanySettings();
+        const merged = mergeCompanySettings(currentSettings, updates);
+        company.settings = clone(merged);
+        company.updatedAt = new Date().toISOString();
+        saveDb();
+
+        if (actorId && company.name) {
+            addAuditLog(actorId, 'COMPANY_SETTINGS_UPDATED', {
+                type: 'Company',
+                id: companyId,
+                name: company.name,
+            });
+        }
+
+        return clone(merged);
     },
     getTimesheetsByCompany: async (companyId: string, userId?: string, options?: RequestOptions): Promise<Timesheet[]> => {
         ensureNotAborted(options?.signal);
