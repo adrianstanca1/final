@@ -280,7 +280,7 @@ function AppContent() {
       console.error('Failed to mark notification as read', error);
     }
 
-    setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, read: true, isRead: true } : n));
+    setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, isRead: true } : n));
 
     let targetView: View | null = null;
     let project: Project | null = null;
