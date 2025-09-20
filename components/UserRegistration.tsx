@@ -275,6 +275,19 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
         setGeneralError(authError);
     }, [authError]);
 
+    useEffect(() => {
+        if (emailStatus === 'available') {
+            setErrors(prev => {
+                if (!prev.email) {
+                    return prev;
+                }
+                const next = { ...prev };
+                delete next.email;
+                return next;
+            });
+        }
+    }, [emailStatus]);
+
     const companySelection = form.companySelection;
 
     useEffect(() => {
@@ -395,6 +408,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                     nextErrors.email = 'Provide a valid work email address.';
                 } else if (emailStatus === 'unavailable') {
                     nextErrors.email = 'This email is already registered. Sign in instead.';
+                } else if (emailStatus === 'checking') {
+                    nextErrors.email = 'Hold on while we finish checking this email address.';
                 }
                 if (form.phone && !PHONE_REGEX.test(form.phone)) {
                     nextErrors.phone = 'Enter a valid phone number or leave this blank.';
@@ -461,6 +476,16 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
         return Object.keys(nextErrors).length === 0;
     };
 
+    const ensureAllStepsValid = (): boolean => {
+        for (const { id } of STEP_SEQUENCE) {
+            if (!validateStep(id)) {
+                setStep(id);
+                return false;
+            }
+        }
+        return true;
+    };
+
     const goToNextStep = () => {
         const currentIndex = STEP_SEQUENCE.findIndex(s => s.id === step);
         if (validateStep(step) && currentIndex < STEP_SEQUENCE.length - 1) {
@@ -476,7 +501,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
     };
 
     const handleSubmit = async () => {
-        if (!validateStep('confirm')) {
+        if (!ensureAllStepsValid()) {
             return;
         }
         setGeneralError(null);

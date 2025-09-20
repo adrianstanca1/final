@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, ReactNode } from 'react';
 import { User, Company, LoginCredentials, RegistrationPayload, AuthState, Permission } from '../types';
-import { authClient } from '../services/authClient';
+import { authClient, type AuthenticatedSession } from '../services/authClient';
 import { hasPermission as checkPermission } from '../services/auth';
 import { api } from '../services/mockApi';
 import { getStorage } from '../utils/storage';
@@ -9,7 +9,7 @@ const storage = getStorage();
 
 interface AuthContextType extends AuthState {
     login: (credentials: LoginCredentials) => Promise<{ mfaRequired: boolean; userId?: string }>;
-    register: (credentials: RegistrationPayload) => Promise<void>;
+    register: (credentials: RegistrationPayload) => Promise<AuthenticatedSession>;
     logout: () => void;
     hasPermission: (permission: Permission) => boolean;
     verifyMfaAndFinalize: (userId: string, code: string) => Promise<void>;
@@ -173,11 +173,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     }
 
-    const register = async (credentials: RegistrationPayload) => {
+    const register = async (credentials: RegistrationPayload): Promise<AuthenticatedSession> => {
         setAuthState(prev => ({ ...prev, loading: true, error: null }));
         try {
-            const response = await authClient.register(credentials);
-            finalizeLogin(response);
+            const session = await authClient.register(credentials);
+            finalizeLogin(session);
+            return session;
         } catch (error: any) {
              setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Registration failed'}));
             throw error;
