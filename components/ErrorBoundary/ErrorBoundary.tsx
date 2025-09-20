@@ -18,6 +18,8 @@ interface State {
  * Enhanced Error Boundary with better error reporting, retry mechanisms,
  * and different fallback strategies based on error level
  */
+}
+
 export class ErrorBoundary extends Component<Props, State> {
   private resetTimeoutId: number | null = null;
 

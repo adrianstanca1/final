@@ -29,6 +29,8 @@ interface ToolConfig {
     icon: React.ReactNode;
     component: React.ReactNode;
     permission: boolean;
+}
+
 export const ToolsView: React.FC<ToolsViewProps> = ({ user, addToast, setActiveView }) => {
     const [activeTool, setActiveTool] = useState<Tool | null>(null);
 

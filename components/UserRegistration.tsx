@@ -8,6 +8,8 @@ interface UserRegistrationProps {
   onSwitchToLogin: () => void;
 type Step = 'personal' | 'company' | 'role' | 'verify' | 'terms';
 
+}
+
 const STEPS: { id: Step; name: string }[] = [
     { id: 'personal', name: 'Personal Info' },
     { id: 'company', name: 'Company' },

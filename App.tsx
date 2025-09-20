@@ -1,8 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react';
 import { User, View, Project, Role, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
-import { useState, useEffect, useCallback, useRef } from 'react';
-import type { User, View, Project, Notification, CompanySettings } from './types';
 import { api } from './services/mockApi';
 import { Login } from './components/Login';
 import { Sidebar } from './components/layout/Sidebar';
@@ -124,8 +121,6 @@ const ToastMessage: React.FC<{ toast: Toast; onDismiss: (id: number) => void }> 
 };
 
 
-function App() {
-  const { isAuthenticated, user, loading, logout, company } = useAuth();
 // Setup global error handling on app initialization
 setupGlobalErrorHandling();
 
@@ -326,61 +321,6 @@ function AppContent() {
 
     updateBadgeCounts(user);
   }, [user, updateBadgeCounts, setSelectedProject, navigateToView]);
-    const wasUnread = !(notification.isRead ?? notification.read);
-
-    try {
-      if (wasUnread) {
-        await api.markNotificationAsRead(notification.id);
-      }
-
-      setNotifications(prev => prev.map(n => (
-        n.id === notification.id ? { ...n, isRead: true, read: true } : n
-      )));
-
-      previousNotificationsRef.current = previousNotificationsRef.current.map(n => (
-        n.id === notification.id ? { ...n, isRead: true, read: true } : n
-      ));
-
-      if (wasUnread) {
-        setUnreadNotificationCount(prev => Math.max(0, prev - 1));
-      }
-    } catch (error) {
-      console.error('Failed to update notification state', error);
-      addToast('Unable to update that notification right now.', 'error');
-      return;
-    }
-
-    const metadata = (notification.metadata ?? {}) as { view?: View; projectId?: string };
-
-    if (metadata.projectId) {
-      try {
-        const project = await api.getProjectById(metadata.projectId);
-        if (project) {
-          setSelectedProject(project);
-          changeView('project-detail');
-          return;
-        }
-        addToast('The project linked to this notification is no longer available.', 'error');
-        changeView('projects');
-        return;
-      } catch (error) {
-        console.error('Failed to load project from notification', error);
-        addToast('We could not open the related project.', 'error');
-        changeView('projects');
-        return;
-      }
-    } else if (metadata.view && metadata.view !== activeView) {
-      changeView(metadata.view);
-      return;
-    } else if (notification.type === NotificationType.NEW_MESSAGE) {
-      changeView('chat');
-      return;
-    }
-
-    if (wasUnread) {
-      addToast('Notification marked as read.', 'success');
-    }
-  }, [user, addToast, changeView, activeView]);
 
   const renderView = () => {
     if (!user) return null;
@@ -390,29 +330,6 @@ function AppContent() {
 
     switch (activeView) {
       case 'dashboard': return <Dashboard user={user} addToast={addToast} activeView={activeView} setActiveView={navigateToView} onSelectProject={handleSelectProject} />;
-      return (
-        <ProjectDetailView
-          project={selectedProject}
-          user={user}
-          onBack={() => changeView('projects')}
-          addToast={addToast}
-          isOnline={isOnline}
-          onStartChat={handleStartChat}
-        />
-      );
-    }
-
-    switch (activeView) {
-      case 'dashboard':
-        return (
-          <Dashboard
-            user={user}
-            addToast={addToast}
-            activeView={activeView}
-            setActiveView={changeView}
-            onSelectProject={handleSelectProject}
-          />
-        );
       case 'my-day': return <MyDayView user={user} addToast={addToast} />;
       case 'foreman-dashboard': return <ForemanDashboard user={user} addToast={addToast} />;
       case 'principal-dashboard': return <PrincipalAdminDashboard user={user} addToast={addToast} />;
@@ -423,36 +340,17 @@ function AppContent() {
       case 'timesheets': return <TimesheetsView user={user} addToast={addToast} />;
       case 'documents': return <DocumentsView user={user} addToast={addToast} isOnline={isOnline} settings={companySettings} />;
       case 'safety': return <SafetyView user={user} addToast={addToast} setActiveView={navigateToView} />;
-      case 'time':
-        return <TimeTrackingView user={user} addToast={addToast} setActiveView={changeView} />;
-      case 'timesheets': return <TimesheetsView user={user} addToast={addToast} />;
-      case 'documents': return <DocumentsView user={user} addToast={addToast} isOnline={isOnline} settings={companySettings} />;
-      case 'safety':
-        return <SafetyView user={user} addToast={addToast} setActiveView={changeView} />;
       case 'financials': return <FinancialsView user={user} addToast={addToast} />;
       case 'users': return <TeamView user={user} addToast={addToast} onStartChat={handleStartChat} />;
       case 'equipment': return <EquipmentView user={user} addToast={addToast} />;
       case 'templates': return <TemplatesView user={user} addToast={addToast} />;
       case 'tools': return <ToolsView user={user} addToast={addToast} setActiveView={navigateToView} />;
-
-      case 'tools':
-        return <ToolsView user={user} addToast={addToast} setActiveView={changeView} />;
       case 'audit-log': return <AuditLogView user={user} addToast={addToast} />;
       case 'settings': return <SettingsView user={user} addToast={addToast} settings={companySettings} onSettingsUpdate={(s) => setCompanySettings(prev => ({...prev, ...s}))} />;
       case 'chat': return <ChatView user={user} addToast={addToast} initialRecipient={initialChatRecipient}/>;
       case 'clients': return <ClientsView user={user} addToast={addToast} />;
       case 'invoices': return <InvoicesView user={user} addToast={addToast} />;
       default: return <Dashboard user={user} addToast={addToast} activeView={activeView} setActiveView={navigateToView} onSelectProject={handleSelectProject} />;
-      default:
-        return (
-          <Dashboard
-            user={user}
-            addToast={addToast}
-            activeView={activeView}
-            setActiveView={changeView}
-            onSelectProject={handleSelectProject}
-          />
-        );
     }
   };
 
@@ -523,7 +421,6 @@ function AppContent() {
         user={user}
         activeView={activeView}
         setActiveView={navigateToView}
-        setActiveView={changeView}
         onLogout={handleLogout}
         pendingTimesheetCount={pendingTimesheetCount}
         openIncidentCount={openIncidentCount}
@@ -531,7 +428,6 @@ function AppContent() {
         companyName={company?.name}
       />
       <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
         <Header
           user={user}
           onLogout={handleLogout}
@@ -558,16 +454,13 @@ function AppContent() {
             isOnline={isOnline}
           />
 
-          <ErrorBoundary>
-            {renderView()}
-          </ErrorBoundary>
           <PageErrorBoundary>
             <ViewAccessBoundary
               user={user}
               view={activeView}
               evaluation={viewEvaluation}
               fallbackView={viewEvaluation.fallbackView}
-              onNavigate={changeView}
+              onNavigate={navigateToView}
             >
               <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading view…</div>}>
                 {viewContent}
@@ -584,10 +477,6 @@ function AppContent() {
           onClose={() => setIsCommandPaletteOpen(false)}
           setActiveView={navigateToView}
           onProjectSelect={handleSelectProject}
-        />
-      )}
-      
-          setActiveView={changeView}
         />
       )}
 

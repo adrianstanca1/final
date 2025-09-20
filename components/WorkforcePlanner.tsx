@@ -12,6 +12,8 @@ interface WorkforcePlannerProps {
 interface AssignedUser extends User {
     // FIX: Changed projectId to allow string for temporary IDs.
     projectId: string | null;
+}
+
 export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToast }) => {
     const [users, setUsers] = useState<AssignedUser[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);

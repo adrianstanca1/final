@@ -11,6 +11,8 @@ interface ProjectModalProps {
   onSuccess: (project: Project) => void;
   addToast: (message: string, type: 'success' | 'error') => void;
   projectToEdit?: Project | null;
+}
+
 export const ProjectModal: React.FC<ProjectModalProps> = ({ user, onClose, onSuccess, addToast, projectToEdit }) => {
     const [name, setName] = useState('');
     const [address, setAddress] = useState('');

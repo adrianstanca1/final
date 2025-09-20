@@ -12,6 +12,8 @@ interface SettingsViewProps {
   addToast: (message: string, type: 'success' | 'error') => void;
   settings: CompanySettings | null;
   onSettingsUpdate: (updatedSettings: Partial<CompanySettings>) => void;
+}
+
 const FailedSyncActions: React.FC<{ addToast: (m:string,t:'success'|'error')=>void }> = ({ addToast }) => {
     const [failedActions, setFailedActions] = useState<FailedActionForUI[]>([]);
     const [isLoading, setIsLoading] = useState(false);

@@ -39,6 +39,8 @@ interface DashboardProps {
   activeView: View;
   setActiveView: (view: View) => void;
   onSelectProject: (project: Project) => void;
+}
+
 const KpiCard: React.FC<{ title: string; value: string; subtext?: string; icon: React.ReactNode }> = ({ title, value, subtext, icon }) => (
     <Card className="flex items-center gap-4 animate-card-enter">
         <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-muted text-muted-foreground">
@@ -91,6 +93,8 @@ const availabilityTagColor: Record<AvailabilityStatus, 'green' | 'blue' | 'gray'
     [AvailabilityStatus.AVAILABLE]: 'green',
     [AvailabilityStatus.ON_PROJECT]: 'blue',
     [AvailabilityStatus.ON_LEAVE]: 'gray',
+};
+
 // FIX: Local implementation of startOfWeek to resolve module export error.
 const startOfWeek = (date: Date, options?: { weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6 }): Date => {
     const weekStartsOn = options?.weekStartsOn ?? 0;
@@ -100,6 +104,8 @@ const startOfWeek = (date: Date, options?: { weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 
     d.setDate(d.getDate() - diff);
     d.setHours(0, 0, 0, 0);
     return d;
+};
+
 export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveView, onSelectProject }) => {
     const [loading, setLoading] = useState(true);
     const [projects, setProjects] = useState<Project[]>([]);

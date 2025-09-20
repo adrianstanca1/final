@@ -29,6 +29,8 @@ interface NavItemProps {
 interface NavSectionProps {
   title: string;
   children: React.ReactNode;
+}
+
 const NavSection: React.FC<NavSectionProps> = ({ title, children }) => (
   <div className="space-y-2">
     <h2 className="px-3 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{title}</h2>
