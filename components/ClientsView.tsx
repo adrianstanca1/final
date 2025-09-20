@@ -6,7 +6,7 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { ViewHeader } from './layout/ViewHeader';
 import { Tag } from './ui/Tag';
-import { SectionErrorBoundary } from './ErrorBoundary';
+import { ErrorBoundary } from './ErrorBoundary';
 import { useErrorHandling } from '../hooks/useErrorHandling';
 import { useToast } from './ui/Toast';
 
@@ -379,7 +379,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ user, addToast }) => {
     };
 
     return (
-        <SectionErrorBoundary>
+        <ErrorBoundary>
             <div className="space-y-6">
                 {isModalOpen && (
                     <CreateClientModal
@@ -450,6 +450,6 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ user, addToast }) => {
                 </Card>
             )}
             </div>
-        </SectionErrorBoundary>
+        </ErrorBoundary>
     );
 };
