@@ -1,14 +1,16 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import type { User, Project, Todo, Equipment, TodoStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, SafetyIncident, Timesheet, TodoPriority } from '../types';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { User, Project, Todo, Equipment, Permission, Role, TodoStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, SafetyIncident, Timesheet, TodoPriority, IncidentStatus, OperationalInsights } from '../types';
+
+import { User, Project, Todo, Equipment, Permission, Role, TodoStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, SafetyIncident, Timesheet, TodoPriority, IncidentStatus } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Avatar } from './ui/Avatar';
 import { PriorityDisplay } from './ui/PriorityDisplay';
 import { EquipmentStatusBadge } from './ui/StatusBadge';
 import { Button } from './ui/Button';
-import { Tag } from './ui/Tag';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { ErrorBoundary } from './ErrorBoundary';
+import { ViewHeader } from './layout/ViewHeader';
 
 interface ForemanDashboardProps {
   user: User;
@@ -36,6 +38,11 @@ const DashboardSkeleton = () => (
     </div>
 );
 
+const formatCurrency = (value: number, currency: string = 'GBP') =>
+    new Intl.NumberFormat('en-GB', { style: 'currency', currency, maximumFractionDigits: 0 }).format(value || 0);
+
+const clampPercentage = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
+
 // --- MODALS ---
 const ReportIncidentModal: React.FC<{ project: Project, user: User, onClose: () => void, addToast: (m:string,t:'success'|'error')=>void, onSuccess: () => void }> = ({ project, user, onClose, addToast, onSuccess }) => {
     const [description, setDescription] = useState('');
@@ -56,7 +63,7 @@ const ReportIncidentModal: React.FC<{ project: Project, user: User, onClose: () 
             addToast("Safety incident reported.", "success");
             onSuccess();
             onClose();
-        } catch {
+        } catch (error) {
             addToast("Failed to report incident.", "error");
         } finally {
             setIsSaving(false);
@@ -64,18 +71,17 @@ const ReportIncidentModal: React.FC<{ project: Project, user: User, onClose: () 
     };
 
     return (
-         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose} onKeyDown={(e) => e.key === 'Escape' && onClose()}>
+         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
             <Card className="w-full max-w-lg" onClick={e=>e.stopPropagation()}>
                 <h3 className="text-lg font-bold mb-4">Report Field Issue at {project.name}</h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <textarea value={description} onChange={e=>setDescription(e.target.value)} rows={4} className="w-full p-2 border rounded" placeholder="Describe the issue..." required />
-                    <label htmlFor="severity-select" className="block text-sm font-medium mb-1">Severity</label>
-                    <select id="severity-select" value={severity} onChange={e=>setSeverity(e.target.value as IncidentSeverity)} className="w-full p-2 border rounded bg-white">
+                    <select value={severity} onChange={e=>setSeverity(e.target.value as IncidentSeverity)} className="w-full p-2 border rounded bg-white">
                         {Object.values(IncidentSeverity).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                     <div>
-                        <label htmlFor="photo-upload" className="block text-sm font-medium">Attach Photo (optional)</label>
-                        <input id="photo-upload" type="file" accept="image/*" onChange={e => setPhoto(e.target.files?.[0] || null)} className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"/>
+                        <label className="block text-sm font-medium">Attach Photo (optional)</label>
+                        <input type="file" accept="image/*" onChange={e => setPhoto(e.target.files?.[0] || null)} className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"/>
                     </div>
                     <div className="flex justify-end gap-2">
                         <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
@@ -92,7 +98,7 @@ const ReportIncidentModal: React.FC<{ project: Project, user: User, onClose: () 
 
 const TimeClockCard: React.FC<{ user: User; project: Project; addToast: (m:string,t:'success'|'error')=>void; onUpdate: ()=>void; activeTimesheet: Timesheet | undefined }> = ({ user, project, addToast, onUpdate, activeTimesheet }) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const { insideGeofenceIds } = useGeolocation({ geofences: [{ id: project.id, lat: project.location.lat, lng: project.location.lng, radius: project.geofenceRadius || 200 }]});
+    const { data: geoData, insideGeofenceIds } = useGeolocation({ geofences: [{ id: project.id, lat: project.location.lat, lng: project.location.lng, radius: project.geofenceRadius || 200 }]});
     const isInsideGeofence = insideGeofenceIds.has(project.id);
 
     const handleClockIn = async () => {
@@ -198,7 +204,7 @@ const SiteUpdatesCard: React.FC<{ project: Project; user: User; addToast: (m:str
             addToast("Site update posted.", "success");
             onUpdate();
             setText(''); setPhoto(null);
-        } catch { addToast("Failed to post update.", "error"); }
+        } catch(err) { addToast("Failed to post update.", "error"); }
         finally { setIsSubmitting(false); }
     }
 
@@ -220,11 +226,95 @@ const SiteUpdatesCard: React.FC<{ project: Project; user: User; addToast: (m:str
             <form onSubmit={handleSubmit} className="mt-auto space-y-2 pt-2 border-t">
                  <textarea value={text} onChange={e=>setText(e.target.value)} rows={2} placeholder="Post an update..." className="w-full p-2 border rounded-md"/>
                  <div className="flex justify-between items-center">
-                    <label htmlFor="update-photo" className="sr-only">Attach photo to update</label>
-                    <input id="update-photo" type="file" accept="image/*" onChange={e => setPhoto(e.target.files?.[0] || null)} className="text-xs"/>
+                    <input type="file" accept="image/*" onChange={e => setPhoto(e.target.files?.[0] || null)} className="text-xs"/>
                     <Button size="sm" type="submit" isLoading={isSubmitting}>Post</Button>
                  </div>
             </form>
+        </Card>
+    );
+};
+
+const OperationalPulseCard: React.FC<{ insights: OperationalInsights | null }> = ({ insights }) => {
+    if (!insights) {
+        return (
+            <Card className="space-y-3 p-4">
+                <h2 className="text-lg font-semibold">Operational pulse</h2>
+                <p className="text-sm text-muted-foreground">Loading company signals…</p>
+            </Card>
+        );
+    }
+
+    const compliance = clampPercentage(insights.workforce.complianceRate);
+    const pendingApprovals = insights.workforce.pendingApprovals;
+    const activeCrew = insights.workforce.activeTimesheets;
+    const averageHours = insights.workforce.averageHours;
+    const overtimeHours = insights.workforce.overtimeHours;
+    const daysSinceLastIncident = insights.safety.daysSinceLastIncident;
+    const tasksDueSoon = insights.schedule.tasksDueSoon;
+    const overdueTasks = insights.schedule.overdueTasks;
+    const approvedSpend = insights.financial.approvedExpensesThisMonth;
+    const currency = insights.financial.currency;
+    const alerts = insights.alerts;
+
+    return (
+        <Card className="space-y-3 p-4">
+            <h2 className="text-lg font-semibold">Operational pulse</h2>
+            <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Timesheet compliance</span>
+                    <span className={`font-semibold ${compliance < 80 ? 'text-amber-600' : 'text-foreground'}`}>{compliance}%</span>
+                </div>
+                <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Crew clocked in</span>
+                    <span className="font-semibold text-foreground">{activeCrew}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Pending approvals</span>
+                    <span className="font-semibold text-foreground">{pendingApprovals}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Tasks due next 7 days</span>
+                    <span className={`font-semibold ${tasksDueSoon > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>{tasksDueSoon}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Overdue tasks</span>
+                    <span className={`font-semibold ${overdueTasks > 0 ? 'text-destructive' : 'text-foreground'}`}>{overdueTasks}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Avg hours / shift</span>
+                    <span className="font-semibold text-foreground">{averageHours.toFixed(1)}h</span>
+                </div>
+                <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Approved cost (month)</span>
+                    <span className="font-semibold text-foreground">{formatCurrency(approvedSpend, currency)}</span>
+                </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+                {daysSinceLastIncident === null
+                    ? 'No incident history'
+                    : daysSinceLastIncident === 0
+                    ? 'Incident reported today'
+                    : `${daysSinceLastIncident} day${daysSinceLastIncident === 1 ? '' : 's'} since last incident`}
+                {overtimeHours > 0 ? ` • ${overtimeHours.toFixed(1)} overtime hrs` : ''}
+            </p>
+            {alerts.length > 0 && (
+                <ul className="space-y-1 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-muted-foreground">
+                    {alerts.slice(0, 2).map(alert => (
+                        <li key={alert.id} className="flex items-start gap-2">
+                            <span
+                                className={`mt-1 h-2 w-2 rounded-full ${
+                                    alert.severity === 'critical'
+                                        ? 'bg-destructive'
+                                        : alert.severity === 'warning'
+                                        ? 'bg-amber-500'
+                                        : 'bg-primary'
+                                }`}
+                            />
+                            <span>{alert.message}</span>
+                        </li>
+                    ))}
+                </ul>
+            )}
         </Card>
     );
 };
@@ -236,7 +326,7 @@ const TeamChatCard: React.FC<{ project: Project; user: User; onUpdate: ()=>void;
 
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, []);
+    }, [messages]);
 
     const handleSend = async () => {
         if (!content.trim()) return;
@@ -287,6 +377,9 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
     const [activeTimesheet, setActiveTimesheet] = useState<Timesheet | undefined>(undefined);
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false);
+    const [projectIncidents, setProjectIncidents] = useState<SafetyIncident[]>([]);
+    const [operationalInsights, setOperationalInsights] = useState<OperationalInsights | null>(null);
+
 
     const userMap = useMemo(() => new Map(allUsers.map(u => [u.id, u])), [allUsers]);
     const abortControllerRef = useRef<AbortController | null>(null);
@@ -299,28 +392,32 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
         setLoading(true);
         try {
             if (!user.companyId) return;
-            const [userProjects, allCompanyUsers, tsData] = await Promise.all([
+            const [userProjects, allCompanyUsers, tsData, insightsData] = await Promise.all([
                 api.getProjectsByUser(user.id, { signal: controller.signal }),
                 api.getUsersByCompany(user.companyId, { signal: controller.signal }),
                 api.getTimesheetsByUser(user.id, { signal: controller.signal }),
+                api.getOperationalInsights(user.companyId, { signal: controller.signal }),
             ]);
 
             if (controller.signal.aborted) return;
             setAllUsers(allCompanyUsers);
             if (controller.signal.aborted) return;
             setActiveTimesheet(tsData.find(ts => ts.clockOut === null));
+            if (controller.signal.aborted) return;
+            setOperationalInsights(insightsData);
             const activeProject = userProjects.find(p => p.status === 'ACTIVE');
             if (controller.signal.aborted) return;
             setCurrentProject(activeProject || null);
 
             if (activeProject) {
-                const [allProjectTasks, allCompanyEquipment, allAssignments, updates, messages, weatherData] = await Promise.all([
+                const [allProjectTasks, allCompanyEquipment, allAssignments, updates, messages, weatherData, companyIncidents] = await Promise.all([
                     api.getTodosByProjectIds([activeProject.id], { signal: controller.signal }),
                     api.getEquipmentByCompany(user.companyId, { signal: controller.signal }),
                     api.getResourceAssignments(user.companyId, { signal: controller.signal }),
                     api.getSiteUpdatesByProject(activeProject.id, { signal: controller.signal }),
                     api.getProjectMessages(activeProject.id, { signal: controller.signal }),
-                    api.getWeatherForLocation(activeProject.location.lat, activeProject.location.lng, { signal: controller.signal })
+                    api.getWeatherForLocation(activeProject.location.lat, activeProject.location.lng, { signal: controller.signal }),
+                    api.getSafetyIncidentsByCompany(user.companyId),
                 ]);
 
                 if (controller.signal.aborted) return;
@@ -340,8 +437,9 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
                 setProjectMessages(messages);
                 if (controller.signal.aborted) return;
                 setWeather(weatherData);
+                setProjectIncidents(companyIncidents.filter(incident => incident.projectId === activeProject.id && incident.status !== IncidentStatus.RESOLVED));
             }
-        } catch {
+        } catch (error) {
             if (controller.signal.aborted) return;
             addToast("Failed to load foreman dashboard data.", "error");
         } finally {
@@ -367,61 +465,120 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
         return <Card>You are not currently assigned to an active project.</Card>
     }
 
+    const crewCount = crew.length + 1;
+    const openTaskCount = myTasks.length;
+    const openIncidentCount = projectIncidents.length;
+    const highSeverityCount = projectIncidents.filter(incident => incident.severity === IncidentSeverity.HIGH || incident.severity === IncidentSeverity.CRITICAL).length;
+    const latestUpdate = siteUpdates[0] ?? null;
+    const weatherSummary = weather ? `${weather.temperature}°C ${weather.condition}` : 'Checking forecast…';
+    const fieldInsights = operationalInsights;
+    const fieldCompliance = fieldInsights ? clampPercentage(fieldInsights.workforce.complianceRate) : 0;
+    const fieldPendingApprovals = fieldInsights?.workforce.pendingApprovals ?? 0;
+    const fieldActiveCrew = fieldInsights?.workforce.activeTimesheets ?? (activeTimesheet ? 1 : 0);
+
+
     return (
        <ErrorBoundary>
             {isIncidentModalOpen && <ReportIncidentModal project={currentProject} user={user} onClose={() => setIsIncidentModalOpen(false)} addToast={addToast} onSuccess={fetchData} />}
             <div className="space-y-6">
-                 <div>
-                    <h1 className="text-3xl font-bold text-foreground">Foreman Dashboard</h1>
-                    <p className="text-muted-foreground">Live overview for <strong>{currentProject.name}</strong></p>
-                </div>
+                <ViewHeader
+                    title={`Field operations • ${currentProject.name}`}
+                    description={currentProject.location?.address || 'On-site coordination tools'}
+                    meta={[
+                        {
+                            label: 'Crew on site',
+                            value: crewCount.toString(),
+                            helper: fieldInsights
+                                ? `${openTaskCount} open tasks • ${fieldActiveCrew} clocked in`
+                                : `${openTaskCount} open tasks`,
+                            indicator: fieldActiveCrew > 0 ? 'positive' : crewCount > 0 ? 'neutral' : 'warning',
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Column 1 */}
+                            helper: `${openTaskCount} open tasks`,
+                            indicator: crewCount > 0 ? 'positive' : 'neutral',
+                        },
+                        {
+                            label: 'Safety alerts',
+                            value: `${openIncidentCount}`,
+                            helper: highSeverityCount > 0 ? `${highSeverityCount} high severity` : 'No critical issues',
+                            indicator: openIncidentCount > 0 ? 'warning' : 'positive',
+                        },
+                        {
+                            label: 'Latest update',
+                            value: latestUpdate ? new Date(latestUpdate.timestamp).toLocaleTimeString() : 'No updates',
+                            helper: latestUpdate ? latestUpdate.text.slice(0, 32) : 'Share a site update',
+                        },
+                        {
+                            label: 'Weather',
+                            value: weatherSummary,
+                            helper: fieldInsights
+                                ? `${fieldCompliance}% approvals • ${fieldPendingApprovals} pending`
+                                : activeTimesheet
+                                ? 'On shift'
+                                : 'Clock-in ready',
+
+                            helper: activeTimesheet ? 'On shift' : 'Clock-in ready',
+                        },
+                    ]}
+                />
+
+                <div className="grid grid-cols-1 xl:grid-cols-[2fr,1fr] gap-6">
                     <div className="space-y-6">
-                         <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <TimeClockCard user={user} project={currentProject} addToast={addToast} onUpdate={fetchData} activeTimesheet={activeTimesheet} />
+                    <WeatherCard weather={weather} />
+                </div>
+                <OperationalPulseCard insights={operationalInsights} />
+                <DailyAssignmentsCard tasks={myTasks} onTaskReorder={setMyTasks} />
+                <SiteUpdatesCard project={currentProject} user={user} addToast={addToast} onUpdate={fetchData} siteUpdates={siteUpdates} userMap={userMap} />
+            </div>
+            <div className="space-y-6">
+                <TeamChatCard project={currentProject} user={user} onUpdate={fetchData} messages={projectMessages} userMap={userMap} />
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <TimeClockCard user={user} project={currentProject} addToast={addToast} onUpdate={fetchData} activeTimesheet={activeTimesheet} />
                             <WeatherCard weather={weather} />
-                         </div>
-                         <DailyAssignmentsCard tasks={myTasks} onTaskReorder={setMyTasks} />
-                    </div>
-                     {/* Column 2 */}
-                    <div className="space-y-6">
+                        </div>
+                        <DailyAssignmentsCard tasks={myTasks} onTaskReorder={setMyTasks} />
                         <SiteUpdatesCard project={currentProject} user={user} addToast={addToast} onUpdate={fetchData} siteUpdates={siteUpdates} userMap={userMap} />
-                        <Card>
-                            <h2 className="font-semibold text-lg mb-2">Field Issue Reporting</h2>
-                            <p className="text-sm text-muted-foreground mb-4">Log any safety concerns, hazards, or quality issues observed on site.</p>
-                            <Button variant="danger" className="w-full" onClick={() => setIsIncidentModalOpen(true)}>Report a New Issue</Button>
-                        </Card>
                     </div>
-                     {/* Column 3 */}
                     <div className="space-y-6">
-                         <TeamChatCard project={currentProject} user={user} onUpdate={fetchData} messages={projectMessages} userMap={userMap} />
-                         <Card>
-                             <h2 className="font-semibold text-lg mb-2">Crew Status</h2>
-                             <div className="space-y-3 max-h-40 overflow-y-auto pr-2">
+                        <TeamChatCard project={currentProject} user={user} onUpdate={fetchData} messages={projectMessages} userMap={userMap} />
+                        <Card className="space-y-3 p-4">
+                            <h2 className="text-lg font-semibold">Crew roster</h2>
+                            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                                 {crew.map(member => {
                                     const memberName = `${member.firstName} ${member.lastName}`;
                                     return (
-                                        <div key={member.id} className="flex items-center gap-4">
-                                            <Avatar name={memberName} imageUrl={member.avatar}/>
-                                            <p className="font-semibold">{memberName}</p>
+                                        <div key={member.id} className="flex items-center justify-between rounded-md p-2 hover:bg-accent">
+                                            <div className="flex items-center gap-3">
+                                                <Avatar name={memberName} imageUrl={member.avatar} />
+                                                <div>
+                                                    <p className="text-sm font-semibold text-foreground">{memberName}</p>
+                                                    <p className="text-xs text-muted-foreground">{member.role}</p>
+                                                </div>
+                                            </div>
+                                            <Tag label={member.availability ?? 'On site'} color={member.availability === 'ON_LEAVE' ? 'gray' : 'green'} />
                                         </div>
                                     );
                                 })}
                             </div>
-                         </Card>
-                         <Card>
-                            <h2 className="font-semibold text-lg mb-2">On-site Equipment</h2>
-                            <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                        </Card>
+                        <Card className="space-y-3 p-4">
+                            <h2 className="text-lg font-semibold">On-site equipment</h2>
+                            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
                                 {equipment.map(item => (
-                                    <div key={item.id} className="flex justify-between">
-                                        <span>{item.name}</span>
+                                    <div key={item.id} className="flex items-center justify-between rounded-md p-2 hover:bg-accent">
+                                        <span className="text-sm font-medium text-foreground">{item.name}</span>
                                         <EquipmentStatusBadge status={item.status} />
                                     </div>
                                 ))}
                             </div>
-                         </Card>
+                        </Card>
+                        <Card className="space-y-3 p-4">
+                            <h2 className="text-lg font-semibold">Safety & quality</h2>
+                            <p className="text-sm text-muted-foreground">{openIncidentCount === 0 ? 'No open incidents logged.' : `${openIncidentCount} issue(s) in review • ${highSeverityCount} high severity`}</p>
+                            <Button variant="danger" className="w-full" onClick={() => setIsIncidentModalOpen(true)}>Report new issue</Button>
+                        </Card>
                     </div>
                 </div>
             </div>

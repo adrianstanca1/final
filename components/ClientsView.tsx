@@ -1,14 +1,11 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // FIX: Corrected import paths to be relative.
-import type { User, Client, Address } from '../types';
+import { User, Client, Address } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { ViewHeader } from './layout/ViewHeader';
 import { Tag } from './ui/Tag';
-import { SectionErrorBoundary } from './ErrorBoundary';
-import { useErrorHandling } from '../hooks/useErrorHandling';
-import { useToast } from './ui/Toast';
 
 interface ClientsViewProps {
   user: User;
@@ -129,7 +126,6 @@ const CreateClientModal: React.FC<{
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
       onClick={onClose}
-      onKeyDown={(e) => e.key === 'Escape' && onClose()}
       role="dialog"
       aria-modal="true"
     >
@@ -145,7 +141,7 @@ const CreateClientModal: React.FC<{
             className="rounded-full p-2 text-muted-foreground hover:bg-muted"
             aria-label="Close create client modal"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-label="Close">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
               <path
                 fillRule="evenodd"
                 d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 011.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
@@ -331,26 +327,25 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ user, addToast }) => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const abortControllerRef = useRef<AbortController | null>(null);
 
-    // Enhanced error handling
-    const errorHandling = useErrorHandling({
-        component: 'ClientsView',
-        showToast: addToast,
-    });
-
     const fetchData = useCallback(async () => {
-        const result = await errorHandling.withAbortSignal(
-            async (signal) => {
-                if (!user.companyId) return [];
-                return await api.getClientsByCompany(user.companyId, { signal });
-            },
-            'fetch_clients'
-        )();
+        const controller = new AbortController();
+        abortControllerRef.current?.abort();
+        abortControllerRef.current = controller;
 
-        if (result) {
-            setClients(result);
+        setLoading(true);
+        try {
+            if (!user.companyId) return;
+            const data = await api.getClientsByCompany(user.companyId, { signal: controller.signal });
+            if (controller.signal.aborted) return;
+            setClients(data);
+        } catch (error) {
+            if (controller.signal.aborted) return;
+            addToast("Failed to load clients.", "error");
+        } finally {
+            if (controller.signal.aborted) return;
+            setLoading(false);
         }
-        setLoading(false);
-    }, [user.companyId, errorHandling]);
+    }, [user.companyId, addToast]);
 
     useEffect(() => {
         fetchData();
@@ -379,21 +374,20 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ user, addToast }) => {
     };
 
     return (
-        <SectionErrorBoundary>
-            <div className="space-y-6">
-                {isModalOpen && (
-                    <CreateClientModal
-                        user={user}
-                        onClose={() => setIsModalOpen(false)}
-                        onClientCreated={handleClientCreated}
-                        addToast={addToast}
-                    />
-                )}
-                <ViewHeader
+        <div className="space-y-6">
+            {isModalOpen && (
+                <CreateClientModal
+                    user={user}
+                    onClose={() => setIsModalOpen(false)}
+                    onClientCreated={handleClientCreated}
+                    addToast={addToast}
+                />
+            )}
+            <ViewHeader
                 view="clients"
                 actions={
                     <Button onClick={() => setIsModalOpen(true)}>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-label="Add">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                         </svg>
                         Add client
@@ -431,11 +425,11 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ user, addToast }) => {
                         </div>
                         <div className="space-y-3 rounded-lg border border-border bg-muted/40 p-4 text-sm">
                             <p className="flex items-center gap-2 text-muted-foreground">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-muted-foreground/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-label="Email"><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-muted-foreground/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                                 {client.contactEmail}
                             </p>
                             <p className="flex items-center gap-2 text-muted-foreground">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-muted-foreground/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-label="Phone"><path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-muted-foreground/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
                                 {client.contactPhone}
                             </p>
                             <p className="text-muted-foreground">Payment terms: {client.paymentTerms}</p>
@@ -449,7 +443,6 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ user, addToast }) => {
                     <p className="mt-1 text-sm text-muted-foreground">Get started by adding your first client.</p>
                 </Card>
             )}
-            </div>
-        </SectionErrorBoundary>
+        </div>
     );
 };

@@ -332,6 +332,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     [openIncidents],
   );
 
+  const highSeverityIncidents = useMemo(
+    () => openIncidents.filter(incident => incident.severity === IncidentSeverity.HIGH || incident.severity === IncidentSeverity.CRITICAL),
+    [openIncidents],
+  );
+
   const complianceRate = useMemo(() => {
     const submitted = data.timesheets.filter(ts => ts.status !== TimesheetStatus.DRAFT);
     if (!submitted.length) {
@@ -353,6 +358,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   const operationalInsights = data.operationalInsights;
   const financialCurrency = operationalInsights?.financial.currency ?? currency;
+  const openIncidentsCount = operationalInsights?.safety.openIncidents ?? fallbackOpenIncidents.length;
   const openIncidentsCount = operationalInsights?.safety.openIncidents ?? openIncidents.length;
   const highSeverityCount = operationalInsights?.safety.highSeverity ?? fallbackHighSeverityIncidents.length;
   const daysSinceLastIncident = operationalInsights?.safety.daysSinceLastIncident ?? null;
@@ -488,6 +494,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Open incidents</span>
               <span className="font-semibold text-foreground">
+                {openIncidents.length}
+                {highSeverityIncidents.length > 0 && (
+                  <span className="text-xs font-medium text-destructive"> • {highSeverityIncidents.length} high</span>
                 {openIncidentsCount}
                 {highSeverityCount > 0 && (
                   <span className="text-xs font-medium text-destructive"> • {highSeverityCount} high</span>
@@ -525,6 +534,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
               <span className="font-semibold text-foreground">
                 {formatCurrency(approvedExpenseRunRate, financialCurrency)}
               </span>
+
+              <span className="font-semibold text-foreground">{complianceRate}%</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Invoice pipeline</span>
@@ -767,3 +778,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 // OwnerDashboard.displayName = 'OwnerDashboard';
 
 // export { OwnerDashboard };
+);
+
+const OwnerDashboard = {}; // placeholder
