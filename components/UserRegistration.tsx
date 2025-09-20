@@ -1415,7 +1415,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                         {form.companySelection === 'create' && (
                             <>
                                 <div className="flex justify-between"><dt>Company</dt><dd className="text-right text-foreground">{form.companyName}</dd></div>
-                                {form.companyType && <div className="flex justify-between"><dt>Type</dt><dd className="text-right text-foreground">{form.companyType.replace(/_/g, ' ').toLowerCase()}</dd></div>}
+                                {form.companyType && <div className="flex justify-between"><dt>Type</dt><dd className="text-right text-foreground">{COMPANY_TYPES.find(ct => ct.value === form.companyType)?.label || form.companyType}</dd></div>}
                             </>
                         )}
                         {form.companySelection === 'join' && invitePreview && (
