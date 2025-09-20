@@ -45,3 +45,8 @@ export class ErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
+
+// Export PageErrorBoundary as alias for compatibility
+export const PageErrorBoundary = ErrorBoundary;
+// Export SectionErrorBoundary as alias for compatibility  
+export const SectionErrorBoundary = ErrorBoundary;
