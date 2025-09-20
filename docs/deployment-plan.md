@@ -10,7 +10,7 @@
 
 | Environment | Purpose | Trigger | Hosting | Notes |
 |-------------|---------|---------|---------|-------|
-| Local | Feature development, exploratory testing | `npm run dev` | Developer machine | Requires a personal `VITE_GEMINI_API_KEY` in `.env.local`. |
+| Local | Feature development, exploratory testing | `npm run dev` | Developer machine | Requires a personal `GEMINI_API_KEY` in `.env.local`. |
 | Pull Request (CI) | Automated quality gate before merge | Pull requests to `main` | GitHub Actions `CI` workflow | Runs tests and build to catch regressions early. |
 | Production | Customer-facing release | Merge/push to `main` or manual trigger | GitHub Pages via `Deploy to GitHub Pages` workflow | Publishes the static Vite build (`dist/`). Requires `GEMINI_API_KEY` secret. |
 
