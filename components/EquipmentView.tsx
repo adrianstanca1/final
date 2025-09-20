@@ -138,8 +138,6 @@ const EquipmentModal: React.FC<{
     );
 };
 
-<<<<<<< Updated upstream
-=======
 // --- EquipmentHistoryModal Sub-Component ---
 const EquipmentHistoryModal: React.FC<{
     equipment: Equipment;
@@ -286,7 +284,6 @@ const EquipmentScheduleView: React.FC<{
         </Card>
     );
 };
->>>>>>> Stashed changes
 
 export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) => {
     const [equipment, setEquipment] = useState<Equipment[]>([]);
@@ -392,42 +389,7 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) 
                 <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Equipment</h2>
                 {canManage && <Button onClick={() => openModal()}>Add Equipment</Button>}
             </div>
-<<<<<<< Updated upstream
-            <Card>
-                 <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
-                        <thead className="bg-slate-50 dark:bg-slate-800">
-                            <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Name</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Current Project</th>
-                                {canManage && <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Actions</th>}
-                            </tr>
-                        </thead>
-                        <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-slate-700">
-                            {equipment.map(item => (
-                                <tr key={item.id}>
-                                    <td className="px-6 py-4 font-medium">{item.name}</td>
-                                    <td className="px-6 py-4"><EquipmentStatusBadge status={getDerivedStatus(item)} /></td>
-                                    <td className="px-6 py-4">
-                                        {currentAssignments.has(item.id)
-                                            ? projectMap.get(currentAssignments.get(item.id)!.projectId)
-                                            : 'Unassigned'}
-                                    </td>
-                                    {canManage && (
-                                        <td className="px-6 py-4 text-right">
-                                            <Button variant="ghost" size="sm" onClick={() => openModal(item)}>Details</Button>
-                                        </td>
-                                    )}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </Card>
-=======
-
-            {viewMode === 'list' ? (
+{viewMode === 'list' ? (
                 <Card>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 pb-4 border-b">
                         <select title="Filter by status" value={filters.status} onChange={e => setFilters(f => ({...f, status: e.target.value}))} className="p-2 border rounded-md bg-white">
@@ -489,7 +451,6 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) 
             ) : (
                 <EquipmentScheduleView user={user} projects={projects} equipment={equipment} assignments={assignments} addToast={addToast} />
             )}
->>>>>>> Stashed changes
         </div>
     );
 };
