@@ -3,6 +3,8 @@ import { LoginCredentials } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { useAuth } from '../contexts/AuthContext';
+import { getStorage } from '../utils/storage';
+import { AuthEnvironmentNotice } from './auth/AuthEnvironmentNotice';
 
 interface LoginProps {
   onSwitchToRegister: () => void;
@@ -13,13 +15,40 @@ type LoginStep = 'credentials' | 'mfa';
 
 const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
+const REMEMBERED_EMAIL_KEY = 'asagents_remembered_email';
+
+const storage = getStorage();
+
+const readRememberedEmail = () => {
+    try {
+        return storage.getItem(REMEMBERED_EMAIL_KEY) || '';
+    } catch (error) {
+        console.warn('Unable to read remembered email', error);
+        return '';
+    }
+};
+
+const persistRememberedEmail = (shouldRemember: boolean, email: string) => {
+    try {
+        if (shouldRemember && email) {
+            storage.setItem(REMEMBERED_EMAIL_KEY, email);
+        } else {
+            storage.removeItem(REMEMBERED_EMAIL_KEY);
+        }
+    } catch (error) {
+        console.warn('Unable to persist remembered email', error);
+    }
+};
+
 export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForgotPassword }) => {
     const { login, verifyMfaAndFinalize, error: authError, loading: isLoading } = useAuth();
     const [step, setStep] = useState<LoginStep>('credentials');
-    const [email, setEmail] = useState('admin@ascladding.com');
-    const [password, setPassword] = useState('password123');
+    const initialRememberedEmail = readRememberedEmail();
+    const [email, setEmail] = useState(initialRememberedEmail);
+    const [password, setPassword] = useState('');
     const [mfaCode, setMfaCode] = useState('');
-    const [rememberMe, setRememberMe] = useState(false);
+    const [rememberMe, setRememberMe] = useState(initialRememberedEmail !== '');
+    const [showPassword, setShowPassword] = useState(false);
     
     const [error, setError] = useState<string | null>(null);
     const [validationErrors, setValidationErrors] = useState<{ email?: string; password?: string, mfa?: string }>({});
@@ -33,6 +62,12 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
     }, [authError]);
 
     useEffect(() => {
+        if (!rememberMe) {
+            persistRememberedEmail(false, '');
+        }
+    }, [rememberMe]);
+
+    useEffect(() => {
       if (step === 'mfa') {
         mfaInputRef.current?.focus();
       }
@@ -41,20 +76,26 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
     const handleCredentialSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
-        
+
         const newErrors: { email?: string; password?: string } = {};
-        if (!validateEmail(email)) newErrors.email = "Please enter a valid email.";
+        const trimmedEmail = email.trim();
+        if (!validateEmail(trimmedEmail)) newErrors.email = "Please enter a valid email.";
         if (password.length < 6) newErrors.password = "Password is too short.";
-        
+
         setValidationErrors(newErrors);
         if (Object.keys(newErrors).length > 0) return;
-        
+
         try {
-            const res = await login({ email, password, rememberMe });
+            setEmail(trimmedEmail);
+            const res = await login({ email: trimmedEmail, password, rememberMe });
             if (res.mfaRequired && res.userId) {
                 setUserId(res.userId);
                 setStep('mfa');
+                setMfaCode('');
+            } else {
+                persistRememberedEmail(rememberMe, trimmedEmail.toLowerCase());
             }
+            setPassword('');
             // If not MFA, the AuthProvider handles the redirect and state change.
         } catch (err) {
             // Error is handled and set by the AuthContext, no need to set it here.
@@ -72,6 +113,8 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
         try {
             if (!userId) throw new Error("User ID not found");
             await verifyMfaAndFinalize(userId, mfaCode);
+            persistRememberedEmail(rememberMe, email.trim().toLowerCase());
+            setMfaCode('');
             // On success, AuthProvider will handle redirect.
         } catch (err) {
              // Error is handled and set by the AuthContext
@@ -82,14 +125,38 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
       <form onSubmit={handleCredentialSubmit} className="space-y-6">
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-muted-foreground">Email Address</label>
-          <input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} required 
-                 className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm ${validationErrors.email ? 'border-destructive' : 'border-border'}`} />
+          <input
+            id="email"
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+            className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm ${validationErrors.email ? 'border-destructive' : 'border-border'}`}
+          />
           {validationErrors.email && <p className="text-xs text-destructive mt-1">{validationErrors.email}</p>}
         </div>
         <div>
           <label htmlFor="password"  className="block text-sm font-medium text-muted-foreground">Password</label>
-          <input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required 
-                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm ${validationErrors.password ? 'border-destructive' : 'border-border'}`} />
+          <div className="relative mt-1">
+            <input
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              required
+              autoComplete="current-password"
+              className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm pr-12 ${validationErrors.password ? 'border-destructive' : 'border-border'}`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(prev => !prev)}
+              className="absolute inset-y-0 right-2 flex items-center text-xs font-medium text-muted-foreground hover:text-foreground"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? 'Hide' : 'Show'}
+            </button>
+          </div>
           {validationErrors.password && <p className="text-xs text-destructive mt-1">{validationErrors.password}</p>}
         </div>
         <div className="flex items-center justify-between">
@@ -115,8 +182,18 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
         </div>
         <div>
           <label htmlFor="mfa" className="sr-only">Authentication Code</label>
-          <input id="mfa" type="text" ref={mfaInputRef} value={mfaCode} onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))} maxLength={6} required
-                 className={`block w-full text-center text-2xl tracking-[0.5em] px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary ${validationErrors.mfa ? 'border-destructive' : 'border-border'}`} />
+          <input
+            id="mfa"
+            type="text"
+            ref={mfaInputRef}
+            value={mfaCode}
+            onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))}
+            maxLength={6}
+            required
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            className={`block w-full text-center text-2xl tracking-[0.5em] px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary ${validationErrors.mfa ? 'border-destructive' : 'border-border'}`}
+          />
           {validationErrors.mfa && <p className="text-xs text-destructive mt-1 text-center">{validationErrors.mfa}</p>}
         </div>
          <div>
@@ -142,6 +219,7 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
           </h2>
         </div>
         <Card className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+            <AuthEnvironmentNotice className="mb-4" />
             {error && <div className="mb-4 p-3 bg-destructive/10 text-destructive text-sm rounded-md border border-destructive/20">{error}</div>}
             {step === 'credentials' ? renderCredentialStep() : renderMfaStep()}
         </Card>
