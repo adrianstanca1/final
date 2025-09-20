@@ -34,8 +34,10 @@ export class CacheService {
       this.loadFromStorage();
     }
 
-    // Cleanup expired entries every minute
-    setInterval(() => this.cleanup(), 60 * 1000);
+    // Cleanup expired entries every minute (only in browser environment)
+    if (typeof window !== 'undefined') {
+      setInterval(() => this.cleanup(), 60 * 1000);
+    }
   }
 
   set<T>(key: string, data: T, ttl?: number): void {
@@ -153,6 +155,8 @@ export class CacheService {
   }
 
   private saveToStorage(): void {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+
     try {
       const serialized = JSON.stringify(Array.from(this.cache.entries()));
       localStorage.setItem(`${this.namespace}-cache`, serialized);
@@ -162,6 +166,8 @@ export class CacheService {
   }
 
   private loadFromStorage(): void {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+
     try {
       const stored = localStorage.getItem(`${this.namespace}-cache`);
       if (stored) {
