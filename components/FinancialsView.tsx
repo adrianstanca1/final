@@ -16,6 +16,13 @@ import {
   InvoiceLineItemDraft,
 } from '../types';
 import { getDerivedStatus, getInvoiceFinancials } from '../utils/finance';
+
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+codex/refactor-finance-functions-and-components
+import { User, FinancialKPIs, MonthlyFinancials, CostBreakdown, Invoice, Quote, Client, Project, Permission, Expense, InvoiceStatus, InvoiceLineItem } from '../types';
+import { getDerivedStatus, getInvoiceFinancials } from '../utils/finance';
+import { User, FinancialKPIs, MonthlyFinancials, CostBreakdown, Invoice, Quote, Client, Project, Permission, Expense, ExpenseCategory, ExpenseStatus, InvoiceStatus, QuoteStatus, InvoiceLineItem, InvoiceLineItemDraft } from '../types';
+
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -699,6 +706,68 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
     setModal('expense');
   }, []);
 
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+
+    const { projectMap, clientMap, userMap } = useMemo(() => ({
+        projectMap: new Map(data.projects.map(p => [p.id, p.name])),
+        clientMap: new Map(data.clients.map(c => [c.id, c.name])),
+        userMap: new Map(data.users.map(u => [u.id, `${u.firstName} ${u.lastName}`]))
+    }), [data.projects, data.clients, data.users]);
+
+    const handleUpdateInvoiceStatus = useCallback(async (invoiceId: string, status: InvoiceStatus) => {
+        if (status === InvoiceStatus.CANCELLED) {
+            if (!window.confirm("Are you sure you want to cancel this invoice? This action cannot be undone.")) {
+                return;
+            }
+        }
+        try {
+            const invoice = data.invoices.find(i => i.id === invoiceId);
+            if (!invoice) throw new Error("Invoice not found");
+            await api.updateInvoice(invoiceId, { ...invoice, status }, user.id);
+            addToast(`Invoice marked as ${status.toLowerCase()}.`, 'success');
+            fetchData();
+        } catch (error) {
+            addToast("Failed to update invoice status.", "error");
+        }
+    }, [data.invoices, user.id, addToast, fetchData]);
+
+    const handleCreateInvoice = useCallback(() => {
+        setSelectedItem(null);
+        setModal('invoice');
+    }, [setSelectedItem, setModal]);
+
+    const handleOpenInvoice = useCallback((invoice: Invoice) => {
+        setSelectedItem(invoice);
+        setModal('invoice');
+    }, [setSelectedItem, setModal]);
+
+    const handleRecordPayment = useCallback((invoice: Invoice) => {
+        setSelectedItem(invoice);
+        setModal('payment');
+    }, [setSelectedItem, setModal]);
+
+    const handleCreateExpense = useCallback(() => {
+        setSelectedItem(null);
+        setModal('expense');
+    }, [setSelectedItem, setModal]);
+
+    const handleEditExpense = useCallback((expense: Expense) => {
+        setSelectedItem(expense);
+        setModal('expense');
+    }, [setSelectedItem, setModal]);
+
+    const handleAddClient = useCallback(() => {
+        setSelectedItem(null);
+        setModal('client');
+    }, [setSelectedItem, setModal]);
+
+    const handleEditClient = useCallback((client: Client) => {
+        setSelectedItem(client);
+        setModal('client');
+    }, [setSelectedItem, setModal]);
+
   const handleEditExpense = useCallback((expense: Expense) => {
     setSelectedItem(expense);
     setModal('expense');
@@ -969,6 +1038,162 @@ const InvoicesTab = React.memo(
   ),
 );
 
+    return (
+        <div className="space-y-6">
+            {modal === 'client' && <ClientModal clientToEdit={selectedItem as Client} onClose={() => setModal(null)} onSuccess={fetchData} user={user} addToast={addToast} />}
+            {modal === 'invoice' && <InvoiceModal invoiceToEdit={selectedInvoice} isReadOnly={isInvoiceReadOnly} onClose={() => setModal(null)} onSuccess={fetchData} user={user} clients={data.clients} projects={data.projects} addToast={addToast} />}
+            {modal === 'payment' && selectedInvoice && <PaymentModal invoice={selectedInvoice} balance={getInvoiceFinancials(selectedInvoice).balance} onClose={() => setModal(null)} onSuccess={fetchData} user={user} addToast={addToast} />}
+            {modal === 'expense' && <ExpenseModal expenseToEdit={selectedItem as Expense} onClose={() => setModal(null)} onSuccess={fetchData} user={user} projects={data.projects} addToast={addToast} />}
+
+            <div className="flex justify-between items-center">
+                <h2 className="text-3xl font-bold">Financials</h2>
+            </div>
+             <div className="border-b border-border">
+                <nav className="-mb-px flex space-x-6 overflow-x-auto">
+                    {(['dashboard', 'invoices', 'expenses', 'clients'] as FinancialsTab[]).map(tab => (
+                         <button key={tab} onClick={() => setActiveTab(tab)} className={`capitalize whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === tab ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+                            {tab}
+                        </button>
+                    ))}
+                </nav>
+            </div>
+            {activeTab === 'dashboard' && (
+                <DashboardTab kpis={data.kpis} monthly={data.monthly} costs={data.costs} />
+            )}
+            {activeTab === 'invoices' && (
+                <InvoicesTab
+                    invoices={data.invoices}
+                    quotes={data.quotes}
+                    canManageFinances={canManageFinances}
+                    clientMap={clientMap}
+                    projectMap={projectMap}
+                    onCreateInvoice={handleCreateInvoice}
+                    onOpenInvoice={handleOpenInvoice}
+                    onRecordPayment={handleRecordPayment}
+                    onUpdateInvoiceStatus={handleUpdateInvoiceStatus}
+                />
+            )}
+            {activeTab === 'expenses' && (
+                <ExpensesTab
+                    expenses={data.expenses}
+                    userMap={userMap}
+                    projectMap={projectMap}
+                    onCreateExpense={handleCreateExpense}
+                    onEditExpense={handleEditExpense}
+                />
+            )}
+            {activeTab === 'clients' && (
+                <ClientsTab
+                    clients={data.clients}
+                    canManageFinances={canManageFinances}
+                    onAddClient={handleAddClient}
+                    onEditClient={handleEditClient}
+                />
+            )}
+        </div>
+    );
+};
+
+interface DashboardTabProps {
+    kpis: FinancialKPIs | null;
+    monthly: MonthlyFinancials[];
+    costs: CostBreakdown[];
+}
+
+const DashboardTab = React.memo(({ kpis, monthly, costs }: DashboardTabProps) => (
+    <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card><p className="text-sm text-slate-500">Profitability</p><p className="text-3xl font-bold">{kpis?.profitability || 0}%</p></Card>
+            <Card><p className="text-sm text-slate-500">Avg. Project Margin</p><p className="text-3xl font-bold">{kpis?.projectMargin || 0}%</p></Card>
+            <Card><p className="text-sm text-slate-500">Cash Flow</p><p className="text-3xl font-bold">{formatCurrency(kpis?.cashFlow || 0, kpis?.currency)}</p></Card>
+        </div>
+         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+                <h3 className="font-semibold mb-4">Monthly Performance (Profit)</h3>
+                <BarChart data={monthly.map(m => ({ label: m.month, value: m.profit }))} barColor="bg-green-500" />
+            </Card>
+             <Card>
+                <h3 className="font-semibold mb-4">Cost Breakdown</h3>
+                <BarChart data={costs.map(c => ({ label: c.category, value: c.amount }))} barColor="bg-sky-500" />
+            </Card>
+        </div>
+    </div>
+));
+
+DashboardTab.displayName = 'DashboardTab';
+
+interface InvoicesTabProps {
+    invoices: Invoice[];
+    quotes: Quote[];
+    canManageFinances: boolean;
+    clientMap: Map<string, string>;
+    projectMap: Map<string, string>;
+    onCreateInvoice: () => void;
+    onOpenInvoice: (invoice: Invoice) => void;
+    onRecordPayment: (invoice: Invoice) => void;
+    onUpdateInvoiceStatus: (invoiceId: string, status: InvoiceStatus) => void;
+}
+
+const InvoicesTab = React.memo(({ invoices, quotes, canManageFinances, clientMap, projectMap, onCreateInvoice, onOpenInvoice, onRecordPayment, onUpdateInvoiceStatus }: InvoicesTabProps) => (
+    <div className="space-y-6">
+        <Card>
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold text-lg">Invoices</h3>
+                {canManageFinances && <Button onClick={onCreateInvoice}>Create Invoice</Button>}
+            </div>
+            <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-border">
+                    <thead className="bg-muted"><tr><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Number</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Client</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Project</th><th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Total</th><th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Balance Due</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Status</th><th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Actions</th></tr></thead>
+                    <tbody className="bg-card divide-y divide-border">
+                        {invoices.map(invoice => {
+                            const { total, balance } = getInvoiceFinancials(invoice);
+                            const derivedStatus = getDerivedStatus(invoice);
+
+                            return (
+                            <tr key={invoice.id} className="hover:bg-accent">
+                                <td className="px-4 py-3 font-medium">{invoice.invoiceNumber}</td>
+                                <td className="px-4 py-3">{clientMap.get(invoice.clientId)}</td>
+                                <td className="px-4 py-3">{projectMap.get(invoice.projectId)}</td>
+                                <td className="px-4 py-3 text-right">{formatCurrency(total)}</td>
+                                <td className="px-4 py-3 text-right font-semibold">{formatCurrency(balance)}</td>
+                                <td className="px-4 py-3"><InvoiceStatusBadge status={derivedStatus} /></td>
+                                <td className="px-4 py-3 text-right space-x-2">
+                                    {canManageFinances && invoice.status === InvoiceStatus.DRAFT && (
+                                        <>
+                                            <Button size="sm" variant="success" onClick={() => onUpdateInvoiceStatus(invoice.id, InvoiceStatus.SENT)}>Send</Button>
+                                            <Button size="sm" variant="secondary" onClick={() => onOpenInvoice(invoice)}>Edit</Button>
+                                        </>
+                                    )}
+                                    {canManageFinances && (invoice.status === InvoiceStatus.SENT || derivedStatus === InvoiceStatus.OVERDUE) && (
+                                         <>
+                                            <Button size="sm" onClick={() => onRecordPayment(invoice)}>Record Payment</Button>
+                                            <Button size="sm" variant="danger" onClick={() => onUpdateInvoiceStatus(invoice.id, InvoiceStatus.CANCELLED)}>Cancel</Button>
+                                        </>
+                                    )}
+                                    {(invoice.status === InvoiceStatus.PAID || invoice.status === InvoiceStatus.CANCELLED) && (
+                                        <Button size="sm" variant="secondary" onClick={() => onOpenInvoice(invoice)}>View</Button>
+                                    )}
+                                </td>
+                            </tr>
+                        )})}
+                    </tbody>
+                </table>
+            </div>
+        </Card>
+         <Card>
+            <h3 className="font-semibold text-lg mb-4">Quotes</h3>
+             <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-border">
+                     <thead className="bg-muted"><tr><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Client</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Project</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Status</th></tr></thead>
+                      <tbody className="bg-card divide-y divide-border">
+                        {quotes.map(quote => (<tr key={quote.id}><td className="px-4 py-3">Client Name</td><td className="px-4 py-3">Project Name</td><td className="px-4 py-3"><QuoteStatusBadge status={quote.status} /></td></tr>))}
+                      </tbody>
+                </table>
+             </div>
+        </Card>
+    </div>
+));
+
 InvoicesTab.displayName = 'InvoicesTab';
 
 interface ExpensesTabProps {
@@ -1031,12 +1256,45 @@ const ExpensesTab = React.memo(({ expenses, userMap, projectMap, onCreateExpense
       </table>
     </div>
   </Card>
-));
+ 
+    expenses: Expense[];
+    userMap: Map<string, string>;
+    projectMap: Map<string, string>;
+    onCreateExpense: () => void;
+    onEditExpense: (expense: Expense) => void;
+}
+
+const ExpensesTab = React.memo(({ expenses, userMap, projectMap, onCreateExpense, onEditExpense }: ExpensesTabProps) => (
+    <Card>
+         <div className="flex justify-between items-center mb-4">
+            <h3 className="font-semibold text-lg">Expenses</h3>
+            <Button onClick={onCreateExpense}>Submit Expense</Button>
+        </div>
+        <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-border">
+                <thead className="bg-muted"><tr><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Date</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Submitted By</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Project</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Description</th><th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Amount</th><th className="px-4 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Status</th><th className="px-4 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Actions</th></tr></thead>
+                <tbody className="bg-card divide-y divide-border">
+                    {expenses.map(exp => (
+                        <tr key={exp.id}>
+                            <td className="px-4 py-3">{new Date(exp.submittedAt).toLocaleDateString()}</td>
+                            <td className="px-4 py-3">{userMap.get(exp.userId)}</td>
+                            <td className="px-4 py-3">{projectMap.get(exp.projectId)}</td>
+                            <td className="px-4 py-3">{exp.description}</td>
+                            <td className="px-4 py-3 text-right">{formatCurrency(exp.amount)}</td>
+                            <td className="px-4 py-3"><Tag label={exp.status} color={exp.status === 'APPROVED' ? 'green' : exp.status === 'REJECTED' ? 'red' : 'yellow'} /></td>
+                            <td className="px-4 py-3 text-right">{exp.status === 'REJECTED' && <Button size="sm" variant="secondary" onClick={() => onEditExpense(exp)}>Edit & Resubmit</Button>}</td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    </Card>
+ ));
 
 ExpensesTab.displayName = 'ExpensesTab';
 
 interface ClientsTabProps {
-  clients: Client[];
+   clients: Client[];
   canManageFinances: boolean;
   onAddClient: () => void;
   onEditClient: (client: Client) => void;
@@ -1060,3 +1318,29 @@ const ClientsTab = React.memo(({ clients, canManageFinances, onAddClient, onEdit
 ));
 
 ClientsTab.displayName = 'ClientsTab';
+ 
+    clients: Client[];
+    canManageFinances: boolean;
+    onAddClient: () => void;
+    onEditClient: (client: Client) => void;
+}
+
+const ClientsTab = React.memo(({ clients, canManageFinances, onAddClient, onEditClient }: ClientsTabProps) => (
+    <div>
+        <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold">Clients</h2>
+            {canManageFinances && <Button onClick={onAddClient}>Add Client</Button>}
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {clients.map(client => (
+                <Card key={client.id} className="cursor-pointer hover:shadow-lg" onClick={() => onEditClient(client)}>
+                    <h3 className="text-lg font-semibold">{client.name}</h3>
+                    <p className="text-sm text-muted-foreground">{client.contactEmail}</p>
+                </Card>
+            ))}
+        </div>
+    </div>
+));
+
+ClientsTab.displayName = 'ClientsTab';
+ 

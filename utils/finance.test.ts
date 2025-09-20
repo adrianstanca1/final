@@ -105,7 +105,7 @@ describe('getInvoiceFinancials', () => {
 
     expect(financials.balance).toBe(0);
   });
-
+ 
 
   it('falls back to stored totals when line items are unavailable', () => {
     const invoice = createInvoice({
@@ -127,7 +127,8 @@ describe('getInvoiceFinancials', () => {
     expect(financials.amountPaid).toBe(400);
     expect(financials.balance).toBe(150);
   });
-});
+ 
+ });
 
 describe('getDerivedStatus', () => {
   it('returns CANCELLED for cancelled invoices regardless of balance', () => {
@@ -155,7 +156,7 @@ describe('getDerivedStatus', () => {
     expect(getDerivedStatus(invoice)).toBe(InvoiceStatus.PAID);
   });
 
-
+ 
   it('honours PAID status even when payments data is missing', () => {
     const invoice = createInvoice({
       status: InvoiceStatus.PAID,
@@ -168,7 +169,8 @@ describe('getDerivedStatus', () => {
     expect(getDerivedStatus(invoice)).toBe(InvoiceStatus.PAID);
   });
 
-  it('returns OVERDUE when the due date has passed and balance remains', () => {
+ 
+   it('returns OVERDUE when the due date has passed and balance remains', () => {
     const invoice = createInvoice({
       status: InvoiceStatus.SENT,
       dueAt: new Date('2024-01-10').toISOString(),

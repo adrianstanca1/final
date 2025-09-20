@@ -35,15 +35,18 @@ const getDueDateValue = (invoice: Invoice): number | null =>
 
 export const getInvoiceFinancials = (invoice: Invoice): InvoiceFinancials => {
   const lineItems = invoice.lineItems || [];
-  const hasLineItems = lineItems.length > 0;
+   const hasLineItems = lineItems.length > 0;
 
   const computedSubtotal = lineItems.reduce((acc, item) => {
-    const quantity = toNumber(item.quantity);
+ 
+
+  const subtotal = lineItems.reduce((acc, item) => {
+     const quantity = toNumber(item.quantity);
     const rate = toNumber(item.unitPrice ?? item.rate);
     return acc + quantity * rate;
   }, 0);
 
-  const storedSubtotal = toNumber(invoice.subtotal);
+   const storedSubtotal = toNumber(invoice.subtotal);
   const subtotal = hasLineItems ? computedSubtotal : storedSubtotal || computedSubtotal;
 
   const taxRate = toNumber(invoice.taxRate);
@@ -60,11 +63,18 @@ export const getInvoiceFinancials = (invoice: Invoice): InvoiceFinancials => {
   const computedTotal = subtotal + taxAmount - retentionAmount;
   const storedTotal = toNumber(invoice.total);
   const total = hasLineItems || !storedTotal ? computedTotal : storedTotal;
+ 
+  const taxRate = toNumber(invoice.taxRate);
+  const retentionRate = toNumber(invoice.retentionRate);
 
+  const taxAmount = subtotal * taxRate;
+  const retentionAmount = subtotal * retentionRate;
+  const total = subtotal + taxAmount - retentionAmount;
+ 
   const payments = invoice.payments || [];
   const paidFromPayments = payments.reduce((acc, payment) => acc + toNumber(payment.amount), 0);
   const recordedPaidAmount = toNumber(invoice.amountPaid);
-
+ 
   const storedBalanceValue =
     !hasLineItems && invoice.balance !== undefined
       ? Math.max(0, toNumber(invoice.balance))
@@ -83,7 +93,10 @@ export const getInvoiceFinancials = (invoice: Invoice): InvoiceFinancials => {
       : computedBalance;
 
   const amountPaid = rawAmountPaid;
-
+ 
+  const amountPaid = Math.max(recordedPaidAmount, paidFromPayments);
+  const balance = Math.max(0, total - amountPaid);
+ 
   return { subtotal, taxAmount, retentionAmount, total, amountPaid, balance, payments };
 };
 
@@ -92,10 +105,11 @@ export const getDerivedStatus = (invoice: Invoice, now: number = Date.now()): In
 
   if (invoice.status === InvoiceStatus.CANCELLED) return InvoiceStatus.CANCELLED;
   if (invoice.status === InvoiceStatus.DRAFT) return InvoiceStatus.DRAFT;
- 
+  
 
   if (invoice.status === InvoiceStatus.PAID) return InvoiceStatus.PAID;
-  if (balance <= 0) return InvoiceStatus.PAID;
+ 
+   if (balance <= 0) return InvoiceStatus.PAID;
 
   const dueValue = getDueDateValue(invoice);
 
