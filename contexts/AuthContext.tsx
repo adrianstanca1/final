@@ -1,12 +1,15 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, ReactNode } from 'react';
-import { User, Company, LoginCredentials, RegisterCredentials, AuthState, Permission } from '../types';
+import { User, Company, LoginCredentials, RegistrationPayload, AuthState, Permission } from '../types';
 import { authApi } from '../services/mockApi';
 import { hasPermission as checkPermission } from '../services/auth';
 import { api } from '../services/mockApi';
+import { getStorage } from '../utils/storage';
+
+const storage = getStorage();
 
 interface AuthContextType extends AuthState {
     login: (credentials: LoginCredentials) => Promise<{ mfaRequired: boolean; userId?: string }>;
-    register: (credentials: Partial<RegisterCredentials>) => Promise<void>;
+    register: (credentials: RegistrationPayload) => Promise<void>;
     logout: () => void;
     hasPermission: (permission: Permission) => boolean;
     verifyMfaAndFinalize: (userId: string, code: string) => Promise<void>;
@@ -39,8 +42,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     const logout = useCallback(() => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
+        storage.removeItem('token');
+        storage.removeItem('refreshToken');
         if (tokenRefreshTimeout) clearTimeout(tokenRefreshTimeout);
         setAuthState({
             isAuthenticated: false,
@@ -67,12 +70,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const expiresIn = (decoded.exp * 1000) - Date.now() - 60000;
             if (expiresIn > 0) {
                 tokenRefreshTimeout = setTimeout(async () => {
-                    const storedRefreshToken = localStorage.getItem('refreshToken');
+                    const storedRefreshToken = storage.getItem('refreshToken');
                     if (storedRefreshToken) {
                         try {
                             console.log("Proactively refreshing token...");
                             const { token: newToken } = await authApi.refreshToken(storedRefreshToken);
-                            localStorage.setItem('token', newToken);
+                            storage.setItem('token', newToken);
                             setAuthState(prev => ({ ...prev, token: newToken }));
                             scheduleTokenRefresh(newToken); // Schedule the next refresh
                         } catch (error) {
@@ -90,8 +93,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, [logout]);
     
     const finalizeLogin = useCallback((data: { token: string, refreshToken: string, user: User, company: Company }) => {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('refreshToken', data.refreshToken);
+        storage.setItem('token', data.token);
+        storage.setItem('refreshToken', data.refreshToken);
         setAuthState({
             isAuthenticated: true,
             token: data.token,
@@ -110,8 +113,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      * If the access token is expired, it reactively tries to use the refresh token.
      */
     const initAuth = useCallback(async () => {
-        const token = localStorage.getItem('token');
-        const refreshToken = localStorage.getItem('refreshToken');
+        const token = storage.getItem('token');
+        const refreshToken = storage.getItem('refreshToken');
         if (token && refreshToken) {
             try {
                 // First, try to authenticate with the existing access token.
@@ -170,7 +173,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     }
 
-    const register = async (credentials: Partial<RegisterCredentials>) => {
+    const register = async (credentials: RegistrationPayload) => {
         setAuthState(prev => ({ ...prev, loading: true, error: null }));
         try {
             const response = await authApi.register(credentials);
