@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type {
   User,
   FinancialKPIs,
@@ -8,7 +8,6 @@ import type {
   Quote,
   Client,
   Project,
-  Permission,
   Expense,
   ExpenseStatus,
   InvoiceStatus,
@@ -17,6 +16,7 @@ import type {
   QuoteStatus,
   FinancialForecast,
 } from '../types';
+import { Permission } from '../types';
 import { getDerivedStatus, getInvoiceFinancials } from '../utils/finance';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
@@ -168,22 +168,6 @@ const ClientModal: React.FC<{
       </Card>
     </div>
   );
-};
-
-const InvoiceModal: React.FC<{
-  invoiceToEdit?: Invoice | null;
-  isReadOnly?: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
-  user: User;
-  clients: Client[];
-  projects: Project[];
-  users: User[];
-  forecasts: FinancialForecast[];
-  companyName: string | null;
-}> = ({ invoiceToEdit, isReadOnly = false, onClose, onSuccess, user, clients, projects }) => {
-  // Implementation would go here
-  return null; // Placeholder
 };
 
 const BarChart: React.FC<{ data: { label: string; value: number }[]; barColor: string }> = ({ data, barColor }) => {
@@ -341,6 +325,8 @@ const InvoiceModal: React.FC<{ invoiceToEdit?: Invoice | null, isReadOnly?: bool
             </Card>
         </div>
     );
+};
+
 const forecastSummaryToElements = (summary: string) =>
   summary
     .split('\n')
@@ -727,10 +713,103 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
         )}
       </Card>
     </div>
-  </div>
-));
-
-DashboardTab.displayName = 'DashboardTab';
+  );
+  
+  // Main component return with tab switching
+  return (
+    <div className="space-y-6">
+      {/* Tab navigation would go here */}
+      <div className="border-b border-border">
+        <nav className="flex space-x-8">
+          <button 
+            onClick={() => setActiveTab('dashboard')}
+            className={`py-2 px-1 border-b-2 ${
+              activeTab === 'dashboard' 
+                ? 'border-primary text-primary' 
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Dashboard
+          </button>
+          <button 
+            onClick={() => setActiveTab('invoices')}
+            className={`py-2 px-1 border-b-2 ${
+              activeTab === 'invoices'
+                ? 'border-primary text-primary' 
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Invoices
+          </button>
+          <button 
+            onClick={() => setActiveTab('expenses')}
+            className={`py-2 px-1 border-b-2 ${
+              activeTab === 'expenses'
+                ? 'border-primary text-primary' 
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Expenses  
+          </button>
+          <button 
+            onClick={() => setActiveTab('clients')}
+            className={`py-2 px-1 border-b-2 ${
+              activeTab === 'clients'
+                ? 'border-primary text-primary' 
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Clients
+          </button>
+        </nav>
+      </div>
+      
+      {/* Tab content */}
+      {activeTab === 'dashboard' && (
+        <div className="space-y-6">Dashboard content placeholder</div>
+      )}
+      {activeTab === 'invoices' && (
+        <InvoicesTab 
+          invoices={data.invoices}
+          quotes={data.quotes}
+          canManageFinances={canManageFinances}
+          clientMap={clientMap}
+          projectMap={projectMap}
+          onCreateInvoice={() => setModal('invoice')}
+          onOpenInvoice={(invoice) => { setSelectedItem(invoice); setModal('invoice'); }}
+          onRecordPayment={(invoice) => { setSelectedItem(invoice); setModal('payment'); }}
+          onUpdateInvoiceStatus={(invoiceId, status) => {
+            // Handle status update
+          }}
+        />
+      )}
+      {activeTab === 'expenses' && (
+        <div>Expenses content placeholder</div>
+      )}
+      {activeTab === 'clients' && (
+        <ClientsTab
+          clients={data.clients}
+          canManageFinances={canManageFinances}
+          onAddClient={() => setModal('client')}
+          onEditClient={(client) => { setSelectedItem(client); setModal('client'); }}
+        />
+      )}
+      
+      {/* Modals */}
+      {modal === 'invoice' && (
+        <InvoiceModal
+          invoiceToEdit={selectedItem as Invoice}
+          onClose={() => { setModal(null); setSelectedItem(null); }}
+          onSuccess={() => { setModal(null); setSelectedItem(null); fetchData(); }}
+          user={user}
+          clients={data.clients}
+          projects={data.projects}
+          addToast={addToast}
+        />
+      )}
+    </div>
+  );
+};
 
 interface InvoicesTabProps {
   invoices: Invoice[];

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
-import type { User, View, Project, Role, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
+import type { User, View, Project, Role, Notification, CompanySettings, IncidentStatus, NotificationType } from './types';
+import { TimesheetStatus } from './types';
 import { api } from './services/mockApi';
 import { Login } from './components/Login';
 import { Sidebar } from './components/layout/Sidebar';
@@ -32,7 +33,6 @@ import { useReminderService } from './hooks/useReminderService';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ClientsView } from './components/ClientsView';
 import { InvoicesView } from './components/InvoicesView';
-import { PageErrorBoundary } from './components/ErrorBoundary';
 import { UserRegistration } from './components/UserRegistration';
 import { useAuth } from './contexts/AuthContext';
 import { ForgotPassword } from './components/auth/ForgotPassword';
@@ -441,7 +441,7 @@ function AppContent() {
           addToast={addToast}
         />
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-          <PageErrorBoundary>
+          <ErrorBoundary>
             <ViewAccessBoundary
               user={user}
               view={activeView}
@@ -453,7 +453,7 @@ function AppContent() {
                 {viewContent}
               </Suspense>
             </ViewAccessBoundary>
-          </PageErrorBoundary>
+          </ErrorBoundary>
         </main>
       </div>
 
