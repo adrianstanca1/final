@@ -8,6 +8,8 @@ import { Button } from './ui/Button';
 interface AuditLogViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
+}
+
 const formatDistanceToNow = (date: Date): string => {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
   const intervals = [

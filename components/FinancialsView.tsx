@@ -677,6 +677,8 @@ interface DashboardTabProps {
   onGenerateForecast: (horizon: number) => void;
   isGeneratingForecast: boolean;
   forecastError: string | null;
+}
+
 const DashboardTab = React.memo(
   ({
     kpis,
@@ -871,6 +873,8 @@ interface InvoicesTabProps {
   onOpenInvoice: (invoice: Invoice) => void;
   onRecordPayment: (invoice: Invoice) => void;
   onUpdateInvoiceStatus: (invoiceId: string, status: InvoiceStatus) => void;
+}
+
 const InvoicesTab = React.memo(
   ({ invoices, quotes, canManageFinances, clientMap, projectMap, onCreateInvoice, onOpenInvoice, onRecordPayment, onUpdateInvoiceStatus }: InvoicesTabProps) => (
     <div className="space-y-6">
@@ -978,6 +982,8 @@ interface ExpensesTabProps {
   projectMap: Map<string, string>;
   onCreateExpense: () => void;
   onEditExpense: (expense: Expense) => void;
+}
+
 const ExpensesTab = React.memo(({ expenses, userMap, projectMap, onCreateExpense, onEditExpense }: ExpensesTabProps) => (
   <Card>
     <div className="flex justify-between items-center mb-4">
@@ -1039,6 +1045,8 @@ interface ClientsTabProps {
   canManageFinances: boolean;
   onAddClient: () => void;
   onEditClient: (client: Client) => void;
+}
+
 const ClientsTab = React.memo(({ clients, canManageFinances, onAddClient, onEditClient }: ClientsTabProps) => (
   <div>
     <div className="flex justify-between items-center mb-6">

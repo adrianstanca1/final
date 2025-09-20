@@ -601,26 +601,11 @@ export const api = {
             saveDb();
         }
     },
-    getProjectsByManager: async (managerId: string): Promise<Project[]> => {
-
-        if (!notification) {
-            throw new Error('Notification not found');
-        }
-        notification.isRead = true;
-        notification.read = true;
-        saveDb();
-    },
     getProjectsByManager: async (managerId: string, options?: RequestOptions): Promise<Project[]> => {
         ensureNotAborted(options?.signal);
- 
         await delay();
         ensureNotAborted(options?.signal);
         return db.projects.filter(p => (p as any).managerId === managerId) as Project[];
-    },
-    getProjectById: async (projectId: string): Promise<Project | null> => {
-        await delay();
-        const project = db.projects.find(p => p.id === projectId);
-        return project ? project as Project : null;
     },
     getUsersByCompany: async (companyId: string, options?: RequestOptions): Promise<User[]> => {
         ensureNotAborted(options?.signal);

@@ -80,6 +80,8 @@ const SystemHealthIndicator: React.FC<{ health: SystemHealth }> = ({ health }) =
       </div>
     </div>
   );
+};
+
 export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = ({ user, addToast }) => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);

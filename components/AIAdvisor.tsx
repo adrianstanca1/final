@@ -15,6 +15,8 @@ interface AIAdvisorProps {
 interface ChatMessage {
     role: 'user' | 'model';
     text: string;
+}
+
 export const AIAdvisor: React.FC<AIAdvisorProps> = ({ user, addToast, onBack }) => {
     const [projects, setProjects] = useState<Project[]>([]);
     const [todos, setTodos] = useState<Todo[]>([]);

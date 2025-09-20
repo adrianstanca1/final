@@ -11,6 +11,8 @@ interface FundingBotProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
   onBack: () => void;
+}
+
 export const FundingBot: React.FC<FundingBotProps> = ({ user, addToast, onBack }) => {
     const [keywords, setKeywords] = useState('');
     const [location, setLocation] = useState('UK');

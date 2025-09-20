@@ -6,6 +6,8 @@ import { Button } from '../ui/Button';
 interface ResetPasswordProps {
   token: string;
   onSuccess: () => void;
+}
+
 const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password = '' }) => {
     const getStrength = () => {
         let score = 0;

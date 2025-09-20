@@ -11,6 +11,8 @@ interface TimeTrackingViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
   setActiveView: (view: View) => void;
+}
+
 const Timer: React.FC<{ startTime: Date }> = ({ startTime }) => {
     const [duration, setDuration] = useState('');
 

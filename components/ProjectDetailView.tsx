@@ -36,6 +36,8 @@ interface ProjectDetailViewProps {
   onStartChat: (recipient: User) => void;
 type DetailTab = 'overview' | 'tasks' | 'whiteboard' | 'documents' | 'team' | 'safety' | 'financials';
 
+}
+
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('en-GB', {
     style: 'currency',
