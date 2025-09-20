@@ -62,7 +62,7 @@ Every job emits workflow summary annotations. Configure branch protection to req
 | Name | Type | Scope | Description |
 |------|------|-------|-------------|
 | `GEMINI_API_KEY` | Repository secret | Workflows | Gemini API key shared across build and runtime. Exposed to Vite as `process.env.GEMINI_API_KEY` during builds. |
-| `VITE_GEMINI_API_KEY` | Local env var | Developer machines | Developer-specific Gemini key for local testing. |
+| `GEMINI_API_KEY` | Local env var | Developer machines | Developer-specific Gemini key for local testing, set in `.env.local`. |
 
 **Setup checklist:**
 
