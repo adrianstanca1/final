@@ -15,6 +15,35 @@ type LoginStep = 'credentials' | 'mfa';
 
 const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
+const REMEMBERED_EMAIL_KEY = 'asagents_remembered_email';
+
+const readRememberedEmail = () => {
+    if (typeof window === 'undefined') {
+        return '';
+    }
+    try {
+        return localStorage.getItem(REMEMBERED_EMAIL_KEY) || '';
+    } catch (error) {
+        console.warn('Unable to read remembered email', error);
+        return '';
+    }
+};
+
+const persistRememberedEmail = (shouldRemember: boolean, email: string) => {
+    if (typeof window === 'undefined') {
+        return;
+    }
+    try {
+        if (shouldRemember && email) {
+            localStorage.setItem(REMEMBERED_EMAIL_KEY, email);
+        } else {
+            localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+        }
+    } catch (error) {
+        console.warn('Unable to persist remembered email', error);
+    }
+};
+
 export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForgotPassword }) => {
     const { login, verifyMfaAndFinalize, error: authError, loading: isLoading } = useAuth();
     const [step, setStep] = useState<LoginStep>('credentials');
@@ -128,6 +157,8 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
                 clearValidationError('email');
                 setError(null);
             }}
+
+            onChange={e => setEmail(e.target.value)}
             required
             autoComplete="email"
             className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm ${validationErrors.email ? 'border-destructive' : 'border-border'}`}
@@ -146,6 +177,7 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
                   clearValidationError('password');
                   setError(null);
               }}
+              onChange={e => setPassword(e.target.value)}
               required
               autoComplete="current-password"
               className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm pr-12 ${validationErrors.password ? 'border-destructive' : 'border-border'}`}
@@ -195,6 +227,7 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
                 clearValidationError('mfa');
                 setError(null);
             }}
+            onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))}
             maxLength={6}
             required
             inputMode="numeric"

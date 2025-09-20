@@ -15,6 +15,9 @@
 | Preview | QA validation, stakeholder demos | Pull requests | Vercel preview deployments via `Deploy to Vercel` workflow | Uses the same build artefact as CI and publishes a shareable preview URL. |
 | Production | Customer-facing release | Merge/push to `main` or manual promotion | Vercel production environment via `Deploy to Vercel` workflow | Promotes the verified build; supports instant rollback from the Vercel dashboard. |
 | Static fallback | Optional static export | Manual trigger | GitHub Pages via `Deploy to GitHub Pages` workflow | Retained for backup hosting or disaster recovery drills. |
+| Local | Feature development, exploratory testing | `npm run dev` | Developer machine | Requires a personal `GEMINI_API_KEY` in `.env.local`. |
+| Pull Request (CI) | Automated quality gate before merge | Pull requests to `main` | GitHub Actions `CI` workflow | Runs tests and build to catch regressions early. |
+| Production | Customer-facing release | Merge/push to `main` or manual trigger | GitHub Pages via `Deploy to GitHub Pages` workflow | Publishes the static Vite build (`dist/`). Requires `GEMINI_API_KEY` secret. |
 
 ## Branching & Release Management
 
@@ -22,6 +25,8 @@
 2. **Pull request checks**: the `CI` workflow installs dependencies, runs Vitest, and builds the application. Merges are blocked until this workflow succeeds.
 3. **Production deployment**: merges to `main` automatically queue the **Deploy to Vercel** workflow, which promotes the tested artefact to the production environment. Vercel retains prior deployments, so rollbacks are a single click.
 4. **Manual redeploy**: maintainers can rerun the workflow from the Actions tab or use Vercel’s **Promote to Production** button on a validated preview build. The GitHub Pages workflow remains available for static redeploys if required.
+3. **Production deployment**: merges to `main` automatically queue the deployment workflow. GitHub Pages retains the history of published revisions, enabling rollbacks by reverting commits.
+4. **Manual redeploy**: maintainers can use the `workflow_dispatch` trigger to redeploy the last successful build if infrastructure changes occur.
 
 ## Pipeline Implementation
 
@@ -50,6 +55,16 @@
 - **Operation**: builds the Vite project and publishes to GitHub Pages via `actions/deploy-pages@v4`.
 
 ### 4. Automation flow at a glance
+- **Gemini credentials**: the build step reads `GEMINI_API_KEY` from repository secrets so tests that rely on the configuration can use fallbacks safely without exposing keys.
+
+### 2. Continuous Deployment (`.github/workflows/deploy.yml`)
+
+- **Trigger**: runs on pushes to `main` or on manual dispatch.
+- **Build job**: mirrors the CI installation/build process and uploads the Vite `dist/` directory as a GitHub Pages artifact.
+- **Deploy job**: publishes the artifact using `actions/deploy-pages@v4` into the `production` environment, exposing the deployed URL through environment metadata.
+- **Concurrency control**: prevents overlapping deploys by cancelling superseded runs (`group: pages`).
+
+### 3. Automation flow at a glance
 
 ```
 developer push/PR --> CI workflow (install → test → build)
@@ -58,6 +73,9 @@ developer push/PR --> CI workflow (install → test → build)
                                            │
                                            ├── pull request ➜ Vercel preview URL
                                            └── main branch  ➜ Vercel production site
+                     └── success on main? ──► Deploy workflow (build → upload → publish)
+                                                 │
+                                                 └── GitHub Pages production site
 ```
 
 Every job emits workflow summary annotations. Configure branch protection to require the **CI** workflow before merging, ensuring only artefacts that pass automated checks can progress to production.
@@ -91,6 +109,22 @@ Every job emits workflow summary annotations. Configure branch protection to req
 - **Deployment history**: Vercel exposes preview/production timelines and build logs for traceability. If you keep the Pages fallback, monitor its workflow as well.
 - **Release dashboards**: pin the latest Vercel preview/production URLs (and fallback host, if used) to the team dashboard for at-a-glance health.
 - **Synthetic checks**: configure an UptimeRobot/Checkly probe that hits the Vercel production URL after each deployment and alerts on non-200 responses. Mirror the check for the Pages fallback when active.
+
+| `GEMINI_API_KEY` | Repository secret | Workflows | Gemini API key shared across build and runtime. Exposed to Vite as `process.env.GEMINI_API_KEY` during builds. |
+| `GEMINI_API_KEY` | Local env var | Developer machines | Developer-specific Gemini key for local testing, set in `.env.local`. |
+
+**Setup checklist:**
+
+1. Store `GEMINI_API_KEY` in the repository secrets UI.
+2. Enable GitHub Pages for the repository with the "GitHub Actions" source.
+3. (Optional) Restrict the `production` environment with reviewers for controlled releases.
+
+## Observability & Quality Signals
+
+- **Workflow status**: monitor the `CI` and `Deploy to GitHub Pages` workflows in the Actions tab. Failures block releases.
+- **Pages deployment history**: GitHub Pages keeps a timeline of deployments for traceability.
+- **Release dashboards**: pin the Pages environment URL and latest workflow runs to the repository README or team dashboard for at-a-glance health.
+- **Synthetic checks**: configure an UptimeRobot/Checkly probe that hits the Pages URL after each deployment and alerts on non-200 responses.
 - **Runtime monitoring**: integrate browser analytics or error tracking (e.g., Google Analytics, Sentry) in future iterations to watch for regressions post-release.
 
 ## Rollback & Incident Response
@@ -117,6 +151,13 @@ Every job emits workflow summary annotations. Configure branch protection to req
 ### Incident playbook (on-call engineer)
 
 1. Capture context: failed workflow logs, Vercel deployment status, and any user-facing impact. Include Pages fallback signals if the backup host is active.
+1. Inspect the GitHub Pages deployment summary to confirm the correct commit SHA and environment URL.
+2. Execute the smoke test checklist: application loads, Gemini-backed flows respond with expected latencies, and analytics beacons fire.
+3. Record the verification outcome in the deployment log (GitHub issue or Notion page) for auditability.
+
+### Incident playbook (on-call engineer)
+
+1. Capture context: failed workflow logs, Pages deployment status, and any user-facing impact.
 2. Decide on rollback vs. hotfix within 15 minutes of detection.
 3. Communicate status in the team channel and open an incident ticket containing root-cause hypotheses and mitigation steps.
 4. Schedule a retro once the incident is resolved to catalogue preventive actions.
@@ -128,6 +169,7 @@ Every job emits workflow summary annotations. Configure branch protection to req
 | Feature engineer | Develop features, author tests, maintain documentation, respond to PR feedback. | Signals QA once PR is ready and CI passes. |
 | Reviewer | Perform code review, confirm automated checks, ensure product/UX acceptance criteria are met. | Approves merge or requests changes. |
 | QA/Product | Conduct targeted exploratory testing on the deployed Vercel preview/production environment (and fallback host when used). | Signs off in deployment log, alerts on regressions. |
+| QA/Product | Conduct targeted exploratory testing on the deployed Pages environment. | Signs off in deployment log, alerts on regressions. |
 | On-call engineer | Monitors workflows, owns incident response, coordinates rollback/hotfix. | Updates stakeholders post-resolution. |
 
 ## Maintenance Cadence
@@ -139,5 +181,8 @@ Every job emits workflow summary annotations. Configure branch protection to req
 ## Future Enhancements
 
 - Add visual regression or Lighthouse checks directly in the Vercel pipeline to protect UX quality gates.
+
+- Add visual regression testing or Lighthouse checks to protect UX quality gates.
+- Integrate preview deployments for each pull request (e.g., Vercel/Netlify) if stakeholders need live QA sandboxes.
 - Automate notifications (Slack/Teams) on deployment completion and failures for better team awareness.
 - Expand monitoring with uptime checks and error alerting to close the feedback loop after release.

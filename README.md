@@ -37,4 +37,11 @@ This project ships with a fully automated CI/CD pipeline backed by GitHub Action
 - **Runbooks & responsibilities**: [docs/deployment-plan.md](docs/deployment-plan.md) outlines the automation flow, operational checklists, and ownership model for engineers, reviewers, QA, and on-call.
 - **Vercel-specific setup**: follow [docs/vercel-deployment.md](docs/vercel-deployment.md) to connect the repository to Vercel and provision the required secrets (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`).
 - **Gemini credentials**: store the shared Gemini credential as `GEMINI_API_KEY` in repository secrets and mirror it to `VITE_GEMINI_API_KEY` (or provide a separate client-safe key). Developers keep personal keys in `.env.local` for local runs.
+
+## Deployment automation
+
+This project ships with a fully automated CI/CD pipeline backed by GitHub Actions. Pull requests run tests and builds via the [`CI` workflow](.github/workflows/ci.yml), while merges to `main` trigger the [`Deploy to GitHub Pages` workflow](.github/workflows/deploy.yml) to publish the production site.
+
+- **Runbooks & responsibilities**: [docs/deployment-plan.md](docs/deployment-plan.md) details the end-to-end automation flow, operational checklists, and ownership model for engineers, reviewers, QA, and on-call.
+- **Secrets**: store the shared Gemini credential as `GEMINI_API_KEY` in repository secrets; developers keep personal keys in `.env.local` as `VITE_GEMINI_API_KEY`.
 - **Monitoring**: follow the plan's observability section to wire synthetic uptime checks and error tracking so deployments stay production ready.

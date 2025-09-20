@@ -6,6 +6,7 @@ import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Cli
 import { createPasswordRecord, sanitizeUser, upgradeLegacyPassword, verifyPassword } from '../utils/password';
 import { getStorage } from '../utils/storage';
 
+
 const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
 
 type RequestOptions = { signal?: AbortSignal };
@@ -115,6 +116,70 @@ const mergeCompanySettings = (
         accessibility: mergedAccessibility,
     };
 };
+
+const defaultUserPreferences = (): User['preferences'] => ({
+    theme: 'system',
+    language: 'en',
+    notifications: {
+        email: true,
+        push: false,
+        sms: false,
+        taskReminders: true,
+        projectUpdates: true,
+        systemAlerts: true,
+    },
+    dashboard: {
+        defaultView: 'dashboard',
+        pinnedWidgets: [],
+        hiddenWidgets: [],
+    },
+});
+
+type InviteTokenConfig = {
+    companyId: string;
+    allowedRoles: Role[];
+    suggestedRole?: Role;
+};
+
+const inviteTokenDirectory = new Map<string, InviteTokenConfig>([
+    ['JOIN-CONSTRUCTCO', {
+        companyId: '1',
+        allowedRoles: [Role.ADMIN, Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE],
+        suggestedRole: Role.PROJECT_MANAGER,
+    }],
+    ['JOIN-RENOVATE', {
+        companyId: '2',
+        allowedRoles: [Role.ADMIN, Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE],
+        suggestedRole: Role.FOREMAN,
+    }],
+    ['JOIN-CLIENT', {
+        companyId: '3',
+        allowedRoles: [Role.CLIENT],
+        suggestedRole: Role.CLIENT,
+    }],
+]);
+
+const defaultCompanySettings = (): CompanySettings => ({
+    theme: 'light',
+    accessibility: { highContrast: false },
+    timeZone: 'Europe/London',
+    dateFormat: 'DD/MM/YYYY',
+    currency: 'GBP',
+    workingHours: {
+        start: '08:00',
+        end: '17:00',
+        workDays: [1, 2, 3, 4, 5],
+    },
+    features: {
+        projectManagement: true,
+        timeTracking: true,
+        financials: true,
+        documents: true,
+        safety: true,
+        equipment: true,
+        reporting: true,
+    },
+});
 
 const defaultUserPreferences = (): User['preferences'] => ({
     theme: 'system',
@@ -278,6 +343,22 @@ const createDb = (): DbCollections => ({
 
 let db: DbCollections = createDb();
 
+const findUserByEmail = (email: string) => {
+    const normalized = normalizeEmail(email);
+    return db.users.find(u => u.email && u.email.toLowerCase() === normalized);
+};
+
+const sanitizeUserForReturn = (user: Partial<User>): User => sanitizeUser(user) as User;
+
+const sanitizeUsersForReturn = (users: Partial<User>[]): User[] => users.map(u => sanitizeUserForReturn(u));
+
+const legacyUsersToUpgrade = db.users.filter(u => u.password && (!u.passwordHash || !u.passwordSalt));
+if (legacyUsersToUpgrade.length > 0) {
+    Promise.all(legacyUsersToUpgrade.map(user => upgradeLegacyPassword(user as Partial<User>)))
+        .then(saveDb)
+        .catch(error => console.error('Failed to upgrade legacy user credentials', error));
+}
+
 const saveDb = () => {
     (Object.keys(db) as Array<keyof DbCollections>).forEach(key => {
         storage.setItem(`${STORAGE_PREFIX}${String(key)}`, JSON.stringify(db[key]));
@@ -306,6 +387,20 @@ const upgradeLegacyUsers = () => {
 };
 
 upgradeLegacyUsers();
+
+const ensureUserPermissionConsistency = () => {
+    let updated = false;
+    db.users.forEach(user => {
+        if (user.role && (!user.permissions || (user.permissions as Permission[]).length === 0)) {
+            user.permissions = Array.from(RolePermissions[user.role]);
+            updated = true;
+        }
+    });
+    if (updated) {
+        saveDb();
+    }
+};
+
 
 const ensureUserPermissionConsistency = () => {
     let updated = false;
@@ -418,6 +513,12 @@ export const authApi = {
             const normalizedToken = credentials.inviteToken ? normalizeInviteToken(credentials.inviteToken) : '';
             if (!normalizedToken) {
                 throw new Error('An invite token is required to join an existing company.');
+            }
+            const inviteDetails = inviteTokenDirectory.get(normalizedToken);
+            if (!inviteDetails) {
+                throw new Error('Invalid invite token.');
+            }
+
             }
             const inviteDetails = inviteTokenDirectory.get(normalizedToken);
             if (!inviteDetails) {

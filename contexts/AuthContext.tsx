@@ -1,6 +1,8 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, ReactNode } from 'react';
 import { User, Company, LoginCredentials, RegistrationPayload, AuthState, Permission } from '../types';
 import { authClient, type AuthenticatedSession } from '../services/authClient';
+
+import { authApi } from '../services/mockApi';
 import { hasPermission as checkPermission } from '../services/auth';
 import { api } from '../services/mockApi';
 import { getStorage } from '../utils/storage';
@@ -10,6 +12,8 @@ const storage = getStorage();
 interface AuthContextType extends AuthState {
     login: (credentials: LoginCredentials) => Promise<{ mfaRequired: boolean; userId?: string }>;
     register: (credentials: RegistrationPayload) => Promise<AuthenticatedSession>;
+
+    register: (credentials: RegistrationPayload) => Promise<void>;
     logout: () => void;
     hasPermission: (permission: Permission) => boolean;
     verifyMfaAndFinalize: (userId: string, code: string) => Promise<void>;
@@ -174,6 +178,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     const register = async (credentials: RegistrationPayload): Promise<AuthenticatedSession> => {
+
+    const register = async (credentials: RegistrationPayload) => {
         setAuthState(prev => ({ ...prev, loading: true, error: null }));
         try {
             const session = await authClient.register(credentials);
