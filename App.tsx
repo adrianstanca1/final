@@ -233,10 +233,36 @@ function AppContent() {
   useReminderService(user);
   
   useEffect(() => {
+<<<<<<< HEAD
     if (user?.companyId) {
       api.getCompanySettings(user.companyId).then(setCompanySettings);
+=======
+    if (!user?.companyId) {
+      setCompanySettings(null);
+      return;
+>>>>>>> e7ec06c (Log sixth autonomous deployment run)
     }
-  }, [user]);
+
+    let isActive = true;
+    api
+      .getCompanySettings(user.companyId)
+      .then(settings => {
+        if (isActive) {
+          setCompanySettings(settings);
+        }
+      })
+      .catch(error => {
+        if (!isActive) {
+          return;
+        }
+        console.error('Failed to load company settings', error);
+        addToast('We could not load your company preferences. Some pages may use defaults.', 'error');
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [user, addToast]);
 
   useEffect(() => {
     if(companySettings) {
@@ -249,6 +275,20 @@ function AppContent() {
       setActiveView(getDefaultViewForUser(user));
     }
   }, [isAuthenticated, user]);
+
+
+  const handleCompanySettingsUpdate = useCallback(
+    async (updates: Partial<CompanySettings>) => {
+      if (!user?.companyId) {
+        throw new Error('You must belong to a company to update settings.');
+      }
+
+      const updated = await api.updateCompanySettings(user.companyId, updates, user.id);
+      setCompanySettings(updated);
+      return updated;
+    },
+    [user]
+  );
 
 
   const updateBadgeCounts = useCallback(async (user: User) => {
@@ -413,7 +453,19 @@ function AppContent() {
       case 'templates': return <TemplatesView user={user} addToast={addToast} />;
       case 'tools': return <ToolsView user={user} addToast={addToast} setActiveView={navigateToView} />;
       case 'audit-log': return <AuditLogView user={user} addToast={addToast} />;
+<<<<<<< HEAD
       case 'settings': return <SettingsView user={user} addToast={addToast} settings={companySettings} onSettingsUpdate={(s) => setCompanySettings(prev => ({...prev, ...s}))} />;
+=======
+      case 'settings':
+        return (
+          <SettingsView
+            user={user}
+            addToast={addToast}
+            settings={companySettings}
+            onSettingsUpdate={handleCompanySettingsUpdate}
+          />
+        );
+>>>>>>> e7ec06c (Log sixth autonomous deployment run)
       case 'chat': return <ChatView user={user} addToast={addToast} initialRecipient={initialChatRecipient}/>;
       case 'clients': return <ClientsView user={user} addToast={addToast} />;
       case 'invoices': return <InvoicesView user={user} addToast={addToast} />;
