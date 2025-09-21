@@ -7,6 +7,8 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   size?: 'sm' | 'md' | 'lg';
   className?: string;
   isLoading?: boolean;
+}
+
 const Spinner: React.FC<{ size: 'sm' | 'md' | 'lg' }> = ({ size }) => {
     const spinnerSizeClasses = {
         sm: 'h-4 w-4',
@@ -19,6 +21,8 @@ const Spinner: React.FC<{ size: 'sm' | 'md' | 'lg' }> = ({ size }) => {
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
     );
+};
+
 export const Button: React.FC<ButtonProps> = ({ children, variant = 'primary', size = 'md', className = '', isLoading = false, ...props }) => {
   const baseClasses = 'inline-flex items-center justify-center rounded-md font-semibold focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]';
   

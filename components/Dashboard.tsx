@@ -39,6 +39,8 @@ interface DashboardProps {
   activeView: View;
   setActiveView: (view: View) => void;
   onSelectProject: (project: Project) => void;
+}
+
 const KpiCard: React.FC<{ title: string; value: string; subtext?: string; icon: React.ReactNode }> = ({ title, value, subtext, icon }) => (
     <Card className="flex items-center gap-4 animate-card-enter">
         <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-muted text-muted-foreground">

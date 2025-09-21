@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 // FIX: Corrected import paths to be relative.
 import { User, Project, Permission, ProjectStatus } from '../types';
+
+interface ProjectsMapViewProps {
+  user: User;
+  addToast: (message: string, type: 'success' | 'error') => void;
+}
+
+export const ProjectsMapView: React.FC<ProjectsMapViewProps> = ({ user, addToast }) => {
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
 import { Card } from './ui/Card';
