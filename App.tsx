@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react';
 import { User, View, Project, Role, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
 import { api } from './services/mockApi';
+import { notificationService } from './services/notificationService';
+import { analytics } from './services/analyticsService';
+import { backupService } from './services/backupService';
+import { authService } from './services/auth';
 import { Login } from './components/Login';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
@@ -135,10 +139,44 @@ function AppContent() {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [initialChatRecipient, setInitialChatRecipient] = useState<User | null>(null);
 
+<<<<<<< HEAD
   const navigateToView = useCallback((view: View) => {
     setSelectedProject(current => (view === 'project-detail' ? current : null));
     setActiveView(view);
   }, [setActiveView, setSelectedProject]);
+=======
+  // Initialize services when user logs in
+  useEffect(() => {
+    if (user && isAuthenticated) {
+      // Initialize notification service
+      notificationService.connect(user.id);
+
+      // Subscribe to notifications
+      const unsubscribe = notificationService.subscribe((notification) => {
+        addToast(notification.message, 'success', notification);
+      });
+
+      // Identify user for analytics
+      analytics.identify(user.id, {
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        companyId: user.companyId,
+      });
+
+      // Track login event
+      analytics.track('user_login', {
+        user_role: user.role,
+        company_id: user.companyId,
+      });
+
+      return () => {
+        unsubscribe();
+        notificationService.disconnect();
+      };
+    }
+  }, [user, isAuthenticated]);
+>>>>>>> a7fe77a31bbd87b9e4e4b81903e82bb3bf69fcf3
 
   // States for sidebar badge counts
   const [pendingTimesheetCount, setPendingTimesheetCount] = useState(0);
@@ -150,16 +188,30 @@ function AppContent() {
 
   const changeView = useCallback(
     (view: View) => {
+      // Track page view for analytics
+      analytics.trackPageView(view, selectedProject ? `${view} - ${selectedProject.name}` : view);
+
       if (view !== 'project-detail') {
         setSelectedProject(null);
       }
       setActiveView(view);
     },
-    []
+    [selectedProject]
   );
 
   const addToast = useCallback((message: string, type: 'success' | 'error' = 'success', notification?: Notification) => {
-    setToasts(currentToasts => [...currentToasts, { id: Date.now(), message, type, notification }]);
+    const id = Date.now();
+    setToasts(currentToasts => [...currentToasts, { id, message, type, notification }]);
+
+    // Track toast events for analytics
+    analytics.track('toast_shown', {
+      message_type: type,
+      has_notification: !!notification,
+      notification_type: notification?.type,
+    });
+
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => dismissToast(id), 5000);
   }, []);
 
   const dismissToast = (id: number) => {
@@ -250,6 +302,14 @@ function AppContent() {
   }, [user, updateBadgeCounts]);
 
   const handleLogout = () => {
+    // Track logout event
+    analytics.track('user_logout', {
+      session_duration: Date.now() - (analytics.getSessionData().startTime || 0),
+    });
+
+    // Create backup before logout
+    backupService.createBackup({}, { userId: user?.id || 'unknown' }).catch(console.error);
+
     logout();
     setAuthView('login');
     navigateToView('dashboard');
@@ -257,6 +317,13 @@ function AppContent() {
   };
 
   const handleSelectProject = (project: Project) => {
+    // Track project selection
+    analytics.track('project_selected', {
+      project_id: project.id,
+      project_name: project.name,
+      project_status: project.status,
+    });
+
     setSelectedProject(project);
     setActiveView('project-detail');
   };
@@ -491,6 +558,34 @@ function AppContent() {
 
 // Main App component with enhanced error handling and toast provider
 function App() {
+  useEffect(() => {
+    // Set up global error handling
+    const handleError = (error: ErrorEvent) => {
+      analytics.trackError(new Error(error.message), {
+        filename: error.filename,
+        lineno: error.lineno,
+        colno: error.colno,
+      });
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      analytics.trackError(new Error(event.reason), {
+        type: 'unhandled_promise_rejection',
+      });
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+    // Track initial page load
+    analytics.trackPageView(window.location.pathname, document.title);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
+
   return (
     <ToastProvider>
       <AppContent />

@@ -1,8 +1,10 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, ReactNode } from 'react';
 import { User, Company, LoginCredentials, RegisterCredentials, AuthState, Permission } from '../types';
 import { authApi } from '../services/mockApi';
-import { hasPermission as checkPermission } from '../services/auth';
+import { hasPermission as checkPermission, authService } from '../services/auth';
 import { api } from '../services/mockApi';
+import { analytics } from '../services/analyticsService';
+import { ValidationService } from '../services/validationService';
 
 interface AuthContextType extends AuthState {
     login: (credentials: LoginCredentials) => Promise<{ mfaRequired: boolean; userId?: string }>;
@@ -143,17 +145,60 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const login = async (credentials: LoginCredentials): Promise<{ mfaRequired: boolean; userId?: string }> => {
         setAuthState(prev => ({ ...prev, loading: true, error: null }));
+
+        // Validate credentials
+        const validation = ValidationService.validate(credentials, [
+            { field: 'email', required: true, type: 'email', sanitize: ValidationService.sanitizers.normalizeEmail },
+            { field: 'password', required: true, type: 'string', minLength: 1 }
+        ]);
+
+        if (!validation.isValid) {
+            const error = new Error(`Invalid credentials: ${Object.values(validation.errors).flat().join(', ')}`);
+            setAuthState(prev => ({ ...prev, loading: false, error: error.message }));
+            throw error;
+        }
+
+        // Check for account lockout
+        if (authService.isAccountLocked(credentials.email)) {
+            const error = new Error('Account temporarily locked due to multiple failed login attempts');
+            setAuthState(prev => ({ ...prev, loading: false, error: error.message }));
+            authService.recordLoginAttempt(credentials.email, false, {
+                ipAddress: 'unknown', // Would get real IP in production
+                userAgent: navigator.userAgent,
+            });
+            throw error;
+        }
+
         try {
-            const response = await authApi.login(credentials);
+            const response = await authApi.login(validation.sanitizedData);
+
+            // Record successful login attempt
+            authService.recordLoginAttempt(credentials.email, true, {
+                ipAddress: 'unknown',
+                userAgent: navigator.userAgent,
+            });
+
             if (response.mfaRequired) {
                 setAuthState(prev => ({ ...prev, loading: false }));
                 return { mfaRequired: true, userId: response.userId };
             }
-            
+
             finalizeLogin(response);
             return { mfaRequired: false };
 
         } catch (error: any) {
+            // Record failed login attempt
+            authService.recordLoginAttempt(credentials.email, false, {
+                ipAddress: 'unknown',
+                userAgent: navigator.userAgent,
+            });
+
+            // Track login failure
+            analytics.trackError(error, {
+                operation: 'login',
+                email: credentials.email,
+            });
+
             setAuthState(prev => ({ ...prev, token: null, refreshToken: null, user: null, company: null, isAuthenticated: false, loading: false, error: error.message || 'Login failed' }));
             throw error;
         }
