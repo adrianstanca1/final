@@ -4,10 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "install": "node ./scripts/install-deps.mjs",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+<<<<<<< HEAD
     "test:watch": "vitest",
     "test:coverage": "vitest --coverage",
     "type-check": "tsc --noEmit",
@@ -21,6 +23,9 @@
     "deploy:dry-run": "node scripts/deploy.js production vercel --dry-run",
     "start": "npm run preview",
     "analyze": "ANALYZE_BUNDLE=true npm run build"
+=======
+    "deploy": "npm run build"
+>>>>>>> e7ec06c (Log sixth autonomous deployment run)
   },
   "dependencies": {
     "@google/genai": "^1.17.0",
