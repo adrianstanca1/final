@@ -30,7 +30,7 @@
   },
   "files": [
     "index.tsx",
-    "final/App.tsx"
+    "App.stable.tsx"
   ],
   "exclude": [
     "node_modules",

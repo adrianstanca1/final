@@ -1,14 +1,16 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, ReactNode } from 'react';
-import { User, Company, LoginCredentials, RegisterCredentials, AuthState, Permission } from '../types';
+import { User, Company, LoginCredentials, AuthState, Permission } from '../types';
 import { authApi } from '../services/mockApi';
 import { hasPermission as checkPermission, authService } from '../services/auth';
 import { api } from '../services/mockApi';
 import { analytics } from '../services/analyticsService';
 import { ValidationService } from '../services/validationService';
+import { getStorage } from '../utils/storage';
+import { authClient, type AuthenticatedSession, type RegistrationPayload } from '../services/authClient';
 
 interface AuthContextType extends AuthState {
     login: (credentials: LoginCredentials) => Promise<{ mfaRequired: boolean; userId?: string }>;
-    register: (credentials: RegisterCredentials) => Promise<void>;
+    register: (credentials: RegistrationPayload) => Promise<AuthenticatedSession>;
     logout: () => void;
     hasPermission: (permission: Permission) => boolean;
     verifyMfaAndFinalize: (userId: string, code: string) => Promise<void>;
@@ -39,6 +41,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loading: true,
         error: null,
     });
+
+    const storage = getStorage();
+
 
     const logout = useCallback(() => {
         storage.removeItem('token');
@@ -90,7 +95,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
         }
     }, [logout]);
-    
+
     const finalizeLogin = useCallback((data: { token: string, refreshToken: string, user: User, company: Company }) => {
         storage.setItem('token', data.token);
         storage.setItem('refreshToken', data.refreshToken);
@@ -202,14 +207,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             throw error;
         }
     };
-    
+
     const verifyMfaAndFinalize = async (userId: string, code: string) => {
         setAuthState(prev => ({ ...prev, loading: true, error: null }));
-         try {
+        try {
             const response = await authClient.verifyMfa(userId, code);
             finalizeLogin(response);
         } catch (error: any) {
-            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'MFA verification failed'}));
+            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'MFA verification failed' }));
             throw error;
         }
     }
@@ -221,7 +226,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             finalizeLogin(session);
             return session;
         } catch (error: any) {
-             setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Registration failed'}));
+            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Registration failed' }));
             throw error;
         }
     };
@@ -246,7 +251,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             await authClient.requestPasswordReset(email);
             setAuthState(prev => ({ ...prev, loading: false }));
         } catch (error: any) {
-            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Request failed'}));
+            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Request failed' }));
             throw error;
         }
     };
@@ -257,11 +262,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             await authClient.resetPassword(token, newPassword);
             setAuthState(prev => ({ ...prev, loading: false }));
         } catch (error: any) {
-            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Password reset failed'}));
+            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Password reset failed' }));
             throw error;
         }
     };
-    
+
     const value = {
         ...authState,
         login,

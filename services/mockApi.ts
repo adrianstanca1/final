@@ -22,6 +22,7 @@ import {
     Notification,
     LoginCredentials,
     RegisterCredentials,
+    RegistrationPayload,
     TaskStatus,
     TaskPriority,
     TimeEntryStatus,
@@ -35,6 +36,7 @@ import {
     MonthlyFinancials,
     CostBreakdown,
     Role,
+    Permission,
     TimesheetStatus,
     IncidentStatus,
     AuditLog,
@@ -352,6 +354,8 @@ type DbCollections = {
     projectTemplates: Partial<ProjectTemplate>[];
     whiteboardNotes: Partial<WhiteboardNote>[];
     documents: Partial<Document>[];
+    financialForecasts: Partial<FinancialForecast>[];
+
     projectInsights: Partial<ProjectInsight>[];
 };
 
@@ -847,15 +851,15 @@ const addToOfflineQueue = (type: string, payload: any) => {
 
 export const processOfflineQueue = async () => {
     if (offlineQueue.length === 0) return { successCount: 0, movedToFailedCount: 0 };
-    
+
     let successCount = 0;
     let movedToFailedCount = 0;
     const processingQueue = [...offlineQueue];
     offlineQueue = [];
-    
+
     for (const action of processingQueue) {
         try {
-            await delay(100); 
+            await delay(100);
             console.log(`Successfully synced action: ${action.type}`, action.payload);
             successCount++;
         } catch (error) {
