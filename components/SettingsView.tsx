@@ -183,12 +183,15 @@ const UserProfileSettings: React.FC<{ user: User, addToast: (m:string,t:'success
         </Card>
     )
 <<<<<<< HEAD
+<<<<<<< HEAD
 const CompanySettingsComponent: React.FC<{ settings: CompanySettings, onSettingsUpdate: (updatedSettings: Partial<CompanySettings>) => void }> = ({ settings, onSettingsUpdate }) => {
     
     const handleSettingsChange = (key: keyof CompanySettings, value: any) => {
         if (settings && (settings as any)[key] !== value) {
             onSettingsUpdate({ [key]: value });
 =======
+=======
+>>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
 }
 
 const CompanySettingsComponent: React.FC<{
@@ -215,7 +218,10 @@ const CompanySettingsComponent: React.FC<{
             addToast(message, 'error');
         } finally {
             setPendingKey(current => (current === key ? null : current));
+<<<<<<< HEAD
 >>>>>>> e7ec06c (Log sixth autonomous deployment run)
+=======
+>>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
         }
     };
 

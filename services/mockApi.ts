@@ -3,6 +3,7 @@
 
 import { initialData } from './mockData';
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { apiCache, cacheKeys } from './cacheService';
 import { ValidationService, securityValidation } from './validationService';
 import { notificationService } from './notificationService';
@@ -64,6 +65,8 @@ import {
 import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
 import { getInvoiceFinancials } from '../utils/finance';
 =======
+=======
+>>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
 import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegistrationPayload, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority, RolePermissions, Permission } from '../types';
 import { createPasswordRecord, sanitizeUser, upgradeLegacyPassword, verifyPassword } from '../utils/password';
 import { getStorage } from '../utils/storage';
@@ -233,6 +236,7 @@ const defaultUserPreferences = (): User['preferences'] => ({
         hiddenWidgets: [],
     },
 });
+<<<<<<< HEAD
 
 const encodeBase64 = (value: string): string => {
     if (typeof btoa === 'function') {
@@ -253,6 +257,8 @@ const decodeBase64 = (value: string): string => {
     }
     throw new Error('Base64 decoding is not supported in this environment.');
 };
+=======
+>>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
 
 const createToken = (payload: object, expiresIn: number): string => {
     const header = { alg: 'HS256', typ: 'JWT' };
@@ -282,6 +288,7 @@ const decodeToken = (token: string): any => {
     }
 };
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 const safeNumber = (value: unknown): number => {
     if (typeof value === 'number' && Number.isFinite(value)) {
@@ -332,6 +339,25 @@ const readJson = <T>(key: string, fallback: T): T => {
     }
 };
 
+=======
+const STORAGE_PREFIX = 'asagents_';
+
+const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+
+const readJson = <T>(key: string, fallback: T): T => {
+    try {
+        const stored = storage.getItem(key);
+        if (!stored) {
+            return fallback;
+        }
+        return JSON.parse(stored) as T;
+    } catch (error) {
+        console.error(`Failed to read ${key} from storage`, error);
+        return fallback;
+    }
+};
+
+>>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
 const writeJson = (key: string, value: unknown) => {
     storage.setItem(key, JSON.stringify(value));
 };
@@ -360,6 +386,7 @@ type DbCollections = {
     whiteboardNotes: Partial<WhiteboardNote>[];
     documents: Partial<Document>[];
     projectInsights: Partial<ProjectInsight>[];
+<<<<<<< HEAD
 <<<<<<< HEAD
     financialForecasts: Partial<FinancialForecast>[];
 } = {
@@ -461,6 +488,10 @@ const getCompanyCurrency = (companyId: string): string => {
 >>>>>>> e7ec06c (Log sixth autonomous deployment run)
 };
 
+=======
+};
+
+>>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
 const DEFAULT_COLLECTIONS: Record<keyof DbCollections, any[]> = {
     companies: clone(initialData.companies),
     users: clone(initialData.users),

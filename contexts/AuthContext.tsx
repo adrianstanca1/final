@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, ReactNode } from 'react';
 <<<<<<< HEAD
+<<<<<<< HEAD
 import { User, Company, LoginCredentials, RegisterCredentials, AuthState, Permission } from '../types';
 import { authApi } from '../services/mockApi';
 import { hasPermission as checkPermission, authService } from '../services/auth';
@@ -7,6 +8,8 @@ import { api } from '../services/mockApi';
 import { analytics } from '../services/analyticsService';
 import { ValidationService } from '../services/validationService';
 =======
+=======
+>>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
 import { User, Company, LoginCredentials, RegistrationPayload, AuthState, Permission } from '../types';
 import { authClient, type AuthenticatedSession } from '../services/authClient';
 import { hasPermission as checkPermission } from '../services/auth';
@@ -14,7 +17,10 @@ import { api } from '../services/mockApi';
 import { getStorage } from '../utils/storage';
 
 const storage = getStorage();
+<<<<<<< HEAD
 >>>>>>> e7ec06c (Log sixth autonomous deployment run)
+=======
+>>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
 
 interface AuthContextType extends AuthState {
     login: (credentials: LoginCredentials) => Promise<{ mfaRequired: boolean; userId?: string }>;
@@ -181,6 +187,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         try {
 <<<<<<< HEAD
+<<<<<<< HEAD
             const response = await authApi.login(validation.sanitizedData);
 
             // Record successful login attempt
@@ -192,6 +199,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 =======
             const response = await authClient.login(credentials);
 >>>>>>> e7ec06c (Log sixth autonomous deployment run)
+=======
+            const response = await authClient.login(credentials);
+>>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
             if (response.mfaRequired) {
                 setAuthState(prev => ({ ...prev, loading: false }));
                 return { mfaRequired: true, userId: response.userId };
