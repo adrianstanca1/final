@@ -125,7 +125,7 @@ Set these environment variables for production:
 ```bash
 # Required
 GEMINI_API_KEY=your_gemini_api_key_here
-VAPID_PUBLIC_KEY=your_vapid_public_key_here
+VITE_VAPID_PUBLIC_KEY=your_vapid_public_key_here
 
 # Optional
 ANALYTICS_TRACKING_ID=your_analytics_id
