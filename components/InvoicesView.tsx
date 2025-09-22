@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { differenceInCalendarDays, format } from 'date-fns';
-import { api } from '../services/mockApi';
+import { differenceInCalendarDays, format, formatDistanceToNow } from 'date-fns';
+import { api, backendCapabilities } from '../services/mockApi';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 import { InvoiceStatusBadge } from './ui/StatusBadge';
@@ -107,6 +107,8 @@ interface InvoicesViewProps {
   addToast: (message: string, type: 'success' | 'error') => void;
 }
 
+type BackendHealth = { state: 'checking' | 'connected' | 'mock' | 'error'; checkedAt?: string; error?: string };
+
 export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -119,6 +121,10 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('BANK_TRANSFER');
   const [isRecordingPayment, setIsRecordingPayment] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [backendHealth, setBackendHealth] = useState<BackendHealth>(() =>
+    backendCapabilities.isEnabled ? { state: 'checking' } : { state: 'mock' },
+  );
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(
@@ -175,6 +181,43 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
   }, [fetchData]);
 
   useEffect(() => {
+    if (!backendCapabilities.isEnabled) {
+      return;
+    }
+    let cancelled = false;
+    backendCapabilities
+      .checkHealth()
+      .then(result => {
+        if (cancelled) return;
+        if (result.status === 'ok') {
+          setBackendHealth({ state: 'connected', checkedAt: result.checkedAt });
+        } else if (result.status === 'error') {
+          setBackendHealth({ state: 'error', checkedAt: result.checkedAt, error: result.error });
+        } else {
+          setBackendHealth({ state: 'mock', checkedAt: result.checkedAt });
+        }
+      })
+      .catch(error => {
+        if (cancelled) return;
+        setBackendHealth({
+          state: 'error',
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const describeRelativeTime = useCallback((value?: string) => {
+    if (!value) return 'unknown';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return 'unknown';
+    return formatDistanceToNow(parsed, { addSuffix: true });
+  }, []);
+
+  useEffect(() => {
     if (selectedInvoiceId && !invoices.some((invoice) => invoice.id === selectedInvoiceId)) {
       setSelectedInvoiceId(null);
     }
@@ -204,6 +247,54 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
     setPaymentAmount(balance > 0 ? balance.toFixed(2) : '');
     setPaymentMethod('BANK_TRANSFER');
   }, [selectedInvoice]);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchData(false);
+      if (backendCapabilities.isEnabled) {
+        const result = await backendCapabilities.checkHealth();
+        if (result.status === 'ok') {
+          setBackendHealth({ state: 'connected', checkedAt: result.checkedAt });
+        } else if (result.status === 'error') {
+          setBackendHealth({ state: 'error', checkedAt: result.checkedAt, error: result.error });
+        } else {
+          setBackendHealth({ state: 'mock', checkedAt: result.checkedAt });
+        }
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      addToast('Unable to refresh invoices.', 'error');
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [fetchData, addToast]);
+
+  const dataSourceMeta = useMemo(() => {
+    if (backendHealth.state === 'connected') {
+      return {
+        value: 'Live database',
+        helper: backendHealth.checkedAt
+          ? `Checked ${describeRelativeTime(backendHealth.checkedAt)}`
+          : 'Synchronised with the backend service',
+        indicator: 'positive' as const,
+      };
+    }
+    if (backendHealth.state === 'error') {
+      return {
+        value: 'Degraded',
+        helper: backendHealth.error ?? 'Falling back to cached data',
+        indicator: 'negative' as const,
+      };
+    }
+    return {
+      value: 'Local mock',
+      helper: 'Using in-browser data cache',
+      indicator: 'neutral' as const,
+    };
+  }, [backendHealth, describeRelativeTime]);
+
+  const isInitialLoading = loading && invoices.length === 0;
 
   const summary = useMemo(() => {
     let outstanding = 0;
@@ -575,14 +666,18 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
       <ViewHeader
         view="invoices"
         actions={
-          <Button
-            variant="secondary"
-            onClick={() =>
-              addToast('Invoice creation is available from the Financials workspace.', 'success')
-            }
-          >
-            New invoice
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" size="sm" onClick={handleRefresh} isLoading={isRefreshing}>
+              Refresh data
+            </Button>
+            <Button
+              onClick={() =>
+                addToast('Invoice creation is available from the Financials workspace.', 'success')
+              }
+            >
+              New invoice
+            </Button>
+          </div>
         }
         meta={[
           {
@@ -603,10 +698,16 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
             helper: 'Paid in the last 30 days',
             indicator: collectionIndicator,
           },
+          {
+            label: 'Data source',
+            value: dataSourceMeta.value,
+            helper: dataSourceMeta.helper,
+            indicator: dataSourceMeta.indicator,
+          },
         ]}
       />
 
-      {loading ? (
+      {isInitialLoading ? (
         <Card>Loading invoices...</Card>
       ) : (
         <>

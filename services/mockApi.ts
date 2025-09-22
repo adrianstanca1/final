@@ -14,6 +14,88 @@ const ensureNotAborted = (signal?: AbortSignal) => {
     }
 };
 
+const envBackendUrl =
+    (typeof import.meta !== 'undefined' && (import.meta as any)?.env?.VITE_BACKEND_URL) ||
+    (typeof process !== 'undefined' && process.env?.VITE_BACKEND_URL) ||
+    undefined;
+
+const backendBaseUrl = typeof envBackendUrl === 'string' && envBackendUrl.length > 0
+    ? envBackendUrl.replace(/\/$/, '')
+    : undefined;
+
+const isBackendEnabled = Boolean(backendBaseUrl);
+
+const backendFetch = async <T>(
+    path: string,
+    init: RequestInit = {},
+    signal?: AbortSignal,
+): Promise<T> => {
+    if (!backendBaseUrl) {
+        throw new Error('Backend API is not configured.');
+    }
+
+    ensureNotAborted(signal);
+
+    const headers = new Headers(init.headers ?? {});
+    if (init.body && !headers.has('Content-Type')) {
+        headers.set('Content-Type', 'application/json');
+    }
+
+    const response = await fetch(`${backendBaseUrl}${path}`, {
+        ...init,
+        headers,
+        signal,
+    });
+
+    if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        throw new Error(text || `Backend request failed with status ${response.status}`);
+    }
+
+    if (response.status === 204) {
+        return undefined as T;
+    }
+
+    const contentType = response.headers.get('content-type') ?? '';
+    if (contentType.includes('application/json')) {
+        return (await response.json()) as T;
+    }
+
+    return undefined as T;
+};
+
+export const backendCapabilities = {
+    isEnabled: isBackendEnabled,
+    baseUrl: backendBaseUrl,
+    async checkHealth(signal?: AbortSignal) {
+        if (!isBackendEnabled) {
+            return { status: 'mock', mode: 'local', checkedAt: new Date().toISOString() };
+        }
+
+        try {
+            const response = await backendFetch<{ status?: string; mode?: string; checkedAt?: string }>(
+                '/health',
+                { method: 'GET' },
+                signal,
+            );
+            return {
+                status: 'ok' as const,
+                mode: response?.mode ?? 'database',
+                checkedAt: response?.checkedAt ?? new Date().toISOString(),
+            };
+        } catch (error) {
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                throw error;
+            }
+            return {
+                status: 'error' as const,
+                error: error instanceof Error ? error.message : String(error),
+                checkedAt: new Date().toISOString(),
+            };
+        }
+    },
+};
+
 const JWT_SECRET = 'your-super-secret-key-for-mock-jwt';
 const MOCK_ACCESS_TOKEN_LIFESPAN = 15 * 60 * 1000; // 15 minutes
 const MOCK_REFRESH_TOKEN_LIFESPAN = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -538,6 +620,27 @@ export const api = {
     },
     getProjectsByCompany: async (companyId: string, options?: RequestOptions): Promise<Project[]> => {
         ensureNotAborted(options?.signal);
+
+        if (isBackendEnabled) {
+            try {
+                const projects = await backendFetch<Project[]>(
+                    `/companies/${companyId}/projects`,
+                    { method: 'GET' },
+                    options?.signal,
+                );
+                if (!options?.signal?.aborted) {
+                    db.projects = projects.map(project => ({ ...project }));
+                    saveDb();
+                }
+                return projects;
+            } catch (error) {
+                if (error instanceof DOMException && error.name === 'AbortError') {
+                    throw error;
+                }
+                console.warn('Falling back to local projects cache', error);
+            }
+        }
+
         return db.projects.filter(p => p.companyId === companyId) as Project[];
     },
     findGrants: async (keywords: string, location: string): Promise<Grant[]> => {
@@ -604,6 +707,27 @@ export const api = {
     },
     getInvoicesByCompany: async (companyId: string, options?: RequestOptions): Promise<Invoice[]> => {
         ensureNotAborted(options?.signal);
+
+        if (isBackendEnabled) {
+            try {
+                const invoices = await backendFetch<Invoice[]>(
+                    `/companies/${companyId}/invoices`,
+                    { method: 'GET' },
+                    options?.signal,
+                );
+                if (!options?.signal?.aborted) {
+                    db.invoices = invoices.map(invoice => ({ ...invoice }));
+                    saveDb();
+                }
+                return invoices;
+            } catch (error) {
+                if (error instanceof DOMException && error.name === 'AbortError') {
+                    throw error;
+                }
+                console.warn('Falling back to local invoices cache', error);
+            }
+        }
+
         return db.invoices as Invoice[];
     },
     getQuotesByCompany: async (companyId: string, options?: RequestOptions): Promise<Quote[]> => {
@@ -612,16 +736,112 @@ export const api = {
     },
     getClientsByCompany: async (companyId: string, options?: RequestOptions): Promise<Client[]> => {
         ensureNotAborted(options?.signal);
-        return db.clients as Client[];
+
+        if (isBackendEnabled) {
+            try {
+                const clients = await backendFetch<Client[]>(
+                    `/companies/${companyId}/clients`,
+                    { method: 'GET' },
+                    options?.signal,
+                );
+                if (!options?.signal?.aborted) {
+                    db.clients = clients.map(client => ({ ...client }));
+                    saveDb();
+                }
+                return clients;
+            } catch (error) {
+                if (error instanceof DOMException && error.name === 'AbortError') {
+                    throw error;
+                }
+                console.warn('Falling back to local clients cache', error);
+            }
+        }
+
+        return db.clients
+            .filter(client => client.companyId === companyId)
+            .map(client => ({
+                ...client,
+                isActive: client.isActive ?? true,
+            })) as Client[];
     },
     updateClient: async (id:string, data:any, userId:string): Promise<Client> => {
+        if (isBackendEnabled) {
+            try {
+                const updated = await backendFetch<Client>(
+                    `/clients/${id}`,
+                    {
+                        method: 'PUT',
+                        body: JSON.stringify(data),
+                    },
+                );
+
+                const idx = db.clients.findIndex(client => client.id === id);
+                if (idx >= 0) {
+                    db.clients[idx] = { ...updated };
+                } else {
+                    db.clients.push({ ...updated });
+                }
+                saveDb();
+                return updated;
+            } catch (error) {
+                console.error('Backend client update failed, using local fallback.', error);
+            }
+        }
+
         const index = db.clients.findIndex(c=>c.id === id);
-        db.clients[index] = {...db.clients[index], ...data};
+        if (index === -1) {
+            throw new Error('Client not found');
+        }
+        db.clients[index] = {
+            ...db.clients[index],
+            ...data,
+            updatedAt: new Date().toISOString(),
+        };
         saveDb();
         return db.clients[index] as Client;
     },
     createClient: async (data:any, userId:string): Promise<Client> => {
-        const newClient = {...data, id: String(Date.now()), companyId: db.users.find(u=>u.id===userId)!.companyId};
+        const timestamp = new Date().toISOString();
+        const userRecord = db.users.find(u => u.id === userId);
+        const companyId = userRecord?.companyId;
+        if (!companyId) {
+            throw new Error('Unable to determine company for client creation.');
+        }
+
+        const normalized = {
+            name: data.name,
+            contactPerson: data.contactPerson || '',
+            contactEmail: data.contactEmail || data.email,
+            contactPhone: data.contactPhone || data.phone,
+            email: data.email || data.contactEmail || '',
+            phone: data.phone || data.contactPhone || '',
+            billingAddress: data.billingAddress || '',
+            paymentTerms: data.paymentTerms || 'Net 30',
+            isActive: typeof data.isActive === 'boolean' ? data.isActive : true,
+            address: data.address || { street: '', city: '', state: '', zipCode: '', country: '' },
+        };
+
+        if (isBackendEnabled) {
+            const created = await backendFetch<Client>(
+                `/companies/${companyId}/clients`,
+                {
+                    method: 'POST',
+                    body: JSON.stringify(normalized),
+                },
+            );
+
+            db.clients = [...db.clients.filter(client => client.id !== created.id), { ...created }];
+            saveDb();
+            return created;
+        }
+
+        const newClient = {
+            ...normalized,
+            id: String(Date.now()),
+            companyId,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+        };
         db.clients.push(newClient);
         saveDb();
         return newClient as Client;
@@ -630,6 +850,44 @@ export const api = {
         await delay();
         const index = db.invoices.findIndex(i => i.id === id);
         if (index === -1) throw new Error("Invoice not found");
+
+        const normalizedLineItems = (data.lineItems ?? []).map((item: any) => ({
+            description: item.description,
+            quantity: Number(item.quantity ?? 0),
+            unitPrice: Number(item.unitPrice ?? item.rate ?? 0),
+        })).filter(item => item.description && item.quantity > 0 && item.unitPrice >= 0);
+
+        if (isBackendEnabled) {
+            const payload: Record<string, unknown> = {
+                clientId: data.clientId,
+                projectId: data.projectId,
+                invoiceNumber: data.invoiceNumber,
+                issuedAt: data.issuedAt ?? data.issueDate,
+                dueAt: data.dueAt ?? data.dueDate,
+                status: data.status,
+                notes: data.notes,
+            };
+
+            if (typeof data.taxRate === 'number') payload.taxRate = data.taxRate;
+            if (typeof data.retentionRate === 'number') payload.retentionRate = data.retentionRate;
+            if (normalizedLineItems.length > 0) payload.lineItems = normalizedLineItems;
+
+            const updated = await backendFetch<Invoice>(
+                `/invoices/${id}`,
+                {
+                    method: 'PUT',
+                    body: JSON.stringify(payload),
+                },
+            );
+
+            const previousInvoiceNumber = db.invoices[index]?.invoiceNumber;
+            db.invoices = [...db.invoices.filter(inv => inv.id !== updated.id), { ...updated }];
+            saveDb();
+            if (previousInvoiceNumber && previousInvoiceNumber !== updated.invoiceNumber) {
+                addAuditLog(userId, 'UPDATE_INVOICE_NUMBER', { type: 'Invoice', id, name: updated.invoiceNumber });
+            }
+            return updated;
+        }
 
         const existingInvoice = db.invoices[index]!;
         const companyId = existingInvoice.companyId ?? db.users.find(u => u.id === userId)?.companyId;
@@ -672,6 +930,43 @@ export const api = {
             throw new Error("Unable to determine company for invoice creation.");
         }
 
+        const normalizedLineItems = (data.lineItems ?? []).map((item: any) => ({
+            description: item.description,
+            quantity: Number(item.quantity ?? 0),
+            unitPrice: Number(item.unitPrice ?? item.rate ?? 0),
+        })).filter(item => item.description && item.quantity > 0 && item.unitPrice >= 0);
+
+        if (!normalizedLineItems.length) {
+            throw new Error('Invoice requires at least one valid line item.');
+        }
+
+        if (isBackendEnabled) {
+            const payload = {
+                clientId: data.clientId,
+                projectId: data.projectId,
+                issuedAt: data.issuedAt ?? data.issueDate ?? new Date().toISOString(),
+                dueAt: data.dueAt ?? data.dueDate ?? new Date().toISOString(),
+                status: data.status ?? InvoiceStatus.DRAFT,
+                notes: data.notes ?? '',
+                taxRate: typeof data.taxRate === 'number' ? data.taxRate : 0,
+                retentionRate: typeof data.retentionRate === 'number' ? data.retentionRate : 0,
+                lineItems: normalizedLineItems,
+            };
+
+            const created = await backendFetch<Invoice>(
+                `/companies/${companyId}/invoices`,
+                {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                },
+            );
+
+            db.invoices = [...db.invoices.filter(inv => inv.id !== created.id), { ...created }];
+            saveDb();
+            addAuditLog(userId, 'CREATE_INVOICE', { type: 'Invoice', id: created.id, name: created.invoiceNumber });
+            return created;
+        }
+
         const companyInvoices = db.invoices.filter(inv => {
             if (!inv.companyId) return true;
             return inv.companyId === companyId;
@@ -704,8 +999,31 @@ export const api = {
             throw new Error("Failed to generate invoice number.");
         }
 
+        const subtotal = normalizedLineItems.reduce((total, item) => total + item.quantity * item.unitPrice, 0);
+        const taxRate = typeof data.taxRate === 'number' ? data.taxRate : 0;
+        const retentionRate = typeof data.retentionRate === 'number' ? data.retentionRate : 0;
+        const taxAmount = subtotal * taxRate;
+        const retentionAmount = subtotal * retentionRate;
+        const total = subtotal + taxAmount - retentionAmount;
+
         const newInvoice = {
             ...data,
+            lineItems: normalizedLineItems.map(item => ({
+                id: String(Date.now() + Math.random()),
+                description: item.description,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                rate: item.unitPrice,
+                amount: item.quantity * item.unitPrice,
+            })),
+            subtotal,
+            taxRate,
+            taxAmount,
+            retentionRate,
+            retentionAmount,
+            total,
+            balance: total - (data.amountPaid || 0),
+            amountPaid: data.amountPaid || 0,
             id: String(Date.now()),
             companyId,
             invoiceNumber,
@@ -721,6 +1039,32 @@ export const api = {
         const index = db.invoices.findIndex(i => i.id === id);
         if (index === -1) throw new Error("Invoice not found");
         const inv = db.invoices[index]!;
+
+        if (isBackendEnabled) {
+            const payload = {
+                amount: Number(data.amount),
+                method: data.method,
+                reference: data.reference,
+                notes: data.notes,
+            };
+
+            const updated = await backendFetch<Invoice>(
+                `/invoices/${id}/payments`,
+                {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                },
+            );
+
+            db.invoices = [...db.invoices.filter(invoice => invoice.id !== updated.id), { ...updated }];
+            saveDb();
+            addAuditLog(userId, `RECORD_PAYMENT (amount: ${payload.amount})`, { type: 'Invoice', id, name: updated.invoiceNumber });
+            if (updated.status === InvoiceStatus.PAID && inv.status !== InvoiceStatus.PAID) {
+                addAuditLog(userId, `UPDATE_INVOICE_STATUS: ${inv.status} -> ${InvoiceStatus.PAID}`, { type: 'Invoice', id, name: updated.invoiceNumber });
+            }
+            return updated;
+        }
+
         if (!inv.payments) inv.payments = [];
         const newPayment = { ...data, id: String(Date.now()), createdBy: userId, date: new Date().toISOString(), invoiceId: id };
         inv.payments.push(newPayment);
@@ -738,6 +1082,7 @@ export const api = {
         saveDb();
         return inv as Invoice;
     },
+
     submitExpense: async (data:any, userId:string): Promise<Expense> => {
         const newExpense = {...data, id: String(Date.now()), userId, status: ExpenseStatus.PENDING, submittedAt: new Date().toISOString()};
         db.expenses.push(newExpense);
