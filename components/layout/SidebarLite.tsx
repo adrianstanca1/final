@@ -1,5 +1,6 @@
 import React from 'react';
-import type { User, View, Permission } from '../../types';
+import type { User, View } from '../../types';
+import { Permission } from '../../types';
 import { hasPermission } from '../../services/auth';
 
 export interface SidebarProps {

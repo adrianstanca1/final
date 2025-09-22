@@ -49,12 +49,20 @@ export const FinancialsViewLite: React.FC<Props> = ({ user, addToast }) => {
       <h2 className="text-2xl font-bold">Financials</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Revenue (YTD)</p>
-          <p className="text-2xl font-semibold">£{kpis?.revenueYtd?.toLocaleString() ?? '—'}</p>
+          <p className="text-sm text-muted-foreground">Profitability</p>
+          <p className="text-2xl font-semibold">
+            {kpis?.profitability != null ? `${Math.round((kpis.profitability <= 1.5 ? kpis.profitability * 100 : kpis.profitability))}%` : '—'}
+          </p>
         </Card>
         <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Gross Margin</p>
-          <p className="text-2xl font-semibold">{kpis?.grossMarginPct != null ? `${Math.round(kpis.grossMarginPct * 100)}%` : '—'}</p>
+          <p className="text-sm text-muted-foreground">Project Margin</p>
+          <p className="text-2xl font-semibold">
+            {kpis?.projectMargin != null ? `${Math.round((kpis.projectMargin <= 1.5 ? kpis.projectMargin * 100 : kpis.projectMargin))}%` : '—'}
+          </p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-sm text-muted-foreground">Cash Flow ({kpis?.currency ?? 'GBP'})</p>
+          <p className="text-2xl font-semibold">{kpis ? new Intl.NumberFormat('en-GB', { style: 'currency', currency: kpis.currency || 'GBP' }).format(kpis.cashFlow) : '—'}</p>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Outstanding Invoices</p>
