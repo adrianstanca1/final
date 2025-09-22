@@ -1,6 +1,7 @@
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   User,
@@ -21,6 +22,8 @@ import {
   ProjectPortfolioSummary,
   OperationalInsights,
 =======
+=======
+>>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
 =======
@@ -440,6 +443,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                             <div className="bg-sky-500 h-2 rounded-full storage-usage-bar" style={{ '--storage-usage': `${(healthStats.storageUsageGB / healthStats.storageCapacityGB) * 100}%` } as React.CSSProperties}></div>
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes

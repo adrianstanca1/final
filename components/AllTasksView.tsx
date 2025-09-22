@@ -9,6 +9,9 @@ import { PriorityDisplay } from './ui/PriorityDisplay';
 import './ui/subtaskProgress.css';
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 =======
 >>>>>>> Stashed changes
