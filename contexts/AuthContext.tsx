@@ -6,7 +6,8 @@ import { api } from '../services/mockApi';
 import { analytics } from '../services/analyticsService';
 import { ValidationService } from '../services/validationService';
 import { getStorage } from '../utils/storage';
-import { authClient, type AuthenticatedSession, type RegistrationPayload } from '../services/authClient';
+import { authClient, type AuthenticatedSession } from '../services/authClient';
+import type { RegistrationPayload } from '../types';
 
 interface AuthContextType extends AuthState {
     login: (credentials: LoginCredentials) => Promise<{ mfaRequired: boolean; userId?: string }>;

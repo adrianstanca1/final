@@ -24,6 +24,15 @@ export class CacheService {
   private readonly persistent: boolean;
   private readonly namespace: string;
 
+  private isTestEnv(): boolean {
+    try {
+      // vitest exposes VITEST_WORKER_ID; NODE_ENV may be 'test'
+      return typeof process !== 'undefined' && !!((process as any).env?.VITEST || (process as any).env?.VITEST_WORKER_ID || process.env?.NODE_ENV === 'test');
+    } catch {
+      return false;
+    }
+  }
+
   constructor(options: CacheOptions = {}) {
     this.defaultTtl = options.ttl || 5 * 60 * 1000; // 5 minutes default
     this.maxSize = options.maxSize || 100;
@@ -34,8 +43,8 @@ export class CacheService {
       this.loadFromStorage();
     }
 
-    // Cleanup expired entries every minute (only in browser environment)
-    if (typeof window !== 'undefined') {
+    // Cleanup expired entries every minute (only in browser environment and not during tests)
+    if (typeof window !== 'undefined' && !this.isTestEnv()) {
       setInterval(() => this.cleanup(), 60 * 1000);
     }
   }

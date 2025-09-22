@@ -30,13 +30,13 @@ VERCEL_PROJECT_ID : $
 GEMINI_API_KEY : $
 {
   {
-    secrets.VITE_GEMINI_API_KEY
+    secrets.GEMINI_API_KEY
   }
 }
 VITE_GEMINI_API_KEY : $
 {
   {
-    secrets.VITE_GEMINI_API_KEY
+    secrets.GEMINI_API_KEY
   }
 }
 steps : -name : Checkout repository
@@ -75,14 +75,11 @@ VERCEL_ORG_ID : $
     secrets.VERCEL_ORG_ID
   }
 }
-VERCEL_PROJECT_ID : ${{secrets.VERCEL_PROJECT_ID}}
+VERCEL_PROJECT_ID : ${
+                        {secrets.VERCEL_PROJECT_ID}}
 
                     -
-                    name : Deploy to Vercel
-                               id : vercel
-                                        uses : vercel /
-                                               action @v3
-                                                   with : token : $
+                    name : Deploy to Vercel id : vercel uses : vercel / action @v3 with : token : $
 {
   {
     secrets.VERCEL_TOKEN

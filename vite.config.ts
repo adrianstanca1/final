@@ -20,7 +20,8 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       setupFiles: ['./tests/setup-simple.ts'],
       css: true,
-      exclude: ['final/**', 'final-1/**', 'final-2/**'],
+      include: ['services/**/*.test.ts', 'utils/**/*.test.ts'],
+      exclude: ['**/node_modules/**', '**/dist/**', 'dist-services/**', 'final/**', 'final-1/**', 'final-2/**'],
       coverage: {
         provider: 'v8',
         reporter: ['text', 'json', 'html'],

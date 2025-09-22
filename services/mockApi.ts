@@ -453,6 +453,8 @@ const DEFAULT_COLLECTIONS: Record<keyof DbCollections, any[]> = {
     whiteboardNotes: [],
     documents: [],
     projectInsights: clone((initialData as any).projectInsights || []),
+    financialForecasts: clone((initialData as any).financialForecasts || []),
+
 };
 
 const readCollection = <K extends keyof DbCollections>(key: K): DbCollections[K] => {
@@ -493,6 +495,8 @@ const createDb = (): DbCollections => ({
     projectTemplates: readCollection('projectTemplates'),
     whiteboardNotes: readCollection('whiteboardNotes'),
     documents: readCollection('documents'),
+    financialForecasts: readCollection('financialForecasts'),
+
     projectInsights: readCollection('projectInsights'),
 });
 
