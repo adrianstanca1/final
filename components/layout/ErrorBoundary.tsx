@@ -2,8 +2,15 @@ import React from 'react';
 
 interface State { hasError: boolean; error?: any }
 
-export class ErrorBoundary extends React.Component<React.PropsWithChildren<{}>, State> {
-  state: State = { hasError: false };
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+export class ErrorBoundary extends React.Component<ErrorBoundaryProps, State> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
 
   static getDerivedStateFromError() {
     return { hasError: true };
@@ -23,7 +30,6 @@ export class ErrorBoundary extends React.Component<React.PropsWithChildren<{}>, 
         </div>
       );
     }
-    return this.props.children as React.ReactNode;
+    return this.props.children;
   }
 }
-

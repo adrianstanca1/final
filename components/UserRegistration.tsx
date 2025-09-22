@@ -27,60 +27,6 @@ export const UserRegistration: React.FC<{ onSwitchToLogin: () => void }> = ({ on
 /* BEGIN legacy implementation (temporarily disabled to stabilize build)
 
 interface UserRegistrationProps {
-<<<<<<< HEAD
-<<<<<<< HEAD
-  onSwitchToLogin: () => void;
-type Step = 'personal' | 'company' | 'role' | 'verify' | 'terms';
-
-}
-
-const STEPS: { id: Step; name: string }[] = [
-    { id: 'personal', name: 'Personal Info' },
-    { id: 'company', name: 'Company' },
-    { id: 'role', name: 'Your Role' },
-    { id: 'verify', name: 'Verification' },
-    { id: 'terms', name: 'Finish' },
-];
-
-const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password = '' }) => {
-    const getStrength = () => {
-        let score = 0;
-        if (password.length >= 8) score++;
-        if (/[A-Z]/.test(password)) score++;
-        if (/[a-z]/.test(password)) score++;
-        // FIX: Corrected regex to check for digits.
-        if (/\d/.test(password)) score++;
-        if (/[^A-Za-z0-9]/.test(password)) score++;
-        return score;
-    };
-    const strength = getStrength();
-    const width = (strength / 5) * 100;
-    const color = strength < 3 ? 'bg-destructive' : strength < 5 ? 'bg-yellow-500' : 'bg-green-500';
-
-    return (
-        <div className="w-full bg-muted rounded-full h-1.5 mt-1">
-            <div className={`h-1.5 rounded-full transition-all duration-300 ${color}`} style={{ width: `${width}%` }}></div>
-        </div>
-    );
-const CreateCompanyModal: React.FC<{
-    onClose: () => void;
-    onSave: (data: { name: string; type: CompanyType; email: string; phone: string; website: string; }) => void;
-    initialData: { name?: string; type?: CompanyType; email?: string; phone?: string; website?: string; };
-}> = ({ onClose, onSave, initialData }) => {
-    const [name, setName] = useState(initialData.name || '');
-    const [type, setType] = useState<CompanyType | ''>(initialData.type || '');
-    const [email, setEmail] = useState(initialData.email || '');
-    const [phone, setPhone] = useState(initialData.phone || '');
-    const [website, setWebsite] = useState(initialData.website || '');
-    const [errors, setErrors] = useState<Record<string, string>>({});
-
-    const companyTypeOptions = [
-        { value: 'GENERAL_CONTRACTOR', label: 'General Contractor' },
-        { value: 'SUBCONTRACTOR', label: 'Subcontractor' },
-        { value: 'SUPPLIER', label: 'Supplier' },
-        { value: 'CONSULTANT', label: 'Consultant' },
-        { value: 'CLIENT', label: 'Client' },
-=======
     onSwitchToLogin: () => void;
 }
 
@@ -193,141 +139,6 @@ const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password }) => 
         /[a-z]/.test(password),
         /\d/.test(password),
         /[^A-Za-z0-9]/.test(password),
->>>>>>> e7ec06c (Log sixth autonomous deployment run)
-    ];
-    const score = rules.filter(Boolean).length;
-    const width = (score / rules.length) * 100;
-    const color = score <= 2 ? 'bg-destructive' : score < 5 ? 'bg-amber-500' : 'bg-emerald-500';
-    const labels = ['Very weak', 'Weak', 'Fair', 'Strong', 'Excellent'];
-
-    return (
-        <div className="space-y-1">
-            <div className="w-full h-1.5 rounded-full bg-muted">
-                <div className={`h-1.5 rounded-full transition-all duration-300 ${color}`} style={{ width: `${width}%` }} />
-            </div>
-            <p className="text-xs text-muted-foreground">
-                Password strength: <span className="font-medium text-foreground">{labels[Math.max(score - 1, 0)]}</span>
-            </p>
-        </div>
-    );
-<<<<<<< HEAD
-=======
-};
-
-=======
-    onSwitchToLogin: () => void;
-}
-
-type FormErrors = Partial<Record<keyof RegistrationState, string>>;
-
-interface RegistrationState {
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    password: string;
-    confirmPassword: string;
-    companySelection: 'create' | 'join' | '';
-    companyName: string;
-    companyType: CompanyType | '';
-    companyEmail: string;
-    companyPhone: string;
-    companyWebsite: string;
-    inviteToken: string;
-    role: Role | '';
-    updatesOptIn: boolean;
-    termsAccepted: boolean;
-}
-
-const INITIAL_STATE: RegistrationState = {
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    password: '',
-    confirmPassword: '',
-    companySelection: '',
-    companyName: '',
-    companyType: '',
-    companyEmail: '',
-    companyPhone: '',
-    companyWebsite: '',
-    inviteToken: '',
-    role: '',
-    updatesOptIn: true,
-    termsAccepted: false,
-};
-
-const STEP_SEQUENCE: { id: RegistrationStep; title: string; description: string }[] = [
-    { id: 'account', title: 'Account', description: 'Introduce yourself and secure access.' },
-    { id: 'workspace', title: 'Workspace', description: 'Create a company or join an existing team.' },
-    { id: 'confirm', title: 'Confirm', description: 'Review details and accept the terms.' },
-];
-
-const STEP_FIELDS: Record<RegistrationStep, Array<keyof RegistrationState>> = {
-    account: ['firstName', 'lastName', 'email', 'phone', 'password', 'confirmPassword'],
-    workspace: ['companySelection', 'companyName', 'companyType', 'companyEmail', 'companyPhone', 'companyWebsite', 'inviteToken', 'role'],
-    confirm: ['termsAccepted'],
-};
-
-const COMPANY_TYPES: { value: CompanyType; label: string }[] = [
-    { value: 'GENERAL_CONTRACTOR', label: 'General Contractor' },
-    { value: 'SUBCONTRACTOR', label: 'Subcontractor' },
-    { value: 'SUPPLIER', label: 'Supplier' },
-    { value: 'CONSULTANT', label: 'Consultant' },
-    { value: 'CLIENT', label: 'Client' },
-];
-
-const ROLE_DETAILS: Record<Role, { label: string; description: string }> = {
-    [Role.OWNER]: {
-        label: 'Owner',
-        description: 'Full administrative access, billing controls, and user management.',
-    },
-    [Role.ADMIN]: {
-        label: 'Administrator',
-        description: 'Manage people, approvals, projects, and financial workflows.',
-    },
-    [Role.PROJECT_MANAGER]: {
-        label: 'Project Manager',
-        description: 'Coordinate schedules, tasks, stakeholders, and progress reporting.',
-    },
-    [Role.FOREMAN]: {
-        label: 'Foreman',
-        description: 'Lead on-site crews, raise safety issues, and track daily activity.',
-    },
-    [Role.OPERATIVE]: {
-        label: 'Operative',
-        description: 'Log time, update task progress, and collaborate with field teams.',
-    },
-    [Role.CLIENT]: {
-        label: 'Client',
-        description: 'Review milestones, approve work, and stay informed on delivery.',
-    },
-    [Role.PRINCIPAL_ADMIN]: {
-        label: 'Principal Admin',
-        description: 'Reserved for AS Agents platform administrators.',
-    },
-};
-
-const BENEFITS = [
-    'AI-assisted scheduling, forecasting, and risk insights for every project.',
-    'Role-based controls keep office teams and field crews perfectly aligned.',
-    'Secure document sharing, timesheets, and financial dashboards in one hub.',
-    'Offline-ready syncing so work continues even without a network connection.',
-];
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^[+()\d\s-]{6,}$/;
-const URL_REGEX = /^https?:\/\/\S+$/i;
-
-const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password }) => {
-    const rules = [
-        password.length >= 8,
-        /[A-Z]/.test(password),
-        /[a-z]/.test(password),
-        /\d/.test(password),
-        /[^A-Za-z0-9]/.test(password),
-    ];
     const score = rules.filter(Boolean).length;
     const width = (score / rules.length) * 100;
     const color = score <= 2 ? 'bg-destructive' : score < 5 ? 'bg-amber-500' : 'bg-emerald-500';
@@ -345,7 +156,6 @@ const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password }) => 
     );
 };
 
->>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
 const StepIndicator: React.FC<{ currentStep: RegistrationStep }> = ({ currentStep }) => (
     <ol className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {STEP_SEQUENCE.map((step, index) => {
@@ -465,10 +275,7 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
     </button>
 );
 
-<<<<<<< HEAD
->>>>>>> e7ec06c (Log sixth autonomous deployment run)
-=======
->>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
+
 export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLogin }) => {
     const { register, error: authError, loading: isSubmitting } = useAuth();
 
@@ -1214,43 +1021,6 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
             </div>
         </div>
     );
-<<<<<<< HEAD
-<<<<<<< HEAD
 
-// --- Form Field Components ---
-const InputField = ({ label, name, type = 'text', value = '', onChange, error, maxLength, inputClassName = '', isLabelSrOnly = false, placeholder }: { label: string; name: string; type?: string; value?: string; onChange: (name: string, value: string) => void; error?: string; maxLength?: number; inputClassName?: string; isLabelSrOnly?: boolean; placeholder?: string }) => (
-    <div>
-        <label htmlFor={name} className={isLabelSrOnly ? 'sr-only' : 'block text-sm font-medium text-muted-foreground'}>{label}</label>
-        <input id={name} name={name} type={type} value={value} maxLength={maxLength} onChange={e => onChange(name, e.target.value)} placeholder={placeholder}
-                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm ${error ? 'border-destructive' : 'border-border'} ${inputClassName}`} />
-        {error && <p className="text-xs text-destructive mt-1">{error}</p>}
-    </div>
-);
-
-const SelectField = ({ label, name, value, onChange, error, options }: {label: string, name: string, value: any, onChange: any, error?: string, options: {value:string, label:string}[]}) => (
-    <div>
-        <label htmlFor={name} className="block text-sm font-medium text-muted-foreground">{label}</label>
-        <select id={name} name={name} value={value} onChange={e => onChange(name, e.target.value)} required
-                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm bg-card ${error ? 'border-destructive' : 'border-border'}`}>
-            <option value="">Select an option</option>
-            {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-        </select>
-        {error && <p className="text-xs text-destructive mt-1">{error}</p>}
-    </div>
-);
-
-const RadioCard = ({ name, value, label, description, checked, onChange }: { name: string, value: string | CompanyType | Role, label: string, description: string, checked: boolean, onChange: any }) => (
-    <label className={`block p-4 border rounded-md cursor-pointer transition-all ${checked ? 'bg-primary/10 border-primary ring-2 ring-primary' : 'hover:bg-accent'}`}>
-        <input type="radio" name={name} value={value} checked={checked} onChange={e => onChange(name, e.target.value)} className="sr-only"/>
-        <p className="font-semibold">{label}</p>
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
-    </label>
-);
-=======
-};
->>>>>>> e7ec06c (Log sixth autonomous deployment run)
-=======
-};
->>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
 
 */
