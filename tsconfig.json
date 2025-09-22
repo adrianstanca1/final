@@ -28,6 +28,10 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
+  "include": [
+    "index.tsx",
+    "App.tsx"
+  ],
   "exclude": [
     "node_modules",
     "dist",
