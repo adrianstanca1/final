@@ -787,6 +787,45 @@ export interface OperationalInsights {
     alerts: OperationalAlert[];
 }
 
+export interface DashboardSnapshotMetadata {
+    source: 'mock' | 'backend';
+    generatedAt: string;
+    usedFallback: boolean;
+    projectCount?: number;
+    [key: string]: unknown;
+}
+
+export interface DashboardSnapshot {
+    projects: Project[];
+    team: User[];
+    equipment: Equipment[];
+    tasks: Todo[];
+    activityLog: AuditLog[];
+    operationalInsights: OperationalInsights | null;
+    incidents: SafetyIncident[];
+    expenses: Expense[];
+    portfolioSummary: ProjectPortfolioSummary | null;
+    metadata: DashboardSnapshotMetadata;
+}
+
+export interface BackendInteractionEvent {
+    id?: string;
+    type: string;
+    userId?: string;
+    companyId?: string;
+    context?: Record<string, unknown>;
+    createdAt?: string;
+    metadata?: Record<string, unknown>;
+}
+
+export interface BackendConnectionState {
+    mode: 'mock' | 'backend';
+    baseUrl: string | null;
+    online: boolean;
+    pendingMutations: number;
+    lastSync: string | null;
+}
+
 export interface ProjectTemplate {
     id: string;
     name: string;
