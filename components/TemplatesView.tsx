@@ -5,6 +5,7 @@ import { User, ProjectTemplate, Task as Todo } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
+import { useTenant } from '../contexts/TenantContext';
 
 interface TemplatesViewProps {
   user: User;
@@ -91,16 +92,22 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({ user, addToast }) 
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const abortControllerRef = useRef<AbortController | null>(null);
+    const { resolvedTenantId } = useTenant();
 
     const fetchData = useCallback(async () => {
         const controller = new AbortController();
         abortControllerRef.current?.abort();
         abortControllerRef.current = controller;
 
+        if (!resolvedTenantId) {
+            setTemplates([]);
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
         try {
-            if (!user.companyId) return;
-            const data = await api.getProjectTemplates(user.companyId, { signal: controller.signal });
+            const data = await api.getProjectTemplates(resolvedTenantId, { signal: controller.signal });
             if (controller.signal.aborted) return;
             setTemplates(data);
         } catch (error) {
@@ -110,7 +117,7 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({ user, addToast }) 
             if (controller.signal.aborted) return;
             setLoading(false);
         }
-    }, [user.companyId, addToast]);
+    }, [resolvedTenantId, addToast]);
 
     useEffect(() => {
         fetchData();
@@ -118,6 +125,10 @@ export const TemplatesView: React.FC<TemplatesViewProps> = ({ user, addToast }) 
             abortControllerRef.current?.abort();
         };
     }, [fetchData]);
+
+    if (!resolvedTenantId) {
+        return <Card><p>Select a tenant to manage project templates.</p></Card>;
+    }
 
     if (loading) return <Card><p>Loading templates...</p></Card>;
 
