@@ -34,6 +34,7 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({ user, currentProje
       let expenses: Expense[] = [];
       let focusProject: Project | null | undefined = currentProject ?? null;
 
+<<<<<<< Updated upstream
       if (user.companyId) {
         const [projects, incidentData, expenseData, documentData] = await Promise.all([
           currentProject ? Promise.resolve<Project[]>([]) : api.getProjectsByCompany(user.companyId),
@@ -41,6 +42,44 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({ user, currentProje
           api.getExpensesByCompany(user.companyId),
           currentProject ? api.getDocumentsByProject(currentProject.id) : api.getDocumentsByCompany(user.companyId),
         ]);
+=======
+    return (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <Card className="w-full max-w-3xl h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="flex-shrink-0">
+                     <h2 className="text-2xl font-bold text-slate-800 mb-4 flex items-center gap-3">
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-sky-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12h.01M12 15h.01M9 12h.01M12 9h.01" />
+                        </svg>
+                        AI Project Search
+                    </h2>
+                    <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-2">
+                        <input
+                            type="text"
+                            value={query}
+                            onChange={e => setQuery(e.target.value)}
+                            placeholder="Ask about rebar specs, safety procedures, deadlines..."
+                            className="w-full p-3 border border-gray-300 rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500 text-lg"
+                            autoFocus
+                        />
+                        <div className="flex gap-2">
+                            <select title="Search filter"
+                                value={searchScope}
+                                onChange={e => setSearchScope(e.target.value)}
+                                className="p-3 border border-gray-300 bg-white rounded-md shadow-sm focus:ring-sky-500 focus:border-sky-500"
+                            >
+                                {currentProject && <option value={currentProject.id.toString()}>This Project</option>}
+                                <option value="all">All My Projects</option>
+                                <optgroup label="Specific Project">
+                                    {userProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </optgroup>
+                            </select>
+                            <Button type="submit" size="lg" isLoading={isLoading} className="w-full sm:w-auto">Search</Button>
+                        </div>
+                    </form>
+                </div>
+>>>>>>> Stashed changes
 
         incidents = incidentData;
         expenses = expenseData;
