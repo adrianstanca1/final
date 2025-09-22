@@ -45,6 +45,7 @@ const INITIAL_STATE: RegistrationState = {
     lastName: '',
     email: '',
     username: '',
+
     phone: '',
     password: '',
     confirmPassword: '',
@@ -72,6 +73,24 @@ const COMPANY_TYPES: { value: CompanyType; label: string }[] = [
     { value: 'SUPPLIER', label: 'Supplier' },
     { value: 'CONSULTANT', label: 'Consultant' },
     { value: 'CLIENT', label: 'Client / Asset owner' },
+const STEP_SEQUENCE: { id: RegistrationStep; title: string; description: string }[] = [
+    { id: 'account', title: 'Account', description: 'Introduce yourself and secure access.' },
+    { id: 'workspace', title: 'Workspace', description: 'Create a company or join an existing team.' },
+    { id: 'confirm', title: 'Confirm', description: 'Review details and accept the terms.' },
+];
+
+const STEP_FIELDS: Record<RegistrationStep, Array<keyof RegistrationState>> = {
+    account: ['firstName', 'lastName', 'email', 'phone', 'password', 'confirmPassword'],
+    workspace: ['companySelection', 'companyName', 'companyType', 'companyEmail', 'companyPhone', 'companyWebsite', 'inviteToken', 'role'],
+    confirm: ['termsAccepted'],
+};
+
+const COMPANY_TYPES: { value: CompanyType; label: string }[] = [
+    { value: 'GENERAL_CONTRACTOR', label: 'General Contractor' },
+    { value: 'SUBCONTRACTOR', label: 'Subcontractor' },
+    { value: 'SUPPLIER', label: 'Supplier' },
+    { value: 'CONSULTANT', label: 'Consultant' },
+    { value: 'CLIENT', label: 'Client' },
 ];
 
 const ROLE_DETAILS: Record<Role, { label: string; description: string }> = {
@@ -115,6 +134,68 @@ const BENEFITS: string[] = [
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const URL_REGEX = /^https?:\/\/\S+$/i;
 const PASSWORD_MIN_LENGTH = 8;
+        description: 'Full administrative access, billing controls, and user management.',
+    },
+    [Role.ADMIN]: {
+        label: 'Administrator',
+        description: 'Manage people, approvals, projects, and financial workflows.',
+    },
+    [Role.PROJECT_MANAGER]: {
+        label: 'Project Manager',
+        description: 'Coordinate schedules, tasks, stakeholders, and progress reporting.',
+    },
+    [Role.FOREMAN]: {
+        label: 'Foreman',
+        description: 'Lead on-site crews, raise safety issues, and track daily activity.',
+    },
+    [Role.OPERATIVE]: {
+        label: 'Operative',
+        description: 'Log time, update task progress, and collaborate with field teams.',
+    },
+    [Role.CLIENT]: {
+        label: 'Client',
+        description: 'Review milestones, approve work, and stay informed on delivery.',
+    },
+    [Role.PRINCIPAL_ADMIN]: {
+        label: 'Principal Admin',
+        description: 'Reserved for AS Agents platform administrators.',
+    },
+};
+
+const BENEFITS = [
+    'AI-assisted scheduling, forecasting, and risk insights for every project.',
+    'Role-based controls keep office teams and field crews perfectly aligned.',
+    'Secure document sharing, timesheets, and financial dashboards in one hub.',
+    'Offline-ready syncing so work continues even without a network connection.',
+];
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_REGEX = /^[+()\d\s-]{6,}$/;
+const URL_REGEX = /^https?:\/\/\S+$/i;
+
+const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password }) => {
+    const rules = [
+        password.length >= 8,
+        /[A-Z]/.test(password),
+        /[a-z]/.test(password),
+        /\d/.test(password),
+        /[^A-Za-z0-9]/.test(password),
+    const score = rules.filter(Boolean).length;
+    const width = (score / rules.length) * 100;
+    const color = score <= 2 ? 'bg-destructive' : score < 5 ? 'bg-amber-500' : 'bg-emerald-500';
+    const labels = ['Very weak', 'Weak', 'Fair', 'Strong', 'Excellent'];
+
+    return (
+        <div className="space-y-1">
+            <div className="w-full h-1.5 rounded-full bg-muted">
+                <div className={`h-1.5 rounded-full transition-all duration-300 ${color}`} style={{ width: `${width}%` }} />
+            </div>
+            <p className="text-xs text-muted-foreground">
+                Password strength: <span className="font-medium text-foreground">{labels[Math.max(score - 1, 0)]}</span>
+            </p>
+        </div>
+    );
+};
 
 const StepIndicator: React.FC<{ currentStep: RegistrationStep }> = ({ currentStep }) => (
     <ol className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -176,6 +257,27 @@ const SocialAuthButtons: React.FC<{
         </Button>
     </div>
 );
+
+interface SelectionCardProps {
+    title: string;
+    description: string;
+    isSelected: boolean;
+    onSelect: () => void;
+}
+
+const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSelected, onSelect }) => (
+    <button
+        type="button"
+        onClick={onSelect}
+        className={`rounded-lg border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-primary sm:p-5 ${
+            isSelected ? 'border-primary bg-primary/5 text-foreground shadow-sm' : 'border-border hover:border-primary'
+        }`}
+    >
+        <p className="text-sm font-semibold">{title}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+    </button>
+);
+
 
 export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLogin }) => {
     const { register, socialLogin, error: authError, loading: isSubmitting } = useAuth();
@@ -869,3 +971,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
         </div>
     );
 };
+
+
+
+*/
