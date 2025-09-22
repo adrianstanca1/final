@@ -20,8 +20,12 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       setupFiles: ['./tests/setup-simple.ts'],
       css: true,
+<<<<<<< Updated upstream
       include: ['services/**/*.test.ts', 'utils/**/*.test.ts'],
       exclude: ['**/node_modules/**', '**/dist/**', 'dist-services/**', 'final/**', 'final-1/**', 'final-2/**'],
+=======
+      exclude: ['final/**', 'final-1/**', 'final-2/**'],
+>>>>>>> Stashed changes
       coverage: {
         provider: 'v8',
         reporter: ['text', 'json', 'html'],
