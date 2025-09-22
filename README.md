@@ -48,19 +48,15 @@ This project is ready to be deployed as a static Vite site on Vercel.
 
 After the first build completes, visit the generated Vercel URL to confirm the
 application loads and AI powered features work with your configured API key.
-=======
+
+## Getting Started Locally
+
+1. Clone the repository and install dependencies:
+   `npm install`
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. (Optional) Point authentication at a deployed backend by setting `VITE_API_BASE_URL` in `.env.local`. When omitted the app runs in secure local demo mode and persists accounts in browser storage.
 4. Run the app:
    `npm run dev`
-
-=======
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. (Optional) Point authentication at a deployed backend by setting `VITE_API_BASE_URL` in `.env.local`. When omitted the app runs in secure local demo mode and persists accounts in browser storage.
-4. Run the app:
-   `npm run dev`
-
->>>>>>> origin/codex/create-autonomous-deployment-plan-srvw3l
 ### Configure authentication backend
 
 By default the registration and login flows use the encrypted in-browser mock API. Provide a `VITE_API_BASE_URL` in `.env.local` to connect to a real authentication service. If that service becomes unreachable you can allow automatic fallback to the mock implementation by exposing `window.__ASAGENTS_API_BASE_URL__` at runtime or by calling `configureAuthClient({ baseUrl, allowMockFallback: true })` in your initialization code.
@@ -79,7 +75,3 @@ This project ships with a fully automated CI/CD pipeline backed by GitHub Action
 - **Vercel-specific setup**: follow [docs/vercel-deployment.md](docs/vercel-deployment.md) to connect the repository to Vercel and provision the required secrets (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`).
 - **Gemini credentials**: store the shared Gemini credential as `GEMINI_API_KEY` in repository secrets and mirror it to `VITE_GEMINI_API_KEY` (or provide a separate client-safe key). Developers keep personal keys in `.env.local` for local runs.
 - **Monitoring**: follow the plan's observability section to wire synthetic uptime checks and error tracking so deployments stay production ready.
-<<<<<<< HEAD
->>>>>>> e7ec06c (Log sixth autonomous deployment run)
-=======
->>>>>>> origin/codex/create-autonomous-deployment-plan-srvw3l
