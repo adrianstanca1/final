@@ -13,6 +13,29 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+
+
+    test: {
+      globals: true,
+      environment: 'jsdom',
+      setupFiles: ['./tests/setup-simple.ts'],
+      css: true,
+      include: ['services/**/*.test.ts', 'utils/**/*.test.ts'],
+      exclude: ['**/node_modules/**', '**/dist/**', 'dist-services/**', 'final/**', 'final-1/**', 'final-2/**'],
+      coverage: {
+        provider: 'v8',
+        reporter: ['text', 'json', 'html'],
+        exclude: [
+          'node_modules/',
+          'tests/',
+          'dist/',
+          'final/',
+          'final-1/',
+          'final-2/',
+        ],
+      },
+    },
+
     build: {
       rollupOptions: {
         output: {

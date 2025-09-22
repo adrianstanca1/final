@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
+    <title>Team Members Icon</title>
+    <title>Open Tasks Icon</title>
+    <title>Overdue Tasks Icon</title>
+// full contents of components/ProjectsView.tsx
+import { User, Project, Permission, ProjectStatus } from '../types';
+
 import {
   User,
   Project,
@@ -20,6 +26,152 @@ interface ProjectsViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
   onSelectProject: (project: Project) => void;
+
+}
+
+const STATUS_BADGE_STYLES: Record<ProjectStatus, string> = {
+    PLANNING: 'bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-200',
+    ACTIVE: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200',
+    ON_HOLD: 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-200',
+    COMPLETED: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200',
+    CANCELLED: 'bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-200',
+};
+
+const STATUS_FILTERS = [
+    { label: 'All projects', value: 'ALL' },
+    { label: 'Active', value: 'ACTIVE' },
+    { label: 'Planning', value: 'PLANNING' },
+    { label: 'Completed', value: 'COMPLETED' },
+    { label: 'On hold', value: 'ON_HOLD' },
+    { label: 'Cancelled', value: 'CANCELLED' },
+] as const;
+
+type StatusFilterValue = typeof STATUS_FILTERS[number]['value'];
+
+const formatStatusLabel = (status: ProjectStatus) =>
+    status
+        .toLowerCase()
+        .split('_')
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+
+const ProjectCard: React.FC<{ project: Project; onSelect: () => void; }> = ({ project, onSelect }) => {
+    const actualCost = typeof project.actualCost === 'number' ? project.actualCost : project.spent ?? 0;
+    const budget = typeof project.budget === 'number' ? project.budget : 0;
+    const utilisationRaw = budget > 0 ? (actualCost / budget) * 100 : 0;
+    const utilisation = Number.isFinite(utilisationRaw) ? Math.max(0, utilisationRaw) : 0;
+    const utilisationClass = utilisation > 100 ? 'bg-red-500' : 'bg-emerald-600';
+    const heroImage = project.imageUrl || project.image || `https://picsum.photos/seed/${project.id}/800/400`;
+    const budgetDisplay = budget > 0 ? Math.round(budget / 1000).toLocaleString() : '0';
+
+    return (
+        <Card
+            onClick={onSelect}
+            className="cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all animate-card-enter"
+        >
+            <img src={heroImage} alt={project.name} className="w-full h-40 object-cover rounded-lg mb-4" />
+            <h3 className="font-bold text-lg truncate text-foreground">{project.name}</h3>
+            <p className="text-sm text-muted-foreground">{project.location?.address ?? 'Location pending'}</p>
+            <div className="flex justify-between items-center mt-4 text-sm">
+                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_BADGE_STYLES[project.status]}`}>
+                    {formatStatusLabel(project.status)}
+                </span>
+                <span className="text-muted-foreground">Budget: £{budgetDisplay}k</span>
+            </div>
+            <div className="w-full bg-muted rounded-full h-1.5 mt-3">
+                <div
+                    className={`${utilisationClass}`}
+                    style={{ width: `${Math.min(100, Math.round(utilisation))}%`, height: '100%', borderRadius: 'inherit' }}
+                    aria-hidden
+                ></div>
+
+            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs p-2 text-xs text-white bg-slate-800 rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+                {health.summary}
+            </div>
+        </div>
+    );
+};
+
+interface ProjectSummaryCardProps {
+    project: Project;
+    taskCount: number;
+    memberCount: number;
+    overdueTaskCount: number;
+    upcomingMilestone: { name: string; date: Date } | null;
+    health: ProjectHealth | null;
+    onSelect: () => void;
+}
+
+const ProjectSummaryCard: React.FC<ProjectSummaryCardProps> = ({ project, taskCount, memberCount, overdueTaskCount, upcomingMilestone, health, onSelect }) => {
+    const progress = project.budget > 0 ? (project.actualCost / project.budget) * 100 : 0;
+
+    return (
+        <Card onClick={onSelect} className="cursor-pointer hover:shadow-lg hover:border-sky-500/50 transition-all duration-300 flex flex-col p-0 overflow-hidden animate-card-enter">
+            <img src={project.imageUrl} alt={project.name} className="w-full h-40 object-cover" />
+            <div className="p-4 flex flex-col flex-grow">
+                <div className="flex justify-between items-start mb-2 gap-2">
+                    <h3 className="font-bold text-lg text-slate-800 flex-grow pr-2">{project.name}</h3>
+                    <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                        <ProjectStatusBadge status={project.status} />
+                        {health && <ProjectHealthIndicator health={health} />}
+                    </div>
+                </div>
+                <p className="text-sm text-slate-500 mb-4">{project.location.address}</p>
+
+                {/* Key Metrics List */}
+                <div className="space-y-3 my-2">
+                    <div className="flex items-center text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656-.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                        <span className="text-slate-600">Team Members</span>
+                        <span className="ml-auto font-semibold text-slate-800 bg-slate-100 rounded-full px-2.5 py-0.5">{memberCount}</span>
+                    </div>
+                     <div className="flex items-center text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+                        <span className="text-slate-600">Open Tasks</span>
+                        <span className="ml-auto font-semibold text-slate-800 bg-slate-100 rounded-full px-2.5 py-0.5">{taskCount}</span>
+                    </div>
+                    <div className="flex items-center text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <span className="text-slate-600">Overdue Tasks</span>
+                        <span className={`ml-auto font-bold text-lg ${overdueTaskCount > 0 ? 'text-red-600' : 'text-slate-800'}`}>
+                            {overdueTaskCount}
+                        </span>
+                    </div>
+                </div>
+
+                {/* Upcoming Milestone */}
+                <div className="mt-4 flex-grow">
+                    {upcomingMilestone ? (
+                        <div className="text-sm bg-slate-50 p-3 rounded-md border">
+                            <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Next Milestone</p>
+                            <div className="flex justify-between items-center mt-1">
+                                <p className="font-semibold text-slate-700 truncate pr-2">{upcomingMilestone.name}</p>
+                                <p className="text-xs text-slate-600 font-medium flex-shrink-0">{new Date(upcomingMilestone.date).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-sm bg-slate-50 p-3 rounded-md border text-center text-slate-500">
+                            <p>No upcoming tasks with due dates.</p>
+                        </div>
+                    )}
+                </div>
+
+                {/* Budget */}
+                <div className="mt-4 pt-4 border-t">
+                    <div className="flex justify-between mb-1 text-xs font-medium text-slate-600">
+                        <span>Budget Used</span>
+                        <span>{progress.toFixed(0)}%</span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-2">
+                        <div className={`project-budget-bar ${progress > 100 ? 'bg-red-500' : 'bg-sky-500'}`} style={{ '--bar-width': `${Math.min(progress, 100)}%` } as React.CSSProperties}></div>
+import './ui/projectBudgetBar.css';
+                    </div>
+                </div>
+            </div>
+        </Card>
+    );
+};
+
 const statusAccent: Record<ProjectStatus, { bg: string; text: string }> = {
   PLANNING: { bg: 'bg-amber-500/10', text: 'text-amber-700 dark:text-amber-300' },
   ACTIVE: { bg: 'bg-emerald-500/10', text: 'text-emerald-700 dark:text-emerald-300' },
@@ -133,6 +285,44 @@ const ProjectCard: React.FC<{ project: Project; onSelect: () => void }> = ({ pro
     </Card>
   );
 export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSelectProject }) => {
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [filter, setFilter] = useState<StatusFilterValue>('ALL');
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+    const canCreate = hasPermission(user, Permission.CREATE_PROJECT);
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            if (!user.companyId) return;
+            let projectsPromise: Promise<Project[]>;
+            if (hasPermission(user, Permission.VIEW_ALL_PROJECTS)) {
+                projectsPromise = api.getProjectsByCompany(user.companyId);
+            } else {
+                projectsPromise = api.getProjectsByUser(user.id);
+            }
+            const fetchedProjects = await projectsPromise;
+            setProjects(fetchedProjects);
+        } catch (error) {
+            addToast("Failed to load projects.", "error");
+        } finally {
+            setLoading(false);
+        }
+    }, [user, addToast]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+    
+    const filteredProjects = useMemo(() => {
+        if (filter === 'ALL') return projects;
+        return projects.filter(p => p.status === filter);
+    }, [projects, filter]);
+
+    const handleSuccess = (newProject: Project) => {
+        setProjects(prev => [...prev, newProject]);
+        onSelectProject(newProject);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<ProjectPortfolioSummary | null>(null);
@@ -351,6 +541,63 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
           addToast={addToast}
         />
       )}
+
+
+    if (loading) return <Card><p>Loading projects...</p></Card>;
+
+    return (
+        <div className="space-y-6">
+            {isCreateModalOpen && (
+                <ProjectModal 
+                    user={user} 
+                    onClose={() => setIsCreateModalOpen(false)}
+                    onSuccess={handleSuccess}
+                    addToast={addToast}
+                />
+            )}
+            <div className="flex justify-between items-center">
+                <h2 className="text-3xl font-bold text-slate-800">Projects</h2>
+                {canCreate && <Button onClick={() => setIsCreateModalOpen(true)}>Create Project</Button>}
+            </div>
+            
+            <div className="flex flex-wrap gap-2">
+                {STATUS_FILTERS.map(option => (
+                    <button
+                        key={option.value}
+                        onClick={() => setFilter(option.value)}
+                        className={`px-3 py-1 text-sm rounded-full border transition ${
+                            filter === option.value
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-card hover:bg-muted border-border text-muted-foreground'
+                        }`}
+                    >
+                        {option.label}
+                    </button>
+                ))}
+
+            <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+                <h2 className="text-3xl font-bold text-slate-800">{isPM ? "Project Manager Dashboard" : "Projects"}</h2>
+                {canCreate && (
+                    <Button variant="primary" onClick={() => setIsCreateModalOpen(true)}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <title>Create Project Icon</title>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                        </svg>
+                        Create Project
+                    </Button>
+                )}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {filteredProjects.length === 0 && (
+                    <Card className="col-span-full text-center py-16">
+                        <p className="text-muted-foreground">No projects match this filter yet.</p>
+                    </Card>
+                )}
+                {filteredProjects.map(project => (
+                    <ProjectCard key={project.id} project={project} onSelect={() => onSelectProject(project)} />
+                ))}
+            </div>
 
       <ViewHeader
         view="projects"

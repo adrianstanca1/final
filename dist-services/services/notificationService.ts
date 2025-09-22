@@ -155,8 +155,10 @@ export class NotificationService {
         notification.close();
         
         // Handle notification click based on data
-        if (options.data?.url) {
+        if (options.data?.url && this.isSafeRedirectUrl(options.data.url)) {
           window.location.href = options.data.url;
+        } else if (options.data?.url) {
+          console.warn('Blocked unsafe notification redirect URL:', options.data.url);
         }
       };
 
@@ -301,6 +303,21 @@ export class NotificationService {
       });
     }
   }
+  /**
+   * Checks that a URL is safe for client-side redirection. Allows only
+   * relative URLs or URLs matching the current origin.
+   */
+  private isSafeRedirectUrl(url: string): boolean {
+    try {
+      const parsed = new URL(url, window.location.origin);
+      // Only allow if the URL is same-origin or relative
+      return parsed.origin === window.location.origin;
+    } catch (e) {
+      // If URL parsing fails, treat as unsafe
+      return false;
+    }
+  }
+
 
   private shouldShowBrowserNotification(notification: Notification): boolean {
     // Don't show if document is visible and user is active

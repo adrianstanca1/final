@@ -1,114 +1,26 @@
-import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
-import { User, View, Project, Role, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
-import { api } from './services/mockApi';
-import { notificationService } from './services/notificationService';
-import { analytics } from './services/analyticsService';
-import { backupService } from './services/backupService';
-import { authService } from './services/auth';
+import React, { useState } from 'react';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Login } from './components/Login';
-import { Sidebar } from './components/layout/Sidebar';
-import { Header } from './components/layout/Header';
-import { Dashboard } from './components/Dashboard';
-import { MyDayView } from './components/MyDayView';
-import { ForemanDashboard } from './components/ForemanDashboard';
-import { PrincipalAdminDashboard } from './components/PrincipalAdminDashboard';
-import { ProjectsView } from './components/ProjectsView';
-import { ProjectDetailView } from './components/ProjectDetailView';
-import { AllTasksView } from './components/AllTasksView';
-import { ProjectsMapView } from './components/ProjectsMapView';
-import { TimeTrackingView } from './components/TimeTrackingView';
-import { TimesheetsView } from './components/TimesheetsView';
-import { DocumentsView } from './components/DocumentsView';
-import { SafetyView } from './components/SafetyView';
-import { FinancialsView } from './components/FinancialsView';
-import { TeamView } from './components/TeamView';
-import { EquipmentView } from './components/EquipmentView';
-import { TemplatesView } from './components/TemplatesView';
+import { Card } from './components/ui/Card';
+import { Sidebar as SidebarLite } from './components/layout/SidebarLite';
 import { ToolsView } from './components/ToolsView';
-import { AuditLogView } from './components/AuditLogView';
-import { SettingsView } from './components/SettingsView';
-import { ChatView } from './components/ChatView';
-import { AISearchModal } from './components/AISearchModal';
-import { CommandPalette } from './components/CommandPalette';
-import { useOfflineSync } from './hooks/useOfflineSync';
-import { useCommandPalette } from './hooks/useCommandPalette';
-import { useReminderService } from './hooks/useReminderService';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { ClientsView } from './components/ClientsView';
-import { InvoicesView } from './components/InvoicesView';
-import { PageErrorBoundary } from './components/ErrorBoundary';
-import { UserRegistration } from './components/UserRegistration';
-import { useAuth } from './contexts/AuthContext';
-import { ForgotPassword } from './components/auth/ForgotPassword';
-import { ResetPassword } from './components/auth/ResetPassword';
-import { ViewAccessBoundary } from './components/layout/ViewAccessBoundary';
-import { evaluateViewAccess, getDefaultViewForUser } from './utils/viewAccess';
+import type { View } from './types';
 
-// Lazy-load heavy view components to reduce initial bundle size
-const Dashboard = React.lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
-const OwnerDashboard = React.lazy(() => import('./components/OwnerDashboard').then(m => ({ default: m.OwnerDashboard })));
-const MyDayView = React.lazy(() => import('./components/MyDayView').then(m => ({ default: m.MyDayView })));
-const ForemanDashboard = React.lazy(() => import('./components/ForemanDashboard').then(m => ({ default: m.ForemanDashboard })));
-const PrincipalAdminDashboard = React.lazy(() => import('./components/PrincipalAdminDashboard').then(m => ({ default: m.PrincipalAdminDashboard })));
-const ProjectsView = React.lazy(() => import('./components/ProjectsView').then(m => ({ default: m.ProjectsView })));
-const ProjectDetailView = React.lazy(() => import('./components/ProjectDetailView').then(m => ({ default: m.ProjectDetailView })));
-const AllTasksView = React.lazy(() => import('./components/AllTasksView').then(m => ({ default: m.AllTasksView })));
-const ProjectsMapView = React.lazy(() => import('./components/ProjectsMapView').then(m => ({ default: m.ProjectsMapView })));
-const TimeTrackingView = React.lazy(() => import('./components/TimeTrackingView').then(m => ({ default: m.TimeTrackingView })));
-const TimesheetsView = React.lazy(() => import('./components/TimesheetsView').then(m => ({ default: m.TimesheetsView })));
-const DocumentsView = React.lazy(() => import('./components/DocumentsView').then(m => ({ default: m.DocumentsView })));
-const SafetyView = React.lazy(() => import('./components/SafetyView').then(m => ({ default: m.SafetyView })));
-const FinancialsView = React.lazy(() => import('./components/FinancialsView').then(m => ({ default: m.FinancialsView })));
-const TeamView = React.lazy(() => import('./components/TeamView').then(m => ({ default: m.TeamView })));
-const EquipmentView = React.lazy(() => import('./components/EquipmentView').then(m => ({ default: m.EquipmentView })));
-const TemplatesView = React.lazy(() => import('./components/TemplatesView').then(m => ({ default: m.TemplatesView })));
-const ToolsView = React.lazy(() => import('./components/ToolsView').then(m => ({ default: m.ToolsView })));
-const AuditLogView = React.lazy(() => import('./components/AuditLogView').then(m => ({ default: m.AuditLogView })));
-const SettingsView = React.lazy(() => import('./components/SettingsView').then(m => ({ default: m.SettingsView })));
-const ChatView = React.lazy(() => import('./components/ChatView').then(m => ({ default: m.ChatView })));
-const ClientsView = React.lazy(() => import('./components/ClientsView').then(m => ({ default: m.ClientsView })));
-const InvoicesView = React.lazy(() => import('./components/InvoicesView').then(m => ({ default: m.InvoicesView })));
-const UserRegistration = React.lazy(() => import('./components/UserRegistration').then(m => ({ default: m.UserRegistration })));
-import { ToastProvider, useToastHelpers } from './components/ui/Toast';
-import { setupGlobalErrorHandling } from './utils/errorHandling';
-import { useErrorHandling } from './hooks/useErrorHandling';
-
-
-interface Toast {
-  id: number;
-  message: string;
-  type: 'success' | 'error';
-  notification?: Notification;
-}
-
-const ToastMessage: React.FC<{ toast: Toast; onDismiss: (id: number) => void }> = ({ toast, onDismiss }) => {
-  useEffect(() => {
-    const timer = setTimeout(() => onDismiss(toast.id), 5000);
-    return () => clearTimeout(timer);
-  }, [toast, onDismiss]);
-
-  const isNotification = !!toast.notification;
-
-  const getIcon = () => {
-    if (!isNotification) {
-      return toast.type === 'success' ? '🎉' : '🚨';
-    }
-    switch (toast.notification?.type) {
-      case NotificationType.APPROVAL_REQUEST: return '📄';
-      case NotificationType.TASK_ASSIGNED: return '✅';
-      case NotificationType.NEW_MESSAGE: return '💬';
-      case NotificationType.SAFETY_ALERT: return '⚠️';
-      default: return '🔔';
-    }
+const AppInner: React.FC = () => {
+  const { user, logout } = useAuth();
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'reset'>('login');
+  const [activeView, setActiveView] = useState<View>('tools');
+  const addToast = (message: string, type: 'success' | 'error') => {
+    if (type === 'error') console.error(message);
+    else console.log(message);
   };
 
-  const baseClasses = 'p-4 rounded-[--radius] shadow-lg text-sm font-medium animate-card-enter flex items-start gap-3 w-80 border';
-  const typeClasses = {
-    success: 'bg-primary text-primary-foreground border-transparent',
-    error: 'bg-destructive text-destructive-foreground border-transparent',
-    notification: 'bg-card text-card-foreground border-border'
-  };
 
+<<<<<<< HEAD
+  // Not authenticated: render login/registration flows
+  if (!user) {
+    if (mode === 'register') {
+=======
   const toastStyle = isNotification ? typeClasses.notification : typeClasses[toast.type];
   const title = isNotification ? "New Notification" : (toast.type === 'success' ? "Success" : "Error");
 
@@ -119,16 +31,13 @@ const ToastMessage: React.FC<{ toast: Toast; onDismiss: (id: number) => void }> 
         <p className="font-bold">{title}</p>
         <p>{toast.message}</p>
       </div>
-      <button type="button" onClick={() => onDismiss(toast.id)} className="p-1 -m-1 rounded-full hover:bg-black/10 flex-shrink-0">&times;</button>
+      <button onClick={() => onDismiss(toast.id)} className="p-1 -m-1 rounded-full hover:bg-black/10 flex-shrink-0">&times;</button>
     </div>
   );
 };
 
 
-// Setup global error handling on app initialization
-setupGlobalErrorHandling();
-
-function AppContent() {
+function App() {
   const { isAuthenticated, user, loading, logout } = useAuth();
   const [authView, setAuthView] = useState<'login' | 'register' | 'forgot-password' | 'reset-password'>('login');
   const [resetToken, setResetToken] = useState<string | null>(null);
@@ -138,38 +47,6 @@ function AppContent() {
   const [companySettings, setCompanySettings] = useState<CompanySettings | null>(null);
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [initialChatRecipient, setInitialChatRecipient] = useState<User | null>(null);
-
-  // Initialize services when user logs in
-  useEffect(() => {
-    if (user && isAuthenticated) {
-      // Initialize notification service
-      notificationService.connect(user.id);
-
-      // Subscribe to notifications
-      const unsubscribe = notificationService.subscribe((notification) => {
-        addToast(notification.message, 'success', notification);
-      });
-
-      // Identify user for analytics
-      analytics.identify(user.id, {
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        companyId: user.companyId,
-      });
-
-      // Track login event
-      analytics.track('user_login', {
-        user_role: user.role,
-        company_id: user.companyId,
-      });
-
-      return () => {
-        unsubscribe();
-        notificationService.disconnect();
-      };
-    }
-  }, [user, isAuthenticated]);
 
   // States for sidebar badge counts
   const [pendingTimesheetCount, setPendingTimesheetCount] = useState(0);
@@ -181,30 +58,16 @@ function AppContent() {
 
   const changeView = useCallback(
     (view: View) => {
-      // Track page view for analytics
-      analytics.trackPageView(view, selectedProject ? `${view} - ${selectedProject.name}` : view);
-
       if (view !== 'project-detail') {
         setSelectedProject(null);
       }
       setActiveView(view);
     },
-    [selectedProject]
+    [setSelectedProject, setActiveView]
   );
 
   const addToast = useCallback((message: string, type: 'success' | 'error' = 'success', notification?: Notification) => {
-    const id = Date.now();
-    setToasts(currentToasts => [...currentToasts, { id, message, type, notification }]);
-
-    // Track toast events for analytics
-    analytics.track('toast_shown', {
-      message_type: type,
-      has_notification: !!notification,
-      notification_type: notification?.type,
-    });
-
-    // Auto-dismiss after 5 seconds
-    setTimeout(() => dismissToast(id), 5000);
+    setToasts(currentToasts => [...currentToasts, { id: Date.now(), message, type, notification }]);
   }, []);
 
   const dismissToast = (id: number) => {
@@ -226,10 +89,31 @@ function AppContent() {
   useReminderService(user);
   
   useEffect(() => {
-    if (user?.companyId) {
-      api.getCompanySettings(user.companyId).then(setCompanySettings);
+    if (!user?.companyId) {
+      setCompanySettings(null);
+      return;
     }
-  }, [user]);
+
+    let isActive = true;
+    api
+      .getCompanySettings(user.companyId)
+      .then(settings => {
+        if (isActive) {
+          setCompanySettings(settings);
+        }
+      })
+      .catch(error => {
+        if (!isActive) {
+          return;
+        }
+        console.error('Failed to load company settings', error);
+        addToast('We could not load your company preferences. Some pages may use defaults.', 'error');
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [user, addToast]);
 
   useEffect(() => {
     if(companySettings) {
@@ -242,6 +126,20 @@ function AppContent() {
       setActiveView(getDefaultViewForUser(user));
     }
   }, [isAuthenticated, user]);
+
+
+  const handleCompanySettingsUpdate = useCallback(
+    async (updates: Partial<CompanySettings>) => {
+      if (!user?.companyId) {
+        throw new Error('You must belong to a company to update settings.');
+      }
+
+      const updated = await api.updateCompanySettings(user.companyId, updates, user.id);
+      setCompanySettings(updated);
+      return updated;
+    },
+    [user]
+  );
 
 
   const updateBadgeCounts = useCallback(async (user: User) => {
@@ -295,27 +193,12 @@ function AppContent() {
   }, [user, updateBadgeCounts]);
 
   const handleLogout = () => {
-    // Track logout event
-    analytics.track('user_logout', {
-      session_duration: Date.now() - (analytics.getSessionData().startTime || 0),
-    });
-
-    // Create backup before logout
-    backupService.createBackup({}, { userId: user?.id || 'unknown' }).catch(console.error);
-
     logout();
     setAuthView('login');
     changeView('dashboard');
   };
 
   const handleSelectProject = (project: Project) => {
-    // Track project selection
-    analytics.track('project_selected', {
-      project_id: project.id,
-      project_name: project.name,
-      project_status: project.status,
-    });
-
     setSelectedProject(project);
     setActiveView('project-detail');
   };
@@ -387,17 +270,23 @@ function AppContent() {
   const renderView = () => {
     if (!user) return null;
     if (activeView === 'project-detail' && selectedProject) {
+>>>>>>> origin/codex/create-autonomous-deployment-plan-srvw3l
       return (
-        <ProjectDetailView
-          project={selectedProject}
-          user={user}
-          onBack={() => changeView('projects')}
-          addToast={addToast}
-          isOnline={isOnline}
-          onStartChat={handleStartChat}
-        />
+        <div className="min-h-screen grid place-items-center p-6">
+          <div className="w-full max-w-lg">
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold">Registration temporarily unavailable</h2>
+              <p className="text-sm text-muted-foreground mt-1">Please contact support or use an existing account.</p>
+              <div className="mt-4">
+                <button type="button" className="text-primary hover:underline" onClick={() => setMode('login')}>Back to login</button>
+              </div>
+            </Card>
+          </div>
+        </div>
       );
     }
+<<<<<<< HEAD
+=======
 
     switch (activeView) {
       case 'dashboard':
@@ -429,7 +318,15 @@ function AppContent() {
       case 'tools':
         return <ToolsView user={user} addToast={addToast} setActiveView={changeView} />;
       case 'audit-log': return <AuditLogView user={user} addToast={addToast} />;
-      case 'settings': return <SettingsView user={user} addToast={addToast} settings={companySettings} onSettingsUpdate={(s) => setCompanySettings(prev => ({...prev, ...s}))} />;
+      case 'settings':
+        return (
+          <SettingsView
+            user={user}
+            addToast={addToast}
+            settings={companySettings}
+            onSettingsUpdate={handleCompanySettingsUpdate}
+          />
+        );
       case 'chat': return <ChatView user={user} addToast={addToast} initialRecipient={initialChatRecipient}/>;
       case 'clients': return <ClientsView user={user} addToast={addToast} />;
       case 'invoices': return <InvoicesView user={user} addToast={addToast} />;
@@ -447,134 +344,70 @@ function AppContent() {
   };
 
   if (loading) {
+>>>>>>> origin/codex/create-autonomous-deployment-plan-srvw3l
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-background text-foreground">
-        <p>Loading application...</p>
+      <div className="min-h-screen grid place-items-center p-6">
+        <div className="w-full max-w-md">
+          <Card className="mb-6">
+            <div className="p-4">
+              <h1 className="text-xl font-bold">AS Agents CMS</h1>
+              <p className="text-sm text-muted-foreground mt-1">Sign in to continue</p>
+            </div>
+          </Card>
+          <Login
+            onSwitchToRegister={() => setMode('register')}
+            onSwitchToForgotPassword={() => setMode('forgot')}
+          />
+        </div>
       </div>
     );
   }
 
-  if (!isAuthenticated || !user) {
-    switch(authView) {
-        case 'login':
-            return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
-        case 'register':
-            return <UserRegistration onSwitchToLogin={() => setAuthView('login')} />;
-        case 'forgot-password':
-            return <ForgotPassword onSwitchToLogin={() => setAuthView('login')} />;
-        case 'reset-password':
-            if (resetToken) {
-                return <ResetPassword token={resetToken} onSuccess={() => { setAuthView('login'); setResetToken(null); window.history.pushState({}, '', window.location.pathname); }} />;
-            }
-            // Fallback to login if no token
-            return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
-        default:
-             return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
-    }
-  }
-
-  const viewEvaluation = evaluateViewAccess(user, activeView);
-  const viewContent = viewEvaluation.allowed ? renderView() : null;
-
+  // Authenticated: render app shell with sidebar and main content
   return (
-    <div className="relative flex h-screen overflow-hidden bg-background text-foreground">
-      <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent dark:from-primary/20" aria-hidden="true"></div>
-      <div className="pointer-events-none absolute inset-y-0 right-[-10%] w-1/2 rounded-full bg-primary/5 blur-3xl dark:bg-primary/10" aria-hidden="true"></div>
-      <Sidebar
-        user={user}
-        activeView={activeView}
-        setActiveView={changeView}
-        onLogout={handleLogout}
-        pendingTimesheetCount={pendingTimesheetCount}
-        openIncidentCount={openIncidentCount}
-        unreadMessageCount={unreadMessageCount}
-      />
-      <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
-        <Header
-          user={user}
-          onLogout={handleLogout}
-          onSearchClick={() => setIsSearchModalOpen(true)}
-          onCommandPaletteClick={() => setIsCommandPaletteOpen(true)}
-          unreadNotificationCount={unreadNotificationCount}
-          notifications={notifications}
-          onNotificationClick={handleNotificationClick}
-          onMarkAllNotificationsAsRead={async () => {
-            if (!user) return;
-            await api.markAllNotificationsAsRead(user.id);
-            updateBadgeCounts(user);
-          }}
-          addToast={addToast}
-        />
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-          <PageErrorBoundary>
-            <ViewAccessBoundary
-              user={user}
-              view={activeView}
-              evaluation={viewEvaluation}
-              fallbackView={viewEvaluation.fallbackView}
-              onNavigate={changeView}
-            >
-              <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Loading view…</div>}>
-                {viewContent}
-              </Suspense>
-            </ViewAccessBoundary>
-          </PageErrorBoundary>
-        </main>
+    <div className="min-h-screen bg-background flex flex-col">
+      <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center gap-2">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-6 w-6 text-primary" aria-hidden>
+            <path fill="currentColor" d="M12 2l9.196 5.31a1 1 0 01.5.866v10.648a1 1 0 01-.5.866L12 24l-9.196-4.31a1 1 0 01-.5-.866V8.176a1 1 0 01.5-.866L12 2z" opacity={0.12} />
+            <path fill="currentColor" d="M12 4.5l-6.5 3.752v7.496L12 19.5l6.5-3.752V8.252L12 4.5zm0 1.732l5 2.886v5.764l-5 2.886-5-2.886V9.118l5-2.886z" />
+          </svg>
+          <h1 className="text-lg font-semibold">AS Agents</h1>
+        </div>
+        <button type="button" onClick={logout} className="text-sm text-red-600 hover:underline">Logout</button>
       </div>
 
-      {isSearchModalOpen && <AISearchModal user={user} currentProject={selectedProject} onClose={() => setIsSearchModalOpen(false)} addToast={addToast} />}
-      {isCommandPaletteOpen && (
-        <CommandPalette
+      <div className="flex flex-1 min-h-0">
+        <SidebarLite
           user={user}
-          onClose={() => setIsCommandPaletteOpen(false)}
-          setActiveView={changeView}
+          activeView={activeView}
+          setActiveView={setActiveView}
+          onLogout={logout}
+          pendingTimesheetCount={0}
+          openIncidentCount={0}
+          unreadMessageCount={0}
+          companyName={undefined}
         />
-      )}
-
-      <div className="fixed bottom-4 right-4 z-50 space-y-2">
-        {toasts.map(toast => (
-          <ToastMessage key={toast.id} toast={toast} onDismiss={dismissToast} />
-        ))}
+        <main className="flex-1 p-4 overflow-auto">
+          {activeView === 'tools' ? (
+            <ToolsView user={user} addToast={addToast} setActiveView={setActiveView} />
+          ) : (
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold text-foreground">Coming soon</h2>
+              <p className="text-sm text-muted-foreground mt-1">The "{activeView}" view will be restored next.</p>
+            </Card>
+          )}
+        </main>
       </div>
     </div>
   );
-}
+};
 
-// Main App component with enhanced error handling and toast provider
-function App() {
-  useEffect(() => {
-    // Set up global error handling
-    const handleError = (error: ErrorEvent) => {
-      analytics.trackError(new Error(error.message), {
-        filename: error.filename,
-        lineno: error.lineno,
-        colno: error.colno,
-      });
-    };
-
-    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      analytics.trackError(new Error(event.reason), {
-        type: 'unhandled_promise_rejection',
-      });
-    };
-
-    window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
-
-    // Track initial page load
-    analytics.trackPageView(window.location.pathname, document.title);
-
-    return () => {
-      window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-    };
-  }, []);
-
-  return (
-    <ToastProvider>
-      <AppContent />
-    </ToastProvider>
-  );
-}
+const App: React.FC = () => (
+  <AuthProvider>
+    <AppInner />
+  </AuthProvider>
+);
 
 export default App;
+

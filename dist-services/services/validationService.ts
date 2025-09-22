@@ -1,7 +1,7 @@
 /**
  * Comprehensive validation service for data integrity and security
  */
-
+import sanitizeHtml from 'sanitize-html';
 export interface ValidationRule<T = any> {
   field: keyof T;
   required?: boolean;
@@ -230,12 +230,14 @@ export const securityValidation = {
 
   // Check for XSS patterns
   checkXss: (input: string): boolean => {
-    const xssPatterns = [
-      /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
-      /javascript:/gi,
-      /on\w+\s*=/gi,
-    ];
-    return xssPatterns.some(pattern => pattern.test(input));
+    // Use sanitize-html to remove any dangerous tags and attributes.
+    const sanitized = sanitizeHtml(input, {
+      allowedTags: [],
+      allowedAttributes: {},
+      textFilter: undefined, // default
+    });
+    // If input differs from sanitized, suspect XSS
+    return sanitized !== input;
   },
 
   // Validate file upload

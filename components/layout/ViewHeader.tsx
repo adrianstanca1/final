@@ -1,24 +1,28 @@
 import React from 'react';
-import { View } from '../../types';
-import { viewMetadata } from '../../utils/viewAccess';
 
-export type ViewHeaderIndicator = 'neutral' | 'positive' | 'warning' | 'negative';
+interface ViewHeaderStat {
+  label: string;
+  value: number | string;
+  tone?: 'neutral' | 'info' | 'warning' | 'success';
+}
 
-export interface ViewHeaderMetaItem {
+interface ContextPill {
   label: string;
   value: string;
   helper?: string;
   indicator?: ViewHeaderIndicator;
+
+  tone?: 'neutral' | 'info' | 'warning' | 'success';
 }
 
 interface ViewHeaderProps {
-  title?: string;
+  title: string;
   description?: string;
   icon?: React.ReactNode;
-  actions?: React.ReactNode;
-  meta?: ViewHeaderMetaItem[];
-  breadcrumbs?: Array<{ label: string; onClick?: () => void; view?: View }>;
-  view?: View;
+  accentColorClass?: string;
+  contextPill?: ContextPill;
+  stats?: ViewHeaderStat[];
+  isOnline: boolean;
   className?: string;
 }
 
@@ -27,79 +31,87 @@ const indicatorClasses: Record<ViewHeaderIndicator, string> = {
   positive: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300',
   warning: 'border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-300',
   negative: 'border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-300',
+const pillToneClasses: Record<Required<ContextPill>['tone'], string> = {
+  neutral: 'bg-muted text-muted-foreground border-border',
+  info: 'bg-sky-100 text-sky-700 border-sky-200 dark:bg-sky-500/10 dark:text-sky-200 dark:border-sky-500/30',
+  warning: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-200 dark:border-amber-500/30',
+  success: 'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-200 dark:border-emerald-500/30',
+};
+
+const statToneClasses: Record<Required<ViewHeaderStat>['tone'], string> = {
+  neutral: 'bg-card/60 border border-border text-foreground',
+  info: 'bg-sky-50 text-sky-700 border border-sky-100 dark:bg-sky-500/10 dark:text-sky-200 dark:border-sky-500/30',
+  warning: 'bg-amber-50 text-amber-700 border border-amber-100 dark:bg-amber-500/10 dark:text-amber-200 dark:border-amber-500/30',
+  success: 'bg-emerald-50 text-emerald-700 border border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-200 dark:border-emerald-500/30',
+};
+
+const getToneClass = <T extends { tone?: 'neutral' | 'info' | 'warning' | 'success' }>(map: Record<'neutral' | 'info' | 'warning' | 'success', string>, item?: T) => {
+  const tone = item?.tone ?? 'neutral';
+  return map[tone];
 };
 
 export const ViewHeader: React.FC<ViewHeaderProps> = ({
   title,
   description,
   icon,
-  actions,
-  meta,
-  breadcrumbs,
-  view,
+  accentColorClass = 'bg-primary/10 text-primary border border-primary/10',
+  contextPill,
+  stats,
+  isOnline,
   className = '',
 }) => {
-  const resolvedTitle = title ?? (view ? viewMetadata[view]?.title : undefined);
-  const resolvedDescription = description ?? (view ? viewMetadata[view]?.description : undefined);
-
   return (
-    <section
-      className={`relative overflow-hidden rounded-[--radius] border border-border bg-card/80 p-6 shadow-sm backdrop-blur ${className}`}
-    >
-      <span className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/40 via-primary/20 to-transparent dark:from-primary/60" />
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
-          {icon ? (
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              {icon}
-            </div>
-          ) : null}
-          <div>
-            {breadcrumbs?.length ? (
-              <div className="mb-1 flex flex-wrap items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
-                {breadcrumbs.map((crumb, index) => (
-                  <React.Fragment key={crumb.label}>
-                    {index > 0 && <span className="opacity-60">/</span>}
-                    {crumb.onClick ? (
-                      <button
-                        type="button"
-                        onClick={crumb.onClick}
-                        className="font-semibold text-muted-foreground transition-colors hover:text-primary"
-                      >
-                        {crumb.label}
-                      </button>
-                    ) : (
-                      <span>{crumb.label}</span>
-                    )}
-                  </React.Fragment>
-                ))}
+    <section className={`mb-6 rounded-[--radius] border border-border/60 bg-card/70 shadow-sm backdrop-blur ${className}`.trim()} aria-labelledby="view-heading">
+      <div className="flex flex-col gap-4 p-4 md:p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-4">
+            {icon && (
+              <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${accentColorClass}`} aria-hidden>
+                {icon}
               </div>
-            ) : null}
-            {resolvedTitle ? <h1 className="text-2xl font-semibold text-foreground md:text-3xl">{resolvedTitle}</h1> : null}
-            {resolvedDescription ? (
-              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{resolvedDescription}</p>
-            ) : null}
+            )}
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 id="view-heading" className="text-2xl font-semibold text-foreground">
+                  {title}
+                </h1>
+                {contextPill && (
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold uppercase tracking-wide ${getToneClass(pillToneClasses, contextPill)}`}>
+                    <span className="h-1.5 w-1.5 rounded-full bg-current"></span>
+                    {contextPill.label}
+                  </span>
+                )}
+              </div>
+              {description && <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{description}</p>}
+            </div>
           </div>
-        </div>
-        {actions ? <div className="flex flex-wrap gap-3 text-sm">{actions}</div> : null}
-      </div>
-
-      {meta?.length ? (
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {meta.map((item) => (
-            <div
-              key={`${item.label}-${item.value}`}
-              className={`rounded-lg border px-4 py-3 text-sm shadow-sm transition-colors ${
-                indicatorClasses[item.indicator ?? 'neutral']
+          <div className="flex flex-wrap items-center gap-3">
+            <span
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                isOnline
+                  ? 'border-emerald-200 bg-emerald-50 text-emerald-600 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200'
+                  : 'border-amber-200 bg-amber-50 text-amber-600 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200'
               }`}
             >
-              <p className="text-xs font-semibold uppercase tracking-wide opacity-75">{item.label}</p>
-              <p className="mt-2 text-xl font-semibold text-foreground">{item.value}</p>
-              {item.helper ? <p className="mt-1 text-xs text-muted-foreground">{item.helper}</p> : null}
-            </div>
-          ))}
+              <span
+                className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500 animate-pulse'}`}
+                aria-hidden
+              ></span>
+              {isOnline ? 'Realtime sync' : 'Offline mode'}
+            </span>
+            {stats?.map(stat => (
+              <div
+                key={stat.label}
+                className={`flex min-w-[140px] flex-col rounded-lg px-3 py-2 text-sm shadow-sm ${getToneClass(statToneClasses, stat)}`}
+              >
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground/80">{stat.label}</span>
+                <span className="text-lg font-semibold">{stat.value}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      ) : null}
+      </div>
     </section>
   );
+};
 };

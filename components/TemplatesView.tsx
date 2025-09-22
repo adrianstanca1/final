@@ -9,6 +9,8 @@ import { Button } from './ui/Button';
 interface TemplatesViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
+}
+
 const CreateTemplateModal: React.FC<{
     user: User;
     onClose: () => void;

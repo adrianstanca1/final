@@ -12,6 +12,8 @@ interface CostEstimatorProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
   onBack: () => void;
+}
+
 interface Estimate {
     totalEstimate: number;
     breakdown: {

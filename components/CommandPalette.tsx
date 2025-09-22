@@ -9,6 +9,9 @@ interface CommandPaletteProps {
   user: User;
   onClose: () => void;
   setActiveView: (view: View) => void;
+  onProjectSelect: (project: Project) => void;
+}
+
 interface Command {
   id: string;
   type: 'navigation' | 'project' | 'action';
@@ -17,7 +20,9 @@ interface Command {
   action: () => void;
   keywords?: string;
   icon: React.ReactNode;
-export const CommandPalette: React.FC<CommandPaletteProps> = ({ user, onClose, setActiveView }) => {
+}
+
+export const CommandPalette: React.FC<CommandPaletteProps> = ({ user, onClose, setActiveView, onProjectSelect }) => {
     const [search, setSearch] = useState('');
     const [projects, setProjects] = useState<Project[]>([]);
     const [activeIndex, setActiveIndex] = useState(0);
@@ -50,13 +55,13 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ user, onClose, s
             type: 'project',
             title: p.name,
             category: 'Projects',
-            action: () => console.log('Navigate to project', p.id), // Replace with actual navigation
+            action: () => onProjectSelect(p),
             // FIX: Corrected property access for project location
-            keywords: p.location.address,
+            keywords: [p.location?.address, p.projectType, p.status].filter(Boolean).join(' '),
             icon: <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
         }));
         return [...navCommands, ...projectCommands];
-    }, [projects, setActiveView]);
+    }, [projects, setActiveView, onProjectSelect]);
 
     const filteredCommands = useMemo(() => {
         if (!search) return allCommands;
@@ -75,12 +80,15 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({ user, onClose, s
     const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
         if (e.key === 'ArrowDown') {
             e.preventDefault();
+            if (filteredCommands.length === 0) return;
             setActiveIndex(i => (i + 1) % filteredCommands.length);
         } else if (e.key === 'ArrowUp') {
             e.preventDefault();
+            if (filteredCommands.length === 0) return;
             setActiveIndex(i => (i - 1 + filteredCommands.length) % filteredCommands.length);
         } else if (e.key === 'Enter') {
             e.preventDefault();
+            if (filteredCommands.length === 0) return;
             if (filteredCommands[activeIndex]) {
                 handleSelect(filteredCommands[activeIndex]);
             }

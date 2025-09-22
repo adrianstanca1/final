@@ -1,14 +1,27 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, ReactNode } from 'react';
-import { User, Company, LoginCredentials, RegisterCredentials, AuthState, Permission } from '../types';
+<<<<<<< HEAD
+import { User, Company, LoginCredentials, AuthState, Permission } from '../types';
 import { authApi } from '../services/mockApi';
 import { hasPermission as checkPermission, authService } from '../services/auth';
 import { api } from '../services/mockApi';
 import { analytics } from '../services/analyticsService';
 import { ValidationService } from '../services/validationService';
+import { getStorage } from '../utils/storage';
+import { authClient, type AuthenticatedSession } from '../services/authClient';
+import type { RegistrationPayload } from '../types';
+=======
+import { User, Company, LoginCredentials, RegistrationPayload, AuthState, Permission } from '../types';
+import { authClient, type AuthenticatedSession } from '../services/authClient';
+import { hasPermission as checkPermission } from '../services/auth';
+import { api } from '../services/mockApi';
+import { getStorage } from '../utils/storage';
+
+const storage = getStorage();
+>>>>>>> origin/codex/create-autonomous-deployment-plan-srvw3l
 
 interface AuthContextType extends AuthState {
     login: (credentials: LoginCredentials) => Promise<{ mfaRequired: boolean; userId?: string }>;
-    register: (credentials: Partial<RegisterCredentials>) => Promise<void>;
+    register: (credentials: RegistrationPayload) => Promise<AuthenticatedSession>;
     logout: () => void;
     hasPermission: (permission: Permission) => boolean;
     verifyMfaAndFinalize: (userId: string, code: string) => Promise<void>;
@@ -40,9 +53,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         error: null,
     });
 
+    const storage = getStorage();
+
+
     const logout = useCallback(() => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
+        storage.removeItem('token');
+        storage.removeItem('refreshToken');
         if (tokenRefreshTimeout) clearTimeout(tokenRefreshTimeout);
         setAuthState({
             isAuthenticated: false,
@@ -69,12 +85,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const expiresIn = (decoded.exp * 1000) - Date.now() - 60000;
             if (expiresIn > 0) {
                 tokenRefreshTimeout = setTimeout(async () => {
-                    const storedRefreshToken = localStorage.getItem('refreshToken');
+                    const storedRefreshToken = storage.getItem('refreshToken');
                     if (storedRefreshToken) {
                         try {
                             console.log("Proactively refreshing token...");
-                            const { token: newToken } = await authApi.refreshToken(storedRefreshToken);
-                            localStorage.setItem('token', newToken);
+                            const { token: newToken } = await authClient.refreshToken(storedRefreshToken);
+                            storage.setItem('token', newToken);
                             setAuthState(prev => ({ ...prev, token: newToken }));
                             scheduleTokenRefresh(newToken); // Schedule the next refresh
                         } catch (error) {
@@ -90,10 +106,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
         }
     }, [logout]);
-    
+
     const finalizeLogin = useCallback((data: { token: string, refreshToken: string, user: User, company: Company }) => {
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('refreshToken', data.refreshToken);
+        storage.setItem('token', data.token);
+        storage.setItem('refreshToken', data.refreshToken);
         setAuthState({
             isAuthenticated: true,
             token: data.token,
@@ -112,19 +128,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      * If the access token is expired, it reactively tries to use the refresh token.
      */
     const initAuth = useCallback(async () => {
-        const token = localStorage.getItem('token');
-        const refreshToken = localStorage.getItem('refreshToken');
+        const token = storage.getItem('token');
+        const refreshToken = storage.getItem('refreshToken');
         if (token && refreshToken) {
             try {
                 // First, try to authenticate with the existing access token.
-                const { user, company } = await authApi.me(token);
+                const { user, company } = await authClient.me(token);
                 finalizeLogin({ token, refreshToken, user, company });
             } catch (error) {
                 // If authApi.me fails (e.g., token expired), attempt to refresh the token.
                 console.log("Access token invalid, attempting reactive refresh...");
                 try {
-                    const { token: newToken } = await authApi.refreshToken(refreshToken);
-                    const { user, company } = await authApi.me(newToken);
+                    const { token: newToken } = await authClient.refreshToken(refreshToken);
+                    const { user, company } = await authClient.me(newToken);
                     finalizeLogin({ token: newToken, refreshToken, user, company });
                 } catch (refreshError) {
                     console.error("Auth init with refresh token failed, logging out.", refreshError);
@@ -170,6 +186,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
 
         try {
+<<<<<<< HEAD
             const response = await authApi.login(validation.sanitizedData);
 
             // Record successful login attempt
@@ -177,7 +194,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 ipAddress: 'unknown',
                 userAgent: navigator.userAgent,
             });
-
+=======
+            const response = await authClient.login(credentials);
+>>>>>>> origin/codex/create-autonomous-deployment-plan-srvw3l
             if (response.mfaRequired) {
                 setAuthState(prev => ({ ...prev, loading: false }));
                 return { mfaRequired: true, userId: response.userId };
@@ -203,25 +222,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             throw error;
         }
     };
-    
+
     const verifyMfaAndFinalize = async (userId: string, code: string) => {
         setAuthState(prev => ({ ...prev, loading: true, error: null }));
+<<<<<<< HEAD
+        try {
+=======
          try {
-            const response = await authApi.verifyMfa(userId, code);
+>>>>>>> origin/codex/create-autonomous-deployment-plan-srvw3l
+            const response = await authClient.verifyMfa(userId, code);
             finalizeLogin(response);
         } catch (error: any) {
-            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'MFA verification failed'}));
+            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'MFA verification failed' }));
             throw error;
         }
     }
 
-    const register = async (credentials: Partial<RegisterCredentials>) => {
+    const register = async (credentials: RegistrationPayload): Promise<AuthenticatedSession> => {
         setAuthState(prev => ({ ...prev, loading: true, error: null }));
         try {
-            const response = await authApi.register(credentials);
-            finalizeLogin(response);
+            const session = await authClient.register(credentials);
+            finalizeLogin(session);
+            return session;
         } catch (error: any) {
-             setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Registration failed'}));
+            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Registration failed' }));
             throw error;
         }
     };
@@ -243,10 +267,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const requestPasswordReset = async (email: string) => {
         setAuthState(prev => ({ ...prev, loading: true, error: null }));
         try {
-            await authApi.requestPasswordReset(email);
+            await authClient.requestPasswordReset(email);
             setAuthState(prev => ({ ...prev, loading: false }));
         } catch (error: any) {
-            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Request failed'}));
+            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Request failed' }));
             throw error;
         }
     };
@@ -254,14 +278,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const resetPassword = async (token: string, newPassword: string) => {
         setAuthState(prev => ({ ...prev, loading: true, error: null }));
         try {
-            await authApi.resetPassword(token, newPassword);
+            await authClient.resetPassword(token, newPassword);
             setAuthState(prev => ({ ...prev, loading: false }));
         } catch (error: any) {
-            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Password reset failed'}));
+            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Password reset failed' }));
             throw error;
         }
     };
-    
+
     const value = {
         ...authState,
         login,

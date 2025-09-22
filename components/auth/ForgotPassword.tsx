@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
+import { AuthEnvironmentNotice } from './AuthEnvironmentNotice';
 
 interface ForgotPasswordProps {
   onSwitchToLogin: () => void;
+}
+
 const InputField = ({ label, name, type = 'text', value = '', onChange, error }: { label: string; name: string; type?: string; value?: string; onChange: (name: string, value: string) => void; error?: string;}) => (
     <div>
         <label htmlFor={name} className="block text-sm font-medium text-muted-foreground">{label}</label>
@@ -45,6 +48,7 @@ export const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onSwitchToLogin 
                 </p>
             </div>
             <Card className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+                <AuthEnvironmentNotice className="mb-4" />
                 {authError && <div className="mb-4 p-3 bg-destructive/10 text-destructive text-sm rounded-md">{authError}</div>}
                 {error && <div className="mb-4 p-3 bg-destructive/10 text-destructive text-sm rounded-md">{error}</div>}
                 {successMessage ? (

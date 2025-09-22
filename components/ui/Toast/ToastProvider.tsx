@@ -20,6 +20,8 @@ interface ToastContextType {
   updateToast: (id: string, updates: Partial<ToastOptions>) => void;
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
+}
+
 export function useToast() {
   const context = useContext(ToastContext);
   if (!context) {
@@ -105,6 +107,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 interface ToastContainerProps {
   toasts: ToastState[];
   onDismiss: (id: string) => void;
+}
+
 function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
   if (toasts.length === 0) return null;
 

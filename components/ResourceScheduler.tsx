@@ -16,6 +16,8 @@ const getWeekStart = (date: Date): Date => {
   return new Date(new Date(d.setDate(diff)).setHours(0, 0, 0, 0));
 const dateToYMD = (date: Date) => date.toISOString().split('T')[0];
 
+}
+
 const AssignmentModal: React.FC<{
     assignment: ResourceAssignment | null,
     onClose: () => void,
