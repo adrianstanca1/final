@@ -22,6 +22,15 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
     const [email, setEmail] = useState(initialRememberedEmail);
     const [password, setPassword] = useState('');
     const [mfaCode, setMfaCode] = useState('');
+    const [rememberMe, setRememberMe] = useState(() => {
+        if (typeof window === 'undefined') return true;
+        const localPreference = window.localStorage.getItem('asagents_auth_persistence');
+        if (localPreference === 'local') return true;
+        const sessionPreference = window.sessionStorage.getItem('asagents_auth_persistence');
+        if (sessionPreference === 'session') return false;
+        return true;
+    });
+
     const [rememberMe, setRememberMe] = useState(initialRememberedEmail !== '');
     const [showPassword, setShowPassword] = useState(false);
     
