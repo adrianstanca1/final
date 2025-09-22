@@ -50,7 +50,6 @@ import { formatCurrency } from '../utils/finance';
 type FinancialsTab = 'dashboard' | 'invoices' | 'expenses' | 'clients';
 
 
-<<<<<<< Updated upstream
 const BarChart: React.FC<{ data: { label: string; value: number }[]; barColor: string }> = ({ data, barColor }) => {
   const maxValue = Math.max(...data.map(d => d.value), 0);
   return (
@@ -63,26 +62,12 @@ const BarChart: React.FC<{ data: { label: string; value: number }[]; barColor: s
             title={formatCurrency(item.value)}
           ></div>
           <span className="text-xs mt-2 text-slate-600">{item.label}</span>
-=======
-const BarChart: React.FC<{ data: { label: string, value: number }[], barColor: string }> = ({ data, barColor }) => {
-    const maxValue = Math.max(...data.map(d => d.value), 0);
-    return (
-        <div className="w-full h-64 flex items-end justify-around p-4 border rounded-lg bg-slate-50">
-            {data.map((item, index) => (
-                <div key={index} className="flex flex-col items-center justify-end h-full w-full">
-                    <div
-                        className={`bar-chart-bar ${barColor}`}
-                        style={{ '--bar-height': `${maxValue > 0 ? (item.value / maxValue) * 100 : 0}%` } as React.CSSProperties}
-                        title={formatCurrency(item.value)}
-                    ></div>
-                    <span className="text-xs mt-2 text-slate-600">{item.label}</span>
-                </div>
-            ))}
->>>>>>> Stashed changes
         </div>
       ))}
     </div>
   );
+};
+
 export const FinancialsView: React.FC<{ user: User; addToast: (message: string, type: 'success' | 'error') => void }> = ({
   user,
   addToast,
@@ -181,7 +166,6 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
     return () => {
       abortControllerRef.current?.abort();
     };
-<<<<<<< Updated upstream
   }, [fetchData]);
 
   const { projectMap, clientMap, userMap } = useMemo(
@@ -481,18 +465,6 @@ const renderInvoicesAndQuotes = () => (
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="font-semibold text-lg">Invoices</h3>
                     {canManageFinances && <Button onClick={()=>{ setSelectedItem(null); setModal('invoice'); }}>Create Invoice</Button>}
-=======
-    return (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <Card className="w-full max-w-md" onClick={e=>e.stopPropagation()}>
-                <h3 className="text-lg font-bold">Review Expense</h3>
-                <p>Amount: {formatCurrency(expense.amount, expense.currency)}</p>
-                <p>Category: {expense.category}</p>
-                <p>Description: {expense.description}</p>
-                <div className="flex justify-end gap-2 mt-4">
-                    <Button title="Reject expense" variant="danger" onClick={() => handleUpdateStatus(ExpenseStatus.REJECTED)}>Reject</Button>
-                    <Button title="Approve expense" variant="success" onClick={() => handleUpdateStatus(ExpenseStatus.APPROVED)}>Approve</Button>
->>>>>>> Stashed changes
                 </div>
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-border">
@@ -584,7 +556,6 @@ const renderInvoicesAndQuotes = () => (
         return;
       }
 
-<<<<<<< Updated upstream
       const sanitizedHorizon = Number.isFinite(horizonMonths)
         ? Math.max(1, Math.round(horizonMonths))
         : 3;
@@ -622,16 +593,10 @@ const renderInvoicesAndQuotes = () => (
             model: forecast.model,
           },
           user.id,
-=======
-    const renderDashboard = () => (
-        <div className="space-y-6">
-             {kpis && <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card><p className="text-sm text-slate-500">Profitability</p><p className="text-3xl font-bold">{kpis.profitability}%</p></Card>
-                <Card><p className="text-sm text-slate-500">Avg. Project Margin</p><p className="text-3xl font-bold">{kpis.projectMargin}%</p></Card>
-                <Card><p className="text-sm text-slate-500">Cash Flow</p><p className="text-3xl font-bold">{formatCurrency(kpis.cashFlow, kpis.currency)}</p></Card>
-            </div>}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
+        );
+
+        addToast('Financial forecast generated successfully', 'success');
+        setForecastData(storedForecast);
                     <h3 className="font-semibold mb-4">Monthly Performance (Profit)</h3>
                     <BarChart data={monthly.map(m => ({ label: m.month, value: m.profit }))} barColor="bg-green-500" />
                 </Card>
@@ -715,7 +680,6 @@ const renderInvoicesAndQuotes = () => (
                      {myExpenses.length === 0 && <p className="text-slate-500 py-4 text-center">You have not submitted any expenses.</p>}
                 </Card>
             </div>
->>>>>>> Stashed changes
         );
 
         setData(prev => ({ ...prev, forecasts: [storedForecast, ...prev.forecasts] }));
@@ -876,7 +840,6 @@ const DashboardTab = React.memo(
     const previousForecasts = forecasts.slice(1, 5);
 
     return (
-<<<<<<< Updated upstream
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card>
@@ -891,25 +854,6 @@ const DashboardTab = React.memo(
             <p className="text-sm text-slate-500">Cash Flow</p>
             <p className="text-3xl font-bold">{formatCurrency(kpis?.cashFlow || 0, kpis?.currency ?? 'GBP')}</p>
           </Card>
-=======
-        <div className="space-y-6">
-            {selectedExpense && <ExpenseApprovalModal expense={selectedExpense} onClose={() => setSelectedExpense(null)} onUpdate={fetchData} user={user} addToast={addToast} />}
-            <div className="flex justify-between items-center">
-                <h2 className="text-3xl font-bold text-slate-800">Financials</h2>
-            </div>
-
-            <div className="border-b border-gray-200">
-                <nav className="-mb-px flex space-x-6">
-                    {(['dashboard', 'invoices', 'expenses', 'clients'] as FinancialsTab[]).map(tab => (
-                         <button key={tab} type="button" title={`Switch to ${tab} tab`} onClick={() => setActiveTab(tab)} className={`capitalize whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm ${activeTab === tab ? 'border-sky-500 text-sky-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
-                            {tab === 'invoices' ? 'Invoices & Quotes' : tab}
-                        </button>
-                    ))}
-                </nav>
-            </div>
-            
-            {renderContent()}
->>>>>>> Stashed changes
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>

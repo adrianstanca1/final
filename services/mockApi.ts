@@ -2,11 +2,11 @@
 // Supports offline queuing for write operations.
 
 import { initialData } from './mockData';
-<<<<<<< HEAD
-<<<<<<< HEAD
 import { apiCache, cacheKeys } from './cacheService';
 import { ValidationService, securityValidation } from './validationService';
 import { notificationService } from './notificationService';
+import { getStorage } from '../utils/storage';
+import { upgradeLegacyPassword, createPasswordRecord, verifyPassword, sanitizeUser } from '../utils/password';
 import {
     User,
     Company,
@@ -61,17 +61,11 @@ import {
     TodoPriority,
     OperationalAlert,
     OperationalInsights,
+    RolePermissions,
 } from '../types';
 import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
 import { getInvoiceFinancials } from '../utils/finance';
-=======
-=======
->>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
-import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegistrationPayload, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority, RolePermissions, Permission } from '../types';
-import { createPasswordRecord, sanitizeUser, upgradeLegacyPassword, verifyPassword } from '../utils/password';
-import { getStorage } from '../utils/storage';
 
->>>>>>> e7ec06c (Log sixth autonomous deployment run)
 const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
 
 type RequestOptions = { signal?: AbortSignal };
@@ -236,7 +230,6 @@ const defaultUserPreferences = (): User['preferences'] => ({
         hiddenWidgets: [],
     },
 });
-<<<<<<< HEAD
 
 const encodeBase64 = (value: string): string => {
     if (typeof btoa === 'function') {
@@ -257,8 +250,6 @@ const decodeBase64 = (value: string): string => {
     }
     throw new Error('Base64 decoding is not supported in this environment.');
 };
-=======
->>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
 
 const createToken = (payload: object, expiresIn: number): string => {
     const header = { alg: 'HS256', typ: 'JWT' };
@@ -288,8 +279,6 @@ const decodeToken = (token: string): any => {
     }
 };
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 const safeNumber = (value: unknown): number => {
     if (typeof value === 'number' && Number.isFinite(value)) {
         return value;
@@ -319,27 +308,6 @@ const getMonthLabel = (date: Date): string =>
 const MILLISECONDS_PER_HOUR = 1000 * 60 * 60;
 const MILLISECONDS_PER_DAY = MILLISECONDS_PER_HOUR * 24;
 
-const hydrateData = <T extends { [key: string]: any }>(key: string, defaultData: T[]): T[] => {
-=======
-const STORAGE_PREFIX = 'asagents_';
-
-const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
-
-const readJson = <T>(key: string, fallback: T): T => {
->>>>>>> e7ec06c (Log sixth autonomous deployment run)
-    try {
-        const stored = storage.getItem(key);
-        if (!stored) {
-            return fallback;
-        }
-        return JSON.parse(stored) as T;
-    } catch (error) {
-        console.error(`Failed to read ${key} from storage`, error);
-        return fallback;
-    }
-};
-
-=======
 const STORAGE_PREFIX = 'asagents_';
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
@@ -357,7 +325,6 @@ const readJson = <T>(key: string, fallback: T): T => {
     }
 };
 
->>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
 const writeJson = (key: string, value: unknown) => {
     storage.setItem(key, JSON.stringify(value));
 };
@@ -386,34 +353,6 @@ type DbCollections = {
     whiteboardNotes: Partial<WhiteboardNote>[];
     documents: Partial<Document>[];
     projectInsights: Partial<ProjectInsight>[];
-<<<<<<< HEAD
-<<<<<<< HEAD
-    financialForecasts: Partial<FinancialForecast>[];
-} = {
-    companies: hydrateData('companies', initialData.companies),
-    users: hydrateData('users', initialData.users),
-    projects: hydrateData('projects', initialData.projects),
-    todos: hydrateData('todos', initialData.todos),
-    timeEntries: hydrateData('timeEntries', initialData.timeEntries),
-    safetyIncidents: hydrateData('safetyIncidents', initialData.safetyIncidents),
-    equipment: hydrateData('equipment', initialData.equipment),
-    clients: hydrateData('clients', initialData.clients),
-    invoices: hydrateData('invoices', initialData.invoices),
-    expenses: hydrateData('expenses', initialData.expenses),
-    siteUpdates: hydrateData('siteUpdates', initialData.siteUpdates),
-    projectMessages: hydrateData('projectMessages', initialData.projectMessages),
-    notifications: hydrateData('notifications', (initialData as any).notifications || []),
-    quotes: hydrateData('quotes', (initialData as any).quotes || []),
-    auditLogs: hydrateData('auditLogs', []),
-    resourceAssignments: hydrateData('resourceAssignments', []),
-    conversations: hydrateData('conversations', []),
-    messages: hydrateData('messages', []),
-    projectAssignments: hydrateData('projectAssignments', []),
-    projectTemplates: hydrateData('projectTemplates', []),
-    whiteboardNotes: hydrateData('whiteboardNotes', []),
-    documents: hydrateData('documents', []),
-    projectInsights: hydrateData('projectInsights', (initialData as any).projectInsights || []),
-    financialForecasts: hydrateData('financialForecasts', (initialData as any).financialForecasts || []),
 };
 
 const findProjectById = (projectId: unknown): Partial<Project> | undefined => {
@@ -484,14 +423,8 @@ const getCompanyCurrency = (companyId: string): string => {
         return settingsCurrency;
     }
     return 'GBP';
-=======
->>>>>>> e7ec06c (Log sixth autonomous deployment run)
 };
 
-=======
-};
-
->>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
 const DEFAULT_COLLECTIONS: Record<keyof DbCollections, any[]> = {
     companies: clone(initialData.companies),
     users: clone(initialData.users),
@@ -1067,12 +1000,6 @@ export const api = {
         ensureNotAborted(options?.signal);
         return db.projects.filter(p => (p as any).managerId === managerId) as Project[];
     },
-    getUsersByCompany: async (companyId: string, options?: RequestOptions): Promise<User[]> => {
-        ensureNotAborted(options?.signal);
-        await delay();
-        ensureNotAborted(options?.signal);
-        return db.users.filter(u => u.companyId === companyId) as User[];
-    },
 
     getProjectById: async (projectId: string, options?: RequestOptions): Promise<Project | null> => {
         ensureNotAborted(options?.signal);
@@ -1081,15 +1008,12 @@ export const api = {
         const project = db.projects.find(p => p.id === projectId);
         return project ? project as Project : null;
     },
-<<<<<<< HEAD
-=======
     getUsersByCompany: async (companyId: string, options?: RequestOptions): Promise<User[]> => {
         ensureNotAborted(options?.signal);
         await delay();
         ensureNotAborted(options?.signal);
         return sanitizeUsersForReturn(db.users.filter(u => u.companyId === companyId));
     },
->>>>>>> e7ec06c (Log sixth autonomous deployment run)
     getEquipmentByCompany: async (companyId: string, options?: RequestOptions): Promise<Equipment[]> => {
         ensureNotAborted(options?.signal);
         await delay();

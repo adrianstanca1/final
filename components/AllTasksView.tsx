@@ -2,12 +2,9 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { User, Project, Todo, Role, Permission, TodoStatus, TodoPriority } from '../types';
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
-<<<<<<< Updated upstream
 import { Card } from './ui/Card';
-=======
 import { PriorityDisplay } from './ui/PriorityDisplay';
 import './ui/subtaskProgress.css';
->>>>>>> Stashed changes
 import { Button } from './ui/Button';
 import { KanbanBoard } from './KanbanBoard';
 import { TaskModal } from './TaskModal';
@@ -19,23 +16,7 @@ interface AllTasksViewProps {
   isOnline: boolean;
 }
 
-<<<<<<< Updated upstream
-=======
-const TaskDetailModal: React.FC<{
-    task: Todo;
-    user: User;
-    projects: Project[];
-    personnel: User[];
-    allTasksForProject: Todo[];
-    onClose: () => void;
-    onUpdateTask: (task: Todo, updates: Partial<Todo>) => void;
-    addToast: (message: string, type: 'success' | 'error') => void;
-}> = ({ task, user, projects, personnel, allTasksForProject, onClose, onUpdateTask, addToast }) => {
-    const [isEditing, setIsEditing] = useState(false);
-    const [editableTask, setEditableTask] = useState<Todo>(task);
-    const [newComment, setNewComment] = useState('');
-
-    useEffect(() => { setEditableTask(task); }, [task]);
+const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOnline }) => {
 
     const canManage = hasPermission(user, Permission.MANAGE_TASKS);
     const isTaskDone = task.status === TodoStatus.DONE;
@@ -298,7 +279,6 @@ const TaskDetailModal: React.FC<{
     );
 }
 
->>>>>>> Stashed changes
 export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOnline }) => {
     const [loading, setLoading] = useState(true);
     const [projects, setProjects] = useState<Project[]>([]);
@@ -398,11 +378,11 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
         });
     };
     
-<<<<<<< Updated upstream
      const handleTaskModalSuccess = () => {
         // Just refresh all data to ensure dependency graph is correct
         fetchData();
-=======
+    };
+
     const handleBulkUpdate = async () => {
         if (selectedTasks.size === 0) {
             addToast("No tasks selected for bulk update.", "error");
@@ -433,7 +413,6 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
         } finally {
             setIsBulkUpdating(false);
         }
->>>>>>> Stashed changes
     };
     
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -499,7 +478,6 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                 ]}
             />
 
-<<<<<<< Updated upstream
             <Card className="p-0">
                 <div className="flex flex-wrap items-center gap-4 px-4 py-4">
                     <label className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -543,7 +521,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                         <Button onClick={handleApplyBulkAction}>Apply</Button>
                     </div>
                 )}
-=======
+            </Card>
             <Card>
                  <div className="flex flex-col md:flex-row gap-4 mb-4 pb-4 border-b">
                      <select title="Project filter" value={projectFilter} onChange={e => setProjectFilter(e.target.value)} className="w-full md:w-auto p-2 border bg-white rounded-md">
@@ -636,7 +614,6 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                         </div>
                     </details>
                 </div>
->>>>>>> Stashed changes
             </Card>
             
             <KanbanBoard

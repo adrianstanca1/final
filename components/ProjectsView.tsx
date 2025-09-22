@@ -1,13 +1,4 @@
-<<<<<<< Updated upstream
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-=======
-    <title>Team Members Icon</title>
-    <title>Open Tasks Icon</title>
-    <title>Overdue Tasks Icon</title>
-// full contents of components/ProjectsView.tsx
->>>>>>> Stashed changes
-
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { User, Project, Permission, ProjectStatus } from '../types';
 
 import {
