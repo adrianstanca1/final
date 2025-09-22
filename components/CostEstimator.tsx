@@ -3,7 +3,7 @@ import { User } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import * as api from '../services/mockApi';
-import { GoogleGenAI, GenerativeModel } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 
 interface CostEstimatorProps {
   user: User;
