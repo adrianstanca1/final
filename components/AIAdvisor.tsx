@@ -7,6 +7,7 @@ import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { GoogleGenAI, Chat } from "@google/genai";
+import { useTenant } from '../contexts/TenantContext';
 
 interface AIAdvisorProps {
   user: User;
@@ -27,14 +28,19 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ user, addToast, onBack }) 
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const chatContainerRef = useRef<HTMLDivElement>(null);
+    const { resolvedTenantId } = useTenant();
 
     const initializeChat = useCallback(async () => {
-        if (!user.companyId) return;
+        if (!resolvedTenantId) {
+            setProjects([]);
+            setTodos([]);
+            return;
+        }
         try {
-            const [projData, todoData] = await Promise.all([
-                api.getProjectsByCompany(user.companyId),
-                api.getTodosByProjectIds((await api.getProjectsByCompany(user.companyId)).map(p => p.id)),
-            ]);
+            const projData = await api.getProjectsByCompany(resolvedTenantId);
+            const todoData = projData.length > 0
+                ? await api.getTodosByProjectIds(projData.map(p => p.id))
+                : [];
             setProjects(projData);
             setTodos(todoData);
 
@@ -56,7 +62,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ user, addToast, onBack }) 
         } catch (error) {
             addToast("Failed to initialize AI Advisor.", "error");
         }
-    }, [user.companyId, addToast]);
+    }, [resolvedTenantId, addToast]);
 
     useEffect(() => {
         initializeChat();
@@ -83,6 +89,20 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ user, addToast, onBack }) 
             setIsLoading(false);
         }
     };
+
+    if (!resolvedTenantId) {
+        return (
+            <Card className="p-6">
+                <h3 className="text-xl font-semibold text-slate-700 mb-2">AI Advisor</h3>
+                <p className="text-sm text-muted-foreground">
+                    Select a tenant workspace to load project context before starting a conversation with Ash.
+                </p>
+                <div className="mt-4">
+                    <Button variant="secondary" onClick={onBack}>Back to tools</Button>
+                </div>
+            </Card>
+        );
+    }
 
     return (
         <Card className="flex flex-col h-[80vh]">

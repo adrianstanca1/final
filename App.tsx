@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { User, View, Project, Role, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
 import { api } from './services/mockApi';
 import { Login } from './components/Login';
@@ -34,6 +34,7 @@ import { InvoicesView } from './components/InvoicesView';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { UserRegistration } from './components/UserRegistration';
 import { useAuth } from './contexts/AuthContext';
+import { useTenant } from './contexts/TenantContext';
 import { ForgotPassword } from './components/auth/ForgotPassword';
 import { ResetPassword } from './components/auth/ResetPassword';
 import { ViewAccessBoundary } from './components/layout/ViewAccessBoundary';
@@ -92,7 +93,25 @@ const ToastMessage: React.FC<{ toast: Toast; onDismiss: (id: number) => void }> 
 
 
 function App() {
-  const { isAuthenticated, user, loading, logout } = useAuth();
+  const { isAuthenticated, user: authUser, loading: authLoading, logout } = useAuth();
+  const {
+    tenants,
+    activeTenantId,
+    activeTenant,
+    resolvedTenantId,
+    setActiveTenantId: selectTenant,
+    loading: tenantLoading,
+  } = useTenant();
+  const effectiveTenantId = resolvedTenantId ?? authUser?.companyId ?? null;
+  const user = useMemo(() => {
+    if (!authUser) {
+      return null;
+    }
+    if (!effectiveTenantId || authUser.companyId === effectiveTenantId) {
+      return authUser;
+    }
+    return { ...authUser, companyId: effectiveTenantId };
+  }, [authUser, effectiveTenantId]);
   const [authView, setAuthView] = useState<'login' | 'register' | 'forgot-password' | 'reset-password'>('login');
   const [resetToken, setResetToken] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<View>('dashboard');
@@ -143,10 +162,31 @@ function App() {
   useReminderService(user);
   
   useEffect(() => {
-    if (user && user.companyId) {
-      api.getCompanySettings(user.companyId).then(setCompanySettings);
+    if (!resolvedTenantId) {
+      setCompanySettings(null);
+      return;
     }
-  }, [user]);
+
+    let isActive = true;
+    api
+      .getCompanySettings(resolvedTenantId)
+      .then(settings => {
+        if (isActive) {
+          setCompanySettings(settings);
+        }
+      })
+      .catch(error => {
+        if (!isActive) {
+          return;
+        }
+        console.error('Failed to load company settings', error);
+        addToast('We could not load your company preferences. Some pages may use defaults.', 'error');
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [resolvedTenantId, addToast]);
 
   useEffect(() => {
     if(companySettings) {
@@ -161,12 +201,26 @@ function App() {
   }, [isAuthenticated, user]);
 
 
-  const updateBadgeCounts = useCallback(async (user: User) => {
-    if (!user.companyId) return;
+  const handleCompanySettingsUpdate = useCallback(
+    async (updates: Partial<CompanySettings>) => {
+      if (!user || !resolvedTenantId) {
+        throw new Error('You must select a tenant before updating settings.');
+      }
+
+      const updated = await api.updateCompanySettings(resolvedTenantId, updates, user.id);
+      setCompanySettings(updated);
+      return updated;
+    },
+    [user, resolvedTenantId]
+  );
+
+
+  const updateBadgeCounts = useCallback(async (user: User, tenantId: string | null) => {
+    if (!tenantId) return;
     try {
       const [timesheets, incidents, conversations, fetchedNotifications] = await Promise.all([
-        api.getTimesheetsByCompany(user.companyId, user.id),
-        api.getSafetyIncidentsByCompany(user.companyId),
+        api.getTimesheetsByCompany(tenantId, user.id),
+        api.getSafetyIncidentsByCompany(tenantId),
         api.getConversationsForUser(user.id),
         api.getNotificationsForUser(user.id),
       ]);
@@ -195,21 +249,25 @@ function App() {
   }, [addToast]);
   
   useEffect(() => {
-    if (user) {
+    if (user && resolvedTenantId) {
       api.getNotificationsForUser(user.id).then(initialNotifications => {
         previousNotificationsRef.current = initialNotifications;
         setNotifications(initialNotifications);
-        updateBadgeCounts(user);
+        updateBadgeCounts(user, resolvedTenantId);
       });
+    } else {
+      setPendingTimesheetCount(0);
+      setOpenIncidentCount(0);
+      setUnreadMessageCount(0);
     }
 
     const interval = setInterval(() => {
-        if (user) {
-            updateBadgeCounts(user);
+        if (user && resolvedTenantId) {
+            updateBadgeCounts(user, resolvedTenantId);
         }
     }, 5000);
     return () => clearInterval(interval);
-  }, [user, updateBadgeCounts]);
+  }, [user, resolvedTenantId, updateBadgeCounts]);
 
   const handleLogout = () => {
     logout();
@@ -329,9 +387,17 @@ function App() {
       case 'equipment': return <EquipmentView user={user} addToast={addToast} />;
       case 'templates': return <TemplatesView user={user} addToast={addToast} />;
       case 'tools':
-        return <ToolsView user={user} addToast={addToast} setActiveView={changeView} />;
+        return <ToolsView user={user} addToast={addToast} setActiveView={changeView} settings={companySettings} />;
       case 'audit-log': return <AuditLogView user={user} addToast={addToast} />;
-      case 'settings': return <SettingsView user={user} addToast={addToast} settings={companySettings} onSettingsUpdate={(s) => setCompanySettings(prev => ({...prev!, ...s}))} />;
+      case 'settings':
+        return (
+          <SettingsView
+            user={user}
+            addToast={addToast}
+            settings={companySettings}
+            onSettingsUpdate={handleCompanySettingsUpdate}
+          />
+        );
       case 'chat': return <ChatView user={user} addToast={addToast} initialRecipient={initialChatRecipient}/>;
       case 'clients': return <ClientsView user={user} addToast={addToast} />;
       case 'invoices': return <InvoicesView user={user} addToast={addToast} />;
@@ -348,10 +414,10 @@ function App() {
     }
   };
 
-  if (loading) {
+  if (authLoading || (isAuthenticated && tenantLoading && !activeTenantId)) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background text-foreground">
-        <p>Loading application...</p>
+        <p>Loading your workspace...</p>
       </div>
     );
   }
@@ -390,6 +456,11 @@ function App() {
         pendingTimesheetCount={pendingTimesheetCount}
         openIncidentCount={openIncidentCount}
         unreadMessageCount={unreadMessageCount}
+        tenants={tenants}
+        activeTenantId={activeTenantId}
+        onTenantChange={selectTenant}
+        tenantLoading={tenantLoading}
+        activeTenant={activeTenant ?? undefined}
       />
       <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
         <Header
@@ -403,9 +474,12 @@ function App() {
           onMarkAllNotificationsAsRead={async () => {
             if (!user) return;
             await api.markAllNotificationsAsRead(user.id);
-            updateBadgeCounts(user);
+            updateBadgeCounts(user, activeTenantId ?? null);
           }}
           addToast={addToast}
+          tenantName={activeTenant?.companyName}
+          tenantHealth={activeTenant?.health}
+          tenantPlan={activeTenant?.plan}
         />
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
           <ErrorBoundary>

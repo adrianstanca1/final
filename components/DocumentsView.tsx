@@ -6,6 +6,7 @@ import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
+import { useTenant } from '../contexts/TenantContext';
 
 interface DocumentsViewProps {
   user: User;
@@ -67,18 +68,25 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ user, addToast, is
     const abortControllerRef = useRef<AbortController | null>(null);
 
     const canUpload = hasPermission(user, Permission.UPLOAD_DOCUMENTS);
+    const { resolvedTenantId } = useTenant();
 
     const fetchData = useCallback(async () => {
         const controller = new AbortController();
         abortControllerRef.current?.abort();
         abortControllerRef.current = controller;
 
+        if (!resolvedTenantId) {
+            setDocuments([]);
+            setProjects([]);
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
         try {
-            if (!user.companyId) return;
             const [docData, projData] = await Promise.all([
-                api.getDocumentsByCompany(user.companyId, { signal: controller.signal }),
-                api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
+                api.getDocumentsByCompany(resolvedTenantId, { signal: controller.signal }),
+                api.getProjectsByCompany(resolvedTenantId, { signal: controller.signal }),
             ]);
             // FIX: Cast docData to any to resolve type mismatch.
             if (controller.signal.aborted) return;
@@ -92,7 +100,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ user, addToast, is
             if (controller.signal.aborted) return;
             setLoading(false);
         }
-    }, [user.companyId, addToast]);
+    }, [resolvedTenantId, addToast]);
 
     useEffect(() => {
         fetchData();
@@ -109,6 +117,17 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ user, addToast, is
     const projectMap = useMemo(() => new Map(projects.map(p => [p.id, p.name])), [projects]);
 
     const projectForUpload = projects.find(p => p.id.toString() === selectedProjectId);
+
+    if (!resolvedTenantId) {
+        return (
+            <Card className="p-6">
+                <h2 className="text-xl font-semibold text-foreground">Documents</h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                    Select a tenant workspace to browse and manage documents.
+                </p>
+            </Card>
+        );
+    }
 
     return (
         <div className="space-y-6">

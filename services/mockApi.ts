@@ -1,8 +1,10 @@
-// A mock API using localStorage to simulate a backend.
+// A mock API that persists data using a browser-like storage adapter.
 // Supports offline queuing for write operations.
 
 import { initialData } from './mockData';
-import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegisterCredentials, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority } from '../types';
+import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegistrationPayload, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority, RolePermissions, Permission, TenantDirectoryEntry, TenantSnapshot } from '../types';
+import { createPasswordRecord, sanitizeUser, upgradeLegacyPassword, verifyPassword } from '../utils/password';
+import { getStorage } from '../utils/storage';
 
 const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
 
@@ -19,8 +21,118 @@ const MOCK_ACCESS_TOKEN_LIFESPAN = 15 * 60 * 1000; // 15 minutes
 const MOCK_REFRESH_TOKEN_LIFESPAN = 7 * 24 * 60 * 60 * 1000; // 7 days
 const MOCK_RESET_TOKEN_LIFESPAN = 60 * 60 * 1000; // 1 hour
 
+const normalizeEmail = (email: string) => email.trim().toLowerCase();
+const normalizeInviteToken = (token: string) => token.trim().toUpperCase();
+
 // In-memory store for password reset tokens for this mock implementation
 const passwordResetTokens = new Map<string, { userId: string, expires: number }>();
+const storage = getStorage();
+
+type InviteTokenConfig = {
+    companyId: string;
+    allowedRoles: Role[];
+    suggestedRole?: Role;
+};
+
+const BASE_INVITE_TOKENS: Array<[string, InviteTokenConfig]> = [
+    ['JOIN-CONSTRUCTCO', {
+        companyId: '1',
+        allowedRoles: [Role.ADMIN, Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE],
+        suggestedRole: Role.PROJECT_MANAGER,
+    }],
+    ['JOIN-RENOVATE', {
+        companyId: '2',
+        allowedRoles: [Role.ADMIN, Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE],
+        suggestedRole: Role.FOREMAN,
+    }],
+    ['JOIN-CLIENT', {
+        companyId: '3',
+        allowedRoles: [Role.CLIENT],
+        suggestedRole: Role.CLIENT,
+    }],
+];
+
+const inviteTokenDirectory = new Map<string, InviteTokenConfig>();
+
+const resetInviteTokens = () => {
+    inviteTokenDirectory.clear();
+    BASE_INVITE_TOKENS.forEach(([token, config]) => {
+        inviteTokenDirectory.set(token, { ...config });
+    });
+};
+
+resetInviteTokens();
+
+const defaultCompanySettings = (): CompanySettings => ({
+    theme: 'light',
+    accessibility: { highContrast: false },
+    timeZone: 'Europe/London',
+    dateFormat: 'DD/MM/YYYY',
+    currency: 'GBP',
+    workingHours: {
+        start: '08:00',
+        end: '17:00',
+        workDays: [1, 2, 3, 4, 5],
+    },
+    features: {
+        projectManagement: true,
+        timeTracking: true,
+        financials: true,
+        documents: true,
+        safety: true,
+        equipment: true,
+        reporting: true,
+    },
+});
+
+const mergeCompanySettings = (
+    current: CompanySettings,
+    updates: Partial<CompanySettings>
+): CompanySettings => {
+    const mergedWorkingHours = updates.workingHours
+        ? {
+              ...current.workingHours,
+              ...updates.workingHours,
+              ...(updates.workingHours.workDays
+                  ? { workDays: [...updates.workingHours.workDays] }
+                  : {}),
+          }
+        : current.workingHours;
+
+    const mergedFeatures = updates.features
+        ? { ...current.features, ...updates.features }
+        : current.features;
+
+    const mergedAccessibility = updates.accessibility
+        ? { ...current.accessibility, ...updates.accessibility }
+        : current.accessibility;
+
+    return {
+        ...current,
+        ...updates,
+        workingHours: mergedWorkingHours,
+        features: mergedFeatures,
+        accessibility: mergedAccessibility,
+    };
+};
+
+const defaultUserPreferences = (): User['preferences'] => ({
+    theme: 'system',
+    language: 'en',
+    notifications: {
+        email: true,
+        push: false,
+        sms: false,
+        taskReminders: true,
+        projectUpdates: true,
+        systemAlerts: true,
+    },
+    dashboard: {
+        defaultView: 'dashboard',
+        pinnedWidgets: [],
+        hiddenWidgets: [],
+    },
+});
 
 const createToken = (payload: object, expiresIn: number): string => {
     const header = { alg: 'HS256', typ: 'JWT' };
@@ -50,18 +162,28 @@ const decodeToken = (token: string): any => {
     }
 };
 
-const hydrateData = <T extends { [key: string]: any }>(key: string, defaultData: T[]): T[] => {
+const STORAGE_PREFIX = 'asagents_';
+
+const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
+
+const readJson = <T>(key: string, fallback: T): T => {
     try {
-        const stored = localStorage.getItem(`asagents_${key}`);
-        if (stored) return JSON.parse(stored);
-    } catch (e) {
-        console.error(`Failed to hydrate ${key} from localStorage`, e);
+        const stored = storage.getItem(key);
+        if (!stored) {
+            return fallback;
+        }
+        return JSON.parse(stored) as T;
+    } catch (error) {
+        console.error(`Failed to read ${key} from storage`, error);
+        return fallback;
     }
-    localStorage.setItem(`asagents_${key}`, JSON.stringify(defaultData));
-    return defaultData;
 };
 
-let db: {
+const writeJson = (key: string, value: unknown) => {
+    storage.setItem(key, JSON.stringify(value));
+};
+
+type DbCollections = {
     companies: Partial<Company>[];
     users: Partial<User>[];
     projects: Partial<Project>[];
@@ -85,37 +207,278 @@ let db: {
     whiteboardNotes: Partial<WhiteboardNote>[];
     documents: Partial<Document>[];
     projectInsights: Partial<ProjectInsight>[];
-} = {
-    companies: hydrateData('companies', initialData.companies),
-    users: hydrateData('users', initialData.users),
-    projects: hydrateData('projects', initialData.projects),
-    todos: hydrateData('todos', initialData.todos),
-    timeEntries: hydrateData('timeEntries', initialData.timeEntries),
-    safetyIncidents: hydrateData('safetyIncidents', initialData.safetyIncidents),
-    equipment: hydrateData('equipment', initialData.equipment),
-    clients: hydrateData('clients', initialData.clients),
-    invoices: hydrateData('invoices', initialData.invoices),
-    expenses: hydrateData('expenses', initialData.expenses),
-    siteUpdates: hydrateData('siteUpdates', initialData.siteUpdates),
-    projectMessages: hydrateData('projectMessages', initialData.projectMessages),
-    notifications: hydrateData('notifications', (initialData as any).notifications || []),
-    quotes: hydrateData('quotes', (initialData as any).quotes || []),
-    auditLogs: hydrateData('auditLogs', []),
-    resourceAssignments: hydrateData('resourceAssignments', []),
-    conversations: hydrateData('conversations', []),
-    messages: hydrateData('messages', []),
-    projectAssignments: hydrateData('projectAssignments', []),
-    projectTemplates: hydrateData('projectTemplates', []),
-    whiteboardNotes: hydrateData('whiteboardNotes', []),
-    documents: hydrateData('documents', []),
-    projectInsights: hydrateData('projectInsights', (initialData as any).projectInsights || []),
+};
+
+const DEFAULT_COLLECTIONS: Record<keyof DbCollections, any[]> = {
+    companies: clone(initialData.companies),
+    users: clone(initialData.users),
+    projects: clone(initialData.projects),
+    todos: clone(initialData.todos),
+    timeEntries: clone(initialData.timeEntries),
+    safetyIncidents: clone(initialData.safetyIncidents),
+    equipment: clone(initialData.equipment),
+    clients: clone(initialData.clients),
+    invoices: clone(initialData.invoices),
+    expenses: clone((initialData as any).expenses || []),
+    siteUpdates: clone(initialData.siteUpdates),
+    projectMessages: clone(initialData.projectMessages),
+    notifications: clone((initialData as any).notifications || []),
+    quotes: clone((initialData as any).quotes || []),
+    auditLogs: [],
+    resourceAssignments: [],
+    conversations: [],
+    messages: [],
+    projectAssignments: [],
+    projectTemplates: [],
+    whiteboardNotes: [],
+    documents: [],
+    projectInsights: clone((initialData as any).projectInsights || []),
+};
+
+const readCollection = <K extends keyof DbCollections>(key: K): DbCollections[K] => {
+    const storageKey = `${STORAGE_PREFIX}${String(key)}`;
+    try {
+        const stored = storage.getItem(storageKey);
+        if (stored) {
+            return JSON.parse(stored);
+        }
+    } catch (error) {
+        console.error(`Failed to hydrate ${String(key)} from storage`, error);
+    }
+    const fallback = clone(DEFAULT_COLLECTIONS[key]);
+    storage.setItem(storageKey, JSON.stringify(fallback));
+    return fallback;
+};
+
+const createDb = (): DbCollections => ({
+    companies: readCollection('companies'),
+    users: readCollection('users'),
+    projects: readCollection('projects'),
+    todos: readCollection('todos'),
+    timeEntries: readCollection('timeEntries'),
+    safetyIncidents: readCollection('safetyIncidents'),
+    equipment: readCollection('equipment'),
+    clients: readCollection('clients'),
+    invoices: readCollection('invoices'),
+    expenses: readCollection('expenses'),
+    siteUpdates: readCollection('siteUpdates'),
+    projectMessages: readCollection('projectMessages'),
+    notifications: readCollection('notifications'),
+    quotes: readCollection('quotes'),
+    auditLogs: readCollection('auditLogs'),
+    resourceAssignments: readCollection('resourceAssignments'),
+    conversations: readCollection('conversations'),
+    messages: readCollection('messages'),
+    projectAssignments: readCollection('projectAssignments'),
+    projectTemplates: readCollection('projectTemplates'),
+    whiteboardNotes: readCollection('whiteboardNotes'),
+    documents: readCollection('documents'),
+    projectInsights: readCollection('projectInsights'),
+});
+
+let db: DbCollections = createDb();
+
+const TENANT_DIRECTORY_STORAGE_KEY = `${STORAGE_PREFIX}tenant_directory`;
+
+const getCompanyById = (companyId?: string) =>
+    companyId ? db.companies.find(c => c.id === companyId) : undefined;
+
+const getProjectByIdUnsafe = (projectId?: string) =>
+    projectId ? db.projects.find(p => p.id === projectId) : undefined;
+
+const getUserById = (userId?: string) => (userId ? db.users.find(u => u.id === userId) : undefined);
+
+const resolveDocumentCompanyId = (doc: Partial<Document>) => {
+    if (doc.companyId) {
+        return doc.companyId;
+    }
+    if (doc.projectId) {
+        const project = getProjectByIdUnsafe(doc.projectId);
+        if (project?.companyId) {
+            return project.companyId;
+        }
+    }
+    if (doc.uploadedBy) {
+        const owner = getUserById(doc.uploadedBy);
+        if (owner?.companyId) {
+            return owner.companyId;
+        }
+    }
+    return undefined;
+};
+
+let tenantDirectory: TenantDirectoryEntry[] = [];
+
+const rebuildTenantDirectory = () => {
+    const projectMap = new Map<string, Partial<Project>>();
+    db.projects.forEach(project => {
+        if (project.id) {
+            projectMap.set(project.id, project);
+        }
+    });
+
+    const userMap = new Map<string, Partial<User>>();
+    db.users.forEach(userRecord => {
+        if (userRecord.id) {
+            userMap.set(userRecord.id, userRecord);
+        }
+    });
+
+    const documentCounts = new Map<string, number>();
+    db.documents.forEach(doc => {
+        const companyId = resolveDocumentCompanyId(doc);
+        if (!companyId) {
+            return;
+        }
+        documentCounts.set(companyId, (documentCounts.get(companyId) ?? 0) + 1);
+    });
+
+    const openIncidents = new Map<string, number>();
+    db.safetyIncidents.forEach(incident => {
+        const companyId = incident.projectId ? projectMap.get(incident.projectId)?.companyId : undefined;
+        if (!companyId) {
+            return;
+        }
+        if (incident.status !== IncidentStatus.RESOLVED) {
+            openIncidents.set(companyId, (openIncidents.get(companyId) ?? 0) + 1);
+        }
+    });
+
+    tenantDirectory = db.companies
+        .filter(company => company.id && company.id !== '0')
+        .map(company => {
+            const companyId = company.id!;
+            const users = db.users.filter(user => user.companyId === companyId);
+            const projects = db.projects.filter(project => project.companyId === companyId);
+            const activeProjects = projects.filter(project => project.status === 'ACTIVE');
+            const pendingInvites = users.filter(user => user.isEmailVerified === false).length;
+            const incidents = openIncidents.get(companyId) ?? 0;
+            const hasAdmin = users.some(user => user.role === Role.ADMIN || user.role === Role.OWNER);
+
+            const issues: string[] = [];
+            let health: 'OK' | 'DEGRADED' | 'DOWN' = 'OK';
+
+            if (users.length === 0) {
+                issues.push('No active users assigned to tenant.');
+                health = 'DOWN';
+            }
+            if (!hasAdmin) {
+                issues.push('Missing tenant administrator or owner.');
+                health = health === 'DOWN' ? 'DOWN' : 'DEGRADED';
+            }
+            if (incidents > 0) {
+                issues.push(`${incidents} open safety incident${incidents === 1 ? '' : 's'}.`);
+                if (health !== 'DOWN') {
+                    health = 'DEGRADED';
+                }
+            }
+            if (projects.length === 0) {
+                issues.push('No projects provisioned.');
+            }
+
+            const logsForCompany = db.auditLogs.filter(log => {
+                if (log.target?.type === 'Company' && log.target.id === companyId) {
+                    return true;
+                }
+                const actorCompanyId = log.actorId ? userMap.get(log.actorId)?.companyId : undefined;
+                return actorCompanyId === companyId;
+            });
+
+            const lastActivityAt = logsForCompany.reduce<string | null>((latest, log) => {
+                const timestamp = new Date(log.timestamp).toISOString();
+                if (!latest || timestamp > latest) {
+                    return timestamp;
+                }
+                return latest;
+            }, null);
+
+            const plan = (company.subscriptionPlan as Company['subscriptionPlan']) ?? 'FREE';
+            const companyStatus = (company.status as Company['status']) ?? 'Active';
+            const settings = (company.settings as CompanySettings | undefined) ?? defaultCompanySettings();
+            const documentCount = documentCounts.get(companyId) ?? 0;
+            const storageUsage = typeof company.storageUsageGB === 'number' ? company.storageUsageGB : Math.max(documentCount * 0.02, 0);
+
+            const snapshot: TenantDirectoryEntry = {
+                companyId,
+                companyName: company.name ?? 'Unnamed Company',
+                plan,
+                status: companyStatus,
+                userCount: users.length,
+                activeProjects: activeProjects.length,
+                totalProjects: projects.length,
+                documentCount,
+                storageUsageGB: storageUsage,
+                featureFlags: settings.features,
+                lastActivityAt,
+                openIncidents: incidents,
+                pendingInvites,
+                issues,
+                health,
+            };
+
+            return snapshot;
+        });
+
+    writeJson(TENANT_DIRECTORY_STORAGE_KEY, tenantDirectory);
+};
+
+const getTenantDirectorySnapshots = (): TenantDirectoryEntry[] => tenantDirectory.map(entry => ({ ...entry }));
+
+const getTenantSnapshotById = (companyId: string): TenantSnapshot | undefined => {
+    const entry = tenantDirectory.find(snapshot => snapshot.companyId === companyId);
+    if (!entry) {
+        return undefined;
+    }
+    const { health, ...snapshot } = entry;
+    return { ...snapshot };
 };
 
 const saveDb = () => {
-    Object.entries(db).forEach(([key, value]) => {
-        localStorage.setItem(`asagents_${key}`, JSON.stringify(value));
+    (Object.keys(db) as Array<keyof DbCollections>).forEach(key => {
+        storage.setItem(`${STORAGE_PREFIX}${String(key)}`, JSON.stringify(db[key]));
     });
+    rebuildTenantDirectory();
 };
+
+rebuildTenantDirectory();
+
+const findUserByEmail = (email: string) => {
+    const normalized = normalizeEmail(email);
+    return db.users.find(u => u.email && u.email.toLowerCase() === normalized);
+};
+
+const sanitizeUserForReturn = (user: Partial<User>): User => sanitizeUser(user) as User;
+
+const sanitizeUsersForReturn = (users: Partial<User>[]): User[] => users.map(u => sanitizeUserForReturn(u));
+
+const upgradeLegacyUsers = () => {
+    const legacyUsersToUpgrade = db.users.filter(u => u.password && (!u.passwordHash || !u.passwordSalt));
+    if (legacyUsersToUpgrade.length === 0) {
+        return;
+    }
+    Promise.all(legacyUsersToUpgrade.map(user => upgradeLegacyPassword(user as Partial<User>)))
+        .then(() => {
+            saveDb();
+        })
+        .catch(error => console.error('Failed to upgrade legacy user credentials', error));
+};
+
+upgradeLegacyUsers();
+
+const ensureUserPermissionConsistency = () => {
+    let updated = false;
+    db.users.forEach(user => {
+        if (user.role && (!user.permissions || (user.permissions as Permission[]).length === 0)) {
+            user.permissions = Array.from(RolePermissions[user.role]);
+            updated = true;
+        }
+    });
+    if (updated) {
+        saveDb();
+    }
+};
+
+ensureUserPermissionConsistency();
 
 const addAuditLog = (actorId: string, action: string, target?: { type: string, id: string, name: string }) => {
     const newLog: AuditLog = {
@@ -126,72 +489,212 @@ const addAuditLog = (actorId: string, action: string, target?: { type: string, i
         timestamp: new Date().toISOString(),
     };
     db.auditLogs.push(newLog);
+    saveDb();
 };
 
 export const authApi = {
-    register: async (credentials: Partial<RegisterCredentials & { companyName?: string; companyType?: CompanyType; companyEmail?: string; companyPhone?: string; companyWebsite?: string; companySelection?: 'create' | 'join', role?: Role }>): Promise<any> => {
+    register: async (credentials: RegistrationPayload): Promise<any> => {
         await delay();
-        if (db.users.some(u => u.email === credentials.email)) {
-            throw new Error("An account with this email already exists.");
+
+        if (!credentials.email || !credentials.password) {
+            throw new Error('Email and password are required.');
         }
 
+        if (!credentials.termsAccepted) {
+            throw new Error('You must accept the terms and conditions to create an account.');
+        }
+
+        const normalizedEmail = normalizeEmail(credentials.email);
+        if (findUserByEmail(normalizedEmail)) {
+            throw new Error('An account with this email already exists.');
+        }
+
+        const password = credentials.password.trim();
+        const passwordRequirements = [
+            password.length >= 8,
+            /[A-Z]/.test(password),
+            /[a-z]/.test(password),
+            /\d/.test(password),
+            /[^A-Za-z0-9]/.test(password),
+        ];
+        if (!passwordRequirements.every(Boolean)) {
+            throw new Error('Password does not meet the minimum complexity requirements.');
+        }
+
+        const firstName = credentials.firstName?.trim();
+        const lastName = credentials.lastName?.trim();
+        const phone = credentials.phone?.trim();
+
         let companyId: string;
+        let companyRecord: Partial<Company> | undefined;
         let userRole = credentials.role || Role.OPERATIVE;
 
         if (credentials.companySelection === 'create') {
-            const newCompany: Partial<Company> = {
-                id: String(Date.now()),
-                name: credentials.companyName,
-                type: credentials.companyType || 'GENERAL_CONTRACTOR',
-                email: credentials.companyEmail,
-                phone: credentials.companyPhone,
-                website: credentials.companyWebsite,
+            const companyName = credentials.companyName?.trim();
+            const companyType = credentials.companyType;
+            const companyEmail = credentials.companyEmail ? normalizeEmail(credentials.companyEmail) : undefined;
+            const companyPhone = credentials.companyPhone?.trim();
+            const companyWebsite = credentials.companyWebsite?.trim();
+
+            if (!companyName || !companyType) {
+                throw new Error('Company information is incomplete.');
+            }
+
+            const timestamp = String(Date.now());
+            companyId = timestamp;
+            companyRecord = {
+                id: companyId,
+                name: companyName,
+                type: companyType,
+                email: companyEmail,
+                phone: companyPhone,
+                website: companyWebsite,
                 status: 'Active',
                 subscriptionPlan: 'FREE',
                 storageUsageGB: 0,
+                settings: defaultCompanySettings(),
+                address: {
+                    street: '',
+                    city: '',
+                    state: '',
+                    zipCode: '',
+                    country: 'United Kingdom',
+                },
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
             };
-            db.companies.push(newCompany);
-            companyId = newCompany.id!;
+            db.companies.push(companyRecord);
+
+            inviteTokenDirectory.set(`JOIN-${companyId}`, {
+                companyId,
+                allowedRoles: [Role.ADMIN, Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE],
+                suggestedRole: Role.ADMIN,
+            });
+
             userRole = Role.OWNER;
         } else if (credentials.companySelection === 'join') {
-            if (credentials.inviteToken !== 'JOIN-CONSTRUCTCO') {
-                 throw new Error("Invalid invite token.");
+            const normalizedToken = credentials.inviteToken ? normalizeInviteToken(credentials.inviteToken) : '';
+            if (!normalizedToken) {
+                throw new Error('An invite token is required to join an existing company.');
             }
-            companyId = '1';
+            const inviteDetails = inviteTokenDirectory.get(normalizedToken);
+            if (!inviteDetails) {
+                throw new Error('Invalid invite token.');
+            }
+            companyId = inviteDetails.companyId;
+            companyRecord = db.companies.find(c => c.id === companyId);
+            if (!companyRecord) {
+                throw new Error('Company not found for invite token.');
+            }
+            if (credentials.role && !inviteDetails.allowedRoles.includes(credentials.role)) {
+                throw new Error('Selected role is not permitted for this invite.');
+            }
+            userRole = credentials.role && inviteDetails.allowedRoles.includes(credentials.role)
+                ? credentials.role
+                : inviteDetails.suggestedRole || inviteDetails.allowedRoles[0];
         } else {
-            throw new Error("Invalid company selection.");
+            throw new Error('Invalid company selection.');
         }
 
+        const passwordRecord = await createPasswordRecord(password);
+
+        const createdAt = new Date().toISOString();
         const newUser: Partial<User> = {
-            id: String(Date.now()),
-            firstName: credentials.firstName,
-            lastName: credentials.lastName,
-            email: credentials.email,
-            password: credentials.password,
-            phone: credentials.phone,
+            id: String(Date.now() + Math.random()),
+            firstName,
+            lastName,
+            email: normalizedEmail,
+            passwordHash: passwordRecord.hash,
+            passwordSalt: passwordRecord.salt,
+            phone,
             role: userRole,
+            permissions: Array.from(RolePermissions[userRole]),
             companyId,
             isActive: true,
-            isEmailVerified: true, // Mocking verification for simplicity
-            createdAt: new Date().toISOString(),
+            isEmailVerified: true,
+            mfaEnabled: false,
+            createdAt,
+            updatedAt: createdAt,
+            preferences: defaultUserPreferences(),
         };
+
+        if (credentials.updatesOptIn === false) {
+            newUser.preferences!.notifications.projectUpdates = false;
+        }
+
         db.users.push(newUser);
+
+        const resolvedCompany = companyRecord || db.companies.find(c => c.id === companyId);
+        if (resolvedCompany?.name) {
+            addAuditLog(newUser.id!, 'USER_REGISTERED', { type: 'Company', id: companyId, name: resolvedCompany.name });
+            if (credentials.companySelection === 'create') {
+                addAuditLog(newUser.id!, 'COMPANY_CREATED', { type: 'Company', id: companyId, name: resolvedCompany.name });
+            }
+        }
+
         saveDb();
 
-        const user = db.users.find(u => u.id === newUser.id) as User;
+        const user = db.users.find(u => u.id === newUser.id)!;
         const company = db.companies.find(c => c.id === companyId) as Company;
 
         const token = createToken({ userId: user.id, companyId: company.id, role: user.role }, MOCK_ACCESS_TOKEN_LIFESPAN);
         const refreshToken = createToken({ userId: user.id }, MOCK_REFRESH_TOKEN_LIFESPAN);
-        
-        return { success: true, token, refreshToken, user, company };
+
+        return { success: true, token, refreshToken, user: sanitizeUserForReturn(user), company };
+    },
+    checkEmailAvailability: async (email: string): Promise<{ available: boolean }> => {
+        await delay(120);
+        if (!email) {
+            return { available: false };
+        }
+        const normalized = normalizeEmail(email);
+        return { available: !findUserByEmail(normalized) };
+    },
+    lookupInviteToken: async (token: string): Promise<{ companyId: string; companyName: string; companyType?: CompanyType; allowedRoles: Role[]; suggestedRole?: Role }> => {
+        await delay(200);
+        if (!token) {
+            throw new Error('An invite token is required.');
+        }
+        const normalizedToken = normalizeInviteToken(token);
+        const details = inviteTokenDirectory.get(normalizedToken);
+        if (!details) {
+            throw new Error('Invite token not recognized.');
+        }
+        const company = db.companies.find(c => c.id === details.companyId);
+        if (!company) {
+            throw new Error('Company not found for invite token.');
+        }
+        return {
+            companyId: company.id!,
+            companyName: company.name || 'Unnamed Company',
+            companyType: company.type as CompanyType,
+            allowedRoles: details.allowedRoles,
+            suggestedRole: details.suggestedRole,
+        };
     },
     login: async (credentials: LoginCredentials): Promise<any> => {
         await delay(200);
-        const user = db.users.find(u => u.email === credentials.email && u.password === credentials.password);
+        const normalizedEmail = normalizeEmail(credentials.email);
+        const user = findUserByEmail(normalizedEmail);
         if (!user) {
             throw new Error("Invalid email or password.");
         }
+
+        const needsUpgrade = !!user.password && (!user.passwordHash || !user.passwordSalt);
+        if (needsUpgrade) {
+            await upgradeLegacyPassword(user as Partial<User>);
+            saveDb();
+        }
+
+        if (!user.passwordHash || !user.passwordSalt) {
+            throw new Error("Invalid email or password.");
+        }
+
+        const isValid = await verifyPassword(credentials.password, user.passwordHash, user.passwordSalt);
+        if (!isValid) {
+            throw new Error("Invalid email or password.");
+        }
+
         if (user.mfaEnabled) {
             return { success: true, mfaRequired: true, userId: user.id };
         }
@@ -206,15 +709,15 @@ export const authApi = {
     },
     finalizeLogin: async (userId: string): Promise<any> => {
         await delay();
-        const user = db.users.find(u => u.id === userId) as User;
+        const user = db.users.find(u => u.id === userId);
         if (!user) throw new Error("User not found during finalization.");
         const company = db.companies.find(c => c.id === user.companyId) as Company;
         if (!company) throw new Error("Company not found for user.");
 
-        const token = createToken({ userId: user.id, companyId: company.id, role: user.role }, MOCK_ACCESS_TOKEN_LIFESPAN);
-        const refreshToken = createToken({ userId: user.id }, MOCK_REFRESH_TOKEN_LIFESPAN);
-        
-        return { success: true, token, refreshToken, user, company };
+        const token = createToken({ userId: user.id!, companyId: company.id, role: user.role }, MOCK_ACCESS_TOKEN_LIFESPAN);
+        const refreshToken = createToken({ userId: user.id! }, MOCK_REFRESH_TOKEN_LIFESPAN);
+
+        return { success: true, token, refreshToken, user: sanitizeUserForReturn(user), company };
     },
     refreshToken: async (refreshToken: string): Promise<{ token: string }> => {
         await delay();
@@ -234,14 +737,14 @@ export const authApi = {
         await delay();
         const decoded = decodeToken(token);
         if (!decoded) throw new Error("Invalid or expired token");
-        const user = db.users.find(u => u.id === decoded.userId) as User;
+        const user = db.users.find(u => u.id === decoded.userId);
         const company = db.companies.find(c => c.id === decoded.companyId) as Company;
         if (!user || !company) throw new Error("User or company not found");
-        return { user, company };
+        return { user: sanitizeUserForReturn(user), company };
     },
     requestPasswordReset: async (email: string): Promise<{ success: boolean }> => {
         await delay(300);
-        const user = db.users.find(u => u.email === email);
+        const user = email ? findUserByEmail(email) : undefined;
         if (user) {
             const token = `reset-${Date.now()}-${Math.random()}`;
             passwordResetTokens.set(token, { userId: user.id!, expires: Date.now() + MOCK_RESET_TOKEN_LIFESPAN });
@@ -260,7 +763,10 @@ export const authApi = {
         if (userIndex === -1) {
             throw new Error("User not found.");
         }
-        db.users[userIndex].password = newPassword;
+        const passwordRecord = await createPasswordRecord(newPassword);
+        db.users[userIndex].passwordHash = passwordRecord.hash;
+        db.users[userIndex].passwordSalt = passwordRecord.salt;
+        delete db.users[userIndex].password;
         saveDb();
         passwordResetTokens.delete(token);
         return { success: true };
@@ -268,12 +774,12 @@ export const authApi = {
 };
 
 type OfflineAction = { id: number, type: string, payload: any, retries: number, error?: string };
-let offlineQueue: OfflineAction[] = JSON.parse(localStorage.getItem('asagents_offline_queue') || '[]');
-let failedSyncActions: OfflineAction[] = JSON.parse(localStorage.getItem('asagents_failed_sync_actions') || '[]');
+let offlineQueue: OfflineAction[] = readJson<OfflineAction[]>('asagents_offline_queue', []);
+let failedSyncActions: OfflineAction[] = readJson<OfflineAction[]>('asagents_failed_sync_actions', []);
 
 const saveQueues = () => {
-    localStorage.setItem('asagents_offline_queue', JSON.stringify(offlineQueue));
-    localStorage.setItem('asagents_failed_sync_actions', JSON.stringify(failedSyncActions));
+    writeJson('asagents_offline_queue', offlineQueue);
+    writeJson('asagents_failed_sync_actions', failedSyncActions);
 };
 
 const addToOfflineQueue = (type: string, payload: any) => {
@@ -332,28 +838,110 @@ export const formatFailedActionForUI = (action: OfflineAction): FailedActionForU
     timestamp: new Date(action.id).toLocaleString(),
 });
 
+export const resetMockApi = () => {
+    (Object.keys(DEFAULT_COLLECTIONS) as Array<keyof DbCollections>).forEach(key => {
+        const defaults = clone(DEFAULT_COLLECTIONS[key]);
+        writeJson(`${STORAGE_PREFIX}${String(key)}`, defaults);
+    });
+
+    db = createDb();
+    offlineQueue = [];
+    failedSyncActions = [];
+    writeJson('asagents_offline_queue', offlineQueue);
+    writeJson('asagents_failed_sync_actions', failedSyncActions);
+    passwordResetTokens.clear();
+    resetInviteTokens();
+    upgradeLegacyUsers();
+    rebuildTenantDirectory();
+};
+
 export const api = {
     getCompanySettings: async (companyId: string): Promise<CompanySettings> => {
         await delay();
-        return {
-            theme: 'light',
-            accessibility: { highContrast: false },
-            timeZone: 'GMT',
-            dateFormat: 'DD/MM/YYYY',
-            currency: 'GBP',
-            workingHours: { start: '08:00', end: '17:00', workDays: [1,2,3,4,5] },
-            features: { projectManagement: true, timeTracking: true, financials: true, documents: true, safety: true, equipment: true, reporting: true },
-        };
+        const company = db.companies.find(c => c.id === companyId);
+        if (!company) {
+            throw new Error('Company not found');
+        }
+
+        if (!company.settings) {
+            company.settings = defaultCompanySettings();
+            saveDb();
+        }
+
+        return clone(company.settings as CompanySettings);
+    },
+    updateCompanySettings: async (
+        companyId: string,
+        updates: Partial<CompanySettings>,
+        actorId?: string
+    ): Promise<CompanySettings> => {
+        await delay();
+        const company = db.companies.find(c => c.id === companyId);
+        if (!company) {
+            throw new Error('Company not found');
+        }
+
+        const currentSettings = (company.settings as CompanySettings) || defaultCompanySettings();
+        const merged = mergeCompanySettings(currentSettings, updates);
+        company.settings = clone(merged);
+        company.updatedAt = new Date().toISOString();
+        saveDb();
+
+        if (actorId && company.name) {
+            addAuditLog(actorId, 'COMPANY_SETTINGS_UPDATED', {
+                type: 'Company',
+                id: companyId,
+                name: company.name,
+            });
+        }
+
+        return clone(merged);
+    },
+    getTenantDirectory: async (options?: RequestOptions): Promise<TenantDirectoryEntry[]> => {
+        ensureNotAborted(options?.signal);
+        await delay();
+        ensureNotAborted(options?.signal);
+        return getTenantDirectorySnapshots();
+    },
+    getTenantSnapshot: async (companyId: string, options?: RequestOptions): Promise<TenantSnapshot | null> => {
+        ensureNotAborted(options?.signal);
+        await delay();
+        ensureNotAborted(options?.signal);
+        const snapshot = getTenantSnapshotById(companyId);
+        return snapshot ? { ...snapshot } : null;
     },
     getTimesheetsByCompany: async (companyId: string, userId?: string, options?: RequestOptions): Promise<Timesheet[]> => {
         ensureNotAborted(options?.signal);
         await delay();
         ensureNotAborted(options?.signal);
-        return db.timeEntries.map(te => ({...te, clockIn: new Date(te.clockIn!), clockOut: te.clockOut ? new Date(te.clockOut) : null })) as Timesheet[];
+        const projectIds = new Set(
+            db.projects.filter(project => project.companyId === companyId && project.id).map(project => project.id!)
+        );
+        const tenantUserIds = new Set(
+            db.users.filter(userRecord => userRecord.companyId === companyId && userRecord.id).map(userRecord => userRecord.id!)
+        );
+        return db.timeEntries
+            .filter(entry => {
+                if (entry.projectId && projectIds.has(entry.projectId)) {
+                    return true;
+                }
+                if (entry.userId && tenantUserIds.has(entry.userId)) {
+                    return true;
+                }
+                return false;
+            })
+            .map(entry => ({
+                ...entry,
+                clockIn: entry.clockIn ? new Date(entry.clockIn) : entry.startTime ? new Date(entry.startTime) : undefined,
+                clockOut: entry.clockOut ? new Date(entry.clockOut) : entry.endTime ? new Date(entry.endTime) : undefined,
+            })) as Timesheet[];
     },
     getSafetyIncidentsByCompany: async (companyId: string): Promise<SafetyIncident[]> => {
         await delay();
-        return db.safetyIncidents as SafetyIncident[];
+        const projectIds = new Set(
+            db.projects.filter(project => project.companyId === companyId && project.id).map(project => project.id!)
+        );
+        return db.safetyIncidents.filter(incident => !incident.projectId || projectIds.has(incident.projectId)) as SafetyIncident[];
     },
     getConversationsForUser: async (userId: string, options?: RequestOptions): Promise<Conversation[]> => {
         ensureNotAborted(options?.signal);
@@ -365,7 +953,19 @@ export const api = {
         ensureNotAborted(options?.signal);
         await delay();
         ensureNotAborted(options?.signal);
-        return db.notifications.filter(n => n.userId === userId).map(n => ({...n, timestamp: new Date(n.timestamp!)})) as Notification[];
+        return db.notifications
+            .filter(notification => notification.userId === userId)
+            .map(notification => {
+                const tenantId = notification.companyId ?? getUserById(notification.userId)?.companyId;
+                if (!notification.companyId && tenantId) {
+                    (notification as any).companyId = tenantId;
+                }
+                return {
+                    ...notification,
+                    companyId: tenantId,
+                    timestamp: new Date(notification.timestamp!),
+                } as Notification;
+            });
     },
     markAllNotificationsAsRead: async (userId: string): Promise<void> => {
         await delay();
@@ -401,7 +1001,7 @@ export const api = {
         ensureNotAborted(options?.signal);
         await delay();
         ensureNotAborted(options?.signal);
-        return db.users.filter(u => u.companyId === companyId) as User[];
+        return sanitizeUsersForReturn(db.users.filter(u => u.companyId === companyId));
     },
     getEquipmentByCompany: async (companyId: string, options?: RequestOptions): Promise<Equipment[]> => {
         ensureNotAborted(options?.signal);
@@ -413,13 +1013,57 @@ export const api = {
         ensureNotAborted(options?.signal);
         await delay();
         ensureNotAborted(options?.signal);
-        return db.resourceAssignments as ResourceAssignment[];
+        const projectIds = new Set(
+            db.projects.filter(project => project.companyId === companyId && project.id).map(project => project.id!)
+        );
+        const tenantUserIds = new Set(
+            db.users.filter(userRecord => userRecord.companyId === companyId && userRecord.id).map(userRecord => userRecord.id!)
+        );
+        const tenantEquipmentIds = new Set(
+            db.equipment.filter(eq => eq.companyId === companyId && eq.id).map(eq => eq.id!)
+        );
+
+        return db.resourceAssignments
+            .filter(assignment => {
+                if ((assignment as any).companyId === companyId) {
+                    return true;
+                }
+                if (assignment.projectId && projectIds.has(assignment.projectId)) {
+                    return true;
+                }
+                if (assignment.resourceType === 'user' && tenantUserIds.has(assignment.resourceId)) {
+                    return true;
+                }
+                if (assignment.resourceType === 'equipment' && tenantEquipmentIds.has(assignment.resourceId)) {
+                    return true;
+                }
+                return false;
+            })
+            .map(assignment => ({
+                companyId: (assignment as any).companyId ?? companyId,
+                ...assignment,
+            })) as ResourceAssignment[];
     },
     getAuditLogsByCompany: async (companyId: string, options?: RequestOptions): Promise<AuditLog[]> => {
         ensureNotAborted(options?.signal);
         await delay();
         ensureNotAborted(options?.signal);
-        return db.auditLogs as AuditLog[];
+        const tenantUserIds = new Set(
+            db.users.filter(userRecord => userRecord.companyId === companyId && userRecord.id).map(userRecord => userRecord.id!)
+        );
+        return db.auditLogs.filter(log => {
+            if (log.target?.type === 'Company' && log.target.id === companyId) {
+                return true;
+            }
+            if (log.actorId && tenantUserIds.has(log.actorId)) {
+                return true;
+            }
+            if (log.target?.type === 'Project' && log.target.id && tenantUserIds.size > 0) {
+                const project = getProjectByIdUnsafe(log.target.id);
+                return project?.companyId === companyId;
+            }
+            return false;
+        }) as AuditLog[];
     },
     getTodosByProjectIds: async (projectIds: string[], options?: RequestOptions): Promise<Todo[]> => {
         ensureNotAborted(options?.signal);
@@ -440,7 +1084,7 @@ export const api = {
         ensureNotAborted(options?.signal);
         const assignments = db.projectAssignments.filter(pa => pa.projectId === projectId);
         const userIds = new Set(assignments.map(a => a.userId));
-        return db.users.filter(u => userIds.has(u.id!)) as User[];
+        return sanitizeUsersForReturn(db.users.filter(u => userIds.has(u.id!)));
     },
     getProjectInsights: async (projectId: string, options?: RequestOptions): Promise<ProjectInsight[]> => {
         ensureNotAborted(options?.signal);
@@ -528,14 +1172,29 @@ export const api = {
         return newEquipment as Equipment;
     },
     createResourceAssignment: async (data: any, userId: string): Promise<ResourceAssignment> => {
-        const newAssignment = { ...data, id: String(Date.now()) };
+        const project = data.projectId ? getProjectByIdUnsafe(data.projectId) : undefined;
+        const requester = getUserById(userId);
+        const companyId = data.companyId ?? project?.companyId ?? requester?.companyId;
+        if (!companyId) {
+            throw new Error('Unable to determine tenant for resource assignment.');
+        }
+        const newAssignment = { ...data, id: String(Date.now()), companyId };
         db.resourceAssignments.push(newAssignment);
         saveDb();
-        return newAssignment;
+        return newAssignment as ResourceAssignment;
     },
     updateResourceAssignment: async (id: string, data: any, userId: string): Promise<ResourceAssignment> => {
         const index = db.resourceAssignments.findIndex(a => a.id === id);
-        db.resourceAssignments[index] = { ...db.resourceAssignments[index], ...data };
+        if (index === -1) {
+            throw new Error('Resource assignment not found');
+        }
+        const existing = db.resourceAssignments[index];
+        const project = data.projectId ? getProjectByIdUnsafe(data.projectId) : existing.projectId ? getProjectByIdUnsafe(existing.projectId) : undefined;
+        const companyId = data.companyId ?? (existing as any).companyId ?? project?.companyId ?? getUserById(userId)?.companyId;
+        if (!companyId) {
+            throw new Error('Unable to determine tenant for resource assignment.');
+        }
+        db.resourceAssignments[index] = { ...existing, ...data, companyId };
         saveDb();
         return db.resourceAssignments[index] as ResourceAssignment;
     },
@@ -544,14 +1203,47 @@ export const api = {
         saveDb();
     },
     uploadDocument: async (data: any, userId: string): Promise<Document> => {
-        const newDoc = { ...data, id: String(Date.now()), uploadedBy: userId, version: 1, uploadedAt: new Date().toISOString() };
+        const owner = getUserById(userId);
+        const project = data.projectId ? getProjectByIdUnsafe(data.projectId) : undefined;
+        const companyId = data.companyId ?? project?.companyId ?? owner?.companyId;
+        if (!companyId) {
+            throw new Error('Unable to determine tenant for uploaded document.');
+        }
+
+        const now = new Date().toISOString();
+        const newDoc: Partial<Document> = {
+            id: String(Date.now()),
+            name: data.name ?? 'Untitled Document',
+            type: data.type ?? 'application/octet-stream',
+            size: data.size ?? 0,
+            url: data.url ?? '#',
+            projectId: data.projectId,
+            uploadedBy: userId,
+            version: 1,
+            uploadedAt: now,
+            createdAt: now,
+            updatedAt: now,
+            isActive: true,
+            category: data.category ?? 'General',
+            tags: data.tags,
+            companyId,
+        };
+
         db.documents.push(newDoc);
         saveDb();
         return newDoc as Document;
     },
     getDocumentsByCompany: async (companyId: string, options?: RequestOptions): Promise<Document[]> => {
         ensureNotAborted(options?.signal);
-        return db.documents as Document[];
+        return db.documents
+            .map(document => {
+                const resolvedCompany = resolveDocumentCompanyId(document);
+                if (!document.companyId && resolvedCompany) {
+                    (document as any).companyId = resolvedCompany;
+                }
+                return document;
+            })
+            .filter(document => document.companyId === companyId || resolveDocumentCompanyId(document) === companyId) as Document[];
     },
     getProjectsByCompany: async (companyId: string, options?: RequestOptions): Promise<Project[]> => {
         ensureNotAborted(options?.signal);
@@ -579,9 +1271,16 @@ export const api = {
     },
     getPlatformUsageMetrics: async (options?: RequestOptions): Promise<UsageMetric[]> => {
         ensureNotAborted(options?.signal);
+        const snapshots = getTenantDirectorySnapshots();
+        const activeTenants = snapshots.length;
+        const totalUsers = snapshots.reduce((sum, snapshot) => sum + snapshot.userCount, 0);
+        const activeProjects = snapshots.reduce((sum, snapshot) => sum + snapshot.activeProjects, 0);
+        const openIncidents = snapshots.reduce((sum, snapshot) => sum + snapshot.openIncidents, 0);
         return [
-            { name: 'Active Users (24h)', value: db.users.length - 2, unit: 'users' },
-            { name: 'API Calls (24h)', value: 12543, unit: 'calls' },
+            { name: 'Active Tenants', value: activeTenants, unit: 'tenants' },
+            { name: 'Users Across Tenants', value: totalUsers, unit: 'users' },
+            { name: 'Active Projects', value: activeProjects, unit: 'projects' },
+            { name: 'Open Incidents', value: openIncidents, unit: 'incidents' },
         ];
     },
     updateTimesheetEntry: async (id: string, data: any, userId: string): Promise<Timesheet> => {
@@ -621,11 +1320,11 @@ export const api = {
     },
     getInvoicesByCompany: async (companyId: string, options?: RequestOptions): Promise<Invoice[]> => {
         ensureNotAborted(options?.signal);
-        return db.invoices as Invoice[];
+        return db.invoices.filter(invoice => invoice.companyId === companyId) as Invoice[];
     },
     getQuotesByCompany: async (companyId: string, options?: RequestOptions): Promise<Quote[]> => {
         ensureNotAborted(options?.signal);
-        return db.quotes as Quote[];
+        return db.quotes.filter(quote => quote.companyId === companyId) as Quote[];
     },
     getClientsByCompany: async (companyId: string, options?: RequestOptions): Promise<Client[]> => {
         ensureNotAborted(options?.signal);
@@ -856,27 +1555,56 @@ export const api = {
         return { totalHours: 120, tasksCompleted: 15 };
     },
     createUser: async (data: any, userId: string): Promise<User> => {
-        const newUser = { ...data, id: String(Date.now()), companyId: db.users.find(u=>u.id===userId)?.companyId };
+        const newUser: Partial<User> = {
+            ...data,
+            id: String(Date.now()),
+            companyId: db.users.find(u => u.id === userId)?.companyId,
+        };
+
+        if (newUser.email) {
+            newUser.email = normalizeEmail(newUser.email);
+        }
+
+        if (data?.password) {
+            const passwordRecord = await createPasswordRecord(data.password);
+            newUser.passwordHash = passwordRecord.hash;
+            newUser.passwordSalt = passwordRecord.salt;
+            delete (newUser as any).password;
+        }
+
         db.users.push(newUser);
         saveDb();
-        return newUser as User;
+        return sanitizeUserForReturn(newUser);
     },
     updateUser: async (id: string, data: Partial<User>, projectIds: (string|number)[] | undefined, userId: string): Promise<User> => {
-        const index = db.users.findIndex(u=>u.id === id);
+        const index = db.users.findIndex(u => u.id === id);
         if (index === -1) throw new Error("User not found");
-        
-        // Merge existing user data with updates
-        db.users[index] = { ...db.users[index], ...data };
-        
+
+        const updates: Partial<User> = { ...data };
+
+        if (updates.email) {
+            updates.email = normalizeEmail(updates.email);
+        }
+
+        if ((data as any)?.password) {
+            const passwordRecord = await createPasswordRecord((data as any).password);
+            updates.passwordHash = passwordRecord.hash;
+            updates.passwordSalt = passwordRecord.salt;
+            delete (updates as any).password;
+        }
+
+        db.users[index] = { ...db.users[index], ...updates };
+        delete (db.users[index] as any).password;
+
         // Only update project assignments if the projectIds array is explicitly passed
         // This allows for profile-only updates by omitting the projectIds argument
         if (projectIds !== undefined) {
             db.projectAssignments = db.projectAssignments.filter(pa => pa.userId !== id);
-            projectIds.forEach(pid => db.projectAssignments.push({userId: id, projectId: String(pid)}));
+            projectIds.forEach(pid => db.projectAssignments.push({ userId: id, projectId: String(pid) }));
         }
-        
+
         saveDb();
-        return db.users[index] as User;
+        return sanitizeUserForReturn(db.users[index]);
     },
     prioritizeTasks: async (tasks: Todo[], projects: Project[], userId: string): Promise<{prioritizedTaskIds: string[]}> => {
         await delay(1000);

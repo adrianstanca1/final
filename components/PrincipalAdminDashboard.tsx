@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { User, Company, SystemHealth, UsageMetric } from '../types';
+import { User, SystemHealth, UsageMetric } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { InviteCompanyModal } from './InviteCompanyModal';
+import { useTenant } from '../contexts/TenantContext';
 
 interface PrincipalAdminDashboardProps {
   user: User;
@@ -83,13 +84,17 @@ const SystemHealthIndicator: React.FC<{ health: SystemHealth }> = ({ health }) =
 };
 
 export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = ({ user, addToast }) => {
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [totalUsers, setTotalUsers] = useState(0);
+  const { tenants: tenantSummaries, refreshTenants } = useTenant();
   const [metrics, setMetrics] = useState<UsageMetric[]>([]);
   const [loading, setLoading] = useState(true);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [systemHealth] = useState<SystemHealth>({ status: 'OK', message: 'All systems are operational.' });
   const abortControllerRef = useRef<AbortController | null>(null);
+  const tenantStatusStyles: Record<'OK' | 'DEGRADED' | 'DOWN', string> = {
+    OK: 'bg-emerald-100 text-emerald-700',
+    DEGRADED: 'bg-amber-100 text-amber-700',
+    DOWN: 'bg-rose-100 text-rose-700',
+  };
 
   const fetchData = useCallback(async () => {
     const controller = new AbortController();
@@ -98,25 +103,9 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
 
     setLoading(true);
     try {
-      const [companiesData, metricsData] = await Promise.all([
-        api.getCompanies({ signal: controller.signal }),
-        api.getPlatformUsageMetrics({ signal: controller.signal }),
-      ]);
+      await refreshTenants();
+      const metricsData = await api.getPlatformUsageMetrics({ signal: controller.signal });
 
-      if (controller.signal.aborted) return;
-
-      const usersByCompany = await Promise.all(
-        companiesData.map((company) => api.getUsersByCompany(company.id, { signal: controller.signal }))
-      );
-
-      if (controller.signal.aborted) return;
-      const allUsers = usersByCompany.flat();
-
-      const tenantCompanies = companiesData.filter((company) => company.id !== '0');
-      if (controller.signal.aborted) return;
-      setCompanies(tenantCompanies as Company[]);
-      if (controller.signal.aborted) return;
-      setTotalUsers(allUsers.filter((userRecord) => userRecord.companyId !== '0').length);
       if (controller.signal.aborted) return;
       setMetrics(metricsData);
     } catch (error) {
@@ -126,7 +115,7 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
       if (controller.signal.aborted) return;
       setLoading(false);
     }
-  }, [addToast]);
+  }, [addToast, refreshTenants]);
 
   useEffect(() => {
     fetchData();
@@ -140,8 +129,10 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
     await fetchData();
   };
 
-  const totalStorage = companies.reduce((acc, company) => acc + (company.storageUsageGB || 0), 0);
-  const activeMetric = metrics.find((metric) => metric.name.toLowerCase().includes('active'));
+  const totalStorage = tenantSummaries.reduce((acc, tenant) => acc + (tenant.storageUsageGB || 0), 0);
+  const totalUsers = tenantSummaries.reduce((acc, tenant) => acc + tenant.userCount, 0);
+  const totalActiveProjects = tenantSummaries.reduce((acc, tenant) => acc + tenant.activeProjects, 0);
+  const openIncidents = tenantSummaries.reduce((acc, tenant) => acc + tenant.openIncidents, 0);
 
   if (loading) {
     return (
@@ -169,8 +160,8 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard
-          title="Total Companies"
-          value={companies.length}
+          title="Total Tenants"
+          value={tenantSummaries.length.toString()}
           icon={
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -186,7 +177,7 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
         />
         <KpiCard
           title="Users Across Tenants"
-          value={totalUsers}
+          value={totalUsers.toLocaleString()}
           icon={
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -212,27 +203,21 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
           }
         />
         <KpiCard
-          title="Storage In Use"
-          value={`${totalStorage.toFixed(1)} GB`}
+          title="Active Projects"
+          value={totalActiveProjects.toLocaleString()}
           icon={
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16v12H4z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h8m-8 4h5" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7h18M3 12h18M3 17h18" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21v-4M12 21v-4M17 21v-4" />
             </svg>
           }
         />
         <KpiCard
-          title="Active last 24h"
-          value={activeMetric ? `${activeMetric.value} ${activeMetric.unit}` : '—'}
+          title="Open Incidents"
+          value={openIncidents.toLocaleString()}
           icon={
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M12 6v6l4 2"
-              />
-              <circle cx="12" cy="12" r="9" strokeWidth={1.5} />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-.01 6a9 9 0 110-18 9 9 0 010 18z" />
             </svg>
           }
         />
@@ -243,7 +228,10 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
           <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
             <div>
               <h3 className="text-lg font-semibold text-slate-900">Tenant roster</h3>
-              <p className="text-sm text-slate-600">Latest snapshot of every company on the platform.</p>
+              <p className="text-sm text-slate-600">
+                Latest snapshot of every company on the platform. Total storage in use:{' '}
+                <span className="font-semibold text-slate-900">{totalStorage.toFixed(1)} GB</span>.
+              </p>
             </div>
             <Button variant="secondary" size="sm" onClick={() => fetchData()}>
               Refresh
@@ -254,43 +242,40 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
               <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3 text-left font-semibold">Company</th>
-                  <th className="px-4 py-3 text-left font-semibold">Type</th>
                   <th className="px-4 py-3 text-left font-semibold">Plan</th>
-                  <th className="px-4 py-3 text-left font-semibold">Status</th>
+                  <th className="px-4 py-3 text-right font-semibold">Users</th>
+                  <th className="px-4 py-3 text-right font-semibold">Active projects</th>
                   <th className="px-4 py-3 text-right font-semibold">Storage</th>
+                  <th className="px-4 py-3 text-left font-semibold">Health</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border bg-card">
-                {companies.map((company) => (
-                  <tr key={company.id} className="hover:bg-muted/50">
+                {tenantSummaries.map((tenant) => (
+                  <tr key={tenant.companyId} className="hover:bg-muted/50">
                     <td className="px-4 py-3">
-                      <div className="font-semibold text-slate-900">{company.name}</div>
-                      <p className="text-xs text-slate-500">{company.email || 'No contact email'}</p>
+                      <div className="font-semibold text-slate-900">{tenant.companyName}</div>
+                      <p className="text-xs text-slate-500">
+                        {tenant.issues.length > 0 ? tenant.issues[0] : 'All systems healthy'}
+                      </p>
                     </td>
-                    <td className="px-4 py-3 capitalize text-slate-700">
-                      {company.type?.toLowerCase().replace('_', ' ') || 'Not specified'}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">{company.subscriptionPlan || 'FREE'}</td>
+                    <td className="px-4 py-3 text-slate-700">{tenant.plan}</td>
+                    <td className="px-4 py-3 text-right text-slate-700">{tenant.userCount.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right text-slate-700">{tenant.activeProjects}</td>
+                    <td className="px-4 py-3 text-right text-slate-700">{`${tenant.storageUsageGB.toFixed(1)} GB`}</td>
                     <td className="px-4 py-3">
                       <span
-                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${
-                          company.status === 'Suspended'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-emerald-100 text-emerald-700'
-                        }`}
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${tenantStatusStyles[tenant.health]}`}
                       >
-                        {company.status || 'Active'}
+                        <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                        {tenant.health === 'OK' ? 'Operational' : tenant.health === 'DEGRADED' ? 'Degraded' : 'Attention needed'}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-right text-slate-700">
-                      {`${(company.storageUsageGB || 0).toFixed(1)} GB`}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {companies.length === 0 && (
+          {tenantSummaries.length === 0 && (
             <div className="py-8 text-center text-sm text-muted-foreground">
               No tenant companies found. Invite your first partner to get started.
             </div>
