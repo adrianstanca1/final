@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { User, Project, Todo, Equipment, Permission, Role, TodoStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, SafetyIncident, Timesheet, TodoPriority } from '../types';
+import { User, Project, Todo, Equipment, Permission, Role, TodoStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, SafetyIncident, Timesheet, TodoPriority, DashboardSummary } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Avatar } from './ui/Avatar';
@@ -8,6 +8,7 @@ import { EquipmentStatusBadge } from './ui/StatusBadge';
 import { Button } from './ui/Button';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { ErrorBoundary } from './ErrorBoundary';
+import { format, formatDistanceToNow } from 'date-fns';
 
 interface ForemanDashboardProps {
   user: User;
@@ -284,8 +285,24 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
     const [activeTimesheet, setActiveTimesheet] = useState<Timesheet | undefined>(undefined);
     const [allUsers, setAllUsers] = useState<User[]>([]);
     const [isIncidentModalOpen, setIsIncidentModalOpen] = useState(false);
+    const [companySummary, setCompanySummary] = useState<DashboardSummary | null>(null);
 
     const userMap = useMemo(() => new Map(allUsers.map(u => [u.id, u])), [allUsers]);
+    const personalDeadlines = useMemo(() => {
+        if (!companySummary) return [];
+        return companySummary.upcomingDeadlines
+            .filter(deadline => deadline.assigneeId === user.id)
+            .slice(0, 3);
+    }, [companySummary, user.id]);
+
+    const crewDeadlines = useMemo(() => {
+        if (!companySummary || crew.length === 0) return [];
+        const crewIds = new Set(crew.map(member => member.id));
+        return companySummary.upcomingDeadlines
+            .filter(deadline => deadline.assigneeId && crewIds.has(deadline.assigneeId) && deadline.assigneeId !== user.id)
+            .slice(0, 3);
+    }, [companySummary, crew, user.id]);
+
     const abortControllerRef = useRef<AbortController | null>(null);
 
     const fetchData = useCallback(async () => {
@@ -296,16 +313,19 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
         setLoading(true);
         try {
             if (!user.companyId) return;
-            const [userProjects, allCompanyUsers, tsData] = await Promise.all([
+            const [userProjects, allCompanyUsers, tsData, summaryData] = await Promise.all([
                 api.getProjectsByUser(user.id, { signal: controller.signal }),
                 api.getUsersByCompany(user.companyId, { signal: controller.signal }),
                 api.getTimesheetsByUser(user.id, { signal: controller.signal }),
+                api.getCompanyDashboardSummary(user.companyId, { signal: controller.signal }),
             ]);
 
             if (controller.signal.aborted) return;
             setAllUsers(allCompanyUsers);
             if (controller.signal.aborted) return;
             setActiveTimesheet(tsData.find(ts => ts.clockOut === null));
+            if (controller.signal.aborted) return;
+            setCompanySummary(summaryData);
             const activeProject = userProjects.find(p => p.status === 'ACTIVE');
             if (controller.signal.aborted) return;
             setCurrentProject(activeProject || null);
@@ -381,6 +401,42 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
                             <WeatherCard weather={weather} />
                          </div>
                          <DailyAssignmentsCard tasks={myTasks} onTaskReorder={setMyTasks} />
+                         {companySummary && (
+                            <Card>
+                                <h2 className="font-semibold text-lg mb-2">Upcoming commitments</h2>
+                                <p className="text-sm text-muted-foreground mb-3">Focus on these deliverables before the next coordination meeting.</p>
+                                <div className="space-y-3">
+                                    <div>
+                                        <p className="text-xs font-semibold uppercase text-muted-foreground">Assigned to you</p>
+                                        {personalDeadlines.length > 0 ? personalDeadlines.map(deadline => {
+                                            const due = new Date(deadline.dueDate);
+                                            return (
+                                                <div key={deadline.id} className="mt-2 rounded-lg border border-border/60 bg-background/60 p-3">
+                                                    <p className="text-sm font-semibold text-foreground">{deadline.title}</p>
+                                                    <p className="text-xs text-muted-foreground">{format(due, 'EEE d MMM')} · {formatDistanceToNow(due, { addSuffix: true })}</p>
+                                                    <p className="text-xs text-muted-foreground">Project: {deadline.projectName}</p>
+                                                </div>
+                                            );
+                                        }) : <p className="mt-2 text-xs text-muted-foreground">No personal deadlines this week.</p>}
+                                    </div>
+                                    <div>
+                                        <p className="text-xs font-semibold uppercase text-muted-foreground">Crew owners</p>
+                                        {crewDeadlines.length > 0 ? crewDeadlines.map(deadline => {
+                                            const due = new Date(deadline.dueDate);
+                                            const assignee = deadline.assigneeId ? userMap.get(deadline.assigneeId) : undefined;
+                                            const assigneeName = assignee ? `${assignee.firstName} ${assignee.lastName}` : 'Crew member';
+                                            return (
+                                                <div key={deadline.id} className="mt-2 rounded-lg border border-border/60 bg-background/40 p-3">
+                                                    <p className="text-sm font-semibold text-foreground">{deadline.title}</p>
+                                                    <p className="text-xs text-muted-foreground">Lead: {assigneeName}</p>
+                                                    <p className="text-xs text-muted-foreground">Due {formatDistanceToNow(due, { addSuffix: true })}</p>
+                                                </div>
+                                            );
+                                        }) : <p className="mt-2 text-xs text-muted-foreground">Crew assignments are on track.</p>}
+                                    </div>
+                                </div>
+                            </Card>
+                         )}
                     </div>
                      {/* Column 2 */}
                     <div className="space-y-6">
@@ -396,6 +452,18 @@ export const ForemanDashboard: React.FC<ForemanDashboardProps> = ({ user, addToa
                          <TeamChatCard project={currentProject} user={user} onUpdate={fetchData} messages={projectMessages} userMap={userMap} />
                          <Card>
                              <h2 className="font-semibold text-lg mb-2">Crew Status</h2>
+                             {companySummary && (
+                                 <div className="mb-3 rounded-lg border border-border/60 bg-background/60 p-3 text-xs text-muted-foreground">
+                                     <div className="flex items-center justify-between">
+                                         <span>Deployment today</span>
+                                         <span className="font-semibold text-foreground">{companySummary.workforce.onProject} crews</span>
+                                     </div>
+                                     <div className="mt-2 h-1.5 w-full rounded-full bg-muted">
+                                         <div className="h-full rounded-full bg-primary" style={{ width: `${companySummary.workforce.utilisationRate}%` }} />
+                                     </div>
+                                     <p className="mt-1 text-[0.65rem] text-muted-foreground">Utilisation {companySummary.workforce.utilisationRate}% · {companySummary.workforce.available} available / {companySummary.workforce.onLeave} on leave</p>
+                                 </div>
+                             )}
                              <div className="space-y-3 max-h-40 overflow-y-auto pr-2">
                                 {crew.map(member => {
                                     const memberName = `${member.firstName} ${member.lastName}`;

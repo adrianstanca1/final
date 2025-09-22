@@ -397,6 +397,51 @@ export type Task = Todo; // Alias for backward compatibility if needed
 export type TaskStatus = TodoStatus;
 export type TaskPriority = TodoPriority;
 
+export type ProjectRiskLevel = 'HEALTHY' | 'WATCH' | 'AT_RISK';
+
+export interface DashboardSummaryStats {
+  overdueTasks: number;
+  openIncidents: number;
+  outstandingInvoices: number;
+  averageTaskProgress: number;
+}
+
+export interface DashboardSummaryDeadline {
+  id: string;
+  title: string;
+  dueDate: string;
+  projectId: string;
+  projectName: string;
+  assigneeId?: string;
+  assigneeName?: string;
+  priority: TodoPriority;
+  status: TodoStatus;
+}
+
+export interface DashboardSummaryProject {
+  id: string;
+  name: string;
+  riskLevel: ProjectRiskLevel;
+  progress: number;
+  budgetUtilisation: number;
+  overdueTasks: number;
+  openIncidents: number;
+}
+
+export interface DashboardSummaryWorkforce {
+  available: number;
+  onProject: number;
+  onLeave: number;
+  utilisationRate: number;
+}
+
+export interface DashboardSummary {
+  stats: DashboardSummaryStats;
+  upcomingDeadlines: DashboardSummaryDeadline[];
+  atRiskProjects: DashboardSummaryProject[];
+  workforce: DashboardSummaryWorkforce;
+}
+
 export interface Expense {
   id: string;
   description: string;

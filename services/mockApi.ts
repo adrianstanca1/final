@@ -2,7 +2,7 @@
 // Supports offline queuing for write operations.
 
 import { initialData } from './mockData';
-import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegisterCredentials, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority } from '../types';
+import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegisterCredentials, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority, DashboardSummary, DashboardSummaryDeadline, DashboardSummaryProject, DashboardSummaryWorkforce, ProjectRiskLevel, AvailabilityStatus } from '../types';
 
 const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
 
@@ -1233,6 +1233,169 @@ export const api = {
             }
         });
         saveDb();
+    },
+    getCompanyDashboardSummary: async (companyId: string, options?: RequestOptions): Promise<DashboardSummary> => {
+        ensureNotAborted(options?.signal);
+
+        const now = new Date();
+        const projectEntries = db.projects.filter(p => p.companyId === companyId && p.id) as Project[];
+        const projectIds = new Set(projectEntries.map(p => p.id));
+        const projectMap = new Map(projectEntries.map(project => [project.id, project]));
+
+        const companyUsers = db.users.filter(u => u.companyId === companyId && u.id) as User[];
+        const userMap = new Map(companyUsers.map(user => [user.id, user]));
+
+        const companyTodos = db.todos.filter(todo => todo.projectId && projectIds.has(todo.projectId)) as Todo[];
+        const companyIncidents = db.safetyIncidents.filter(incident => incident.projectId && projectIds.has(incident.projectId)) as SafetyIncident[];
+        const companyInvoices = db.invoices.filter(invoice => invoice.companyId === companyId) as Invoice[];
+
+        const parseDate = (value?: string) => {
+            if (!value) return null;
+            const parsed = new Date(value);
+            return Number.isNaN(parsed.getTime()) ? null : parsed;
+        };
+
+        const stats: DashboardSummary['stats'] = {
+            overdueTasks: companyTodos.filter(todo => {
+                const status = todo.status ?? TodoStatus.TODO;
+                if (status === TodoStatus.DONE) return false;
+                const due = parseDate(todo.dueDate as string | undefined);
+                return Boolean(due && due.getTime() < now.getTime());
+            }).length,
+            openIncidents: companyIncidents.filter(incident => incident.status !== IncidentStatus.RESOLVED).length,
+            outstandingInvoices: companyInvoices.filter(invoice => {
+                if (invoice.status === InvoiceStatus.PAID || invoice.status === InvoiceStatus.CANCELLED) {
+                    return false;
+                }
+                const due = parseDate(invoice.dueDate);
+                return Boolean(due && due.getTime() < now.getTime());
+            }).length,
+            averageTaskProgress: companyTodos.length === 0
+                ? 0
+                : Math.round(companyTodos.reduce((total, todo) => {
+                    if (typeof todo.progress === 'number') {
+                        return total + todo.progress;
+                    }
+                    const status = todo.status ?? TodoStatus.TODO;
+                    if (status === TodoStatus.DONE) return total + 100;
+                    if (status === TodoStatus.IN_PROGRESS) return total + 60;
+                    return total + 10;
+                }, 0) / companyTodos.length),
+        };
+
+        const upcomingDeadlines: DashboardSummaryDeadline[] = companyTodos
+            .filter(todo => {
+                const status = todo.status ?? TodoStatus.TODO;
+                if (status === TodoStatus.DONE) return false;
+                const due = parseDate(todo.dueDate as string | undefined);
+                if (!due) return false;
+                const diffInDays = (due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+                return diffInDays >= 0 && diffInDays <= 7;
+            })
+            .sort((a, b) => {
+                const dueA = parseDate(a.dueDate as string | undefined)?.getTime() ?? Infinity;
+                const dueB = parseDate(b.dueDate as string | undefined)?.getTime() ?? Infinity;
+                return dueA - dueB;
+            })
+            .slice(0, 6)
+            .map(todo => {
+                const project = projectMap.get(todo.projectId!);
+                const assignee = todo.assignedTo ? userMap.get(todo.assignedTo) : todo.assigneeId ? userMap.get(todo.assigneeId) : undefined;
+                return {
+                    id: todo.id!,
+                    title: todo.title || todo.text || 'Untitled task',
+                    dueDate: (todo.dueDate as string | undefined) ?? new Date().toISOString(),
+                    projectId: todo.projectId!,
+                    projectName: project?.name ?? 'Unassigned project',
+                    assigneeId: assignee?.id,
+                    assigneeName: assignee ? `${assignee.firstName} ${assignee.lastName}`.trim() : undefined,
+                    priority: todo.priority ?? TodoPriority.MEDIUM,
+                    status: todo.status ?? TodoStatus.TODO,
+                } satisfies DashboardSummaryDeadline;
+            });
+
+        const riskRanking: Record<ProjectRiskLevel, number> = { AT_RISK: 0, WATCH: 1, HEALTHY: 2 };
+
+        const atRiskProjectsAll: DashboardSummaryProject[] = projectEntries.map(project => {
+            const projectTodos = companyTodos.filter(todo => todo.projectId === project.id);
+            const projectIncidents = companyIncidents.filter(incident => incident.projectId === project.id && incident.status !== IncidentStatus.RESOLVED);
+            const overdueCount = projectTodos.filter(todo => {
+                const status = todo.status ?? TodoStatus.TODO;
+                if (status === TodoStatus.DONE) return false;
+                const due = parseDate(todo.dueDate as string | undefined);
+                return Boolean(due && due.getTime() < now.getTime());
+            }).length;
+
+            const progressFromProject = typeof project.progress === 'number' ? project.progress : (
+                projectTodos.length === 0
+                    ? 0
+                    : projectTodos.reduce((total, todo) => {
+                        if (typeof todo.progress === 'number') return total + todo.progress;
+                        const status = todo.status ?? TodoStatus.TODO;
+                        if (status === TodoStatus.DONE) return total + 100;
+                        if (status === TodoStatus.IN_PROGRESS) return total + 60;
+                        return total + 10;
+                    }, 0) / projectTodos.length
+            );
+
+            const budget = project.budget ?? 0;
+            const cost = project.actualCost ?? project.spent ?? 0;
+            const budgetUtilisation = budget > 0 ? (cost / budget) * 100 : 0;
+
+            const hasCriticalIncident = projectIncidents.some(incident => incident.severity === IncidentSeverity.HIGH || incident.severity === IncidentSeverity.CRITICAL);
+            let riskLevel: ProjectRiskLevel = 'HEALTHY';
+            if (project.status === 'COMPLETED' || project.status === 'CANCELLED') {
+                riskLevel = 'HEALTHY';
+            } else if (overdueCount >= 3 || budgetUtilisation > 110 || hasCriticalIncident) {
+                riskLevel = 'AT_RISK';
+            } else if (overdueCount > 0 || budgetUtilisation > 95 || progressFromProject < 45 || projectIncidents.length > 0) {
+                riskLevel = 'WATCH';
+            }
+
+            return {
+                id: project.id,
+                name: project.name ?? 'Untitled project',
+                riskLevel,
+                progress: Math.round(progressFromProject),
+                budgetUtilisation: Math.round(budgetUtilisation),
+                overdueTasks: overdueCount,
+                openIncidents: projectIncidents.length,
+            } satisfies DashboardSummaryProject;
+        })
+            .sort((a, b) => {
+                const byRisk = riskRanking[a.riskLevel] - riskRanking[b.riskLevel];
+                if (byRisk !== 0) return byRisk;
+                if (b.overdueTasks !== a.overdueTasks) return b.overdueTasks - a.overdueTasks;
+                return b.openIncidents - a.openIncidents;
+            });
+
+        const significantProjects = atRiskProjectsAll.filter(project => project.riskLevel !== 'HEALTHY' || project.overdueTasks > 0 || project.openIncidents > 0);
+        const atRiskProjects = (significantProjects.length > 0 ? significantProjects : atRiskProjectsAll).slice(0, 4);
+
+        const workforceCounts = companyUsers.reduce((acc, user) => {
+            const availability = user.availability ?? AvailabilityStatus.ON_PROJECT;
+            if (availability === AvailabilityStatus.AVAILABLE) acc.available += 1;
+            else if (availability === AvailabilityStatus.ON_LEAVE) acc.onLeave += 1;
+            else acc.onProject += 1;
+            return acc;
+        }, { available: 0, onProject: 0, onLeave: 0 });
+
+        const totalWorkforce = workforceCounts.available + workforceCounts.onProject + workforceCounts.onLeave;
+        const utilisationRate = totalWorkforce === 0
+            ? 0
+            : Math.round(((workforceCounts.onProject + workforceCounts.available * 0.5) / totalWorkforce) * 100);
+
+        const workforce: DashboardSummaryWorkforce = {
+            ...workforceCounts,
+            utilisationRate,
+        };
+
+        return {
+            stats,
+            upcomingDeadlines,
+            atRiskProjects,
+            workforce,
+        } satisfies DashboardSummary;
     },
     getSiteUpdatesByProject: async (projectId: string, options?: RequestOptions): Promise<SiteUpdate[]> => {
         ensureNotAborted(options?.signal);

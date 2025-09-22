@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { User, View, Project, Todo, Equipment, AuditLog, ResourceAssignment, Role, Permission, TodoStatus, AvailabilityStatus } from '../types';
+import { User, View, Project, Todo, Equipment, AuditLog, ResourceAssignment, Role, Permission, TodoStatus, AvailabilityStatus, DashboardSummary, ProjectRiskLevel, TodoPriority } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 // FIX: Corrected API import from mockApi
@@ -10,7 +10,7 @@ import { EquipmentStatusBadge } from './ui/StatusBadge';
 import { Tag } from './ui/Tag';
 import { ViewHeader } from './layout/ViewHeader';
 // FIX: Removed `startOfWeek` from import and added a local implementation to resolve the module export error.
-import { format, eachDayOfInterval, isWithinInterval } from 'date-fns';
+import { format, eachDayOfInterval, isWithinInterval, formatDistanceToNow } from 'date-fns';
 
 interface DashboardProps {
   user: User;
@@ -54,6 +54,86 @@ const availabilityTagColor: Record<AvailabilityStatus, 'green' | 'blue' | 'gray'
     [AvailabilityStatus.ON_LEAVE]: 'gray',
 };
 
+const riskStyles: Record<ProjectRiskLevel, { label: string; className: string }> = {
+    AT_RISK: { label: 'At risk', className: 'bg-destructive/10 text-destructive border border-destructive/30' },
+    WATCH: { label: 'Watch', className: 'bg-amber-100 text-amber-700 border border-amber-200' },
+    HEALTHY: { label: 'Healthy', className: 'bg-emerald-100 text-emerald-700 border border-emerald-200' },
+};
+
+const priorityStyles: Record<TodoPriority, string> = {
+    [TodoPriority.HIGH]: 'bg-rose-100 text-rose-700 border border-rose-200',
+    [TodoPriority.MEDIUM]: 'bg-amber-100 text-amber-700 border border-amber-200',
+    [TodoPriority.LOW]: 'bg-slate-100 text-slate-600 border border-slate-200',
+};
+
+const RiskPill: React.FC<{ level: ProjectRiskLevel }> = ({ level }) => {
+    const style = riskStyles[level];
+    return <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${style.className}`}>
+        <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" />
+        {style.label}
+    </span>;
+};
+
+const ProgressDonut: React.FC<{ value: number; label?: string }> = ({ value, label }) => {
+    const clamped = Math.max(0, Math.min(100, value));
+    const circumference = 2 * Math.PI * 15.9155;
+    const offset = circumference - (clamped / 100) * circumference;
+
+    return (
+        <div className="relative flex flex-col items-center justify-center gap-1">
+            <svg viewBox="0 0 36 36" className="h-20 w-20">
+                <circle
+                    className="text-muted stroke-current"
+                    strokeWidth="3.5"
+                    fill="none"
+                    strokeLinecap="round"
+                    cx="18"
+                    cy="18"
+                    r="15.9155"
+                    opacity={0.3}
+                />
+                <circle
+                    className="text-primary stroke-current"
+                    strokeWidth="3.5"
+                    strokeLinecap="round"
+                    strokeDasharray={`${circumference} ${circumference}`}
+                    strokeDashoffset={offset}
+                    fill="none"
+                    cx="18"
+                    cy="18"
+                    r="15.9155"
+                    transform="rotate(-90 18 18)"
+                />
+            </svg>
+            <span className="absolute text-lg font-semibold text-foreground">{clamped}%</span>
+            {label && <span className="text-xs font-medium text-muted-foreground">{label}</span>}
+        </div>
+    );
+};
+
+type QuickAction = {
+    label: string;
+    description: string;
+    icon: React.ReactNode;
+    onClick: () => void;
+};
+
+const QuickActionCard: React.FC<{ action: QuickAction }> = ({ action }) => (
+    <button
+        type="button"
+        onClick={action.onClick}
+        className="group flex items-center gap-3 rounded-lg border border-border bg-card/70 p-3 text-left transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg"
+    >
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary transition group-hover:bg-primary group-hover:text-primary-foreground">
+            {action.icon}
+        </span>
+        <span>
+            <span className="block text-sm font-semibold text-foreground">{action.label}</span>
+            <span className="block text-xs text-muted-foreground">{action.description}</span>
+        </span>
+    </button>
+);
+
 // FIX: Local implementation of startOfWeek to resolve module export error.
 const startOfWeek = (date: Date, options?: { weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6 }): Date => {
     const weekStartsOn = options?.weekStartsOn ?? 0;
@@ -72,6 +152,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     const [equipment, setEquipment] = useState<Equipment[]>([]);
     const [tasks, setTasks] = useState<Todo[]>([]);
     const [activityLog, setActivityLog] = useState<AuditLog[]>([]);
+    const [summary, setSummary] = useState<DashboardSummary | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
 
     const fetchData = useCallback(async () => {
@@ -82,12 +163,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
         setLoading(true);
         try {
             if (!user.companyId) return;
-            const [projData, usersData, equipData, assignmentsData, logsData] = await Promise.all([
+            const [projData, usersData, equipData, assignmentsData, logsData, summaryData] = await Promise.all([
                 api.getProjectsByManager(user.id, { signal: controller.signal }),
                 api.getUsersByCompany(user.companyId, { signal: controller.signal }),
                 api.getEquipmentByCompany(user.companyId, { signal: controller.signal }),
                 api.getResourceAssignments(user.companyId, { signal: controller.signal }),
-                api.getAuditLogsByCompany(user.companyId, { signal: controller.signal })
+                api.getAuditLogsByCompany(user.companyId, { signal: controller.signal }),
+                api.getCompanyDashboardSummary(user.companyId, { signal: controller.signal }),
             ]);
 
             if (controller.signal.aborted) return;
@@ -109,6 +191,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
 
             if (controller.signal.aborted) return;
             setActivityLog(logsData.filter(l => l.action.includes('task')).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+
+            if (controller.signal.aborted) return;
+            setSummary(summaryData);
 
         } catch (error) {
             if (controller.signal.aborted) return;
@@ -155,7 +240,41 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
             value: tasks.filter(t => t.completedAt && isWithinInterval(new Date(t.completedAt), {start: day, end: new Date(day).setHours(23,59,59,999)})).length
         }));
     }, [tasks]);
-    
+
+    const quickActions = useMemo<QuickAction[]>(() => [
+        {
+            label: 'Triage overdue tasks',
+            description: 'Jump to the task board and clear blockers before stand-up.',
+            icon: <span className="text-lg">✅</span>,
+            onClick: () => setActiveView('all-tasks'),
+        },
+        {
+            label: 'Review safety log',
+            description: 'Open the safety centre to close out open incidents.',
+            icon: <span className="text-lg">🛡️</span>,
+            onClick: () => setActiveView('safety'),
+        },
+        {
+            label: 'Sync with finance',
+            description: 'Track billing exposure from the invoices dashboard.',
+            icon: <span className="text-lg">📊</span>,
+            onClick: () => setActiveView('invoices'),
+        },
+        {
+            label: 'Check project sequencing',
+            description: 'Move to the projects grid to reshuffle milestone dates.',
+            icon: <span className="text-lg">🗺️</span>,
+            onClick: () => setActiveView('projects'),
+        },
+    ], [setActiveView]);
+
+    const handleProjectNavigate = useCallback((projectId: string) => {
+        const project = projects.find(p => p.id === projectId);
+        if (!project) return;
+        onSelectProject(project);
+        setActiveView('project-detail');
+    }, [projects, onSelectProject, setActiveView]);
+
 
     if (loading) return <Card>Loading Project Manager Dashboard...</Card>;
 
@@ -183,6 +302,149 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                     },
                 ]}
             />
+
+            {summary && (
+                <>
+                    <div className="grid gap-6 xl:grid-cols-12">
+                        <Card className="xl:col-span-5">
+                            <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                                <div className="space-y-4">
+                                    <div>
+                                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Operational pulse</p>
+                                        <h3 className="text-2xl font-bold text-foreground">This week at a glance</h3>
+                                        <p className="text-sm text-muted-foreground">Stay ahead of risk by resolving blockers before they impact your programme.</p>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="rounded-lg border border-border/60 bg-background/60 p-4">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Overdue tasks</p>
+                                            <p className="mt-1 text-2xl font-bold text-foreground">{summary.stats.overdueTasks}</p>
+                                            <p className="text-xs text-muted-foreground">Require immediate action</p>
+                                        </div>
+                                        <div className="rounded-lg border border-border/60 bg-background/60 p-4">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Open incidents</p>
+                                            <p className="mt-1 text-2xl font-bold text-foreground">{summary.stats.openIncidents}</p>
+                                            <p className="text-xs text-muted-foreground">Waiting on mitigation</p>
+                                        </div>
+                                        <div className="rounded-lg border border-border/60 bg-background/60 p-4">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Outstanding invoices</p>
+                                            <p className="mt-1 text-2xl font-bold text-foreground">{summary.stats.outstandingInvoices}</p>
+                                            <p className="text-xs text-muted-foreground">Past due and unpaid</p>
+                                        </div>
+                                        <div className="rounded-lg border border-border/60 bg-background/60 p-4">
+                                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Teams deployed</p>
+                                            <p className="mt-1 text-2xl font-bold text-foreground">{summary.workforce.onProject}</p>
+                                            <p className="text-xs text-muted-foreground">Crews on active jobs</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <ProgressDonut value={summary.stats.averageTaskProgress} label="Avg. task progress" />
+                            </div>
+                        </Card>
+                        <Card className="xl:col-span-4">
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-foreground">Upcoming deadlines</h3>
+                                    <p className="text-sm text-muted-foreground">Next seven days across your portfolio.</p>
+                                </div>
+                                <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">{summary.upcomingDeadlines.length}</span>
+                            </div>
+                            <div className="mt-4 space-y-3">
+                                {summary.upcomingDeadlines.length > 0 ? summary.upcomingDeadlines.map(deadline => {
+                                    const due = new Date(deadline.dueDate);
+                                    const priority = deadline.priority ?? TodoPriority.MEDIUM;
+                                    return (
+                                        <div key={deadline.id} className="flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-background/40 p-3">
+                                            <div className="space-y-1">
+                                                <p className="text-sm font-semibold text-foreground">{deadline.title}</p>
+                                                <p className="text-xs text-muted-foreground">{deadline.projectName}</p>
+                                                <p className="text-xs text-muted-foreground">Due {format(due, 'EEE d MMM')} ({formatDistanceToNow(due, { addSuffix: true })})</p>
+                                                {deadline.assigneeName && <p className="text-xs text-muted-foreground">Owner: {deadline.assigneeName}</p>}
+                                            </div>
+                                            <span className={`rounded-full px-2 py-1 text-[0.65rem] font-semibold ${priorityStyles[priority]}`}>
+                                                {priority}
+                                            </span>
+                                        </div>
+                                    );
+                                }) : <p className="text-sm text-muted-foreground">No deadlines in the next 7 days.</p>}
+                            </div>
+                        </Card>
+                        <Card className="xl:col-span-3">
+                            <div className="space-y-4">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-foreground">Workforce mix</h3>
+                                    <p className="text-sm text-muted-foreground">Live resource posture by availability.</p>
+                                </div>
+                                <div>
+                                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                                        <span>Utilisation</span>
+                                        <span className="font-semibold text-foreground">{summary.workforce.utilisationRate}%</span>
+                                    </div>
+                                    <div className="mt-2 h-2 rounded-full bg-muted">
+                                        <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${summary.workforce.utilisationRate}%` }} />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-3 gap-3 text-center text-xs">
+                                    <div className="rounded-lg border border-border/60 bg-background/50 p-3">
+                                        <p className="text-2xl font-bold text-foreground">{summary.workforce.onProject}</p>
+                                        <p className="text-muted-foreground">On project</p>
+                                    </div>
+                                    <div className="rounded-lg border border-border/60 bg-background/50 p-3">
+                                        <p className="text-2xl font-bold text-foreground">{summary.workforce.available}</p>
+                                        <p className="text-muted-foreground">Available</p>
+                                    </div>
+                                    <div className="rounded-lg border border-border/60 bg-background/50 p-3">
+                                        <p className="text-2xl font-bold text-foreground">{summary.workforce.onLeave}</p>
+                                        <p className="text-muted-foreground">On leave</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </Card>
+                    </div>
+                    <div className="grid gap-6 xl:grid-cols-12">
+                        <Card className="xl:col-span-7">
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <h3 className="text-lg font-semibold text-foreground">Risk watchlist</h3>
+                                    <p className="text-sm text-muted-foreground">Spot issues before they derail key milestones.</p>
+                                </div>
+                                <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">{summary.atRiskProjects.length} tracked</span>
+                            </div>
+                            <div className="mt-4 space-y-3">
+                                {summary.atRiskProjects.length > 0 ? summary.atRiskProjects.map(project => (
+                                    <div key={project.id} className="flex flex-col gap-4 rounded-lg border border-border/60 bg-background/50 p-4 md:flex-row md:items-center md:justify-between">
+                                        <div className="space-y-2">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <p className="text-sm font-semibold text-foreground">{project.name}</p>
+                                                <RiskPill level={project.riskLevel} />
+                                            </div>
+                                            <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                                                <span>Progress <span className="font-semibold text-foreground">{project.progress}%</span></span>
+                                                <span>Budget <span className="font-semibold text-foreground">{project.budgetUtilisation}% used</span></span>
+                                                <span>{project.overdueTasks} overdue task(s)</span>
+                                                <span>{project.openIncidents} open incident(s)</span>
+                                            </div>
+                                        </div>
+                                        <Button variant="ghost" onClick={() => handleProjectNavigate(project.id)} className="self-start md:self-center">
+                                            Open project →
+                                        </Button>
+                                    </div>
+                                )) : (
+                                    <p className="text-sm text-muted-foreground">All monitored projects are currently tracking well.</p>
+                                )}
+                            </div>
+                        </Card>
+                        <Card className="xl:col-span-5">
+                            <h3 className="text-lg font-semibold text-foreground">Command actions</h3>
+                            <p className="text-sm text-muted-foreground">Navigate directly to the workstreams that need attention.</p>
+                            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                {quickActions.map(action => (
+                                    <QuickActionCard key={action.label} action={action} />
+                                ))}
+                            </div>
+                        </Card>
+                    </div>
+                </>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <KpiCard title="Active Projects" value={kpiData.activeProjectsCount.toString()} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>} />
