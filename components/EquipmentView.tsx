@@ -136,6 +136,7 @@ const EquipmentModal: React.FC<{
             </Card>
         </div>
     );
+
 };
 
 // --- EquipmentHistoryModal Sub-Component ---
@@ -285,6 +286,7 @@ const EquipmentScheduleView: React.FC<{
     );
 };
 
+
 export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) => {
     const [equipment, setEquipment] = useState<Equipment[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
@@ -421,6 +423,7 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) 
                     </table>
                 </div>
             </Card>
+
 
             {viewMode === 'list' ? (
                 <Card>

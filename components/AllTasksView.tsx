@@ -3,6 +3,9 @@ import { User, Project, Todo, Role, Permission, TodoStatus, TodoPriority } from 
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
 import { Card } from './ui/Card';
+
+import { PriorityDisplay } from './ui/PriorityDisplay';
+import './ui/subtaskProgress.css';
 import { PriorityDisplay } from './ui/PriorityDisplay';
 import './ui/subtaskProgress.css';
 import { Button } from './ui/Button';
@@ -16,6 +19,22 @@ interface AllTasksViewProps {
   isOnline: boolean;
 }
 
+
+const TaskDetailModal: React.FC<{
+    task: Todo;
+    user: User;
+    projects: Project[];
+    personnel: User[];
+    allTasksForProject: Todo[];
+    onClose: () => void;
+    onUpdateTask: (task: Todo, updates: Partial<Todo>) => void;
+    addToast: (message: string, type: 'success' | 'error') => void;
+}> = ({ task, user, projects, personnel, allTasksForProject, onClose, onUpdateTask, addToast }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editableTask, setEditableTask] = useState<Todo>(task);
+    const [newComment, setNewComment] = useState('');
+
+    useEffect(() => { setEditableTask(task); }, [task]);
 const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOnline }) => {
 
     const canManage = hasPermission(user, Permission.MANAGE_TASKS);
@@ -521,6 +540,98 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                         <Button onClick={handleApplyBulkAction}>Apply</Button>
                     </div>
                 )}
+            <Card>
+                 <div className="flex flex-col md:flex-row gap-4 mb-4 pb-4 border-b">
+                     <select title="Project filter" value={projectFilter} onChange={e => setProjectFilter(e.target.value)} className="w-full md:w-auto p-2 border bg-white rounded-md">
+                        <option value="all">All Projects</option>
+                        {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                     <select title="Assignee filter" value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)} className="w-full md:w-auto p-2 border bg-white rounded-md">
+                        <option value="all">All Assignees</option>
+                        <option value="unassigned">Unassigned</option>
+                        {personnel.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                </div>
+                
+                {canManage && selectedTasks.size > 0 && (
+                     <div className="p-4 bg-slate-100 rounded-lg mb-4 flex flex-col md:flex-row gap-4 items-center animate-card-enter">
+                        <span className="font-semibold">{selectedTasks.size} tasks selected</span>
+                        <select title="Bulk status" value={bulkStatus} onChange={e => setBulkStatus(e.target.value as TodoStatus | '')} className="p-2 border bg-white rounded-md"><option value="">Change Status...</option>{Object.values(TodoStatus).map(s => <option key={s} value={s}>{s}</option>)}</select>
+                        <select title="Bulk priority" value={bulkPriority} onChange={e => setBulkPriority(e.target.value as TodoPriority | '')} className="p-2 border bg-white rounded-md"><option value="">Change Priority...</option>{Object.values(TodoPriority).map(p => <option key={p} value={p}>{p}</option>)}</select>
+                        <select title="Bulk assignee" value={bulkAssignee} onChange={e => setBulkAssignee(e.target.value)} className="p-2 border bg-white rounded-md"><option value="">Assign to...</option><option value="unassigned">Unassign</option>{personnel.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+                        <Button onClick={handleBulkUpdate} isLoading={isBulkUpdating}>Apply</Button>
+                    </div>
+                )}
+
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-slate-50">
+                            <tr>
+                                {canManage && <th className="px-6 py-3"><input type="checkbox" title="Select all tasks" onChange={handleSelectAll} checked={selectedTasks.size > 0 && filteredTasks.length > 0 && selectedTasks.size === filteredTasks.length} /></th>}
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Task</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Project</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Assignee</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Due Date</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Priority</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                            {filteredTasks.map(task => {
+                                const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && task.status !== TodoStatus.DONE;
+                                const taskDependencies = (task.dependsOn || []).map(depId => tasks.find(t => t.id === depId)).filter(Boolean) as Todo[];
+                                const isTaskBlocked = taskDependencies.some(dep => dep.status !== TodoStatus.DONE);
+                                return (
+                                <tr key={task.id} className={`hover:bg-slate-50 ${isTaskBlocked ? 'opacity-60' : 'cursor-pointer'}`} onClick={() => !isTaskBlocked && setSelectedTask(task)}>
+                                    {canManage && <td className="px-6 py-4" onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedTasks.has(task.id)} onChange={() => handleSelectTask(task.id)} /></td>}
+                                    <td className="px-6 py-4 font-medium">
+                                        <div className="flex items-center gap-2">
+                                            {isTaskBlocked && (
+                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                                </svg>
+                                            )}
+                                            <span>{task.text}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-slate-500">{projectMap.get(task.projectId)}</td>
+                                    <td className="px-6 py-4 text-sm">{task.assigneeId ? <div className="flex items-center gap-2"><Avatar name={personnelMap.get(task.assigneeId) || ''} className="w-6 h-6 text-xs" /><span>{personnelMap.get(task.assigneeId)}</span></div> : 'Unassigned'}</td>
+                                    <td className={`px-6 py-4 text-sm ${isOverdue ? 'text-red-600 font-semibold' : ''}`}>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'N/A'}</td>
+                                    <td className="px-6 py-4 text-sm"><PriorityDisplay priority={task.priority} /></td>
+                                    <td className="px-6 py-4 text-sm"><span className="px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-800">{task.status}</span></td>
+                                </tr>
+                                )
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+                 {filteredTasks.length === 0 && <p className="text-center py-8 text-slate-500">No open tasks match your filters.</p>}
+
+                {/* Completed Tasks Section */}
+                <div className="mt-8">
+                    <details open={showCompleted} onToggle={(e) => setShowCompleted((e.target as HTMLDetailsElement).open)}>
+                        <summary className="font-semibold text-lg cursor-pointer py-2">Completed Tasks ({completedTasks.length})</summary>
+                        <div className="mt-4 space-y-3 pl-4 border-l-2">
+                            {completedTasks.map(task => (
+                                <div key={task.id} className="p-3 bg-slate-50 rounded-r-lg flex items-center justify-between animate-card-enter">
+                                    <div className="flex items-center gap-3">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                        </svg>
+                                        <div>
+                                            <p className="line-through text-slate-600">{task.text}</p>
+                                            <p className="text-xs text-slate-500">in {projectMap.get(task.projectId)}</p>
+                                        </div>
+                                    </div>
+                                     <div className="text-right text-xs text-slate-500">
+                                        <p>Completed by {personnelMap.get(task.completedBy!) || 'Unknown'}</p>
+                                        {task.completedAt && <p>{new Date(task.completedAt).toLocaleDateString()}</p>}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </details>
+                </div>
             </Card>
             <Card>
                  <div className="flex flex-col md:flex-row gap-4 mb-4 pb-4 border-b">
