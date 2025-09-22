@@ -28,9 +28,9 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": [
+  "files": [
     "index.tsx",
-    "App.tsx"
+    "final/App.tsx"
   ],
   "exclude": [
     "node_modules",
