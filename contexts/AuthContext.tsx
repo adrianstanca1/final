@@ -1,8 +1,13 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, ReactNode } from 'react';
-import { User, Company, LoginCredentials, RegisterCredentials, AuthState, Permission } from '../types';
+import { User, Company, LoginCredentials, AuthState, Permission } from '../types';
 import { authApi } from '../services/mockApi';
-import { hasPermission as checkPermission } from '../services/auth';
+import { hasPermission as checkPermission, authService } from '../services/auth';
 import { api } from '../services/mockApi';
+import { analytics } from '../services/analyticsService';
+import { ValidationService } from '../services/validationService';
+import { getStorage } from '../utils/storage';
+import { authClient, type AuthenticatedSession } from '../services/authClient';
+import type { RegistrationPayload } from '../types';
 
 type Persistence = 'local' | 'session';
 
@@ -71,7 +76,7 @@ const readStoredTokens = (): { token: string | null; refreshToken: string | null
 
 interface AuthContextType extends AuthState {
     login: (credentials: LoginCredentials) => Promise<{ mfaRequired: boolean; userId?: string }>;
-    register: (credentials: Partial<RegisterCredentials>) => Promise<void>;
+    register: (credentials: RegistrationPayload) => Promise<AuthenticatedSession>;
     logout: () => void;
     hasPermission: (permission: Permission) => boolean;
     verifyMfaAndFinalize: (userId: string, code: string) => Promise<void>;
@@ -104,8 +109,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
     const [pendingPersistence, setPendingPersistence] = useState<Persistence>('local');
 
+    const storage = getStorage();
+
+
     const logout = useCallback(() => {
         clearStoredTokens();
+        storage.removeItem('token');
+        storage.removeItem('refreshToken');
         if (tokenRefreshTimeout) clearTimeout(tokenRefreshTimeout);
         setPendingPersistence('local');
         setAuthState({
@@ -151,6 +161,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     } catch (error) {
                         console.error("Proactive token refresh failed", error);
                         logout();
+
+                    const storedRefreshToken = storage.getItem('refreshToken');
+                    if (storedRefreshToken) {
+                        try {
+                            console.log("Proactively refreshing token...");
+                            const { token: newToken } = await authClient.refreshToken(storedRefreshToken);
+                            storage.setItem('token', newToken);
+                            setAuthState(prev => ({ ...prev, token: newToken }));
+                            scheduleTokenRefresh(newToken); // Schedule the next refresh
+                        } catch (error) {
+                            console.error("Proactive token refresh failed", error);
+                            logout();
+                        }
                     }
                 }, expiresIn);
             } else {
@@ -163,6 +186,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     const finalizeLogin = useCallback((data: { token: string, refreshToken: string, user: User, company: Company }, persistence: Persistence) => {
         storeTokens(data.token, data.refreshToken, persistence);
+
+
+    const finalizeLogin = useCallback((data: { token: string, refreshToken: string, user: User, company: Company }) => {
+        storage.setItem('token', data.token);
+        storage.setItem('refreshToken', data.refreshToken);
         setAuthState({
             isAuthenticated: true,
             token: data.token,
@@ -188,6 +216,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 // First, try to authenticate with the existing access token.
                 const { user, company } = await authApi.me(token);
                 finalizeLogin({ token, refreshToken, user, company }, persistence);
+        const token = storage.getItem('token');
+        const refreshToken = storage.getItem('refreshToken');
+        if (token && refreshToken) {
+            try {
+                // First, try to authenticate with the existing access token.
+                const { user, company } = await authClient.me(token);
+                finalizeLogin({ token, refreshToken, user, company });
             } catch (error) {
                 // If authApi.me fails (e.g., token expired), attempt to refresh the token.
                 console.log("Access token invalid, attempting reactive refresh...");
@@ -195,6 +230,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     const { token: newToken } = await authApi.refreshToken(refreshToken);
                     const { user, company } = await authApi.me(newToken);
                     finalizeLogin({ token: newToken, refreshToken, user, company }, persistence);
+                    const { token: newToken } = await authClient.refreshToken(refreshToken);
+                    const { user, company } = await authClient.me(newToken);
+                    finalizeLogin({ token: newToken, refreshToken, user, company });
                 } catch (refreshError) {
                     console.error("Auth init with refresh token failed, logging out.", refreshError);
                     logout();
@@ -216,17 +254,61 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setAuthState(prev => ({ ...prev, loading: true, error: null }));
         const desiredPersistence: Persistence = credentials.rememberMe === false ? 'session' : 'local';
         setPendingPersistence(desiredPersistence);
+
+        // Validate credentials
+        const validation = ValidationService.validate(credentials, [
+            { field: 'email', required: true, type: 'email', sanitize: ValidationService.sanitizers.normalizeEmail },
+            { field: 'password', required: true, type: 'string', minLength: 1 }
+        ]);
+
+        if (!validation.isValid) {
+            const error = new Error(`Invalid credentials: ${Object.values(validation.errors).flat().join(', ')}`);
+            setAuthState(prev => ({ ...prev, loading: false, error: error.message }));
+            throw error;
+        }
+
+        // Check for account lockout
+        if (authService.isAccountLocked(credentials.email)) {
+            const error = new Error('Account temporarily locked due to multiple failed login attempts');
+            setAuthState(prev => ({ ...prev, loading: false, error: error.message }));
+            authService.recordLoginAttempt(credentials.email, false, {
+                ipAddress: 'unknown', // Would get real IP in production
+                userAgent: navigator.userAgent,
+            });
+            throw error;
+        }
+
         try {
-            const response = await authApi.login(credentials);
+            const response = await authApi.login(validation.sanitizedData);
+
+            // Record successful login attempt
+            authService.recordLoginAttempt(credentials.email, true, {
+                ipAddress: 'unknown',
+                userAgent: navigator.userAgent,
+            });
             if (response.mfaRequired) {
                 setAuthState(prev => ({ ...prev, loading: false }));
                 return { mfaRequired: true, userId: response.userId };
             }
 
             finalizeLogin(response, desiredPersistence);
+
+            finalizeLogin(response);
             return { mfaRequired: false };
 
         } catch (error: any) {
+            // Record failed login attempt
+            authService.recordLoginAttempt(credentials.email, false, {
+                ipAddress: 'unknown',
+                userAgent: navigator.userAgent,
+            });
+
+            // Track login failure
+            analytics.trackError(error, {
+                operation: 'login',
+                email: credentials.email,
+            });
+
             setAuthState(prev => ({ ...prev, token: null, refreshToken: null, user: null, company: null, isAuthenticated: false, loading: false, error: error.message || 'Login failed' }));
             throw error;
         }
@@ -237,19 +319,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
          try {
             const response = await authApi.verifyMfa(userId, code);
             finalizeLogin(response, pendingPersistence);
+
+        try {
+            const response = await authClient.verifyMfa(userId, code);
+            finalizeLogin(response);
         } catch (error: any) {
-            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'MFA verification failed'}));
+            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'MFA verification failed' }));
             throw error;
         }
     }
 
-    const register = async (credentials: Partial<RegisterCredentials>) => {
+    const register = async (credentials: RegistrationPayload): Promise<AuthenticatedSession> => {
         setAuthState(prev => ({ ...prev, loading: true, error: null }));
         try {
             const response = await authApi.register(credentials);
             finalizeLogin(response, 'local');
+
+            const session = await authClient.register(credentials);
+            finalizeLogin(session);
+            return session;
+ 
         } catch (error: any) {
-             setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Registration failed'}));
+            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Registration failed' }));
             throw error;
         }
     };
@@ -271,10 +362,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const requestPasswordReset = async (email: string) => {
         setAuthState(prev => ({ ...prev, loading: true, error: null }));
         try {
-            await authApi.requestPasswordReset(email);
+            await authClient.requestPasswordReset(email);
             setAuthState(prev => ({ ...prev, loading: false }));
         } catch (error: any) {
-            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Request failed'}));
+            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Request failed' }));
             throw error;
         }
     };
@@ -282,14 +373,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const resetPassword = async (token: string, newPassword: string) => {
         setAuthState(prev => ({ ...prev, loading: true, error: null }));
         try {
-            await authApi.resetPassword(token, newPassword);
+            await authClient.resetPassword(token, newPassword);
             setAuthState(prev => ({ ...prev, loading: false }));
         } catch (error: any) {
-            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Password reset failed'}));
+            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Password reset failed' }));
             throw error;
         }
     };
-    
+
     const value = {
         ...authState,
         login,

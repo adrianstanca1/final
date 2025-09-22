@@ -26,6 +26,19 @@ export interface RegisterCredentials {
   inviteToken?: string;
 }
 
+export type RegistrationPayload = Partial<RegisterCredentials & {
+  companyName?: string;
+  companyType?: CompanyType;
+  companyEmail?: string;
+  companyPhone?: string;
+  companyWebsite?: string;
+  companySelection?: 'create' | 'join';
+  inviteToken?: string;
+  role?: Role;
+  updatesOptIn?: boolean;
+  termsAccepted?: boolean;
+}>;
+
 export interface Company {
   id: string;
   name: string;
@@ -93,6 +106,8 @@ export interface User {
   lastName: string;
   email: string;
   password?: string;
+  passwordHash?: string;
+  passwordSalt?: string;
   mfaEnabled?: boolean;
   phone?: string;
   avatar?: string;
@@ -358,11 +373,45 @@ export interface Project {
   workClassification: string;
 }
 
+export interface UpcomingProjectDeadline {
+  id: string;
+  name: string;
+  endDate: string;
+  daysRemaining: number;
+  status: ProjectStatus;
+  isOverdue: boolean;
+}
+
+export interface ProjectPortfolioSummary {
+  totalProjects: number;
+  activeProjects: number;
+  completedProjects: number;
+  atRiskProjects: number;
+  overdueProjects: number;
+  pipelineValue: number;
+  totalActualCost: number;
+  budgetVariance: number;
+  averageProgress: number;
+  statusBreakdown: Record<ProjectStatus, number>;
+  upcomingDeadlines: UpcomingProjectDeadline[];
+}
+
 export interface ProjectInsight {
   id: string;
   projectId: string;
   summary: string;
   type: 'HEALTH_SUMMARY' | 'KNOWLEDGE_SUMMARY' | 'CUSTOM';
+  createdAt: string;
+  createdBy: string;
+  model?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface FinancialForecast {
+  id: string;
+  companyId: string;
+  summary: string;
+  horizonMonths: number;
   createdAt: string;
   createdBy: string;
   model?: string;
@@ -430,6 +479,7 @@ export type InvoiceLineItemDraft = Omit<InvoiceLineItem, 'amount' | 'rate'>;
 
 export interface Invoice {
   id: string;
+  companyId: string;
   invoiceNumber: string;
   projectId: string;
   clientId: string;
@@ -625,6 +675,8 @@ export type View = 'dashboard' | 'my-day' | 'foreman-dashboard' | 'principal-das
 
 export interface Quote {
     id: string;
+    clientId: string;
+    projectId: string;
     status: QuoteStatus;
 }
 
@@ -693,6 +745,85 @@ export interface MonthlyFinancials {
 export interface CostBreakdown {
     category: string;
     amount: number;
+}
+
+export type OperationalAlertSeverity = 'info' | 'warning' | 'critical';
+
+export interface OperationalAlert {
+    id: string;
+    severity: OperationalAlertSeverity;
+    message: string;
+}
+
+export interface OperationalInsights {
+    updatedAt: string;
+    safety: {
+        openIncidents: number;
+        highSeverity: number;
+        daysSinceLastIncident: number | null;
+    };
+    workforce: {
+        complianceRate: number;
+        approvedThisWeek: number;
+        overtimeHours: number;
+        averageHours: number;
+        activeTimesheets: number;
+        pendingApprovals: number;
+    };
+    schedule: {
+        atRiskProjects: number;
+        overdueProjects: number;
+        tasksDueSoon: number;
+        overdueTasks: number;
+        tasksInProgress: number;
+        averageProgress: number;
+    };
+    financial: {
+        currency: string;
+        approvedExpensesThisMonth: number;
+        burnRatePerActiveProject: number;
+        outstandingReceivables: number;
+    };
+    alerts: OperationalAlert[];
+}
+
+export interface DashboardSnapshotMetadata {
+    source: 'mock' | 'backend';
+    generatedAt: string;
+    usedFallback: boolean;
+    projectCount?: number;
+    [key: string]: unknown;
+}
+
+export interface DashboardSnapshot {
+    projects: Project[];
+    team: User[];
+    equipment: Equipment[];
+    tasks: Todo[];
+    activityLog: AuditLog[];
+    operationalInsights: OperationalInsights | null;
+    incidents: SafetyIncident[];
+    expenses: Expense[];
+    portfolioSummary: ProjectPortfolioSummary | null;
+    metadata: DashboardSnapshotMetadata;
+}
+
+export interface BackendInteractionEvent {
+    id?: string;
+    type: string;
+    userId?: string;
+    companyId?: string;
+    context?: Record<string, unknown>;
+    createdAt?: string;
+    metadata?: Record<string, unknown>;
+}
+
+export interface BackendConnectionState {
+    mode: 'mock' | 'backend';
+    baseUrl: string | null;
+    online: boolean;
+    pendingMutations: number;
+    lastSync: string | null;
 }
 
 export interface ProjectTemplate {

@@ -18,13 +18,13 @@ interface ViewAccessBoundaryProps {
   fallbackView?: View;
   onNavigate?: (view: View) => void;
   children: React.ReactNode;
-}
-
 const humanise = (value: string): string =>
   value
     .split('_')
     .map((segment) => segment.charAt(0) + segment.slice(1).toLowerCase())
     .join(' ');
+
+}
 
 const PermissionRequirements: React.FC<{ permissions: Permission[]; anyGroups: Permission[][] }> = ({ permissions, anyGroups }) => {
   const uniquePermissions = Array.from(new Set(permissions));
@@ -63,8 +63,6 @@ const PermissionRequirements: React.FC<{ permissions: Permission[]; anyGroups: P
       ))}
     </div>
   );
-};
-
 const AllowedRoleList: React.FC<{ roles?: Role[] }> = ({ roles }) => {
   if (!roles?.length) return null;
 
@@ -78,8 +76,6 @@ const AllowedRoleList: React.FC<{ roles?: Role[] }> = ({ roles }) => {
       </div>
     </div>
   );
-};
-
 export const ViewAccessBoundary: React.FC<ViewAccessBoundaryProps> = ({
   user,
   view,
@@ -133,6 +129,7 @@ export const ViewAccessBoundary: React.FC<ViewAccessBoundaryProps> = ({
 
           <PermissionRequirements permissions={access.missingPermissions} anyGroups={access.missingAnyPermissionGroups} />
 
+
           <AllowedRoleList roles={access.allowedRoles} />
 
           {onNavigate ? (
@@ -149,5 +146,3 @@ export const ViewAccessBoundary: React.FC<ViewAccessBoundaryProps> = ({
       </Card>
     </div>
   );
-};
-

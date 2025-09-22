@@ -15,8 +15,6 @@ export const TimesheetStatusBadge: React.FC<{ status: TimesheetStatus }> = ({ st
   };
   const { label, color, indicator } = statusMap[status] || { label: 'Unknown', color: 'gray', indicator: 'gray' };
   return <Tag label={label} color={color as any} statusIndicator={indicator as any} />;
-};
-
 export const IncidentStatusBadge: React.FC<{ status: IncidentStatus }> = ({ status }) => {
   const statusMap = {
     [IncidentStatus.REPORTED]: { label: 'Reported', color: 'blue', indicator: 'blue' },
@@ -25,8 +23,6 @@ export const IncidentStatusBadge: React.FC<{ status: IncidentStatus }> = ({ stat
   };
   const { label, color, indicator } = statusMap[status] || { label: 'Unknown', color: 'gray', indicator: 'gray' };
   return <Tag label={label} color={color as any} statusIndicator={indicator as any} />;
-};
-
 export const IncidentSeverityBadge: React.FC<{ severity: IncidentSeverity }> = ({ severity }) => {
   const severityMap = {
     [IncidentSeverity.CRITICAL]: { label: 'Critical', color: 'red' },
@@ -36,8 +32,6 @@ export const IncidentSeverityBadge: React.FC<{ severity: IncidentSeverity }> = (
   };
   const { label, color } = severityMap[severity] || { label: 'Unknown', color: 'gray' };
   return <Tag label={label} color={color as any} />;
-};
-
 export const InvoiceStatusBadge: React.FC<{ status: InvoiceStatus }> = ({ status }) => {
     const statusMap = {
         [InvoiceStatus.PAID]: { label: 'Paid', color: 'green' },
@@ -48,8 +42,6 @@ export const InvoiceStatusBadge: React.FC<{ status: InvoiceStatus }> = ({ status
     };
     const style = statusMap[status] || { label: status, color: 'gray' };
     return <Tag label={style.label} color={style.color as any} />;
-};
-
 export const QuoteStatusBadge: React.FC<{ status: QuoteStatus }> = ({ status }) => {
     const statusMap = {
         [QuoteStatus.ACCEPTED]: { label: 'Accepted', color: 'green' },
@@ -59,8 +51,6 @@ export const QuoteStatusBadge: React.FC<{ status: QuoteStatus }> = ({ status }) 
     };
     const style = statusMap[status] || { label: status, color: 'gray' };
     return <Tag label={style.label} color={style.color as any} />;
-};
-
 export const DocumentStatusBadge: React.FC<{ status: DocumentStatus }> = ({ status }) => {
     const statusMap = {
         [DocumentStatus.DRAFT]: { label: 'Draft', color: 'gray' },
@@ -69,8 +59,6 @@ export const DocumentStatusBadge: React.FC<{ status: DocumentStatus }> = ({ stat
     };
     const style = statusMap[status] || { label: status, color: 'gray' };
     return <Tag label={style.label} color={style.color as any} />;
-};
-
 export const EquipmentStatusBadge: React.FC<{ status: EquipmentStatus }> = ({ status }) => {
     const statusMap = {
         [EquipmentStatus.AVAILABLE]: { label: 'Available', color: 'green', indicator: 'green' },

@@ -51,8 +51,6 @@ const RecenterAutomatically: React.FC<{center: [number, number]}> = ({center}) =
         }
     }, [center, map]);
    return null;
-}
-
 
 export const MapView: React.FC<MapViewProps> = ({ markers, height = '100%', className }) => {
     const mapRef = React.useRef<L.Map>(null);

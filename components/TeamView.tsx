@@ -21,8 +21,6 @@ const availabilityTagColor: Record<AvailabilityStatus, 'green' | 'blue' | 'gray'
     [AvailabilityStatus.ON_LEAVE]: 'gray',
 };
 
-
-// --- User Profile & Management Modal ---
 const UserModal: React.FC<{
     loggedInUser: User;
     member: User | null; // null for 'add' mode
@@ -249,8 +247,6 @@ const UserModal: React.FC<{
             </form>
         </div>
     )
-};
-
 
 // --- Main Team View Component ---
 export const TeamView: React.FC<TeamViewProps> = ({ user, addToast, onStartChat }) => {
