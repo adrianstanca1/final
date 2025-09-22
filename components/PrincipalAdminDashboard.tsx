@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { User, Company, SystemHealth, UsageMetric } from '../types';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { User, SystemHealth, UsageMetric, PlatformAdoptionReport, TenantOperationalSummary } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { InviteCompanyModal } from './InviteCompanyModal';
+import { useTenant } from '../contexts/TenantContext';
+import { Tag } from './ui/Tag';
 
 interface PrincipalAdminDashboardProps {
   user: User;
@@ -83,13 +85,18 @@ const SystemHealthIndicator: React.FC<{ health: SystemHealth }> = ({ health }) =
 };
 
 export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = ({ user, addToast }) => {
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [totalUsers, setTotalUsers] = useState(0);
+  const { tenants: tenantSummaries, refreshTenants } = useTenant();
   const [metrics, setMetrics] = useState<UsageMetric[]>([]);
+  const [platformReport, setPlatformReport] = useState<PlatformAdoptionReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [systemHealth] = useState<SystemHealth>({ status: 'OK', message: 'All systems are operational.' });
   const abortControllerRef = useRef<AbortController | null>(null);
+  const tenantStatusStyles: Record<'OK' | 'DEGRADED' | 'DOWN', string> = {
+    OK: 'bg-emerald-100 text-emerald-700',
+    DEGRADED: 'bg-amber-100 text-amber-700',
+    DOWN: 'bg-rose-100 text-rose-700',
+  };
 
   const fetchData = useCallback(async () => {
     const controller = new AbortController();
@@ -98,27 +105,15 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
 
     setLoading(true);
     try {
-      const [companiesData, metricsData] = await Promise.all([
-        api.getCompanies({ signal: controller.signal }),
+      await refreshTenants();
+      const [metricsData, adoptionData] = await Promise.all([
         api.getPlatformUsageMetrics({ signal: controller.signal }),
+        api.getPlatformAdoptionReport({ signal: controller.signal }),
       ]);
 
       if (controller.signal.aborted) return;
-
-      const usersByCompany = await Promise.all(
-        companiesData.map((company) => api.getUsersByCompany(company.id, { signal: controller.signal }))
-      );
-
-      if (controller.signal.aborted) return;
-      const allUsers = usersByCompany.flat();
-
-      const tenantCompanies = companiesData.filter((company) => company.id !== '0');
-      if (controller.signal.aborted) return;
-      setCompanies(tenantCompanies as Company[]);
-      if (controller.signal.aborted) return;
-      setTotalUsers(allUsers.filter((userRecord) => userRecord.companyId !== '0').length);
-      if (controller.signal.aborted) return;
       setMetrics(metricsData);
+      setPlatformReport(adoptionData);
     } catch (error) {
       if (controller.signal.aborted) return;
       addToast('Failed to load platform data.', 'error');
@@ -126,7 +121,7 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
       if (controller.signal.aborted) return;
       setLoading(false);
     }
-  }, [addToast]);
+  }, [addToast, refreshTenants]);
 
   useEffect(() => {
     fetchData();
@@ -140,8 +135,24 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
     await fetchData();
   };
 
-  const totalStorage = companies.reduce((acc, company) => acc + (company.storageUsageGB || 0), 0);
-  const activeMetric = metrics.find((metric) => metric.name.toLowerCase().includes('active'));
+  const totalStorage = tenantSummaries.reduce((acc, tenant) => acc + (tenant.storageUsageGB || 0), 0);
+  const totalUsers = tenantSummaries.reduce((acc, tenant) => acc + tenant.userCount, 0);
+  const totalActiveProjects = tenantSummaries.reduce((acc, tenant) => acc + tenant.activeProjects, 0);
+  const openIncidents = tenantSummaries.reduce((acc, tenant) => acc + tenant.openIncidents, 0);
+
+  const priorityTenants = useMemo(() => {
+    if (!platformReport) return [] as TenantOperationalSummary[];
+    return platformReport.tenants
+      .filter(summary => summary.usageScore < 80 || summary.compliance.openIncidents > 0 || summary.compliance.pastDueTimesheets > 0)
+      .sort((a, b) => a.usageScore - b.usageScore)
+      .slice(0, 6);
+  }, [platformReport]);
+
+  const adoptionBadgeColor = (score: number): 'green' | 'yellow' | 'red' => {
+    if (score >= 85) return 'green';
+    if (score >= 70) return 'yellow';
+    return 'red';
+  };
 
   if (loading) {
     return (
@@ -169,8 +180,8 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard
-          title="Total Companies"
-          value={companies.length}
+          title="Total Tenants"
+          value={tenantSummaries.length.toString()}
           icon={
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -186,7 +197,7 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
         />
         <KpiCard
           title="Users Across Tenants"
-          value={totalUsers}
+          value={totalUsers.toLocaleString()}
           icon={
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -212,38 +223,130 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
           }
         />
         <KpiCard
-          title="Storage In Use"
-          value={`${totalStorage.toFixed(1)} GB`}
+          title="Active Projects"
+          value={totalActiveProjects.toLocaleString()}
           icon={
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16v12H4z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h8m-8 4h5" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7h18M3 12h18M3 17h18" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21v-4M12 21v-4M17 21v-4" />
             </svg>
           }
         />
         <KpiCard
-          title="Active last 24h"
-          value={activeMetric ? `${activeMetric.value} ${activeMetric.unit}` : '—'}
+          title="Open Incidents"
+          value={openIncidents.toLocaleString()}
           icon={
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M12 6v6l4 2"
-              />
-              <circle cx="12" cy="12" r="9" strokeWidth={1.5} />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 9v2m0 4h.01m-.01 6a9 9 0 110-18 9 9 0 010 18z" />
             </svg>
           }
         />
       </div>
+
+      {platformReport && (
+        <div className="grid gap-6 lg:grid-cols-3">
+          <Card className="space-y-4 lg:col-span-1">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">Platform adoption</h3>
+              <p className="text-sm text-slate-600">Last generated {new Date(platformReport.generatedAt).toLocaleString()}</p>
+            </div>
+            <div className="flex flex-col gap-3">
+              <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
+                <p className="text-sm font-semibold text-emerald-700">Adoption score</p>
+                <p className="text-3xl font-bold text-emerald-900">{platformReport.adoptionScore}</p>
+                <p className="text-xs text-emerald-700/80">Average utilisation across all tenants</p>
+              </div>
+              <div className="rounded-lg border border-amber-100 bg-amber-50 p-4">
+                <p className="text-sm font-semibold text-amber-700">Risk load</p>
+                <p className="text-3xl font-bold text-amber-900">{platformReport.riskScore}</p>
+                <p className="text-xs text-amber-700/80">Open incidents + overdue operations per tenant</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="lg:col-span-2">
+            <h3 className="text-lg font-semibold text-slate-900">Recommended actions</h3>
+            {platformReport.topActions.length > 0 ? (
+              <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-slate-700">
+                {platformReport.topActions.map((action, index) => (
+                  <li key={`${action}-${index}`}>{action}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-sm text-slate-600">No platform-wide follow-ups required right now.</p>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {platformReport && (
+        <Card>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900">Tenant watchlist</h3>
+              <p className="text-sm text-slate-600">Spot tenants needing support with adoption or compliance.</p>
+            </div>
+            <Tag label={`Monitoring ${priorityTenants.length} of ${platformReport.tenants.length}`} color="blue" statusIndicator="blue" />
+          </div>
+          <div className="mt-4 overflow-x-auto">
+            <table className="min-w-full divide-y divide-slate-200 text-sm">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-4 py-2 text-left font-semibold text-slate-600">Tenant</th>
+                  <th className="px-4 py-2 text-left font-semibold text-slate-600">Usage score</th>
+                  <th className="px-4 py-2 text-left font-semibold text-slate-600">Active users</th>
+                  <th className="px-4 py-2 text-left font-semibold text-slate-600">Operational risks</th>
+                  <th className="px-4 py-2 text-left font-semibold text-slate-600">Next step</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {priorityTenants.length > 0 ? (
+                  priorityTenants.map(summary => {
+                    const { tenant, utilization, compliance, recommendedActions: actions } = summary;
+                    const primaryAction = actions[0] ?? 'Maintain regular check-ins.';
+                    return (
+                      <tr key={tenant.companyId} className="hover:bg-slate-50/80">
+                        <td className="px-4 py-2">
+                          <div className="font-medium text-slate-900">{tenant.companyName}</div>
+                          <p className="text-xs text-slate-500">Plan: {tenant.plan}</p>
+                        </td>
+                        <td className="px-4 py-2">
+                          <Tag
+                            label={`${summary.usageScore}`}
+                            color={adoptionBadgeColor(summary.usageScore)}
+                            statusIndicator={adoptionBadgeColor(summary.usageScore)}
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-slate-700">{utilization.activeUsers} active / {tenant.userCount} total</td>
+                        <td className="px-4 py-2 text-slate-700">
+                          {compliance.openIncidents} incident(s), {compliance.pastDueTimesheets} past-due sheets
+                        </td>
+                        <td className="px-4 py-2 text-slate-700">{primaryAction}</td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td className="px-4 py-6 text-center text-slate-500" colSpan={5}>
+                      All tenants are healthy and meeting adoption targets.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
         <Card className="overflow-hidden">
           <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
             <div>
               <h3 className="text-lg font-semibold text-slate-900">Tenant roster</h3>
-              <p className="text-sm text-slate-600">Latest snapshot of every company on the platform.</p>
+              <p className="text-sm text-slate-600">
+                Latest snapshot of every company on the platform. Total storage in use:{' '}
+                <span className="font-semibold text-slate-900">{totalStorage.toFixed(1)} GB</span>.
+              </p>
             </div>
             <Button variant="secondary" size="sm" onClick={() => fetchData()}>
               Refresh
@@ -254,43 +357,40 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
               <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3 text-left font-semibold">Company</th>
-                  <th className="px-4 py-3 text-left font-semibold">Type</th>
                   <th className="px-4 py-3 text-left font-semibold">Plan</th>
-                  <th className="px-4 py-3 text-left font-semibold">Status</th>
+                  <th className="px-4 py-3 text-right font-semibold">Users</th>
+                  <th className="px-4 py-3 text-right font-semibold">Active projects</th>
                   <th className="px-4 py-3 text-right font-semibold">Storage</th>
+                  <th className="px-4 py-3 text-left font-semibold">Health</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border bg-card">
-                {companies.map((company) => (
-                  <tr key={company.id} className="hover:bg-muted/50">
+                {tenantSummaries.map((tenant) => (
+                  <tr key={tenant.companyId} className="hover:bg-muted/50">
                     <td className="px-4 py-3">
-                      <div className="font-semibold text-slate-900">{company.name}</div>
-                      <p className="text-xs text-slate-500">{company.email || 'No contact email'}</p>
+                      <div className="font-semibold text-slate-900">{tenant.companyName}</div>
+                      <p className="text-xs text-slate-500">
+                        {tenant.issues.length > 0 ? tenant.issues[0] : 'All systems healthy'}
+                      </p>
                     </td>
-                    <td className="px-4 py-3 capitalize text-slate-700">
-                      {company.type?.toLowerCase().replace('_', ' ') || 'Not specified'}
-                    </td>
-                    <td className="px-4 py-3 text-slate-700">{company.subscriptionPlan || 'FREE'}</td>
+                    <td className="px-4 py-3 text-slate-700">{tenant.plan}</td>
+                    <td className="px-4 py-3 text-right text-slate-700">{tenant.userCount.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-right text-slate-700">{tenant.activeProjects}</td>
+                    <td className="px-4 py-3 text-right text-slate-700">{`${tenant.storageUsageGB.toFixed(1)} GB`}</td>
                     <td className="px-4 py-3">
                       <span
-                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${
-                          company.status === 'Suspended'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-emerald-100 text-emerald-700'
-                        }`}
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${tenantStatusStyles[tenant.health]}`}
                       >
-                        {company.status || 'Active'}
+                        <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                        {tenant.health === 'OK' ? 'Operational' : tenant.health === 'DEGRADED' ? 'Degraded' : 'Attention needed'}
                       </span>
-                    </td>
-                    <td className="px-4 py-3 text-right text-slate-700">
-                      {`${(company.storageUsageGB || 0).toFixed(1)} GB`}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {companies.length === 0 && (
+          {tenantSummaries.length === 0 && (
             <div className="py-8 text-center text-sm text-muted-foreground">
               No tenant companies found. Invite your first partner to get started.
             </div>
