@@ -1,5 +1,4 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, ReactNode } from 'react';
-<<<<<<< HEAD
 import { User, Company, LoginCredentials, AuthState, Permission } from '../types';
 import { authApi } from '../services/mockApi';
 import { hasPermission as checkPermission, authService } from '../services/auth';
@@ -9,15 +8,6 @@ import { ValidationService } from '../services/validationService';
 import { getStorage } from '../utils/storage';
 import { authClient, type AuthenticatedSession } from '../services/authClient';
 import type { RegistrationPayload } from '../types';
-=======
-import { User, Company, LoginCredentials, RegistrationPayload, AuthState, Permission } from '../types';
-import { authClient, type AuthenticatedSession } from '../services/authClient';
-import { hasPermission as checkPermission } from '../services/auth';
-import { api } from '../services/mockApi';
-import { getStorage } from '../utils/storage';
-
-const storage = getStorage();
->>>>>>> origin/codex/create-autonomous-deployment-plan-srvw3l
 
 interface AuthContextType extends AuthState {
     login: (credentials: LoginCredentials) => Promise<{ mfaRequired: boolean; userId?: string }>;
@@ -186,7 +176,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
 
         try {
-<<<<<<< HEAD
             const response = await authApi.login(validation.sanitizedData);
 
             // Record successful login attempt
@@ -194,9 +183,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 ipAddress: 'unknown',
                 userAgent: navigator.userAgent,
             });
-=======
-            const response = await authClient.login(credentials);
->>>>>>> origin/codex/create-autonomous-deployment-plan-srvw3l
             if (response.mfaRequired) {
                 setAuthState(prev => ({ ...prev, loading: false }));
                 return { mfaRequired: true, userId: response.userId };
@@ -225,11 +211,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const verifyMfaAndFinalize = async (userId: string, code: string) => {
         setAuthState(prev => ({ ...prev, loading: true, error: null }));
-<<<<<<< HEAD
         try {
-=======
-         try {
->>>>>>> origin/codex/create-autonomous-deployment-plan-srvw3l
             const response = await authClient.verifyMfa(userId, code);
             finalizeLogin(response);
         } catch (error: any) {

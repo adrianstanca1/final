@@ -1,5 +1,6 @@
 import React from 'react';
-import type { User, View } from '../../types';
+import type { User, View, Permission } from '../../types';
+import { hasPermission } from '../../services/auth';
 
 export interface SidebarProps {
   user: User;
@@ -23,12 +24,12 @@ interface NavItemProps {
 
 const NavItem: React.FC<NavItemProps> = ({ view, label, icon, activeView, setActiveView, badgeCount }) => (
   <button
+    type="button"
     onClick={() => setActiveView(view)}
-    className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
-      activeView === view
-        ? 'bg-primary text-primary-foreground font-semibold shadow'
-        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-    }`}
+    className={`w-full flex items-center justify-between gap-3 px-3 py-2 rounded-md text-sm transition-colors ${activeView === view
+      ? 'bg-primary text-primary-foreground font-semibold shadow'
+      : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+      }`}
   >
     <div className="flex items-center gap-3">
       {icon}
@@ -82,6 +83,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           setActiveView={setActiveView}
           badgeCount={unreadMessageCount}
         />
+        {(hasPermission(user, Permission.VIEW_FINANCES) || hasPermission(user, Permission.MANAGE_FINANCES)) && (
+          <NavItem
+            view="financials"
+            label="Financials"
+            icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h18v2H3zM5 7h14v12H5zM9 9v8h2V9zm4 0v8h2V9z" /></svg>}
+            activeView={activeView}
+            setActiveView={setActiveView}
+          />
+        )}
         <NavItem
           view="timesheets"
           label="Timesheets"
@@ -111,6 +121,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <div className="mt-6">
         <button
+          type="button"
           onClick={onLogout}
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200/70 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-500/20"
         >
