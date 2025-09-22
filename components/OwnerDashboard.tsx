@@ -369,7 +369,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             value: formatCurrency(portfolioSummary.pipelineValue, currency),
             helper: `${portfolioSummary.totalProjects} active engagements`,
           },
-          {
-            label: '
+        ]}
+      />
+    </div>
+  );
+};
+
 // Ensure the file ends correctly after the component definition
 export { OwnerDashboard };

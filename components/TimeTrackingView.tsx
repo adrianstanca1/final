@@ -31,6 +31,8 @@ const Timer: React.FC<{ startTime: Date }> = ({ startTime }) => {
     }, [startTime]);
 
     return <p className="text-4xl font-mono font-bold text-center">{duration}</p>;
+};
+
 export const TimeTrackingView: React.FC<TimeTrackingViewProps> = ({ user, addToast, setActiveView }) => {
     const [loading, setLoading] = useState(true);
     const [projects, setProjects] = useState<Project[]>([]);

@@ -997,12 +997,6 @@ export const api = {
         ensureNotAborted(options?.signal);
         return db.projects.filter(p => (p as any).managerId === managerId) as Project[];
     },
-    getUsersByCompany: async (companyId: string, options?: RequestOptions): Promise<User[]> => {
-        ensureNotAborted(options?.signal);
-        await delay();
-        ensureNotAborted(options?.signal);
-        return db.users.filter(u => u.companyId === companyId) as User[];
-    },
 
     getProjectById: async (projectId: string, options?: RequestOptions): Promise<Project | null> => {
         ensureNotAborted(options?.signal);

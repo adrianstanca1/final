@@ -66,6 +66,8 @@ const BarChart: React.FC<{ data: { label: string, value: number }[], barColor: s
             ))}
         </div>
     );
+};
+
 const renderMarkdownSummary = (summary: string) =>
     summary
         .split('\n')
