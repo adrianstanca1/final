@@ -25,16 +25,17 @@ Set the following variables in the Vercel dashboard (`Settings → Environment V
 | `VITE_GEMINI_API_KEY` | Preview & Production | Client-exposed Gemini key injected at build time. Use the same value as `GEMINI_API_KEY` if you only manage one credential. |
 | `VITE_API_BASE_URL` | Optional per environment | Set if you connect the UI to an external authentication service. Leave unset to use the encrypted in-browser mock API. |
 
-The `vercel.json` file also declares named secrets (`@gemini_api_key`, `@preview_api_base_url`, `@production_api_base_url`). You can manage them with the CLI:
+The `vercel.json` file also declares named secrets (`@gemini_api_key`, `@api_base_url`). You can manage them with the CLI:
 
 ```bash
 # Add/update shared Gemini secret
 vercel secrets add gemini_api_key YOUR_KEY_VALUE
 
-# Optional: different API base URLs for preview and production
-vercel secrets add preview_api_base_url https://staging.example.com
-vercel secrets add production_api_base_url https://auth.example.com
+# Optional: API base URL shared across all environments
+vercel secrets add api_base_url https://auth.example.com
 ```
+
+> **Note:** Secrets referenced in `vercel.json` (like `@api_base_url`) apply to all environments. To use different API base URLs for preview and production, define `VITE_API_BASE_URL` as a separate environment variable for each specific environment in the Vercel project settings. These environment-specific variables will override the shared secret.
 
 ## 3. Connect GitHub Actions deployment
 

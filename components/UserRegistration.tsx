@@ -45,8 +45,8 @@ const INITIAL_STATE: RegistrationState = {
     lastName: '',
     email: '',
     username: '',
-
-    phone: '',
+ 
+     phone: '',
     password: '',
     confirmPassword: '',
     companySelection: '',
@@ -73,6 +73,7 @@ const COMPANY_TYPES: { value: CompanyType; label: string }[] = [
     { value: 'SUPPLIER', label: 'Supplier' },
     { value: 'CONSULTANT', label: 'Consultant' },
     { value: 'CLIENT', label: 'Client / Asset owner' },
+  
 const STEP_SEQUENCE: { id: RegistrationStep; title: string; description: string }[] = [
     { id: 'account', title: 'Account', description: 'Introduce yourself and secure access.' },
     { id: 'workspace', title: 'Workspace', description: 'Create a company or join an existing team.' },
@@ -91,13 +92,13 @@ const COMPANY_TYPES: { value: CompanyType; label: string }[] = [
     { value: 'SUPPLIER', label: 'Supplier' },
     { value: 'CONSULTANT', label: 'Consultant' },
     { value: 'CLIENT', label: 'Client' },
-];
+ ];
 
 const ROLE_DETAILS: Record<Role, { label: string; description: string }> = {
     [Role.OWNER]: {
         label: 'Owner',
         description: 'Full tenant administration, billing and security authority.',
-    },
+      },
     [Role.ADMIN]: {
         label: 'Administrator',
         description: 'Manage people, approvals, permissions and commercial workflows.',
@@ -135,45 +136,45 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const URL_REGEX = /^https?:\/\/\S+$/i;
 const PASSWORD_MIN_LENGTH = 8;
         description: 'Full administrative access, billing controls, and user management.',
-    },
+     },
     [Role.ADMIN]: {
         label: 'Administrator',
-        description: 'Manage people, approvals, projects, and financial workflows.',
+        description: 'Manage people, approvals, permissions and commercial workflows.',
     },
     [Role.PROJECT_MANAGER]: {
-        label: 'Project Manager',
-        description: 'Coordinate schedules, tasks, stakeholders, and progress reporting.',
+        label: 'Project manager',
+        description: 'Coordinate schedules, tasks, stakeholders and reporting.',
     },
     [Role.FOREMAN]: {
         label: 'Foreman',
-        description: 'Lead on-site crews, raise safety issues, and track daily activity.',
+        description: 'Lead on-site crews and escalate safety issues instantly.',
     },
     [Role.OPERATIVE]: {
         label: 'Operative',
-        description: 'Log time, update task progress, and collaborate with field teams.',
+        description: 'Log time, update tasks and collaborate with the site team.',
     },
     [Role.CLIENT]: {
         label: 'Client',
-        description: 'Review milestones, approve work, and stay informed on delivery.',
+        description: 'Follow milestones, approve changes and review documentation.',
     },
     [Role.PRINCIPAL_ADMIN]: {
-        label: 'Principal Admin',
-        description: 'Reserved for AS Agents platform administrators.',
+        label: 'Platform principal admin',
+        description: 'Reserved for AS Agents core administration team.',
     },
 };
 
-const BENEFITS = [
-    'AI-assisted scheduling, forecasting, and risk insights for every project.',
-    'Role-based controls keep office teams and field crews perfectly aligned.',
-    'Secure document sharing, timesheets, and financial dashboards in one hub.',
-    'Offline-ready syncing so work continues even without a network connection.',
+const BENEFITS: string[] = [
+    'Multitenant oversight lets you spin up dedicated workspaces in minutes.',
+    'AI copilots accelerate bid writing, forecasting and daily progress analysis.',
+    'Field-friendly tools capture safety, timesheets and site evidence offline.',
+    'Granular permissions align office, site and partner access in one hub.',
 ];
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^[+()\d\s-]{6,}$/;
 const URL_REGEX = /^https?:\/\/\S+$/i;
+const PASSWORD_MIN_LENGTH = 8;
 
-const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password }) => {
+ const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password }) => {
     const rules = [
         password.length >= 8,
         /[A-Z]/.test(password),
@@ -197,7 +198,7 @@ const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password }) => 
     );
 };
 
-const StepIndicator: React.FC<{ currentStep: RegistrationStep }> = ({ currentStep }) => (
+ const StepIndicator: React.FC<{ currentStep: RegistrationStep }> = ({ currentStep }) => (
     <ol className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {STEP_SEQUENCE.map((step, index) => {
             const isActive = step.id === currentStep;
@@ -258,6 +259,7 @@ const SocialAuthButtons: React.FC<{
     </div>
 );
 
+  
 interface SelectionCardProps {
     title: string;
     description: string;
@@ -279,7 +281,7 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
 );
 
 
-export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLogin }) => {
+ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLogin }) => {
     const { register, socialLogin, error: authError, loading: isSubmitting } = useAuth();
 
     const [step, setStep] = useState<RegistrationStep>('account');
@@ -841,6 +843,64 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                         Send me platform roadmap and tenant enablement tips.
                                     </span>
                                 </label>
+                             </div>
+                        )}
+                        {step === 'confirm' && (
+                            <div className="space-y-6">
+                                <Card className="border border-dashed border-border bg-muted/40 p-4">
+                                    <h3 className="text-sm font-semibold text-foreground">Tenant summary</h3>
+                                    <dl className="mt-3 grid gap-3 text-xs text-muted-foreground sm:grid-cols-2">
+                                        <div>
+                                            <dt className="font-semibold text-foreground">Owner</dt>
+                                            <dd>{form.firstName} {form.lastName}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="font-semibold text-foreground">Email</dt>
+                                            <dd>{form.email}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="font-semibold text-foreground">Workspace mode</dt>
+                                            <dd>{form.companySelection === 'create' ? 'Creating new tenant' : 'Joining existing tenant'}</dd>
+                                        </div>
+                                        {form.companySelection === 'create' && (
+                                            <div>
+                                                <dt className="font-semibold text-foreground">Company</dt>
+                                                <dd>{form.companyName} ({form.companyType || 'Type pending'})</dd>
+                                            </div>
+                                        )}
+                                        {form.companySelection === 'join' && invitePreview && (
+                                            <div>
+                                                <dt className="font-semibold text-foreground">Joining</dt>
+                                                <dd>{invitePreview.companyName}</dd>
+                                            </div>
+                                        )}
+                                        <div>
+                                            <dt className="font-semibold text-foreground">Role</dt>
+                                            <dd>{ROLE_DETAILS[(form.role || Role.OWNER) as Role]?.label ?? 'Owner'}</dd>
+                                        </div>
+                                    </dl>
+                                </Card>
+                                <label className="flex items-start gap-3 text-sm text-muted-foreground">
+                                    <input
+                                        type="checkbox"
+                                        checked={form.termsAccepted}
+                                        onChange={event => updateField('termsAccepted', event.target.checked)}
+                                        className={`mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary ${
+                                            errors.termsAccepted ? 'border-destructive' : ''
+                                        }`}
+                                    />
+                                    <span>
+                                        I agree to the{' '}
+                                        <a href="https://asagents.co.uk/terms" className="text-primary underline" target="_blank" rel="noreferrer">
+                                            AS Agents Terms, Security & Data Processing policies
+                                        </a>
+                                        .
+                                    </span>
+                                </label>
+                                {errors.termsAccepted && <p className="text-xs text-destructive">{errors.termsAccepted}</p>}
+                            </div>
+                        )}
+ 
                             </div>
                         )}
                         {step === 'confirm' && (
@@ -898,7 +958,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                 {errors.termsAccepted && <p className="text-xs text-destructive">{errors.termsAccepted}</p>}
                             </div>
                         )}
-                        <div className="flex flex-col-reverse items-start gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+                         <div className="flex flex-col-reverse items-start gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
                             <div className="flex gap-3">
                                 {step !== 'account' && (
                                     <Button type="button" variant="ghost" onClick={goToPreviousStep}>
@@ -971,7 +1031,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
         </div>
     );
 };
-
+  
 
 
 */
+ 
