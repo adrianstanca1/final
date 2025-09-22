@@ -5,6 +5,7 @@ import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Avatar } from './ui/Avatar';
+import { useTenant } from '../contexts/TenantContext';
 
 interface ResourceSchedulerProps {
   user: User;
@@ -23,7 +24,7 @@ const dateToYMD = (date: Date) => date.toISOString().split('T')[0];
 const AssignmentModal: React.FC<{
     assignment: ResourceAssignment | null,
     onClose: () => void,
-    onSave: (data: Omit<ResourceAssignment, 'id'>) => void,
+    onSave: (data: Omit<ResourceAssignment, 'id' | 'companyId'>) => void,
 // FIX: Changed id type from number | string to string.
     onDelete: (id: string) => void,
     projects: Project[],
@@ -97,6 +98,7 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState<ResourceAssignment | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
+    const { resolvedTenantId } = useTenant();
 
     const fetchData = useCallback(async () => {
         const controller = new AbortController();
@@ -105,12 +107,19 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
 
         setLoading(true);
         try {
-            if(!user.companyId) return;
+            if(!resolvedTenantId) {
+                setAssignments([]);
+                setProjects([]);
+                setUsers([]);
+                setEquipment([]);
+                setLoading(false);
+                return;
+            }
             const [assignData, projData, userData, equipData] = await Promise.all([
-                api.getResourceAssignments(user.companyId, { signal: controller.signal }),
-                api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
-                api.getUsersByCompany(user.companyId, { signal: controller.signal }),
-                api.getEquipmentByCompany(user.companyId, { signal: controller.signal }),
+                api.getResourceAssignments(resolvedTenantId, { signal: controller.signal }),
+                api.getProjectsByCompany(resolvedTenantId, { signal: controller.signal }),
+                api.getUsersByCompany(resolvedTenantId, { signal: controller.signal }),
+                api.getEquipmentByCompany(resolvedTenantId, { signal: controller.signal }),
             ]);
             if (controller.signal.aborted) return;
             setAssignments(assignData);
@@ -127,7 +136,7 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
             if (controller.signal.aborted) return;
             setLoading(false);
         }
-    }, [user.companyId, addToast]);
+    }, [resolvedTenantId, addToast]);
 
     useEffect(() => {
         fetchData();
@@ -141,14 +150,14 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
         setIsModalOpen(true);
     };
 
-    const handleSave = async (data: Omit<ResourceAssignment, 'id'>) => {
+    const handleSave = async (data: Omit<ResourceAssignment, 'id' | 'companyId'>) => {
         try {
             if (editingAssignment) {
-                const updated = await api.updateResourceAssignment(editingAssignment.id, data, user.id);
+                const updated = await api.updateResourceAssignment(editingAssignment.id, { ...data, companyId: resolvedTenantId ?? undefined }, user.id);
                 setAssignments(prev => prev.map(a => a.id === updated.id ? updated : a));
                 addToast("Assignment updated.", "success");
             } else {
-                const created = await api.createResourceAssignment(data, user.id);
+                const created = await api.createResourceAssignment({ ...data, companyId: resolvedTenantId ?? undefined }, user.id);
                 setAssignments(prev => [...prev, created]);
                 addToast("Assignment created.", "success");
             }
@@ -187,6 +196,10 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
         });
     };
     
+    if (!resolvedTenantId) {
+        return <Card><p>Select a tenant to schedule resources.</p></Card>;
+    }
+
     if (loading) {
         return <Card><p>Loading scheduler data...</p></Card>
     }
