@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "npm run test:backend && vitest run",
+    "test:backend": "node --test backend/__tests__/clients.integration.test.mjs",
     "dev:server": "node backend/server.js",
     "db:seed": "node backend/seed.js"
   },
