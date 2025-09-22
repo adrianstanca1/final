@@ -7,6 +7,9 @@ import { Card } from './ui/Card';
 =======
 import { PriorityDisplay } from './ui/PriorityDisplay';
 import './ui/subtaskProgress.css';
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
 import { Button } from './ui/Button';
 import { KanbanBoard } from './KanbanBoard';

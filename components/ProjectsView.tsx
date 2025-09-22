@@ -1,6 +1,9 @@
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 =======
+=======
+>>>>>>> Stashed changes
     <title>Team Members Icon</title>
     <title>Open Tasks Icon</title>
     <title>Overdue Tasks Icon</title>
