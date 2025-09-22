@@ -400,36 +400,6 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
      const handleTaskModalSuccess = () => {
         // Just refresh all data to ensure dependency graph is correct
         fetchData();
-    const handleBulkUpdate = async () => {
-        if (selectedTasks.size === 0) {
-            addToast("No tasks selected for bulk update.", "error");
-            return;
-        }
-        
-        const updates: Partial<Todo> = {};
-        if (bulkStatus) updates.status = bulkStatus;
-        if (bulkPriority) updates.priority = bulkPriority;
-        if (bulkAssignee) updates.assigneeId = bulkAssignee === 'unassigned' ? null : parseInt(bulkAssignee);
-
-        if (Object.keys(updates).length === 0) {
-            addToast("Please select an action to apply.", "error");
-            return;
-        }
-
-        setIsBulkUpdating(true);
-        try {
-            await Promise.all(Array.from(selectedTasks).map(taskId => api.updateTodo(taskId as string | number, updates, user.id)));
-            addToast(`${selectedTasks.size} tasks updated successfully.`, "success");
-            setSelectedTasks(new Set());
-            setBulkStatus('');
-            setBulkPriority('');
-            setBulkAssignee('');
-            fetchData(); // Refresh data
-        } catch(error) {
-            addToast("Failed to perform bulk update.", "error");
-        } finally {
-            setIsBulkUpdating(false);
-        }
     };
 
     const handleBulkUpdate = async () => {
