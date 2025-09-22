@@ -6,7 +6,7 @@ import { apiCache, cacheKeys } from './cacheService';
 import { ValidationService, securityValidation } from './validationService';
 import { notificationService } from './notificationService';
 import { getStorage } from '../utils/storage';
-import { upgradeLegacyPassword } from '../utils/password';
+import { upgradeLegacyPassword, createPasswordRecord, verifyPassword, sanitizeUser } from '../utils/password';
 import {
     User,
     Company,
@@ -61,6 +61,7 @@ import {
     TodoPriority,
     OperationalAlert,
     OperationalInsights,
+    RolePermissions,
 } from '../types';
 import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
 import { getInvoiceFinancials } from '../utils/finance';
