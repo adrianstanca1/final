@@ -108,8 +108,6 @@ const DraggablePostIt: React.FC<{
             )}
         </div>
     );
-};
-
 
 // Main Whiteboard View Component
 interface WhiteboardViewProps {

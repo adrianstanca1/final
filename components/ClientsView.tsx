@@ -319,8 +319,6 @@ const CreateClientModal: React.FC<{
       </Card>
     </div>
   );
-};
-
 export const ClientsView: React.FC<ClientsViewProps> = ({ user, addToast }) => {
     const [clients, setClients] = useState<Client[]>([]);
     const [loading, setLoading] = useState(true);

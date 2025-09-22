@@ -28,8 +28,6 @@ const formatDistanceToNow = (date: Date): string => {
   }
 
   return `${seconds}s ago`;
-};
-
 const downloadCsv = (data: Record<string, unknown>[], filename: string) => {
   if (data.length === 0) return;
   const headers = Object.keys(data[0]);
@@ -61,8 +59,6 @@ const downloadCsv = (data: Record<string, unknown>[], filename: string) => {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-};
-
 export const AuditLogView: React.FC<AuditLogViewProps> = ({ user, addToast }) => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [users, setUsers] = useState<Map<string, User>>(new Map());

@@ -83,8 +83,6 @@ const CreateTemplateModal: React.FC<{
             </Card>
         </div>
     );
-};
-
 
 export const TemplatesView: React.FC<TemplatesViewProps> = ({ user, addToast }) => {
     const [templates, setTemplates] = useState<ProjectTemplate[]>([]);

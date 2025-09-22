@@ -108,7 +108,6 @@ const LogTimeModal: React.FC<{
     );
 };
 
-
 export const TimesheetsView: React.FC<TimesheetsViewProps> = ({ user, addToast }) => {
     const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);

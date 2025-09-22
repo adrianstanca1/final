@@ -62,8 +62,6 @@ const KanbanColumn: React.FC<{
             </div>
         </div>
     );
-};
-
 export const KanbanBoard: React.FC<KanbanBoardProps> = ({ todos, allTodos, user, personnel, onTaskStatusChange, onTaskSelectionChange, selectedTaskIds }) => {
   const [draggedTaskId, setDraggedTaskId] = useState<string | number | null>(null);
 

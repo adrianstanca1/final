@@ -42,6 +42,7 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({ user, currentProje
           currentProject ? api.getDocumentsByProject(currentProject.id) : api.getDocumentsByCompany(user.companyId),
         ]);
 
+
         incidents = incidentData;
         expenses = expenseData;
         documents = (documentData as Document[]).slice(0, 20);

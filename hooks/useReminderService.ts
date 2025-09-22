@@ -3,12 +3,14 @@ import React, { useEffect, useCallback } from 'react';
 import { User, Task } from '../types';
 // FIX: Corrected API import
 import { api } from '../services/mockApi';
+import { getStorage } from '../utils/storage';
 
 const REMINDERS_FIRED_KEY = 'asagents_reminders_fired';
+const storage = getStorage();
 
 const getFiredReminders = (): (string|number)[] => {
     try {
-        const raw = localStorage.getItem(REMINDERS_FIRED_KEY);
+        const raw = storage.getItem(REMINDERS_FIRED_KEY);
         return raw ? JSON.parse(raw) : [];
     } catch (e) {
         return [];
@@ -19,7 +21,7 @@ const addFiredReminder = (todoId: string | number) => {
     const fired = getFiredReminders();
     if (!fired.includes(todoId)) {
         fired.push(todoId);
-        localStorage.setItem(REMINDERS_FIRED_KEY, JSON.stringify(fired));
+        storage.setItem(REMINDERS_FIRED_KEY, JSON.stringify(fired));
     }
 };
 
