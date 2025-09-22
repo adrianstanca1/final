@@ -19,7 +19,14 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
     const [email, setEmail] = useState('admin@ascladding.com');
     const [password, setPassword] = useState('password123');
     const [mfaCode, setMfaCode] = useState('');
-    const [rememberMe, setRememberMe] = useState(false);
+    const [rememberMe, setRememberMe] = useState(() => {
+        if (typeof window === 'undefined') return true;
+        const localPreference = window.localStorage.getItem('asagents_auth_persistence');
+        if (localPreference === 'local') return true;
+        const sessionPreference = window.sessionStorage.getItem('asagents_auth_persistence');
+        if (sessionPreference === 'session') return false;
+        return true;
+    });
     
     const [error, setError] = useState<string | null>(null);
     const [validationErrors, setValidationErrors] = useState<{ email?: string; password?: string, mfa?: string }>({});
