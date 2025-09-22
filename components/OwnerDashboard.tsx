@@ -374,6 +374,3 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     </div>
   );
 };
-
-// Ensure the file ends correctly after the component definition
-export { OwnerDashboard };

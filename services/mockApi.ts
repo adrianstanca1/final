@@ -5,6 +5,8 @@ import { initialData } from './mockData';
 import { apiCache, cacheKeys } from './cacheService';
 import { ValidationService, securityValidation } from './validationService';
 import { notificationService } from './notificationService';
+import { getStorage } from '../utils/storage';
+import { upgradeLegacyPassword } from '../utils/password';
 import {
     User,
     Company,
