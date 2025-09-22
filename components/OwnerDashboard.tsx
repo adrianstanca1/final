@@ -357,10 +357,17 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         actions={
           setActiveView
             ? (
+<<<<<<< HEAD
+              <Button variant="secondary" onClick={() => setActiveView('financials')}>
+                Open financial workspace
+              </Button>
+            )
+=======
                 <Button variant="secondary" onClick={() => setActiveView('financials')}>
                   Open financial workspace
                 </Button>
               )
+>>>>>>> origin/main
             : undefined
         }
         meta={[
@@ -369,8 +376,35 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             value: formatCurrency(portfolioSummary.pipelineValue, currency),
             helper: `${portfolioSummary.totalProjects} active engagements`,
           },
+<<<<<<< HEAD
+          {
+            label: 'Risk exposure',
+            value: `${portfolioSummary.highRiskProjects} high-risk`,
+            helper: 'Projects requiring immediate attention',
+          },
+        ]}
+      />
+
+      {/* Dashboard content would go here */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <h3 className="text-lg font-semibold">Portfolio Overview</h3>
+          </CardHeader>
+          <CardContent>
+            <p>Executive dashboard content coming soon...</p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+};
+
+export { OwnerDashboard };
+=======
         ]}
       />
     </div>
   );
 };
+>>>>>>> origin/main

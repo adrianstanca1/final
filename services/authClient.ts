@@ -49,13 +49,21 @@ const sanitizeBaseUrl = (value?: string | null): string | null => {
 };
 
 const detectBaseUrl = (): string | null => {
-<<<<<<< HEAD
     // Ensure tests default to mock mode unless explicitly configured
     if (typeof process !== 'undefined' && ((process as any).env?.VITEST || (process as any).env?.VITEST_WORKER_ID)) {
         return null;
     }
-=======
->>>>>>> origin/codex/create-autonomous-deployment-plan-srvw3l
+    // Gate potential Supabase integration behind a flag; if enabled but not configured, keep mock for now.
+    const useSupabase = (
+        (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_USE_SUPABASE === 'true') ||
+        (typeof process !== 'undefined' && typeof process.env?.VITE_USE_SUPABASE === 'string' && process.env.VITE_USE_SUPABASE === 'true')
+    );
+    if (useSupabase) {
+        if (typeof console !== 'undefined') {
+            console.warn('[authClient] VITE_USE_SUPABASE=true but no Supabase client is configured; staying in mock mode.');
+        }
+        return null;
+    }
     if (typeof window !== 'undefined' && typeof (window as any).__ASAGENTS_API_BASE_URL__ === 'string') {
         return sanitizeBaseUrl((window as any).__ASAGENTS_API_BASE_URL__);
     }
