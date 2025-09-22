@@ -8,6 +8,7 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Avatar } from './ui/Avatar';
 import { Tag } from './ui/Tag';
+import { useTenant } from '../contexts/TenantContext';
 
 interface TeamViewProps {
   user: User;
@@ -260,19 +261,27 @@ export const TeamView: React.FC<TeamViewProps> = ({ user, addToast, onStartChat 
     const [loading, setLoading] = useState(true);
     const [modalState, setModalState] = useState<{ mode: 'add' } | { mode: 'edit', member: User } | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
+    const { resolvedTenantId } = useTenant();
 
     const fetchData = useCallback(async () => {
         const controller = new AbortController();
         abortControllerRef.current?.abort();
         abortControllerRef.current = controller;
 
+        if (!resolvedTenantId) {
+            setTeam([]);
+            setProjects([]);
+            setAssignments([]);
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
         try {
-            if (!user.companyId) return;
             const [usersData, projectsData, assignmentsData] = await Promise.all([
-                api.getUsersByCompany(user.companyId, { signal: controller.signal }),
-                api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
-                api.getProjectAssignmentsByCompany(user.companyId, { signal: controller.signal }),
+                api.getUsersByCompany(resolvedTenantId, { signal: controller.signal }),
+                api.getProjectsByCompany(resolvedTenantId, { signal: controller.signal }),
+                api.getProjectAssignmentsByCompany(resolvedTenantId, { signal: controller.signal }),
             ]);
             if (controller.signal.aborted) return;
             setTeam(usersData);
@@ -287,7 +296,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ user, addToast, onStartChat 
             if (controller.signal.aborted) return;
             setLoading(false);
         }
-    }, [user.companyId, addToast]);
+    }, [resolvedTenantId, addToast]);
 
     useEffect(() => {
         fetchData();
@@ -297,6 +306,10 @@ export const TeamView: React.FC<TeamViewProps> = ({ user, addToast, onStartChat 
     }, [fetchData]);
 
     const canManageTeam = hasPermission(user, Permission.MANAGE_TEAM);
+
+    if (!resolvedTenantId) {
+        return <Card><p>Select a tenant to manage team members.</p></Card>;
+    }
 
     if (loading) return <Card><p>Loading team members...</p></Card>;
 

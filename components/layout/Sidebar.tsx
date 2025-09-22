@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, View, Role, Permission } from '../../types';
+import { User, View, Role, Permission, TenantDirectoryEntry } from '../../types';
 import { hasPermission } from '../../services/auth';
 
 interface SidebarProps {
@@ -10,6 +10,11 @@ interface SidebarProps {
   pendingTimesheetCount: number;
   openIncidentCount: number;
   unreadMessageCount: number;
+  tenants: TenantDirectoryEntry[];
+  activeTenantId: string | null;
+  onTenantChange: (tenantId: string) => void;
+  tenantLoading: boolean;
+  activeTenant?: TenantDirectoryEntry;
 }
 
 interface NavItemProps {
@@ -54,11 +59,17 @@ const NavItem: React.FC<NavItemProps> = ({ icon, label, view, activeView, setAct
   </button>
 );
 
-export const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, onLogout, pendingTimesheetCount, openIncidentCount, unreadMessageCount }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveView, onLogout, pendingTimesheetCount, openIncidentCount, unreadMessageCount, tenants, activeTenantId, onTenantChange, tenantLoading, activeTenant }) => {
   if (!user) return null;
 
   const dashboardView: View = user.role === Role.OPERATIVE ? 'my-day' : user.role === Role.FOREMAN ? 'foreman-dashboard' : 'dashboard';
   const dashboardLabel = user.role === Role.OPERATIVE ? 'My Day' : 'Dashboard';
+  const canSwitchTenants = hasPermission(user, Permission.MANAGE_TENANTS) || user.role === Role.PRINCIPAL_ADMIN;
+  const tenantStatusStyles: Record<'OK' | 'DEGRADED' | 'DOWN', string> = {
+    OK: 'bg-emerald-100 text-emerald-700',
+    DEGRADED: 'bg-amber-100 text-amber-700',
+    DOWN: 'bg-rose-100 text-rose-700',
+  };
 
   const renderNavItems = () => {
     if (user.role === Role.PRINCIPAL_ADMIN) {
@@ -328,6 +339,51 @@ export const Sidebar: React.FC<SidebarProps> = ({ user, activeView, setActiveVie
           <path fill="currentColor" d="M12 2L2 22h20L12 2z" />
         </svg>
         <h1 className="text-xl font-bold text-foreground">AS Agents</h1>
+      </div>
+      <div className="px-2 mb-6">
+        <div className="rounded-lg border border-border bg-muted/30 p-3">
+          <div className="flex items-center justify-between text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+            <span>Tenant</span>
+            {tenantLoading && <span className="animate-pulse">Syncing…</span>}
+          </div>
+          <p className={`mt-1 text-sm font-semibold ${activeTenant ? 'text-foreground' : 'text-muted-foreground'}`}>
+            {activeTenant?.companyName ?? 'Select a tenant'}
+          </p>
+          {activeTenant && (
+            <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+              <div className="flex items-center justify-between">
+                <span>{activeTenant.plan}</span>
+                <span>{activeTenant.userCount} users</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>{activeTenant.activeProjects} active projects</span>
+                <span>{activeTenant.openIncidents} incidents</span>
+              </div>
+              <div>
+                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${tenantStatusStyles[activeTenant.health]}`}>
+                  <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                  {activeTenant.health === 'OK' ? 'Operational' : activeTenant.health === 'DEGRADED' ? 'Degraded' : 'Attention'}
+                </span>
+              </div>
+            </div>
+          )}
+          {canSwitchTenants && tenants.length > 0 && (
+            <div className="mt-3">
+              <label className="text-[11px] uppercase tracking-wider text-muted-foreground block mb-1">Switch tenant</label>
+              <select
+                value={activeTenantId ?? tenants[0]?.companyId ?? ''}
+                onChange={event => onTenantChange(event.target.value)}
+                className="w-full rounded-md border border-border bg-background px-2 py-1 text-sm text-foreground"
+              >
+                {tenants.map(tenant => (
+                  <option key={tenant.companyId} value={tenant.companyId}>
+                    {tenant.companyName}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
       </div>
       {/* All navigation items are conditionally rendered based on user permissions */}
       <nav className="flex flex-col flex-grow space-y-4">

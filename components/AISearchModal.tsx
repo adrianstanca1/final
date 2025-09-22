@@ -4,6 +4,7 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { api } from '../services/mockApi';
 import { searchKnowledgeBase } from '../services/ai';
+import { useTenant } from '../contexts/TenantContext';
 
 interface AISearchModalProps {
   user: User;
@@ -17,6 +18,7 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({ user, currentProje
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<string | null>(null);
   const [resultMeta, setResultMeta] = useState<string | null>(null);
+  const { resolvedTenantId } = useTenant();
 
   const handleSearch = async () => {
     if (!query.trim()) {
@@ -34,12 +36,12 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({ user, currentProje
       let expenses: Expense[] = [];
       let focusProject: Project | null | undefined = currentProject ?? null;
 
-      if (user.companyId) {
+      if (resolvedTenantId) {
         const [projects, incidentData, expenseData, documentData] = await Promise.all([
-          currentProject ? Promise.resolve<Project[]>([]) : api.getProjectsByCompany(user.companyId),
-          api.getSafetyIncidentsByCompany(user.companyId),
-          api.getExpensesByCompany(user.companyId),
-          currentProject ? api.getDocumentsByProject(currentProject.id) : api.getDocumentsByCompany(user.companyId),
+          currentProject ? Promise.resolve<Project[]>([]) : api.getProjectsByCompany(resolvedTenantId),
+          api.getSafetyIncidentsByCompany(resolvedTenantId),
+          api.getExpensesByCompany(resolvedTenantId),
+          currentProject ? api.getDocumentsByProject(currentProject.id) : api.getDocumentsByCompany(resolvedTenantId),
         ]);
 
         incidents = incidentData;
