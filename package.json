@@ -13,12 +13,19 @@
     "test:coverage": "vitest --coverage",
     "type-check": "tsc --noEmit",
     "lint": "echo 'Linting not configured yet'",
-    "deploy": "npm run build",
+    "deploy": "node scripts/deploy.js",
+    "deploy:staging": "node scripts/deploy.js staging",
+    "deploy:production": "node scripts/deploy.js production",
+    "deploy:vercel": "node scripts/deploy.js production vercel",
+    "deploy:netlify": "node scripts/deploy.js production netlify",
+    "deploy:docker": "node scripts/deploy.js production docker",
+    "deploy:dry-run": "node scripts/deploy.js production vercel --dry-run",
     "start": "npm run preview",
     "analyze": "ANALYZE_BUNDLE=true npm run build"
   },
   "dependencies": {
     "@google/genai": "^1.17.0",
+    "@supabase/supabase-js": "^2.57.4",
     "date-fns": "^4.1.0",
     "leaflet": "1.9.4",
     "react": "18.2.0",
@@ -27,7 +34,10 @@
     "use-supercluster": "0.4.0"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.8.0",
     "@types/node": "^22.14.0",
+    "jsdom": "^27.0.0",
+    "terser": "^5.44.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
     "vitest": "^3.2.4"

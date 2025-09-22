@@ -13,6 +13,8 @@
 - [ ] Publish OpenAPI spec v1 (Auth, Projects, Tasks, Financials, Operations) and generate TypeScript client.
 - [ ] Implement authentication (JWT, refresh, MFA) and connect `services/authClient.ts` to live endpoints.
 - [ ] Configure staging database backups, monitoring, and alerting.
+- [ ] Stand up `infra/terraform` directory with reproducible environments (VPC, DB, storage, secrets) and document access rotation.
+- [ ] Define data retention & archival policies; script anonymised fixture import from mock data for beta demos.
 
 ## Frontend Integration (Weeks 2-5)
 - [ ] Refactor services to consume new `backendGateway` with graceful mock fallback.
@@ -20,6 +22,7 @@
 - [ ] Update dashboards and persona views to read from unified data service; remove direct `mockApi` imports.
 - [ ] Implement feature flag service (ConfigCat/LaunchDarkly or in-house) to gate beta features.
 - [ ] Ensure offline modes & background sync queues degrade gracefully when backend unavailable.
+- [ ] Add contract tests validating SDK typings against OpenAPI schema in CI.
 
 ## Experience & Design (Weeks 3-6)
 - [ ] Curate futuristic visual language (Figma kit) and sync with component library (`components/ui`).

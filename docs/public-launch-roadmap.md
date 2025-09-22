@@ -68,6 +68,14 @@ Deliver a production-ready, AI-augmented construction operations platform with r
 - Marketing site & onboarding academy; pricing, packaging, and billing integration (Stripe) if required.
 - Final go/no-go with observability dashboards, incident response playbooks, support SLAs.
 
+## Database Integration Strategy
+- **Primary store**: Amazon Aurora PostgreSQL (serverless v2) in `eu-west-2` via Terraform, with Secrets Manager-managed credentials and optional reader cluster for analytics workloads.
+- **Schema governance**: maintain Prisma schema + ERD docs in `docs/data-model/`, enforce migration review gates and automated drift detection in CI.
+- **Data access patterns**: expose read models via dedicated reporting schema and cached materialised views for dashboards; apply row-level security for multi-company tenancy.
+- **Sync & backups**: nightly logical backups (pg_dump) with point-in-time recovery via WAL archiving; replicate to read replica for analytics workloads.
+- **Data quality**: schedule dbt or Dagster jobs to reconcile mock data migrations, run anomaly detection, and surface data quality metrics to the ops squad.
+- **Security**: store credentials in Vault/Secrets Manager, enforce TLS, audit logging, and encryption-at-rest policies across environments.
+
 ## Cross-Cutting Tasks
 - **Design System**: Create Figma kit mirroring code components; adopt token-based theming (Style Dictionary).
 - **Documentation**: Living developer portal (Docusaurus) covering API docs, runbooks, architecture, release notes.

@@ -10,7 +10,7 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, '.'),
+        '@': path.resolve(__dirname, 'src'),
       },
     },
 
@@ -20,8 +20,8 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       setupFiles: ['./tests/setup-simple.ts'],
       css: true,
-      include: ['services/**/*.test.ts', 'utils/**/*.test.ts'],
-      exclude: ['**/node_modules/**', '**/dist/**', 'dist-services/**', 'final/**', 'final-1/**', 'final-2/**'],
+      include: ['src/services/**/*.test.ts', 'src/utils/**/*.test.ts'],
+      exclude: ['**/node_modules/**', '**/dist/**', 'dist-services/**', 'legacy/**'],
       coverage: {
         provider: 'v8',
         reporter: ['text', 'json', 'html'],
@@ -48,10 +48,6 @@ export default defineConfig(({ mode }) => {
           },
         },
         onwarn(warning, warn) {
-          // Suppress warnings for component files with merge conflicts
-          if (warning.code === 'PARSE_ERROR' && warning.id?.includes('components/')) {
-            return;
-          }
           warn(warning);
         },
       },

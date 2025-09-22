@@ -22,15 +22,15 @@
     "jsx": "react-jsx",
     "paths": {
       "@/*": [
-        "./*"
+        "./src/*"
       ]
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
   "files": [
-    "index.tsx",
-    "App.stable.tsx"
+    "src/main.tsx",
+    "src/App.tsx"
   ],
   "exclude": [
     "node_modules",
