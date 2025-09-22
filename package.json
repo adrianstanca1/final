@@ -9,23 +9,13 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
-<<<<<<< HEAD
     "test:watch": "vitest",
     "test:coverage": "vitest --coverage",
     "type-check": "tsc --noEmit",
     "lint": "echo 'Linting not configured yet'",
-    "deploy": "node scripts/deploy.js",
-    "deploy:staging": "node scripts/deploy.js staging",
-    "deploy:production": "node scripts/deploy.js production",
-    "deploy:vercel": "node scripts/deploy.js production vercel",
-    "deploy:netlify": "node scripts/deploy.js production netlify",
-    "deploy:docker": "node scripts/deploy.js production docker",
-    "deploy:dry-run": "node scripts/deploy.js production vercel --dry-run",
+    "deploy": "npm run build",
     "start": "npm run preview",
     "analyze": "ANALYZE_BUNDLE=true npm run build"
-=======
-    "deploy": "npm run build"
->>>>>>> origin/codex/create-autonomous-deployment-plan-srvw3l
   },
   "dependencies": {
     "@google/genai": "^1.17.0",
