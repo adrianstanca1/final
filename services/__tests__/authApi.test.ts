@@ -78,4 +78,61 @@ describe('authApi', () => {
     it('rejects invalid login attempts', async () => {
         await expect(authApi.login({ email: 'sam@constructco.com', password: 'wrongpass' })).rejects.toThrow(/invalid email or password/i);
     });
+
+    it('generates unique usernames when the preferred handle is taken', async () => {
+        const first = await authApi.register({
+            firstName: 'Avery',
+            lastName: 'Stone',
+            email: 'avery@uniquehandle.dev',
+            username: 'site.owner',
+            password: 'Password!1',
+            companySelection: 'create',
+            companyName: 'Unique Handle Works',
+            companyType: 'CONSULTANT',
+            termsAccepted: true,
+        });
+
+        const second = await authApi.register({
+            firstName: 'River',
+            lastName: 'Stone',
+            email: 'river@uniquehandle.dev',
+            username: 'site.owner',
+            password: 'Password!1',
+            companySelection: 'create',
+            companyName: 'Unique Handle Works 2',
+            companyType: 'GENERAL_CONTRACTOR',
+            termsAccepted: true,
+        });
+
+        expect(first.user.username).toBe('site.owner');
+        expect(second.user.username).not.toBe('site.owner');
+        expect(second.user.username).not.toBe(first.user.username);
+        expect(second.user.username).toBeTruthy();
+        expect(second.user.username?.includes('river')).toBe(true);
+    });
+
+    it('provisions a dedicated tenant on social login and reuses existing accounts', async () => {
+        const session = await authApi.socialLogin({
+            provider: 'google',
+            email: 'owner@socialprovision.dev',
+            name: 'Morgan Admin',
+        });
+
+        expect(session.user.role).toBe(Role.OWNER);
+        expect(session.company.id).toMatch(/^social-/);
+        expect(session.user.username).toBeTruthy();
+
+        const invite = await authApi.lookupInviteToken(`JOIN-${session.company.id}`);
+        expect(invite.companyId).toBe(session.company.id);
+        expect(invite.allowedRoles).toContain(Role.ADMIN);
+
+        const secondSession = await authApi.socialLogin({
+            provider: 'google',
+            email: 'owner@socialprovision.dev',
+            name: 'Morgan Admin',
+        });
+
+        expect(secondSession.user.id).toBe(session.user.id);
+        expect(secondSession.company.id).toBe(session.company.id);
+    });
 });

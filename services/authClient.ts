@@ -1,5 +1,5 @@
 import { authApi } from './mockApi';
-import type { LoginCredentials, RegistrationPayload, User, Company, Role, CompanyType } from '../types';
+import type { LoginCredentials, RegistrationPayload, User, Company, Role, CompanyType, SocialProvider } from '../types';
 
 export type AuthenticatedSession = {
     success: true;
@@ -235,6 +235,13 @@ export const authClient = {
             '/auth/register',
             { method: 'POST', body: JSON.stringify(payload) },
             () => authApi.register(payload)
+        ),
+
+    socialLogin: (provider: SocialProvider, profile: { email?: string; name?: string } = {}): Promise<AuthenticatedSession> =>
+        withAuthFallback<AuthenticatedSession>(
+            '/auth/social/login',
+            { method: 'POST', body: JSON.stringify({ provider, ...profile }) },
+            () => authApi.socialLogin({ provider, ...profile })
         ),
 
     verifyMfa: (userId: string, code: string): Promise<AuthenticatedSession> =>
