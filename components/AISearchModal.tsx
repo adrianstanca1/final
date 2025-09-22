@@ -34,7 +34,6 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({ user, currentProje
       let expenses: Expense[] = [];
       let focusProject: Project | null | undefined = currentProject ?? null;
 
-<<<<<<< Updated upstream
       if (user.companyId) {
         const [projects, incidentData, expenseData, documentData] = await Promise.all([
           currentProject ? Promise.resolve<Project[]>([]) : api.getProjectsByCompany(user.companyId),
@@ -42,7 +41,7 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({ user, currentProje
           api.getExpensesByCompany(user.companyId),
           currentProject ? api.getDocumentsByProject(currentProject.id) : api.getDocumentsByCompany(user.companyId),
         ]);
-=======
+
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
             <Card className="w-full max-w-3xl h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
@@ -79,7 +78,6 @@ export const AISearchModal: React.FC<AISearchModalProps> = ({ user, currentProje
                         </div>
                     </form>
                 </div>
->>>>>>> Stashed changes
 
         incidents = incidentData;
         expenses = expenseData;

@@ -10,6 +10,8 @@ interface ClientModalProps {
     onSuccess: () => void;
     user: User;
     addToast: (message: string, type: 'success' | 'error') => void;
+}
+
 const ClientModal: React.FC<ClientModalProps> = ({ clientToEdit, onClose, onSuccess, user, addToast }) => {
     const [name, setName] = useState(clientToEdit?.name || '');
     const [email, setEmail] = useState(clientToEdit?.contactEmail || '');

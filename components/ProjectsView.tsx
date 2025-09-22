@@ -1,11 +1,10 @@
-<<<<<<< Updated upstream
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-=======
+
     <title>Team Members Icon</title>
     <title>Open Tasks Icon</title>
     <title>Overdue Tasks Icon</title>
 // full contents of components/ProjectsView.tsx
->>>>>>> Stashed changes
+import { User, Project, Permission, ProjectStatus } from '../types';
 
 import {
   User,
@@ -27,8 +26,7 @@ interface ProjectsViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
   onSelectProject: (project: Project) => void;
-<<<<<<< HEAD
-=======
+
 }
 
 const STATUS_BADGE_STYLES: Record<ProjectStatus, string> = {
@@ -80,14 +78,13 @@ const ProjectCard: React.FC<{ project: Project; onSelect: () => void; }> = ({ pr
                 </span>
                 <span className="text-muted-foreground">Budget: £{budgetDisplay}k</span>
             </div>
-<<<<<<< Updated upstream
             <div className="w-full bg-muted rounded-full h-1.5 mt-3">
                 <div
                     className={`${utilisationClass}`}
                     style={{ width: `${Math.min(100, Math.round(utilisation))}%`, height: '100%', borderRadius: 'inherit' }}
                     aria-hidden
                 ></div>
-=======
+
             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs p-2 text-xs text-white bg-slate-800 rounded-md shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
                 {health.summary}
             </div>
@@ -170,12 +167,11 @@ const ProjectSummaryCard: React.FC<ProjectSummaryCardProps> = ({ project, taskCo
 import './ui/projectBudgetBar.css';
                     </div>
                 </div>
->>>>>>> Stashed changes
             </div>
         </Card>
     );
 };
->>>>>>> 1026043 (Code Suggestion for #72)
+
 const statusAccent: Record<ProjectStatus, { bg: string; text: string }> = {
   PLANNING: { bg: 'bg-amber-500/10', text: 'text-amber-700 dark:text-amber-300' },
   ACTIVE: { bg: 'bg-emerald-500/10', text: 'text-emerald-700 dark:text-emerald-300' },
@@ -289,6 +285,44 @@ const ProjectCard: React.FC<{ project: Project; onSelect: () => void }> = ({ pro
     </Card>
   );
 export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSelectProject }) => {
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [filter, setFilter] = useState<StatusFilterValue>('ALL');
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+    const canCreate = hasPermission(user, Permission.CREATE_PROJECT);
+
+    const fetchData = useCallback(async () => {
+        setLoading(true);
+        try {
+            if (!user.companyId) return;
+            let projectsPromise: Promise<Project[]>;
+            if (hasPermission(user, Permission.VIEW_ALL_PROJECTS)) {
+                projectsPromise = api.getProjectsByCompany(user.companyId);
+            } else {
+                projectsPromise = api.getProjectsByUser(user.id);
+            }
+            const fetchedProjects = await projectsPromise;
+            setProjects(fetchedProjects);
+        } catch (error) {
+            addToast("Failed to load projects.", "error");
+        } finally {
+            setLoading(false);
+        }
+    }, [user, addToast]);
+
+    useEffect(() => {
+        fetchData();
+    }, [fetchData]);
+    
+    const filteredProjects = useMemo(() => {
+        if (filter === 'ALL') return projects;
+        return projects.filter(p => p.status === filter);
+    }, [projects, filter]);
+
+    const handleSuccess = (newProject: Project) => {
+        setProjects(prev => [...prev, newProject]);
+        onSelectProject(newProject);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<ProjectPortfolioSummary | null>(null);
@@ -508,8 +542,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
         />
       )}
 
-<<<<<<< HEAD
-=======
+
     if (loading) return <Card><p>Loading projects...</p></Card>;
 
     return (
@@ -522,7 +555,6 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
                     addToast={addToast}
                 />
             )}
-<<<<<<< Updated upstream
             <div className="flex justify-between items-center">
                 <h2 className="text-3xl font-bold text-slate-800">Projects</h2>
                 {canCreate && <Button onClick={() => setIsCreateModalOpen(true)}>Create Project</Button>}
@@ -542,7 +574,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
                         {option.label}
                     </button>
                 ))}
-=======
+
             <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
                 <h2 className="text-3xl font-bold text-slate-800">{isPM ? "Project Manager Dashboard" : "Projects"}</h2>
                 {canCreate && (
@@ -554,7 +586,6 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
                         Create Project
                     </Button>
                 )}
->>>>>>> Stashed changes
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -567,7 +598,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
                     <ProjectCard key={project.id} project={project} onSelect={() => onSelectProject(project)} />
                 ))}
             </div>
->>>>>>> 1026043 (Code Suggestion for #72)
+
       <ViewHeader
         view="projects"
         actions={

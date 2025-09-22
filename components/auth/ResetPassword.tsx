@@ -2,10 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
+import { AuthEnvironmentNotice } from './AuthEnvironmentNotice';
 
 interface ResetPasswordProps {
   token: string;
   onSuccess: () => void;
+}
+
 const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password = '' }) => {
     const getStrength = () => {
         let score = 0;
@@ -25,6 +28,8 @@ const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password =
             <div className={`h-1.5 rounded-full transition-all duration-300 ${color}`} style={{ width: `${width}%` }}></div>
         </div>
     );
+};
+
 const InputField = ({ label, name, type = 'text', value = '', onChange, error }: { label: string; name: string; type?: string; value?: string; onChange: (name: string, value: string) => void; error?: string;}) => (
     <div>
         <label htmlFor={name} className="block text-sm font-medium text-muted-foreground">{label}</label>
@@ -71,6 +76,7 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ token, onSuccess }
         return (
              <div className="min-h-screen bg-background flex flex-col justify-center py-12 sm:px-6 lg:px-8">
                 <Card className="sm:mx-auto sm:w-full sm:max-w-md text-center">
+                    <AuthEnvironmentNotice className="mb-4" />
                     <h2 className="text-2xl font-bold text-foreground mb-4">Password Reset Successfully!</h2>
                     <p className="text-muted-foreground mb-6">You can now sign in with your new password.</p>
                     <Button onClick={onSuccess} className="w-full">Back to Sign In</Button>
@@ -88,6 +94,7 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ token, onSuccess }
                 </p>
             </div>
             <Card className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
+                 <AuthEnvironmentNotice className="mb-4" />
                  {error && <div className="mb-4 p-3 bg-destructive/10 text-destructive text-sm rounded-md">{error}</div>}
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <InputField label="New Password" name="password" type="password" value={password} onChange={(_, val) => setPassword(val)} />

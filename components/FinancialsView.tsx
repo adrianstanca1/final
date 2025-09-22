@@ -83,6 +83,8 @@ const BarChart: React.FC<{ data: { label: string, value: number }[], barColor: s
       ))}
     </div>
   );
+};
+
 export const FinancialsView: React.FC<{ user: User; addToast: (message: string, type: 'success' | 'error') => void }> = ({
   user,
   addToast,
@@ -718,6 +720,93 @@ const renderInvoicesAndQuotes = () => (
 >>>>>>> Stashed changes
         );
 
+        addToast('Financial forecast generated successfully', 'success');
+        setForecastData(storedForecast);
+                    <h3 className="font-semibold mb-4">Monthly Performance (Profit)</h3>
+                    <BarChart data={monthly.map(m => ({ label: m.month, value: m.profit }))} barColor="bg-green-500" />
+                </Card>
+                 <Card>
+                    <h3 className="font-semibold mb-4">Cost Breakdown</h3>
+                    <BarChart data={costs.map(c => ({ label: c.category, value: c.amount }))} barColor="bg-sky-500" />
+                </Card>
+            </div>
+        </div>
+    );
+    
+    const renderInvoicesAndQuotes = () => (
+        <Card>
+            <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold text-lg">Invoices & Quotes</h3>
+                {canManageFinances && <Button title="Create invoice" type="button">Create Invoice</Button>}
+            </div>
+            <h4 className="font-semibold mt-4">Invoices</h4>
+             <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-slate-50">
+                    <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Number</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Client</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Due Date</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Total</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Balance</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
+                    </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                    {invoices.map(invoice => (
+                        <tr key={invoice.id}>
+                            <td className="px-6 py-4 font-medium">{invoice.invoiceNumber}</td>
+                            <td className="px-6 py-4">{clientMap.get(invoice.clientId)}</td>
+                            <td className="px-6 py-4">{new Date(invoice.dueAt).toLocaleDateString()}</td>
+                            <td className="px-6 py-4 text-right">{formatCurrency(invoice.total)}</td>
+                            <td className="px-6 py-4 text-right font-semibold">{formatCurrency(invoice.total - invoice.amountPaid)}</td>
+                            <td className="px-6 py-4"><InvoiceStatusBadge status={invoice.status} /></td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </Card>
+    );
+
+    const renderExpenses = () => {
+        const myExpenses = expenses.filter(e => e.userId === user.id);
+        const reviewQueue = expenses.filter(e => e.status === ExpenseStatus.PENDING);
+        
+        return (
+            <div className="space-y-6">
+                {hasPermission(user, Permission.MANAGE_EXPENSES) && (
+                    <Card>
+                        <h3 className="font-semibold text-lg mb-2">Expense Review Queue ({reviewQueue.length})</h3>
+                        {reviewQueue.map(exp => (
+                            <div key={exp.id} className="p-2 border-b flex justify-between items-center">
+                                <div>
+                                    <p>{userMap.get(exp.userId)} - {formatCurrency(exp.amount, exp.currency)}</p>
+                                    <p className="text-sm text-slate-500">{exp.description}</p>
+                                </div>
+                                <Button title="Review expense" type="button" size="sm" onClick={() => setSelectedExpense(exp)}>Review</Button>
+                            </div>
+                        ))}
+                         {reviewQueue.length === 0 && <p className="text-slate-500 py-4 text-center">No expenses to review.</p>}
+                    </Card>
+                )}
+                 <Card>
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-semibold text-lg">My Expenses</h3>
+                        {hasPermission(user, Permission.SUBMIT_EXPENSE) && <Button title="Submit expense" type="button">Submit Expense</Button>}
+                    </div>
+                     {myExpenses.map(exp => (
+                        <div key={exp.id} className="p-2 border-b flex justify-between items-center">
+                            <div>
+                                <p>{new Date(exp.submittedAt).toLocaleDateString()} - {formatCurrency(exp.amount, exp.currency)}</p>
+                                <p className="text-sm text-slate-500">{exp.description}</p>
+                            </div>
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${exp.status === 'Approved' ? 'bg-green-100 text-green-800' : exp.status === 'Rejected' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>{exp.status}</span>
+                        </div>
+                    ))}
+                     {myExpenses.length === 0 && <p className="text-slate-500 py-4 text-center">You have not submitted any expenses.</p>}
+                </Card>
+            </div>
+        );
+
         setData(prev => ({ ...prev, forecasts: [storedForecast, ...prev.forecasts] }));
         addToast('Financial forecast updated.', 'success');
       } catch (error) {
@@ -803,6 +892,8 @@ interface DashboardTabProps {
   onGenerateForecast: (horizon: number) => void;
   isGeneratingForecast: boolean;
   forecastError: string | null;
+}
+
 const DashboardTab = React.memo(
   ({
     kpis,
@@ -1017,6 +1108,8 @@ interface InvoicesTabProps {
   onOpenInvoice: (invoice: Invoice) => void;
   onRecordPayment: (invoice: Invoice) => void;
   onUpdateInvoiceStatus: (invoiceId: string, status: InvoiceStatus) => void;
+}
+
 const InvoicesTab = React.memo(
   ({ invoices, quotes, canManageFinances, clientMap, projectMap, onCreateInvoice, onOpenInvoice, onRecordPayment, onUpdateInvoiceStatus }: InvoicesTabProps) => (
     <div className="space-y-6">
@@ -1124,6 +1217,8 @@ interface ExpensesTabProps {
   projectMap: Map<string, string>;
   onCreateExpense: () => void;
   onEditExpense: (expense: Expense) => void;
+}
+
 const ExpensesTab = React.memo(({ expenses, userMap, projectMap, onCreateExpense, onEditExpense }: ExpensesTabProps) => (
   <Card>
     <div className="flex justify-between items-center mb-4">
@@ -1185,6 +1280,8 @@ interface ClientsTabProps {
   canManageFinances: boolean;
   onAddClient: () => void;
   onEditClient: (client: Client) => void;
+}
+
 const ClientsTab = React.memo(({ clients, canManageFinances, onAddClient, onEditClient }: ClientsTabProps) => (
   <div>
     <div className="flex justify-between items-center mb-6">

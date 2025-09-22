@@ -11,10 +11,14 @@ export interface MapMarkerData {
   isUserLocation?: boolean;
   popupContent?: React.ReactNode;
   status?: 'Planning' | 'Active' | 'Completed' | 'On Hold';
+}
+
 interface MapViewProps {
   markers: MapMarkerData[];
   height?: string;
   className?: string;
+}
+
 // Custom SVG Icon for project markers
 const createProjectIcon = (status: MapMarkerData['status']) => {
   let className = '';
@@ -31,6 +35,8 @@ const createProjectIcon = (status: MapMarkerData['status']) => {
     iconAnchor: [16, 32],
     popupAnchor: [0, -32],
   });
+};
+
 const userLocationIcon = L.divIcon({
     html: `<div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-md"></div>`,
     className: '',

@@ -1,4 +1,3 @@
-<<<<<<< Updated upstream
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   User,
@@ -18,10 +17,9 @@ import {
   ExpenseStatus,
   ProjectPortfolioSummary,
   OperationalInsights,
-=======
+
 import './ui/storageUsage.css';
 // full contents of components/Dashboard.tsx
->>>>>>> Stashed changes
 
 } from '../types';
 import { Card } from './ui/Card';
@@ -72,6 +70,8 @@ const BarChart: React.FC<{ data: { label: string, value: number }[], barColor: s
             ))}
         </div>
     );
+};
+
 const renderMarkdownSummary = (summary: string) =>
     summary
         .split('\n')
@@ -98,6 +98,8 @@ const availabilityTagColor: Record<AvailabilityStatus, 'green' | 'blue' | 'gray'
     [AvailabilityStatus.AVAILABLE]: 'green',
     [AvailabilityStatus.ON_PROJECT]: 'blue',
     [AvailabilityStatus.ON_LEAVE]: 'gray',
+};
+
 // FIX: Local implementation of startOfWeek to resolve module export error.
 const startOfWeek = (date: Date, options?: { weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6 }): Date => {
     const weekStartsOn = options?.weekStartsOn ?? 0;
@@ -107,6 +109,8 @@ const startOfWeek = (date: Date, options?: { weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 
     d.setDate(d.getDate() - diff);
     d.setHours(0, 0, 0, 0);
     return d;
+};
+
 export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveView, onSelectProject }) => {
     const [loading, setLoading] = useState(true);
     const [projects, setProjects] = useState<Project[]>([]);
@@ -334,12 +338,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
         }
     }, [aiSelectedProjectId, projects, tasks, openIncidents, expenses, addToast]);
 
-    }, [aiSelectedProjectId, projects, tasks, openIncidents, approvedExpenses, addToast]);
-
     if (loading) return <Card>Loading project manager dashboard…</Card>;
 
     return (
-<<<<<<< Updated upstream
         <div className="space-y-6">
             <ViewHeader
                 title={`Welcome back, ${user.firstName}!`}
@@ -406,7 +407,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                         <div>
                             <h2 className="text-lg font-semibold text-foreground">Focus projects</h2>
                             <p className="text-sm text-muted-foreground">Highest-risk delivery or budget positions.</p>
-=======
+
         <div className="space-y-8">
             <h1 className="text-3xl font-bold text-slate-800">Welcome back, {user.name.split(' ')[0]}!</h1>
             
@@ -417,7 +418,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                     <KpiCard title="Storage Usage" value={`${healthStats.storageUsageGB.toFixed(1)} GB`} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>}>
                         <div className="w-full bg-slate-200 rounded-full h-2">
                             <div className="bg-sky-500 h-2 rounded-full storage-usage-bar" style={{ '--storage-usage': `${(healthStats.storageUsageGB / healthStats.storageCapacityGB) * 100}%` } as React.CSSProperties}></div>
->>>>>>> Stashed changes
                         </div>
                         <Button variant="ghost" size="sm" onClick={() => setActiveView('projects')}>View all</Button>
                     </div>

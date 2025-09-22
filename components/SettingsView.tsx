@@ -11,7 +11,9 @@ interface SettingsViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
   settings: CompanySettings | null;
-  onSettingsUpdate: (updatedSettings: Partial<CompanySettings>) => void;
+  onSettingsUpdate: (updatedSettings: Partial<CompanySettings>) => Promise<CompanySettings>;
+}
+
 const FailedSyncActions: React.FC<{ addToast: (m:string,t:'success'|'error')=>void }> = ({ addToast }) => {
     const [failedActions, setFailedActions] = useState<FailedActionForUI[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -180,20 +182,77 @@ const UserProfileSettings: React.FC<{ user: User, addToast: (m:string,t:'success
             </form>
         </Card>
     )
+<<<<<<< HEAD
+<<<<<<< HEAD
 const CompanySettingsComponent: React.FC<{ settings: CompanySettings, onSettingsUpdate: (updatedSettings: Partial<CompanySettings>) => void }> = ({ settings, onSettingsUpdate }) => {
     
     const handleSettingsChange = (key: keyof CompanySettings, value: any) => {
         if (settings && (settings as any)[key] !== value) {
             onSettingsUpdate({ [key]: value });
+=======
+=======
+>>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
+}
+
+const CompanySettingsComponent: React.FC<{
+    settings: CompanySettings;
+    onSettingsUpdate: (updatedSettings: Partial<CompanySettings>) => Promise<CompanySettings>;
+    addToast: (message: string, type: 'success' | 'error') => void;
+}> = ({ settings, onSettingsUpdate, addToast }) => {
+    const [pendingKey, setPendingKey] = useState<string | null>(null);
+
+    const isPending = (key: string) => pendingKey === key;
+
+    const withUpdate = async (
+        key: string,
+        updates: Partial<CompanySettings>,
+        successMessage: string
+    ) => {
+        setPendingKey(key);
+        try {
+            await onSettingsUpdate(updates);
+            addToast(successMessage, 'success');
+        } catch (error) {
+            console.error('Failed to update company settings', error);
+            const message = error instanceof Error ? error.message : 'Unable to update settings right now.';
+            addToast(message, 'error');
+        } finally {
+            setPendingKey(current => (current === key ? null : current));
+<<<<<<< HEAD
+>>>>>>> e7ec06c (Log sixth autonomous deployment run)
+=======
+>>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
         }
     };
-    
-    const handleAccessibilityChange = (key: keyof CompanySettings['accessibility'], value: any) => {
-        if (settings && settings.accessibility && settings.accessibility[key] !== value) {
-             onSettingsUpdate({
-                accessibility: { ...settings.accessibility, [key]: value }
-            });
+
+    const handleSettingsChange = (key: keyof CompanySettings, value: CompanySettings[typeof key]) => {
+        if ((settings as any)[key] === value || isPending(String(key))) {
+            return;
         }
+
+        const successMessage =
+            key === 'theme'
+                ? `Theme set to ${value === 'dark' ? 'dark' : 'light'} mode.`
+                : 'Company settings updated.';
+
+        void withUpdate(String(key), { [key]: value } as Partial<CompanySettings>, successMessage);
+    };
+
+    const handleAccessibilityChange = (
+        key: keyof CompanySettings['accessibility'],
+        value: CompanySettings['accessibility'][typeof key]
+    ) => {
+        const pendingKeyId = `accessibility.${String(key)}`;
+        if (settings.accessibility[key] === value || isPending(pendingKeyId)) {
+            return;
+        }
+
+        const successMessage = value ? 'High contrast mode enabled.' : 'High contrast mode disabled.';
+        void withUpdate(
+            pendingKeyId,
+            { accessibility: { ...settings.accessibility, [key]: value } },
+            successMessage
+        );
     };
 
     return (
@@ -206,8 +265,9 @@ const CompanySettingsComponent: React.FC<{ settings: CompanySettings, onSettings
                         <select
                             id="theme"
                             value={settings.theme}
-                            onChange={(e) => handleSettingsChange('theme', e.target.value as 'light' | 'dark')}
+                            onChange={event => handleSettingsChange('theme', event.target.value as 'light' | 'dark')}
                             className="p-2 border rounded bg-card"
+                            disabled={isPending('theme')}
                         >
                             <option value="light">Light</option>
                             <option value="dark">Dark</option>
@@ -224,9 +284,10 @@ const CompanySettingsComponent: React.FC<{ settings: CompanySettings, onSettings
                             <p>High Contrast Mode</p>
                             <p className="text-sm text-muted-foreground">Increases text and UI element contrast.</p>
                         </label>
-                        <ToggleSwitch 
-                            checked={settings.accessibility.highContrast} 
-                            onChange={(checked) => handleAccessibilityChange('highContrast', checked)}
+                        <ToggleSwitch
+                            checked={settings.accessibility.highContrast}
+                            onChange={checked => handleAccessibilityChange('highContrast', checked)}
+                            disabled={isPending('accessibility.highContrast')}
                         />
                     </div>
                  </div>
@@ -262,7 +323,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, addToast, sett
             
             {activeTab === 'company' && (
                 <div className="space-y-6">
-                    <CompanySettingsComponent settings={settings} onSettingsUpdate={onSettingsUpdate} />
+                    <CompanySettingsComponent
+                        settings={settings}
+                        onSettingsUpdate={onSettingsUpdate}
+                        addToast={addToast}
+                    />
                     <FailedSyncActions addToast={addToast} />
                 </div>
             )}
