@@ -6,6 +6,7 @@ import { hasPermission } from '../services/auth';
 import { Card } from './ui/Card';
 // FIX: Corrected the import from './MapView' to use the exported 'MapMarkerData' interface.
 import { MapView, MapMarkerData } from './MapView';
+import { useTenant } from '../contexts/TenantContext';
 
 interface ProjectsMapViewProps {
     user: User;
@@ -16,19 +17,29 @@ export const ProjectsMapView: React.FC<ProjectsMapViewProps> = ({ user, addToast
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
     const abortControllerRef = useRef<AbortController | null>(null);
+    const { resolvedTenantId } = useTenant();
 
     const fetchData = useCallback(async () => {
         const controller = new AbortController();
         abortControllerRef.current?.abort();
         abortControllerRef.current = controller;
 
+        if (!resolvedTenantId && !hasPermission(user, Permission.VIEW_ASSIGNED_PROJECTS)) {
+            setProjects([]);
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
         try {
-            if (!user.companyId) return;
-
             let projectsPromise: Promise<Project[]>;
             if (hasPermission(user, Permission.VIEW_ALL_PROJECTS)) {
-                projectsPromise = api.getProjectsByCompany(user.companyId, { signal: controller.signal });
+                if (!resolvedTenantId) {
+                    setProjects([]);
+                    setLoading(false);
+                    return;
+                }
+                projectsPromise = api.getProjectsByCompany(resolvedTenantId, { signal: controller.signal });
             } else {
                 projectsPromise = api.getProjectsByUser(user.id, { signal: controller.signal });
             }
@@ -43,7 +54,7 @@ export const ProjectsMapView: React.FC<ProjectsMapViewProps> = ({ user, addToast
             if (controller.signal.aborted) return;
             setLoading(false);
         }
-    }, [user, addToast]);
+    }, [user, addToast, resolvedTenantId]);
 
     useEffect(() => {
         fetchData();
@@ -72,6 +83,10 @@ export const ProjectsMapView: React.FC<ProjectsMapViewProps> = ({ user, addToast
             }));
     }, [projects]);
     
+    if (!resolvedTenantId && !hasPermission(user, Permission.VIEW_ASSIGNED_PROJECTS)) {
+        return <Card><p>Select a tenant to view project locations.</p></Card>;
+    }
+
     if (loading) {
         return <Card><p>Loading map and project locations...</p></Card>;
     }

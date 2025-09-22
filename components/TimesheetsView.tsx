@@ -7,6 +7,7 @@ import { Card } from './ui/Card';
 import { TimesheetStatusBadge } from './ui/StatusBadge';
 import { Button } from './ui/Button';
 import { hasPermission } from '../services/auth';
+import { useTenant } from '../contexts/TenantContext';
 
 interface TimesheetsViewProps {
   user: User;
@@ -120,6 +121,7 @@ export const TimesheetsView: React.FC<TimesheetsViewProps> = ({ user, addToast }
     const abortControllerRef = useRef<AbortController | null>(null);
 
     const canManage = hasPermission(user, Permission.MANAGE_TIMESHEETS);
+    const { resolvedTenantId } = useTenant();
 
     useEffect(() => {
         // Set default tab based on role
@@ -131,14 +133,20 @@ export const TimesheetsView: React.FC<TimesheetsViewProps> = ({ user, addToast }
         abortControllerRef.current?.abort();
         abortControllerRef.current = controller;
 
+        if (!resolvedTenantId) {
+            setTimesheets([]);
+            setProjects([]);
+            setUsers([]);
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
         try {
-            if (!user.companyId) return;
-
             const [tsData, projData, usersData] = await Promise.all([
-                api.getTimesheetsByCompany(user.companyId, user.id, { signal: controller.signal }),
-                api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
-                api.getUsersByCompany(user.companyId, { signal: controller.signal }),
+                api.getTimesheetsByCompany(resolvedTenantId, user.id, { signal: controller.signal }),
+                api.getProjectsByCompany(resolvedTenantId, { signal: controller.signal }),
+                api.getUsersByCompany(resolvedTenantId, { signal: controller.signal }),
             ]);
 
             if (controller.signal.aborted) return;
@@ -155,7 +163,7 @@ export const TimesheetsView: React.FC<TimesheetsViewProps> = ({ user, addToast }
             if (controller.signal.aborted) return;
             setLoading(false);
         }
-    }, [user, addToast]);
+    }, [user.id, addToast, resolvedTenantId]);
 
     useEffect(() => {
         fetchData();

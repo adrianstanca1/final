@@ -26,6 +26,19 @@ export interface RegisterCredentials {
   inviteToken?: string;
 }
 
+export type RegistrationPayload = Partial<RegisterCredentials & {
+  companyName?: string;
+  companyType?: CompanyType;
+  companyEmail?: string;
+  companyPhone?: string;
+  companyWebsite?: string;
+  companySelection?: 'create' | 'join';
+  inviteToken?: string;
+  role?: Role;
+  updatesOptIn?: boolean;
+  termsAccepted?: boolean;
+}>;
+
 export interface Company {
   id: string;
   name: string;
@@ -93,6 +106,8 @@ export interface User {
   lastName: string;
   email: string;
   password?: string;
+  passwordHash?: string;
+  passwordSalt?: string;
   mfaEnabled?: boolean;
   phone?: string;
   avatar?: string;
@@ -174,6 +189,9 @@ export enum Permission {
   SEND_DIRECT_MESSAGE = 'SEND_DIRECT_MESSAGE',
   ACCESS_ALL_TOOLS = 'ACCESS_ALL_TOOLS',
   SUBMIT_EXPENSE = 'SUBMIT_EXPENSE',
+  MANAGE_TENANTS = 'MANAGE_TENANTS',
+  VIEW_TENANT_ANALYTICS = 'VIEW_TENANT_ANALYTICS',
+  IMPERSONATE_TENANT = 'IMPERSONATE_TENANT',
 }
 
 export type ResourceType = 
@@ -533,6 +551,7 @@ export interface SafetyIncident {
 export interface Notification {
   id: string;
   userId: string;
+  companyId?: string;
   type: NotificationType;
   title: string;
   message: string;
@@ -551,6 +570,7 @@ export interface Document {
   type: string;
   size: number;
   url: string;
+  companyId: string;
   projectId?: string;
   uploadedBy: string;
   tags?: string[];
@@ -658,9 +678,30 @@ export interface SystemHealth {
 }
 
 export interface UsageMetric {
-    name: string;
-    value: number;
-    unit: string;
+  name: string;
+  value: number;
+  unit: string;
+}
+
+export interface TenantSnapshot {
+  companyId: string;
+  companyName: string;
+  plan: SubscriptionPlan;
+  status: Company['status'];
+  userCount: number;
+  activeProjects: number;
+  totalProjects: number;
+  documentCount: number;
+  storageUsageGB: number;
+  featureFlags: CompanyFeatures;
+  lastActivityAt: string | null;
+  openIncidents: number;
+  pendingInvites: number;
+  issues: string[];
+}
+
+export interface TenantDirectoryEntry extends TenantSnapshot {
+  health: SystemHealth['status'];
 }
 
 export interface ProjectAssignment {
@@ -669,12 +710,13 @@ export interface ProjectAssignment {
 }
 
 export interface ResourceAssignment {
-    id: string;
-    resourceType: 'user' | 'equipment';
-    resourceId: string;
-    projectId: string;
-    startDate: string;
-    endDate: string;
+  id: string;
+  resourceType: 'user' | 'equipment';
+  resourceId: string;
+  projectId: string;
+  companyId: string;
+  startDate: string;
+  endDate: string;
 }
 
 export interface FinancialKPIs {
@@ -760,6 +802,7 @@ export const RolePermissions: Record<Role, Set<Permission>> = {
         Permission.VIEW_ALL_TIMESHEETS, Permission.MANAGE_TIMESHEETS, Permission.UPLOAD_DOCUMENTS, Permission.VIEW_DOCUMENTS, Permission.VIEW_SAFETY_REPORTS,
         Permission.MANAGE_SAFETY_REPORTS, Permission.VIEW_FINANCES, Permission.MANAGE_FINANCES, Permission.VIEW_TEAM, Permission.MANAGE_TEAM,
         Permission.MANAGE_EQUIPMENT, Permission.VIEW_AUDIT_LOG, Permission.SEND_DIRECT_MESSAGE, Permission.ACCESS_ALL_TOOLS, Permission.SUBMIT_EXPENSE,
+        Permission.VIEW_TENANT_ANALYTICS,
         Permission.MANAGE_PROJECT_TEMPLATES
     ]),
     [Role.PROJECT_MANAGER]: new Set([
