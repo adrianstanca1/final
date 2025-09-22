@@ -16,6 +16,14 @@ Deliver a production-ready, AI-augmented construction operations platform with r
 4. **Progressive enhancement** – keep mock/offline behaviour for demos while seamlessly upgrading to live backend when configured.
 5. **Operational excellence** – automated testing, observability, and deployment gating before public launch.
 
+## Target Architecture Overview
+- **Frontend**: React + Vite monorepo (TypeScript) organised by business capabilities (`features/`, `entities/`, `shared/`). Global state via React Query + Zustand, design system powered by Tailwind or PandaCSS with theme tokens.
+- **Gateway/API Layer**: Edge-ready BFF (Next.js App Router or NestJS) exposing REST+GraphQL façade, handling auth, caching, and message bus integration. Provides typed SDK consumed by frontend.
+- **Core Services**: Modular services for Auth, Projects, Financials, Operations, Documents running on container platform (Fly.io/Render) with Docker images, auto-scaling, and blue/green deploys.
+- **Data Platform**: PostgreSQL (primary OLTP) + Redis (caching/queues) + S3/GCS (object storage). Prisma as ORM + schema registry. Event streaming via Kafka/Redpanda feeding analytics warehouse (BigQuery/Snowflake).
+- **AI & Analytics**: Dedicated service orchestrating Gemini function-calling, model monitoring, prompt management, and safe-guard rails.
+- **Observability**: OpenTelemetry pipelines shipping traces/logs/metrics to Grafana Cloud or Datadog; uptime monitoring via Checkly/Synthetic tests.
+
 ## Workstreams & Milestones
 
 ### 1. Platform Stabilisation (Week 0-2)
