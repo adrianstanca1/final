@@ -400,63 +400,56 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
 
             <section className="grid gap-6 lg:grid-cols-3">
                 <Card className="space-y-4 p-6">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-4">
                         <div>
                             <h2 className="text-lg font-semibold text-foreground">Focus projects</h2>
                             <p className="text-sm text-muted-foreground">Highest-risk delivery or budget positions.</p>
-
-                            <div className="space-y-8">
-                                <h1 className="text-3xl font-bold text-slate-800">Welcome back, {user.name.split(' ')[0]}!</h1>
-
-                                {isAdmin && healthStats && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                        <KpiCard title="Total Users" value={healthStats.totalUsers} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656-.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} />
-                                        <KpiCard title="Active Projects" value={healthStats.activeProjects} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>} />
-                                        <KpiCard title="Storage Usage" value={`${healthStats.storageUsageGB.toFixed(1)} GB`} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>}>
-                                            <div className="w-full bg-slate-200 rounded-full h-2">
-                                                <div className="bg-sky-500 h-2 rounded-full storage-usage-bar" style={{ '--storage-usage': `${(healthStats.storageUsageGB / healthStats.storageCapacityGB) * 100}%` } as React.CSSProperties}></div>
-                                            </div>
-                                            <Button variant="ghost" size="sm" onClick={() => setActiveView('projects')}>View all</Button>
-                                    </div>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => setActiveView('projects')}>
+                            View all
+                        </Button>
+                    </div>
                     {atRiskProjects.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground">All monitored projects are currently stable.</p>
-                                ) : (
-                                    <div className="space-y-4">
-                                        {atRiskProjects.map(({ project, budget, actual, progress, overdue }) => (
-                                            <div key={project.id} className="space-y-2 rounded-lg border border-border/60 p-3">
-                                                <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <p className="font-semibold text-foreground">{project.name}</p>
-                                                        <p className="text-xs text-muted-foreground">{project.location?.city ?? project.location?.address}</p>
-                                                    </div>
-                                                    <Tag
-                                                        label={project.status.replace(/_/g, ' ')}
-                                                        color={project.status === 'ACTIVE' ? 'green' : project.status === 'ON_HOLD' ? 'yellow' : 'red'}
-                                                    />
-                                                </div>
-                                                <div className="grid grid-cols-3 gap-3 text-xs text-muted-foreground">
-                                                    <div>
-                                                        <p>Budget</p>
-                                                        <p className="font-semibold text-foreground">{formatCurrency(budget)}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p>Actual</p>
-                                                        <p className="font-semibold text-foreground">{formatCurrency(actual)}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p>Progress</p>
-                                                        <p className="font-semibold text-foreground">{clampPercentage(progress)}%</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                                    <span>{overdue ? '⚠️ Overdue milestone' : 'On schedule'}</span>
-                                                    <Button size="sm" variant="secondary" onClick={() => onSelectProject(project)}>Open</Button>
-                                                </div>
-                                            </div>
-                                        ))}
+                        <p className="text-sm text-muted-foreground">All monitored projects are currently stable.</p>
+                    ) : (
+                        <div className="space-y-4">
+                            {atRiskProjects.map(({ project, budget, actual, progress, overdue }) => (
+                                <div key={project.id} className="space-y-2 rounded-lg border border-border/60 p-3">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="font-semibold text-foreground">{project.name}</p>
+                                            <p className="text-xs text-muted-foreground">{project.location?.city ?? project.location?.address}</p>
+                                        </div>
+                                        <Tag
+                                            label={project.status.replace(/_/g, ' ')}
+                                            color={project.status === 'ACTIVE' ? 'green' : project.status === 'ON_HOLD' ? 'yellow' : 'red'}
+                                        />
                                     </div>
-                                )}
-                            </Card>
+                                    <div className="grid grid-cols-3 gap-3 text-xs text-muted-foreground">
+                                        <div>
+                                            <p>Budget</p>
+                                            <p className="font-semibold text-foreground">{formatCurrency(budget)}</p>
+                                        </div>
+                                        <div>
+                                            <p>Actual</p>
+                                            <p className="font-semibold text-foreground">{formatCurrency(actual)}</p>
+                                        </div>
+                                        <div>
+                                            <p>Progress</p>
+                                            <p className="font-semibold text-foreground">{clampPercentage(progress)}%</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                        <span>{overdue ? '⚠️ Overdue milestone' : 'On schedule'}</span>
+                                        <Button size="sm" variant="secondary" onClick={() => onSelectProject(project)}>
+                                            Open
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </Card>
                             <Card className="space-y-4 p-6">
                                 <h2 className="text-lg font-semibold text-foreground">Upcoming deadlines</h2>
                                 {upcomingDeadlines.length === 0 ? (

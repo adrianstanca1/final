@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, ReactNode } from 'react';
-import { User, Company, LoginCredentials, AuthState, Permission } from '../types';
+import { User, Company, LoginCredentials, AuthState, Permission, SocialProvider } from '../types';
 import { authApi } from '../services/mockApi';
 import { hasPermission as checkPermission, authService } from '../services/auth';
 import { api } from '../services/mockApi';
@@ -77,6 +77,7 @@ const readStoredTokens = (): { token: string | null; refreshToken: string | null
 interface AuthContextType extends AuthState {
     login: (credentials: LoginCredentials) => Promise<{ mfaRequired: boolean; userId?: string }>;
     register: (credentials: RegistrationPayload) => Promise<AuthenticatedSession>;
+    socialLogin: (provider: SocialProvider, profile?: { email?: string; name?: string }) => Promise<AuthenticatedSession>;
     logout: () => void;
     hasPermission: (permission: Permission) => boolean;
     verifyMfaAndFinalize: (userId: string, code: string) => Promise<void>;
@@ -345,6 +346,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
 
+    const socialLogin = async (
+        provider: SocialProvider,
+        profile: { email?: string; name?: string } = {}
+    ): Promise<AuthenticatedSession> => {
+        setAuthState(prev => ({ ...prev, loading: true, error: null }));
+        try {
+            const session = await authClient.socialLogin(provider, profile);
+            finalizeLogin(session);
+            return session;
+        } catch (error: any) {
+            setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Social sign-in failed' }));
+            throw error;
+        }
+    };
+
     const hasPermission = (permission: Permission): boolean => {
         return checkPermission(authState.user, permission);
     };
@@ -385,6 +401,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         ...authState,
         login,
         register,
+        socialLogin,
         logout,
         hasPermission,
         verifyMfaAndFinalize,

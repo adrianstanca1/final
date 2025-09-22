@@ -1,41 +1,28 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { useAuth } from '../contexts/AuthContext';
 import { authClient, InvitePreview } from '../services/authClient';
-import { CompanyType, RegistrationPayload, Role } from '../types';
+import { CompanyType, RegistrationPayload, Role, SocialProvider } from '../types';
 import { AuthEnvironmentNotice } from './auth/AuthEnvironmentNotice';
 import {
     clearRegistrationDraft,
     loadRegistrationDraft,
+    registrationDraftHasContent,
     saveRegistrationDraft,
     type RegistrationStep,
-    registrationDraftHasContent,
 } from '../utils/registrationDraft';
 import { persistRememberedEmail } from '../utils/authRememberMe';
-
-export const UserRegistration: React.FC<{ onSwitchToLogin: () => void }> = ({ onSwitchToLogin }) => (
-    <Card className="p-6">
-        <h2 className="text-lg font-semibold">Registration temporarily unavailable</h2>
-        <p className="text-sm text-muted-foreground mt-1">Please contact support or use an existing account.</p>
-        <div className="mt-4">
-            <Button type="button" onClick={onSwitchToLogin}>Back to login</Button>
-        </div>
-    </Card>
-);
-
-/* BEGIN legacy implementation (temporarily disabled to stabilize build)
 
 interface UserRegistrationProps {
     onSwitchToLogin: () => void;
 }
 
-type FormErrors = Partial<Record<keyof RegistrationState, string>>;
-
 interface RegistrationState {
     firstName: string;
     lastName: string;
     email: string;
+    username: string;
     phone: string;
     password: string;
     confirmPassword: string;
@@ -51,10 +38,14 @@ interface RegistrationState {
     termsAccepted: boolean;
 }
 
+type FormErrors = Partial<Record<keyof RegistrationState, string>>;
+
 const INITIAL_STATE: RegistrationState = {
     firstName: '',
     lastName: '',
     email: '',
+    username: '',
+
     phone: '',
     password: '',
     confirmPassword: '',
@@ -70,6 +61,18 @@ const INITIAL_STATE: RegistrationState = {
     termsAccepted: false,
 };
 
+const STEP_SEQUENCE: Array<{ id: RegistrationStep; title: string; description: string }> = [
+    { id: 'account', title: 'Your profile', description: 'Tell us who will own the workspace.' },
+    { id: 'workspace', title: 'Workspace', description: 'Create a company or join an existing tenant.' },
+    { id: 'confirm', title: 'Finish', description: 'Accept terms and review the tenant snapshot.' },
+];
+
+const COMPANY_TYPES: { value: CompanyType; label: string }[] = [
+    { value: 'GENERAL_CONTRACTOR', label: 'General contractor' },
+    { value: 'SUBCONTRACTOR', label: 'Subcontractor' },
+    { value: 'SUPPLIER', label: 'Supplier' },
+    { value: 'CONSULTANT', label: 'Consultant' },
+    { value: 'CLIENT', label: 'Client / Asset owner' },
 const STEP_SEQUENCE: { id: RegistrationStep; title: string; description: string }[] = [
     { id: 'account', title: 'Account', description: 'Introduce yourself and secure access.' },
     { id: 'workspace', title: 'Workspace', description: 'Create a company or join an existing team.' },
@@ -93,6 +96,44 @@ const COMPANY_TYPES: { value: CompanyType; label: string }[] = [
 const ROLE_DETAILS: Record<Role, { label: string; description: string }> = {
     [Role.OWNER]: {
         label: 'Owner',
+        description: 'Full tenant administration, billing and security authority.',
+    },
+    [Role.ADMIN]: {
+        label: 'Administrator',
+        description: 'Manage people, approvals, permissions and commercial workflows.',
+    },
+    [Role.PROJECT_MANAGER]: {
+        label: 'Project manager',
+        description: 'Coordinate schedules, tasks, stakeholders and reporting.',
+    },
+    [Role.FOREMAN]: {
+        label: 'Foreman',
+        description: 'Lead on-site crews and escalate safety issues instantly.',
+    },
+    [Role.OPERATIVE]: {
+        label: 'Operative',
+        description: 'Log time, update tasks and collaborate with the site team.',
+    },
+    [Role.CLIENT]: {
+        label: 'Client',
+        description: 'Follow milestones, approve changes and review documentation.',
+    },
+    [Role.PRINCIPAL_ADMIN]: {
+        label: 'Platform principal admin',
+        description: 'Reserved for AS Agents core administration team.',
+    },
+};
+
+const BENEFITS: string[] = [
+    'Multitenant oversight lets you spin up dedicated workspaces in minutes.',
+    'AI copilots accelerate bid writing, forecasting and daily progress analysis.',
+    'Field-friendly tools capture safety, timesheets and site evidence offline.',
+    'Granular permissions align office, site and partner access in one hub.',
+];
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const URL_REGEX = /^https?:\/\/\S+$/i;
+const PASSWORD_MIN_LENGTH = 8;
         description: 'Full administrative access, billing controls, and user management.',
     },
     [Role.ADMIN]: {
@@ -159,99 +200,61 @@ const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password }) => 
 const StepIndicator: React.FC<{ currentStep: RegistrationStep }> = ({ currentStep }) => (
     <ol className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {STEP_SEQUENCE.map((step, index) => {
-            const isCompleted = STEP_SEQUENCE.findIndex(s => s.id === currentStep) > index;
             const isActive = step.id === currentStep;
+            const isComplete = STEP_SEQUENCE.findIndex(item => item.id === currentStep) > index;
             return (
-                <li key={step.id} className="flex flex-1 items-center gap-3">
-                    <div
-                        className={`flex h-9 w-9 items-center justify-center rounded-full border text-sm font-semibold transition-colors ${
-                            isCompleted
-                                ? 'border-primary bg-primary text-primary-foreground'
-                                : isActive
-                                    ? 'border-primary text-primary'
-                                    : 'border-border text-muted-foreground'
-                        }`}
-                    >
-                        {isCompleted ? '✓' : index + 1}
-                    </div>
-                    <div>
-                        <p className={`text-sm font-semibold ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>{step.title}</p>
-                        <p className="text-xs text-muted-foreground">{step.description}</p>
-                    </div>
+                <li
+                    key={step.id}
+                    className={`flex-1 rounded-lg border px-4 py-3 text-left transition ${
+                        isActive
+                            ? 'border-primary bg-primary/5 text-primary'
+                            : isComplete
+                            ? 'border-emerald-400 bg-emerald-50 text-emerald-600'
+                            : 'border-border bg-muted/40 text-muted-foreground'
+                    }`}
+                >
+                    <div className="text-xs font-semibold uppercase tracking-wide">Step {index + 1}</div>
+                    <div className="text-sm font-semibold text-foreground">{step.title}</div>
+                    <p className="text-xs text-muted-foreground">{step.description}</p>
                 </li>
             );
         })}
     </ol>
 );
 
-interface TextFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
-    label: string;
-    error?: string;
-    hint?: string;
-}
-
-const TextField: React.FC<TextFieldProps> = ({ label, error, hint, className, id, ...props }) => (
-    <div className="space-y-1">
-        <label htmlFor={id} className="block text-sm font-medium text-muted-foreground">
-            {label}
-        </label>
-        <input
-            id={id}
-            className={`w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary ${
-                error ? 'border-destructive' : 'border-border'
-            } ${className ?? ''}`}
-            {...props}
-        />
-        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-        {error && <p className="text-xs text-destructive">{error}</p>}
-    </div>
-);
-
-interface SelectFieldProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
-    label: string;
-    options: { value: string; label: string }[];
-    error?: string;
-}
-
-const SelectField: React.FC<SelectFieldProps> = ({ label, options, error, id, className, ...props }) => (
-    <div className="space-y-1">
-        <label htmlFor={id} className="block text-sm font-medium text-muted-foreground">
-            {label}
-        </label>
-        <select
-            id={id}
-            className={`w-full rounded-md border px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary ${
-                error ? 'border-destructive' : 'border-border'
-            } ${className ?? ''}`}
-            {...props}
+const SocialAuthButtons: React.FC<{
+    onSocial: (provider: SocialProvider) => void;
+    loading: boolean;
+}> = ({ onSocial, loading }) => (
+    <div className="space-y-3">
+        <Button
+            type="button"
+            variant="secondary"
+            className="w-full flex items-center justify-center gap-2"
+            onClick={() => onSocial('google')}
+            isLoading={loading}
         >
-            <option value="">Select…</option>
-            {options.map(option => (
-                <option key={option.value} value={option.value}>
-                    {option.label}
-                </option>
-            ))}
-        </select>
-        {error && <p className="text-xs text-destructive">{error}</p>}
-    </div>
-);
-
-interface CheckboxFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
-    label: React.ReactNode;
-    description?: string;
-    error?: string;
-}
-
-const CheckboxField: React.FC<CheckboxFieldProps> = ({ label, description, error, ...props }) => (
-    <div className="space-y-1">
-        <label className="flex items-start gap-3 text-sm text-muted-foreground">
-            <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-border text-primary focus:ring-primary" {...props} />
-            <span>
-                <span className="font-medium text-foreground">{label}</span>
-                {description && <span className="block text-xs text-muted-foreground">{description}</span>}
-            </span>
-        </label>
-        {error && <p className="text-xs text-destructive">{error}</p>}
+            <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.09-1.92 3.28-4.74 3.28-8.09z" />
+                <path fill="#34A853" d="M12 24c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.25 1.05-3.71 1.05-2.85 0-5.26-1.92-6.13-4.49H2.18v2.82C3.99 21.53 7.68 24 12 24z" />
+                <path fill="#FBBC05" d="M5.87 15.13c-.22-.66-.35-1.36-.35-2.13s.13-1.47.35-2.13V8.05H2.18A11.99 11.99 0 000 12.99c0 1.9.45 3.69 1.18 4.94l4.69-2.8z" />
+                <path fill="#EA4335" d="M12 4.75c1.62 0 3.07.56 4.21 1.64l3.16-3.16C17.46 1.16 14.97 0 12 0 7.68 0 3.99 2.47 2.18 6.05l3.69 2.82C6.74 6.67 9.15 4.75 12 4.75z" />
+                <path fill="none" d="M0 0h24v24H0z" />
+            </svg>
+            Continue with Google
+        </Button>
+        <Button
+            type="button"
+            variant="secondary"
+            className="w-full flex items-center justify-center gap-2"
+            onClick={() => onSocial('facebook')}
+            isLoading={loading}
+        >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="#1877F2" d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.09 4.388 23.093 10.125 24v-8.437H7.078V12.07h3.047V9.412c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953h-1.513c-1.492 0-1.955.931-1.955 1.887v2.252h3.328l-.532 3.493h-2.796V24C19.612 23.093 24 18.09 24 12.073z" />
+            </svg>
+            Continue with Facebook
+        </Button>
     </div>
 );
 
@@ -277,44 +280,24 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
 
 
 export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLogin }) => {
-    const { register, error: authError, loading: isSubmitting } = useAuth();
+    const { register, socialLogin, error: authError, loading: isSubmitting } = useAuth();
 
     const [step, setStep] = useState<RegistrationStep>('account');
     const [form, setForm] = useState<RegistrationState>(INITIAL_STATE);
     const [errors, setErrors] = useState<FormErrors>({});
     const [generalError, setGeneralError] = useState<string | null>(null);
-
     const [emailStatus, setEmailStatus] = useState<'idle' | 'checking' | 'available' | 'unavailable'>('idle');
     const [invitePreview, setInvitePreview] = useState<InvitePreview | null>(null);
     const [inviteError, setInviteError] = useState<string | null>(null);
     const [isCheckingInvite, setIsCheckingInvite] = useState(false);
     const [draftRestored, setDraftRestored] = useState(false);
-
-    const hasHydratedDraftRef = useRef(false);
+    const [initialized, setInitialized] = useState(false);
 
     useEffect(() => {
         setGeneralError(authError);
     }, [authError]);
 
     useEffect(() => {
-        if (emailStatus === 'available') {
-            setErrors(prev => {
-                if (!prev.email) {
-                    return prev;
-                }
-                const next = { ...prev };
-                delete next.email;
-                return next;
-            });
-        }
-    }, [emailStatus]);
-
-    useEffect(() => {
-        if (hasHydratedDraftRef.current) {
-            return;
-        }
-
-        let isMounted = true;
         const draft = loadRegistrationDraft();
         if (draft) {
             setStep(draft.step);
@@ -323,121 +306,75 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                 firstName: draft.firstName,
                 lastName: draft.lastName,
                 email: draft.email,
+                username: draft.username ?? prev.username,
                 phone: draft.phone,
                 companySelection: draft.companySelection,
                 companyName: draft.companyName,
-                companyType: draft.companyType,
+                companyType: draft.companyType ?? '',
                 companyEmail: draft.companyEmail,
                 companyPhone: draft.companyPhone,
                 companyWebsite: draft.companyWebsite,
                 inviteToken: draft.inviteToken,
-                role: draft.role,
-                updatesOptIn: draft.updatesOptIn,
-                termsAccepted: draft.termsAccepted,
+                role: (draft.role as Role) ?? '',
+                updatesOptIn: draft.updatesOptIn ?? prev.updatesOptIn,
+                termsAccepted: draft.termsAccepted ?? prev.termsAccepted,
             }));
             setDraftRestored(registrationDraftHasContent(draft));
-            setInviteError(null);
-            setEmailStatus('idle');
-
-            if (draft.companySelection === 'join' && draft.inviteToken) {
-                setIsCheckingInvite(true);
-                authClient
-                    .lookupInviteToken(draft.inviteToken)
-                    .then(preview => {
-                        if (!isMounted) return;
-                        setInvitePreview(preview);
-                        setErrors(prev => {
-                            const next = { ...prev };
-                            delete next.inviteToken;
-                            delete next.role;
-                            return next;
-                        });
-                        if (!preview.allowedRoles.includes(draft.role as Role)) {
-                            setForm(prev => ({
-                                ...prev,
-                                role: preview.suggestedRole || preview.allowedRoles[0] || '',
-                            }));
-                        }
-                    })
-                    .catch(error => {
-                        if (!isMounted) return;
-                        setInvitePreview(null);
-                        const message = error?.message || 'We could not validate that invite token. Please double-check and try again.';
-                        setInviteError(message);
-                        setErrors(prev => ({ ...prev, inviteToken: message }));
-                    })
-                    .finally(() => {
-                        if (!isMounted) return;
-                        setIsCheckingInvite(false);
-                    });
-            }
         }
-
-        hasHydratedDraftRef.current = true;
-        return () => {
-            isMounted = false;
-        };
+        setInitialized(true);
     }, []);
 
-    const companySelection = form.companySelection;
-
     useEffect(() => {
-        if (companySelection === 'create') {
-            setForm(prev => ({
-                ...prev,
-                role: Role.OWNER,
-                inviteToken: '',
-            }));
-            setInvitePreview(null);
-            setInviteError(null);
-            setErrors(prev => {
-                const next = { ...prev };
-                delete next.inviteToken;
-                delete next.role;
-                return next;
-            });
-        } else if (companySelection === 'join') {
-            setForm(prev => ({
-                ...prev,
-                role: prev.role && prev.role !== Role.OWNER ? prev.role : '',
-            }));
-        }
-    }, [companySelection]);
+        if (!initialized) return;
+        saveRegistrationDraft({
+            step,
+            firstName: form.firstName,
+            lastName: form.lastName,
+            email: form.email,
+            username: form.username,
+            phone: form.phone,
+            companySelection: form.companySelection,
+            companyName: form.companyName,
+            companyType: form.companyType || undefined,
+            companyEmail: form.companyEmail,
+            companyPhone: form.companyPhone,
+            companyWebsite: form.companyWebsite,
+            inviteToken: form.inviteToken,
+            role: form.role || undefined,
+            updatesOptIn: form.updatesOptIn,
+            termsAccepted: form.termsAccepted,
+        });
+    }, [form, step, initialized]);
 
     const allowedRoles = useMemo(() => {
-        if (companySelection === 'create') {
+        if (form.companySelection === 'create') {
             return [Role.OWNER];
         }
-        if (companySelection === 'join' && invitePreview) {
+        if (form.companySelection === 'join' && invitePreview) {
             return invitePreview.allowedRoles;
         }
-        if (companySelection === 'join') {
+        if (form.companySelection === 'join') {
             return [];
         }
-        return [Role.ADMIN, Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE];
-    }, [companySelection, invitePreview]);
+        return [Role.ADMIN, Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE, Role.CLIENT];
+    }, [form.companySelection, invitePreview]);
 
-    const handleFieldChange = <K extends keyof RegistrationState>(field: K, value: RegistrationState[K]) => {
+    const updateField = <K extends keyof RegistrationState>(field: K, value: RegistrationState[K]) => {
         setForm(prev => ({ ...prev, [field]: value }));
-        setGeneralError(null);
         setErrors(prev => {
-            if (!prev[field]) {
-                return prev;
-            }
+            if (!prev[field]) return prev;
             const next = { ...prev };
             delete next[field];
             return next;
         });
-
+        setGeneralError(null);
+        if (draftRestored) setDraftRestored(false);
         if (field === 'email') {
             setEmailStatus('idle');
         }
         if (field === 'inviteToken') {
             setInvitePreview(null);
             setInviteError(null);
-        }
-        if (draftRestored) {
-            setDraftRestored(false);
         }
     };
 
@@ -455,572 +392,586 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
             }
         } catch (error: any) {
             setEmailStatus('idle');
-            setGeneralError(error?.message || 'Unable to verify email right now. Please try again later.');
+            setGeneralError(error?.message || 'Unable to verify email availability right now.');
         }
     };
 
     const handleInviteLookup = async () => {
         const token = form.inviteToken.trim();
         if (!token) {
-            setErrors(prev => ({ ...prev, inviteToken: 'Enter the invite token provided to you.' }));
-            setInviteError('Invite token is required.');
+            setErrors(prev => ({ ...prev, inviteToken: 'Enter the invite token supplied by your administrator.' }));
             return;
         }
         setIsCheckingInvite(true);
-        setInviteError(null);
         try {
             const preview = await authClient.lookupInviteToken(token);
             setInvitePreview(preview);
-            setErrors(prev => {
-                const next = { ...prev };
-                delete next.inviteToken;
-                delete next.role;
-                return next;
-            });
-            if (!preview.allowedRoles.includes(form.role as Role)) {
-                handleFieldChange('role', preview.suggestedRole || preview.allowedRoles[0]);
+            setInviteError(null);
+            if (preview.suggestedRole && preview.allowedRoles.includes(preview.suggestedRole)) {
+                updateField('role', preview.suggestedRole);
             }
         } catch (error: any) {
-            setInvitePreview(null);
-            const message = error?.message || 'We could not validate that invite token. Please double-check and try again.';
+            const message = error?.message || 'Invite token could not be validated.';
             setInviteError(message);
             setErrors(prev => ({ ...prev, inviteToken: message }));
+            setInvitePreview(null);
         } finally {
             setIsCheckingInvite(false);
         }
     };
 
     useEffect(() => {
-        if (!hasHydratedDraftRef.current) {
-            return;
+        if (form.companySelection === 'create') {
+            updateField('role', Role.OWNER);
+            updateField('inviteToken', '');
+            setInvitePreview(null);
+            setInviteError(null);
+        } else if (form.companySelection === 'join') {
+            updateField('role', form.role && form.role !== Role.OWNER ? form.role : '');
         }
-
-        saveRegistrationDraft({
-            step,
-            firstName: form.firstName,
-            lastName: form.lastName,
-            email: form.email,
-            phone: form.phone,
-            companySelection: form.companySelection,
-            companyName: form.companyName,
-            companyType: form.companyType,
-            companyEmail: form.companyEmail,
-            companyPhone: form.companyPhone,
-            companyWebsite: form.companyWebsite,
-            inviteToken: form.inviteToken,
-            role: form.role,
-            updatesOptIn: form.updatesOptIn,
-            termsAccepted: form.termsAccepted,
-        });
-    }, [
-        step,
-        form.firstName,
-        form.lastName,
-        form.email,
-        form.phone,
-        form.companySelection,
-        form.companyName,
-        form.companyType,
-        form.companyEmail,
-        form.companyPhone,
-        form.companyWebsite,
-        form.inviteToken,
-        form.role,
-        form.updatesOptIn,
-        form.termsAccepted,
-    ]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [form.companySelection]);
 
     const validateStep = (currentStep: RegistrationStep): boolean => {
         const nextErrors: FormErrors = {};
-        const clearTargets = STEP_FIELDS[currentStep];
-
-        switch (currentStep) {
-            case 'account': {
-                if (!form.firstName.trim()) nextErrors.firstName = 'Enter your first name.';
-                if (!form.lastName.trim()) nextErrors.lastName = 'Enter your last name.';
-                if (!form.email.trim() || !EMAIL_REGEX.test(form.email)) {
-                    nextErrors.email = 'Provide a valid work email address.';
-                } else if (emailStatus === 'unavailable') {
-                    nextErrors.email = 'This email is already registered. Sign in instead.';
-                } else if (emailStatus === 'checking') {
-                    nextErrors.email = 'Hold on while we finish checking this email address.';
-                }
-                if (form.phone && !PHONE_REGEX.test(form.phone)) {
-                    nextErrors.phone = 'Enter a valid phone number or leave this blank.';
-                }
-                const password = form.password;
-                const requirements = [
-                    password.length >= 8,
-                    /[A-Z]/.test(password),
-                    /[a-z]/.test(password),
-                    /\d/.test(password),
-                    /[^A-Za-z0-9]/.test(password),
-                ];
-                if (!requirements.every(Boolean)) {
-                    nextErrors.password = 'Use at least 8 characters with upper/lower case letters, a number, and a symbol.';
-                }
-                if (password !== form.confirmPassword) {
-                    nextErrors.confirmPassword = 'Passwords must match exactly.';
-                }
-                break;
+        if (currentStep === 'account') {
+            if (!form.firstName.trim()) nextErrors.firstName = 'Enter your first name.';
+            if (!form.lastName.trim()) nextErrors.lastName = 'Enter your last name.';
+            if (!EMAIL_REGEX.test(form.email.trim())) nextErrors.email = 'Provide a valid email address.';
+            if (form.username && form.username.trim().length < 3) nextErrors.username = 'Username must be at least 3 characters.';
+            if (form.password.length < PASSWORD_MIN_LENGTH) {
+                nextErrors.password = `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`;
             }
-            case 'workspace': {
-                if (!form.companySelection) {
-                    nextErrors.companySelection = 'Choose whether to create a workspace or join an existing one.';
-                } else if (form.companySelection === 'create') {
-                    if (!form.companyName.trim()) nextErrors.companyName = 'Provide a company name.';
-                    if (!form.companyType) nextErrors.companyType = 'Select a company type.';
-                    if (form.companyEmail && !EMAIL_REGEX.test(form.companyEmail)) {
-                        nextErrors.companyEmail = 'Enter a valid email address or leave it blank.';
-                    }
-                    if (form.companyPhone && !PHONE_REGEX.test(form.companyPhone)) {
-                        nextErrors.companyPhone = 'Use digits and country code or leave this field empty.';
-                    }
-                    if (form.companyWebsite && !URL_REGEX.test(form.companyWebsite)) {
-                        nextErrors.companyWebsite = 'Include https:// in the company website URL.';
-                    }
-                } else if (form.companySelection === 'join') {
-                    if (!form.inviteToken.trim()) {
-                        nextErrors.inviteToken = 'Enter the invite token provided by your administrator.';
-                    } else if (!invitePreview) {
-                        nextErrors.inviteToken = 'Verify the invite token before continuing.';
-                    }
-                    if (!form.role) {
-                        nextErrors.role = 'Select the role you will assume in this workspace.';
-                    }
-                }
-                break;
-            }
-            case 'confirm': {
-                if (!form.termsAccepted) {
-                    nextErrors.termsAccepted = 'You must accept the terms of service to continue.';
-                }
-                break;
+            if (form.confirmPassword !== form.password) {
+                nextErrors.confirmPassword = 'Passwords do not match.';
             }
         }
-
-        setErrors(prev => {
-            const cleaned = { ...prev };
-            clearTargets.forEach(field => {
-                delete cleaned[field];
-            });
-            return { ...cleaned, ...nextErrors };
-        });
-
-        return Object.keys(nextErrors).length === 0;
-    };
-
-    const ensureAllStepsValid = (): boolean => {
-        for (const { id } of STEP_SEQUENCE) {
-            if (!validateStep(id)) {
-                setStep(id);
-                return false;
+        if (currentStep === 'workspace') {
+            if (!form.companySelection) {
+                nextErrors.companySelection = 'Select whether you are creating or joining a workspace.';
             }
+            if (form.companySelection === 'create') {
+                if (!form.companyName.trim()) nextErrors.companyName = 'Provide the company or workspace name.';
+                if (!form.companyType) nextErrors.companyType = 'Select a company type.';
+                if (form.companyEmail && !EMAIL_REGEX.test(form.companyEmail.trim())) {
+                    nextErrors.companyEmail = 'Company email must be valid.';
+                }
+                if (form.companyWebsite && !URL_REGEX.test(form.companyWebsite.trim())) {
+                    nextErrors.companyWebsite = 'Enter a full URL starting with http or https.';
+                }
+            }
+            if (form.companySelection === 'join') {
+                if (!form.inviteToken.trim()) nextErrors.inviteToken = 'Invite token is required to join an existing tenant.';
+                if (allowedRoles.length > 0 && !form.role) {
+                    nextErrors.role = 'Choose the role granted by your invite.';
+                }
+            }
+        }
+        if (currentStep === 'confirm') {
+            if (!form.termsAccepted) {
+                nextErrors.termsAccepted = 'You must accept the AS Agents terms and policies to continue.';
+            }
+        }
+        setErrors(prev => ({ ...prev, ...nextErrors }));
+        if (Object.keys(nextErrors).length > 0) {
+            setGeneralError('Please review the highlighted fields.');
+            return false;
         }
         return true;
     };
 
-    const goToNextStep = () => {
-        const currentIndex = STEP_SEQUENCE.findIndex(s => s.id === step);
-        if (validateStep(step) && currentIndex < STEP_SEQUENCE.length - 1) {
-            setStep(STEP_SEQUENCE[currentIndex + 1].id);
+    const goToNextStep = async () => {
+        if (!validateStep(step)) return;
+        if (step === 'account') {
+            setStep('workspace');
+        } else if (step === 'workspace') {
+            setStep('confirm');
         }
     };
 
     const goToPreviousStep = () => {
-        const currentIndex = STEP_SEQUENCE.findIndex(s => s.id === step);
-        if (currentIndex > 0) {
-            setStep(STEP_SEQUENCE[currentIndex - 1].id);
+        if (step === 'workspace') {
+            setStep('account');
+        } else if (step === 'confirm') {
+            setStep('workspace');
         }
     };
 
-    const handleSubmit = async () => {
-        if (!ensureAllStepsValid()) {
-            return;
-        }
-        setGeneralError(null);
-
-        const payload: RegistrationPayload = {
-            firstName: form.firstName.trim(),
-            lastName: form.lastName.trim(),
-            email: form.email.trim().toLowerCase(),
-            password: form.password,
-            phone: form.phone.trim() || undefined,
-            companySelection: form.companySelection || undefined,
-            companyName: form.companySelection === 'create' ? form.companyName.trim() : undefined,
-            companyType: form.companySelection === 'create' ? (form.companyType || undefined) : undefined,
-            companyEmail: form.companySelection === 'create' ? form.companyEmail.trim().toLowerCase() || undefined : undefined,
-            companyPhone: form.companySelection === 'create' ? form.companyPhone.trim() || undefined : undefined,
-            companyWebsite: form.companySelection === 'create' ? form.companyWebsite.trim() || undefined : undefined,
-            inviteToken: form.companySelection === 'join' ? form.inviteToken.trim() : undefined,
-            role: form.role || undefined,
-            updatesOptIn: form.updatesOptIn,
-            termsAccepted: form.termsAccepted,
-        };
-
-        try {
-            await register(payload);
-            clearRegistrationDraft();
-            persistRememberedEmail(true, payload.email);
-        } catch (error) {
-            // Errors are surfaced through auth context
-        }
-    };
-
-    const handleResetDraft = () => {
-        clearRegistrationDraft();
-        setForm(() => ({ ...INITIAL_STATE }));
-        setStep('account');
-        setErrors({});
-        setGeneralError(null);
-        setInvitePreview(null);
-        setInviteError(null);
-        setEmailStatus('idle');
-        setDraftRestored(false);
-        setIsCheckingInvite(false);
-    };
-
-    const handleFormSubmit = (event: React.FormEvent) => {
+    const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
-        if (step === 'confirm') {
-            handleSubmit();
-        } else {
-            goToNextStep();
+        if (!validateStep('confirm')) return;
+        setGeneralError(null);
+        try {
+            const payload: RegistrationPayload = {
+                firstName: form.firstName.trim(),
+                lastName: form.lastName.trim(),
+                email: form.email.trim(),
+                username: form.username.trim() || undefined,
+                phone: form.phone.trim() || undefined,
+                password: form.password,
+                confirmPassword: form.confirmPassword,
+                companySelection: form.companySelection || undefined,
+                companyName: form.companySelection === 'create' ? form.companyName.trim() : undefined,
+                companyType: form.companySelection === 'create' ? (form.companyType || undefined) : undefined,
+                companyEmail: form.companySelection === 'create' ? form.companyEmail.trim() || undefined : undefined,
+                companyPhone: form.companySelection === 'create' ? form.companyPhone.trim() || undefined : undefined,
+                companyWebsite: form.companySelection === 'create' ? form.companyWebsite.trim() || undefined : undefined,
+                inviteToken: form.companySelection === 'join' ? form.inviteToken.trim() : undefined,
+                role: form.companySelection === 'join' ? (form.role || undefined) : Role.OWNER,
+                updatesOptIn: form.updatesOptIn,
+                termsAccepted: form.termsAccepted,
+            };
+            const session = await register(payload);
+            persistRememberedEmail(true, form.email.trim().toLowerCase());
+            clearRegistrationDraft();
+            if (session?.user?.email) {
+                console.info('Registration completed for', session.user.email);
+            }
+        } catch (error: any) {
+            setGeneralError(error?.message || 'Registration failed. Please try again.');
         }
     };
 
-    const renderAccountStep = () => (
-        <div className="space-y-5">
-            <div className="grid gap-4 sm:grid-cols-2">
-                <TextField
-                    id="firstName"
-                    label="First name"
-                    value={form.firstName}
-                    onChange={event => handleFieldChange('firstName', event.target.value)}
-                    error={errors.firstName}
-                    autoComplete="given-name"
-                />
-                <TextField
-                    id="lastName"
-                    label="Last name"
-                    value={form.lastName}
-                    onChange={event => handleFieldChange('lastName', event.target.value)}
-                    error={errors.lastName}
-                    autoComplete="family-name"
-                />
-            </div>
-            <TextField
-                id="email"
-                label="Work email"
-                type="email"
-                value={form.email}
-                onChange={event => handleFieldChange('email', event.target.value)}
-                onBlur={handleEmailBlur}
-                error={errors.email}
-                autoComplete="email"
-                hint="We use this for secure login links and workspace notifications."
-            />
-            {emailStatus === 'checking' && <p className="text-xs text-muted-foreground">Checking email availability…</p>}
-            {emailStatus === 'available' && !errors.email && <p className="text-xs text-emerald-600">Great news — this email is available.</p>}
-            {emailStatus === 'unavailable' && <p className="text-xs text-destructive">This email is already registered. Try signing in instead.</p>}
-            <div className="grid gap-4 sm:grid-cols-2">
-                <TextField
-                    id="password"
-                    label="Password"
-                    type="password"
-                    value={form.password}
-                    onChange={event => handleFieldChange('password', event.target.value)}
-                    error={errors.password}
-                    autoComplete="new-password"
-                />
-                <TextField
-                    id="confirmPassword"
-                    label="Confirm password"
-                    type="password"
-                    value={form.confirmPassword}
-                    onChange={event => handleFieldChange('confirmPassword', event.target.value)}
-                    error={errors.confirmPassword}
-                    autoComplete="new-password"
-                />
-            </div>
-            <PasswordStrengthMeter password={form.password} />
-            <TextField
-                id="phone"
-                label="Phone number (optional)"
-                type="tel"
-                value={form.phone}
-                onChange={event => handleFieldChange('phone', event.target.value)}
-                error={errors.phone}
-                hint="Include country code if you want SMS reminders."
-            />
-        </div>
-    );
-
-    const renderWorkspaceStep = () => (
-        <div className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2">
-                <SelectionCard
-                    title="Create a new workspace"
-                    description="Set up a workspace for your company and invite teammates later."
-                    isSelected={form.companySelection === 'create'}
-                    onSelect={() => handleFieldChange('companySelection', 'create')}
-                />
-                <SelectionCard
-                    title="Join an existing workspace"
-                    description="Use the invite token shared by an administrator to join instantly."
-                    isSelected={form.companySelection === 'join'}
-                    onSelect={() => handleFieldChange('companySelection', 'join')}
-                />
-            </div>
-            {errors.companySelection && <p className="text-xs text-destructive">{errors.companySelection}</p>}
-
-            {form.companySelection === 'create' && (
-                <div className="space-y-4">
-                    <TextField
-                        id="companyName"
-                        label="Company name"
-                        value={form.companyName}
-                        onChange={event => handleFieldChange('companyName', event.target.value)}
-                        error={errors.companyName}
-                        autoComplete="organization"
-                    />
-                    <SelectField
-                        id="companyType"
-                        label="Company type"
-                        value={form.companyType}
-                        onChange={event => handleFieldChange('companyType', event.target.value as CompanyType | '')}
-                        options={COMPANY_TYPES}
-                        error={errors.companyType}
-                    />
-                    <TextField
-                        id="companyEmail"
-                        label="Company email (optional)"
-                        type="email"
-                        value={form.companyEmail}
-                        onChange={event => handleFieldChange('companyEmail', event.target.value)}
-                        error={errors.companyEmail}
-                    />
-                    <div className="grid gap-4 sm:grid-cols-2">
-                        <TextField
-                            id="companyPhone"
-                            label="Company phone (optional)"
-                            value={form.companyPhone}
-                            onChange={event => handleFieldChange('companyPhone', event.target.value)}
-                            error={errors.companyPhone}
-                        />
-                        <TextField
-                            id="companyWebsite"
-                            label="Company website (optional)"
-                            placeholder="https://example.com"
-                            value={form.companyWebsite}
-                            onChange={event => handleFieldChange('companyWebsite', event.target.value)}
-                            error={errors.companyWebsite}
-                        />
-                    </div>
-                    <div className="rounded-md border border-dashed border-primary/50 bg-primary/5 p-4 text-xs text-muted-foreground">
-                        You will be registered as the workspace owner with full administrative access. Invite additional team members after onboarding.
-                    </div>
-                </div>
-            )}
-
-            {form.companySelection === 'join' && (
-                <div className="space-y-4">
-                    <div className="space-y-2">
-                        <label htmlFor="inviteToken" className="block text-sm font-medium text-muted-foreground">
-                            Invite token
-                        </label>
-                        <div className="flex flex-col gap-2 sm:flex-row">
-                            <input
-                                id="inviteToken"
-                                className={`flex-1 rounded-md border px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary ${
-                                    errors.inviteToken ? 'border-destructive' : 'border-border'
-                                }`}
-                                value={form.inviteToken}
-                                onChange={event => handleFieldChange('inviteToken', event.target.value.toUpperCase())}
-                                placeholder="JOIN-XXXXX"
-                            />
-                            <Button type="button" onClick={handleInviteLookup} isLoading={isCheckingInvite} variant="secondary" size="sm">
-                                Verify token
-                            </Button>
-                        </div>
-                        {inviteError && <p className="text-xs text-destructive">{inviteError}</p>}
-                        {invitePreview && (
-                            <div className="rounded-md border border-primary/40 bg-primary/5 p-3 text-xs text-muted-foreground">
-                                <p className="font-medium text-foreground">Joining: {invitePreview.companyName}</p>
-                                {invitePreview.companyType && <p className="mt-1">Type: {invitePreview.companyType.replace(/_/g, ' ').toLowerCase()}</p>}
-                                <p className="mt-1">Allowed roles: {invitePreview.allowedRoles.map(role => ROLE_DETAILS[role].label).join(', ')}</p>
-                            </div>
-                        )}
-                        {errors.inviteToken && <p className="text-xs text-destructive">{errors.inviteToken}</p>}
-                    </div>
-                    <SelectField
-                        id="role"
-                        label="Select your role"
-                        value={form.role || ''}
-                        onChange={event => handleFieldChange('role', (event.target.value as Role) || '')}
-                        options={allowedRoles.map(role => ({ value: role, label: ROLE_DETAILS[role].label }))}
-                        error={errors.role}
-                        disabled={!invitePreview}
-                    />
-                    {form.role && (
-                        <div className="rounded-md border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
-                            <p className="font-medium text-foreground">{ROLE_DETAILS[form.role].label}</p>
-                            <p className="mt-1 leading-relaxed">{ROLE_DETAILS[form.role].description}</p>
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-
-    const renderConfirmStep = () => (
-        <div className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2">
-                <Card className="p-4">
-                    <p className="text-sm font-semibold text-foreground">Account</p>
-                    <dl className="mt-2 space-y-1 text-xs text-muted-foreground">
-                        <div className="flex justify-between"><dt>Name</dt><dd className="text-right text-foreground">{form.firstName} {form.lastName}</dd></div>
-                        <div className="flex justify-between"><dt>Email</dt><dd className="text-right text-foreground">{form.email}</dd></div>
-                        {form.phone && <div className="flex justify-between"><dt>Phone</dt><dd className="text-right text-foreground">{form.phone}</dd></div>}
-                    </dl>
-                </Card>
-                <Card className="p-4">
-                    <p className="text-sm font-semibold text-foreground">Workspace</p>
-                    <dl className="mt-2 space-y-1 text-xs text-muted-foreground">
-                        <div className="flex justify-between"><dt>Mode</dt><dd className="text-right text-foreground">{form.companySelection === 'create' ? 'Creating new workspace' : 'Joining existing workspace'}</dd></div>
-                        {form.companySelection === 'create' && (
-                            <>
-                                <div className="flex justify-between"><dt>Company</dt><dd className="text-right text-foreground">{form.companyName}</dd></div>
-                                {form.companyType && <div className="flex justify-between"><dt>Type</dt><dd className="text-right text-foreground">{form.companyType.replace(/_/g, ' ').toLowerCase()}</dd></div>}
-                            </>
-                        )}
-                        {form.companySelection === 'join' && invitePreview && (
-                            <>
-                                <div className="flex justify-between"><dt>Company</dt><dd className="text-right text-foreground">{invitePreview.companyName}</dd></div>
-                                <div className="flex justify-between"><dt>Role</dt><dd className="text-right text-foreground">{form.role ? ROLE_DETAILS[form.role].label : 'Pending selection'}</dd></div>
-                            </>
-                        )}
-                    </dl>
-                </Card>
-            </div>
-            <CheckboxField
-                checked={form.updatesOptIn}
-                onChange={event => handleFieldChange('updatesOptIn', event.target.checked)}
-                label="Keep me updated with product improvements and release notes"
-            />
-            <CheckboxField
-                checked={form.termsAccepted}
-                onChange={event => handleFieldChange('termsAccepted', event.target.checked)}
-                label="I agree to the AS Agents Terms of Service"
-                description="You acknowledge our Privacy Policy and accept the responsibilities associated with holding project data."
-                error={errors.termsAccepted}
-            />
-        </div>
-    );
-
-    const currentStepContent = () => {
-        switch (step) {
-            case 'account':
-                return renderAccountStep();
-            case 'workspace':
-                return renderWorkspaceStep();
-            case 'confirm':
-                return renderConfirmStep();
-            default:
-                return null;
+    const handleSocial = async (provider: SocialProvider) => {
+        setGeneralError(null);
+        try {
+            await socialLogin(provider);
+            clearRegistrationDraft();
+        } catch (error: any) {
+            setGeneralError(error?.message || `Unable to continue with ${provider}.`);
         }
     };
 
     return (
-        <div className="min-h-screen bg-background py-10 px-4">
-            <div className="mx-auto grid w-full max-w-5xl gap-10 lg:grid-cols-[2fr,1fr]">
-                <div className="space-y-6">
-                    <div className="space-y-2">
-                        <div className="inline-flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-8 w-8 text-primary" fill="currentColor">
-                                <path d="M12 2 2 22h20L12 2Zm0 3.3L19.1 20H4.9L12 5.3Z" />
-                            </svg>
-                            <h1 className="text-2xl font-bold text-foreground">Create your AS Agents account</h1>
+        <div className="min-h-screen bg-background py-10">
+            <div className="mx-auto flex max-w-6xl flex-col gap-8 lg:flex-row">
+                <Card className="flex-1 space-y-8 p-6 sm:p-10">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h1 className="text-3xl font-bold text-foreground">Create your AS Agents workspace</h1>
+                            <p className="text-sm text-muted-foreground">
+                                Guided onboarding ensures multi-tenant governance and rapid platform rollout.
+                            </p>
                         </div>
-                        <p className="text-sm text-muted-foreground">Three quick steps to get your construction teams collaborating in one workspace.</p>
-                    </div>
-
-                    <StepIndicator currentStep={step} />
-
-                    {draftRestored && (
-                        <div className="flex flex-col gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-                            <span className="sm:pr-4">
-                                We restored your saved registration details. Continue where you left off or start over.
+                        {draftRestored && (
+                            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                                Draft restored
                             </span>
-                            <button
-                                type="button"
-                                onClick={handleResetDraft}
-                                className="self-start text-sm font-medium text-primary hover:text-primary/80 sm:self-center"
-                            >
-                                Start over
-                            </button>
-                        </div>
-                    )}
-
-                    {generalError && (
-                        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                            {generalError}
-                        </div>
-                    )}
-
-                    <Card>
-                        <form className="space-y-6" onSubmit={handleFormSubmit} noValidate>
-                            <AuthEnvironmentNotice align="left" className="rounded-md bg-muted/40 px-3 py-2" />
-                            {currentStepContent()}
-                            <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
-                                <div className="flex items-center gap-3">
-                                    {step !== 'account' ? (
-                                        <Button type="button" variant="secondary" onClick={goToPreviousStep}>
-                                            Back
-                                        </Button>
-                                    ) : (
+                        )}
+                    </div>
+                    <StepIndicator currentStep={step} />
+                    <AuthEnvironmentNotice className="border border-dashed border-border/60 bg-muted/40" />
+                    <form className="space-y-6" onSubmit={handleSubmit}>
+                        {generalError && (
+                            <div className="rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                                {generalError}
+                            </div>
+                        )}
+                        {step === 'account' && (
+                            <div className="grid gap-4 lg:grid-cols-2">
+                                <label className="space-y-1 text-sm">
+                                    <span className="font-medium text-foreground">First name</span>
+                                    <input
+                                        type="text"
+                                        value={form.firstName}
+                                        onChange={event => updateField('firstName', event.target.value)}
+                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
+                                            errors.firstName ? 'border-destructive' : 'border-border'
+                                        }`}
+                                    />
+                                    {errors.firstName && <p className="text-xs text-destructive">{errors.firstName}</p>}
+                                </label>
+                                <label className="space-y-1 text-sm">
+                                    <span className="font-medium text-foreground">Last name</span>
+                                    <input
+                                        type="text"
+                                        value={form.lastName}
+                                        onChange={event => updateField('lastName', event.target.value)}
+                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
+                                            errors.lastName ? 'border-destructive' : 'border-border'
+                                        }`}
+                                    />
+                                    {errors.lastName && <p className="text-xs text-destructive">{errors.lastName}</p>}
+                                </label>
+                                <label className="space-y-1 text-sm lg:col-span-2">
+                                    <span className="font-medium text-foreground">Business email</span>
+                                    <input
+                                        type="email"
+                                        value={form.email}
+                                        onChange={event => updateField('email', event.target.value)}
+                                        onBlur={handleEmailBlur}
+                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
+                                            errors.email ? 'border-destructive' : 'border-border'
+                                        }`}
+                                    />
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                        <span>
+                                            {emailStatus === 'available' && 'Email is available.'}
+                                            {emailStatus === 'unavailable' && 'This email already has an account.'}
+                                            {emailStatus === 'checking' && 'Checking availability…'}
+                                        </span>
+                                        <span>We will use this to send critical updates.</span>
+                                    </div>
+                                    {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+                                </label>
+                                <label className="space-y-1 text-sm">
+                                    <span className="font-medium text-foreground">Preferred username</span>
+                                    <input
+                                        type="text"
+                                        value={form.username}
+                                        onChange={event => updateField('username', event.target.value)}
+                                        placeholder="e.g. omnitenant.builder"
+                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
+                                            errors.username ? 'border-destructive' : 'border-border'
+                                        }`}
+                                    />
+                                    <p className="text-xs text-muted-foreground">Unique handle for cross-tenant visibility.</p>
+                                    {errors.username && <p className="text-xs text-destructive">{errors.username}</p>}
+                                </label>
+                                <label className="space-y-1 text-sm">
+                                    <span className="font-medium text-foreground">Phone (optional)</span>
+                                    <input
+                                        type="tel"
+                                        value={form.phone}
+                                        onChange={event => updateField('phone', event.target.value)}
+                                        className="w-full rounded-md border border-border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                                    />
+                                </label>
+                                <label className="space-y-1 text-sm">
+                                    <span className="font-medium text-foreground">Password</span>
+                                    <input
+                                        type="password"
+                                        value={form.password}
+                                        onChange={event => updateField('password', event.target.value)}
+                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
+                                            errors.password ? 'border-destructive' : 'border-border'
+                                        }`}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        Use at least {PASSWORD_MIN_LENGTH} characters with numbers and symbols.
+                                    </p>
+                                    {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
+                                </label>
+                                <label className="space-y-1 text-sm">
+                                    <span className="font-medium text-foreground">Confirm password</span>
+                                    <input
+                                        type="password"
+                                        value={form.confirmPassword}
+                                        onChange={event => updateField('confirmPassword', event.target.value)}
+                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
+                                            errors.confirmPassword ? 'border-destructive' : 'border-border'
+                                        }`}
+                                    />
+                                    {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword}</p>}
+                                </label>
+                            </div>
+                        )}
+                        {step === 'workspace' && (
+                            <div className="space-y-6">
+                                <div>
+                                    <span className="text-sm font-medium text-foreground">Workspace goal</span>
+                                    <div className="mt-2 grid gap-3 sm:grid-cols-2">
                                         <button
                                             type="button"
-                                            onClick={() => {
-                                                clearRegistrationDraft();
-                                                onSwitchToLogin();
-                                            }}
-                                            className="text-sm font-medium text-primary hover:text-primary/80"
+                                            onClick={() => updateField('companySelection', 'create')}
+                                            className={`rounded-lg border px-4 py-3 text-left transition ${
+                                                form.companySelection === 'create'
+                                                    ? 'border-primary bg-primary/5 text-primary'
+                                                    : 'border-border hover:border-primary'
+                                            }`}
                                         >
-                                            Already have an account? Sign in
+                                            <span className="block text-sm font-semibold">Create a new tenant</span>
+                                            <span className="text-xs text-muted-foreground">
+                                                Ideal for platform owners and new partner companies.
+                                            </span>
                                         </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => updateField('companySelection', 'join')}
+                                            className={`rounded-lg border px-4 py-3 text-left transition ${
+                                                form.companySelection === 'join'
+                                                    ? 'border-primary bg-primary/5 text-primary'
+                                                    : 'border-border hover:border-primary'
+                                            }`}
+                                        >
+                                            <span className="block text-sm font-semibold">Join an existing tenant</span>
+                                            <span className="text-xs text-muted-foreground">
+                                                Use an invite token supplied by your administrator.
+                                            </span>
+                                        </button>
+                                    </div>
+                                    {errors.companySelection && (
+                                        <p className="mt-2 text-xs text-destructive">{errors.companySelection}</p>
                                     )}
                                 </div>
-                                <Button type="submit" isLoading={isSubmitting}>
-                                    {step === 'confirm' ? 'Create account' : 'Continue'}
-                                </Button>
+                                {form.companySelection === 'create' && (
+                                    <div className="grid gap-4 sm:grid-cols-2">
+                                        <label className="space-y-1 text-sm sm:col-span-2">
+                                            <span className="font-medium text-foreground">Company or workspace name</span>
+                                            <input
+                                                type="text"
+                                                value={form.companyName}
+                                                onChange={event => updateField('companyName', event.target.value)}
+                                                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
+                                                    errors.companyName ? 'border-destructive' : 'border-border'
+                                                }`}
+                                            />
+                                            {errors.companyName && <p className="text-xs text-destructive">{errors.companyName}</p>}
+                                        </label>
+                                        <label className="space-y-1 text-sm">
+                                            <span className="font-medium text-foreground">Company type</span>
+                                            <select
+                                                value={form.companyType}
+                                                onChange={event => updateField('companyType', event.target.value as CompanyType)}
+                                                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
+                                                    errors.companyType ? 'border-destructive' : 'border-border'
+                                                }`}
+                                            >
+                                                <option value="">Select type</option>
+                                                {COMPANY_TYPES.map(type => (
+                                                    <option key={type.value} value={type.value}>
+                                                        {type.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            {errors.companyType && <p className="text-xs text-destructive">{errors.companyType}</p>}
+                                        </label>
+                                        <label className="space-y-1 text-sm">
+                                            <span className="font-medium text-foreground">Company email (optional)</span>
+                                            <input
+                                                type="email"
+                                                value={form.companyEmail}
+                                                onChange={event => updateField('companyEmail', event.target.value)}
+                                                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
+                                                    errors.companyEmail ? 'border-destructive' : 'border-border'
+                                                }`}
+                                            />
+                                            {errors.companyEmail && <p className="text-xs text-destructive">{errors.companyEmail}</p>}
+                                        </label>
+                                        <label className="space-y-1 text-sm">
+                                            <span className="font-medium text-foreground">Company phone (optional)</span>
+                                            <input
+                                                type="tel"
+                                                value={form.companyPhone}
+                                                onChange={event => updateField('companyPhone', event.target.value)}
+                                                className="w-full rounded-md border border-border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                                            />
+                                        </label>
+                                        <label className="space-y-1 text-sm sm:col-span-2">
+                                            <span className="font-medium text-foreground">Website (optional)</span>
+                                            <input
+                                                type="url"
+                                                value={form.companyWebsite}
+                                                onChange={event => updateField('companyWebsite', event.target.value)}
+                                                placeholder="https://"
+                                                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
+                                                    errors.companyWebsite ? 'border-destructive' : 'border-border'
+                                                }`}
+                                            />
+                                            {errors.companyWebsite && (
+                                                <p className="text-xs text-destructive">{errors.companyWebsite}</p>
+                                            )}
+                                        </label>
+                                    </div>
+                                )}
+                                {form.companySelection === 'join' && (
+                                    <div className="space-y-4">
+                                        <label className="space-y-1 text-sm">
+                                            <span className="font-medium text-foreground">Invite token</span>
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    value={form.inviteToken}
+                                                    onChange={event => updateField('inviteToken', event.target.value.toUpperCase())}
+                                                    className={`flex-1 rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
+                                                        errors.inviteToken ? 'border-destructive' : 'border-border'
+                                                    }`}
+                                                />
+                                                <Button type="button" variant="secondary" onClick={handleInviteLookup} isLoading={isCheckingInvite}>
+                                                    Verify invite
+                                                </Button>
+                                            </div>
+                                            {invitePreview && (
+                                                <p className="text-xs text-emerald-600">
+                                                    Invite for {invitePreview.companyName} ({invitePreview.companyType || 'General'})
+                                                </p>
+                                            )}
+                                            {(errors.inviteToken || inviteError) && (
+                                                <p className="text-xs text-destructive">{errors.inviteToken || inviteError}</p>
+                                            )}
+                                        </label>
+                                        <div className="space-y-2">
+                                            <span className="text-sm font-medium text-foreground">Role within the tenant</span>
+                                            <div className="grid gap-3 md:grid-cols-2">
+                                                {allowedRoles.map(role => (
+                                                    <button
+                                                        type="button"
+                                                        key={role}
+                                                        onClick={() => updateField('role', role)}
+                                                        className={`rounded-lg border px-4 py-3 text-left text-sm transition ${
+                                                            form.role === role
+                                                                ? 'border-primary bg-primary/5 text-primary'
+                                                                : 'border-border hover:border-primary'
+                                                        }`}
+                                                    >
+                                                        <span className="block font-semibold">{ROLE_DETAILS[role].label}</span>
+                                                        <span className="text-xs text-muted-foreground">
+                                                            {ROLE_DETAILS[role].description}
+                                                        </span>
+                                                    </button>
+                                                ))}
+                                                {allowedRoles.length === 0 && (
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Enter your invite token to view permitted roles.
+                                                    </p>
+                                                )}
+                                            </div>
+                                            {errors.role && <p className="text-xs text-destructive">{errors.role}</p>}
+                                        </div>
+                                    </div>
+                                )}
+                                <label className="flex items-start gap-3 text-sm text-muted-foreground">
+                                    <input
+                                        type="checkbox"
+                                        checked={form.updatesOptIn}
+                                        onChange={event => updateField('updatesOptIn', event.target.checked)}
+                                        className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                                    />
+                                    <span>
+                                        Send me platform roadmap and tenant enablement tips.
+                                    </span>
+                                </label>
                             </div>
-                        </form>
+                        )}
+                        {step === 'confirm' && (
+                            <div className="space-y-6">
+                                <Card className="border border-dashed border-border bg-muted/40 p-4">
+                                    <h3 className="text-sm font-semibold text-foreground">Tenant summary</h3>
+                                    <dl className="mt-3 grid gap-3 text-xs text-muted-foreground sm:grid-cols-2">
+                                        <div>
+                                            <dt className="font-semibold text-foreground">Owner</dt>
+                                            <dd>{form.firstName} {form.lastName}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="font-semibold text-foreground">Email</dt>
+                                            <dd>{form.email}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="font-semibold text-foreground">Workspace mode</dt>
+                                            <dd>{form.companySelection === 'create' ? 'Creating new tenant' : 'Joining existing tenant'}</dd>
+                                        </div>
+                                        {form.companySelection === 'create' && (
+                                            <div>
+                                                <dt className="font-semibold text-foreground">Company</dt>
+                                                <dd>{form.companyName} ({form.companyType || 'Type pending'})</dd>
+                                            </div>
+                                        )}
+                                        {form.companySelection === 'join' && invitePreview && (
+                                            <div>
+                                                <dt className="font-semibold text-foreground">Joining</dt>
+                                                <dd>{invitePreview.companyName}</dd>
+                                            </div>
+                                        )}
+                                        <div>
+                                            <dt className="font-semibold text-foreground">Role</dt>
+                                            <dd>{ROLE_DETAILS[(form.role || Role.OWNER) as Role]?.label ?? 'Owner'}</dd>
+                                        </div>
+                                    </dl>
+                                </Card>
+                                <label className="flex items-start gap-3 text-sm text-muted-foreground">
+                                    <input
+                                        type="checkbox"
+                                        checked={form.termsAccepted}
+                                        onChange={event => updateField('termsAccepted', event.target.checked)}
+                                        className={`mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary ${
+                                            errors.termsAccepted ? 'border-destructive' : ''
+                                        }`}
+                                    />
+                                    <span>
+                                        I agree to the{' '}
+                                        <a href="https://asagents.co.uk/terms" className="text-primary underline" target="_blank" rel="noreferrer">
+                                            AS Agents Terms, Security & Data Processing policies
+                                        </a>
+                                        .
+                                    </span>
+                                </label>
+                                {errors.termsAccepted && <p className="text-xs text-destructive">{errors.termsAccepted}</p>}
+                            </div>
+                        )}
+                        <div className="flex flex-col-reverse items-start gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex gap-3">
+                                {step !== 'account' && (
+                                    <Button type="button" variant="ghost" onClick={goToPreviousStep}>
+                                        Back
+                                    </Button>
+                                )}
+                                {step !== 'confirm' && (
+                                    <Button type="button" onClick={goToNextStep}>
+                                        Continue
+                                    </Button>
+                                )}
+                                {step === 'confirm' && (
+                                    <Button type="submit" isLoading={isSubmitting}>
+                                        Launch workspace
+                                    </Button>
+                                )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                Need help? Contact{' '}
+                                <a className="text-primary underline" href="mailto:platform@asagents.co.uk">
+                                    platform@asagents.co.uk
+                                </a>
+                            </p>
+                        </div>
+                    </form>
+                </Card>
+                <div className="w-full max-w-xl space-y-6">
+                    <Card className="space-y-4 p-6">
+                        <h2 className="text-xl font-semibold text-foreground">Prefer instant access?</h2>
+                        <p className="text-sm text-muted-foreground">
+                            Connect a trusted identity provider to create a fully managed tenant with best-practice controls
+                            pre-configured for you.
+                        </p>
+                        <SocialAuthButtons onSocial={handleSocial} loading={isSubmitting} />
+                        <p className="text-xs text-muted-foreground">
+                            We will provision a dedicated tenant, assign you the owner role and email the audit trail instantly.
+                        </p>
                     </Card>
-                </div>
-
-                <Card className="space-y-5 bg-muted/40">
-                    <div>
-                        <p className="text-sm font-semibold text-foreground">Why teams choose AS Agents</p>
-                        <ul className="mt-3 space-y-2 text-xs text-muted-foreground">
+                    <Card className="space-y-4 p-6">
+                        <h2 className="text-xl font-semibold text-foreground">Why leaders choose AS Agents</h2>
+                        <ul className="space-y-3 text-sm text-muted-foreground">
                             {BENEFITS.map(benefit => (
-                                <li key={benefit} className="flex items-start gap-2">
-                                    <span className="mt-0.5 text-primary">•</span>
+                                <li key={benefit} className="flex items-start gap-3">
+                                    <span className="mt-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                        ✓
+                                    </span>
                                     <span>{benefit}</span>
                                 </li>
                             ))}
                         </ul>
-                    </div>
-                    <div className="rounded-md border border-border bg-background p-4 text-xs text-muted-foreground">
-                        <p className="font-medium text-foreground">Need to invite your crew?</p>
-                        <p className="mt-1 leading-relaxed">
-                            Owners can add teammates instantly after onboarding. Prefer us to help? Reach out and we’ll migrate existing project data for you.
+                    </Card>
+                    <Card className="space-y-3 p-6">
+                        <h2 className="text-xl font-semibold text-foreground">Platform governance</h2>
+                        <p className="text-sm text-muted-foreground">
+                            Our principal admin <span className="font-semibold text-foreground">omnitenant.root</span> oversees tenant health,
+                            multitenant access policies and proactive security automation.
                         </p>
-                    </div>
-                </Card>
+                        <p className="text-xs text-muted-foreground">
+                            Dedicated dashboards surface tenant storage, adoption and anomaly alerts for transparent operations.
+                        </p>
+                    </Card>
+                </div>
+            </div>
+            <div className="mt-10 text-center text-sm text-muted-foreground">
+                Already have an account?{' '}
+                <button type="button" onClick={onSwitchToLogin} className="font-semibold text-primary hover:text-primary/80">
+                    Sign in
+                </button>
             </div>
         </div>
     );
+};
+
 
 
 */
