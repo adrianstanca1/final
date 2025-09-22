@@ -6,9 +6,6 @@ import {
     Todo,
     Equipment,
     AuditLog,
-    ResourceAssignment,
-    Role,
-    Permission,
     TodoStatus,
     AvailabilityStatus,
     SafetyIncident,
@@ -17,24 +14,18 @@ import {
     ExpenseStatus,
     ProjectPortfolioSummary,
     OperationalInsights,
-
-import './ui/storageUsage.css';
-    // full contents of components/Dashboard.tsx
-
 } from '../types';
+import './ui/storageUsage.css';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
-// FIX: Corrected API import from mockApi
-import { api } from '../services/mockApi';
-import { hasPermission } from '../services/auth';
 import { Avatar } from './ui/Avatar';
 import { EquipmentStatusBadge } from './ui/StatusBadge';
 import { Tag } from './ui/Tag';
 import { ViewHeader } from './layout/ViewHeader';
-// FIX: Removed `startOfWeek` from import and added a local implementation to resolve the module export error.
 import { format, eachDayOfInterval, isWithinInterval } from 'date-fns';
 import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
 import { generateProjectHealthSummary, ProjectHealthSummaryResult } from '../services/ai';
+import { backendGateway } from '../services/backendGateway';
 
 interface DashboardProps {
     user: User;
@@ -131,61 +122,65 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     const [aiError, setAiError] = useState<string | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (forceRefresh = false) => {
         const controller = new AbortController();
         abortControllerRef.current?.abort();
         abortControllerRef.current = controller;
 
         setLoading(true);
         try {
-            if (!user.companyId) return;
-            const [projData, usersData, equipData, assignmentsData, logsData, insightsData] = await Promise.all([
-                api.getProjectsByManager(user.id, { signal: controller.signal }),
-                api.getUsersByCompany(user.companyId, { signal: controller.signal }),
-                api.getEquipmentByCompany(user.companyId, { signal: controller.signal }),
-                api.getResourceAssignments(user.companyId, { signal: controller.signal }),
-                api.getAuditLogsByCompany(user.companyId, { signal: controller.signal }),
-                api.getOperationalInsights(user.companyId, { signal: controller.signal }),
-            ]);
+            if (!user.companyId) {
+                return;
+            }
+
+            const snapshot = await backendGateway.getDashboardSnapshot({
+                userId: user.id,
+                companyId: user.companyId,
+                signal: controller.signal,
+                forceRefresh,
+            });
 
             if (controller.signal.aborted) return;
-            setProjects(projData);
-            setAiSelectedProjectId(prev => prev ?? projData.find(p => p.status === 'ACTIVE')?.id ?? projData[0]?.id ?? null);
+            setProjects(snapshot.projects);
+            setAiSelectedProjectId(prev => prev ?? snapshot.projects.find(p => p.status === 'ACTIVE')?.id ?? snapshot.projects[0]?.id ?? null);
             if (controller.signal.aborted) return;
-            setTeam(usersData.filter(u => u.role !== Role.PRINCIPAL_ADMIN));
-
-            // FIX: Use uppercase 'ACTIVE' for ProjectStatus enum comparison.
-            const activeProjectIds = new Set(projData.filter(p => p.status === 'ACTIVE').map(p => p.id));
-            const tasksData = await api.getTodosByProjectIds(Array.from(activeProjectIds), { signal: controller.signal });
+            setTeam(snapshot.team);
             if (controller.signal.aborted) return;
-            setTasks(tasksData);
-
-            const assignedEquipmentIds = new Set(assignmentsData
-                .filter(a => a.resourceType === 'equipment' && activeProjectIds.has(a.projectId))
-                .map(a => a.resourceId));
+            setEquipment(snapshot.equipment);
             if (controller.signal.aborted) return;
-            setEquipment(equipData.filter(e => assignedEquipmentIds.has(e.id)));
-
+            setTasks(snapshot.tasks);
             if (controller.signal.aborted) return;
-            setActivityLog(logsData.filter(l => l.action.includes('task')).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
-
+            setActivityLog(snapshot.activityLog);
             if (controller.signal.aborted) return;
-            setOperationalInsights(insightsData);
-
-
-            const [incidentsData, expensesData] = await Promise.all([
-                api.getSafetyIncidentsByCompany(user.companyId),
-                api.getExpensesByCompany(user.companyId, { signal: controller.signal }),
-            ]);
-
+            setOperationalInsights(snapshot.operationalInsights);
             if (controller.signal.aborted) return;
-            setIncidents(incidentsData);
+            setIncidents(snapshot.incidents);
             if (controller.signal.aborted) return;
-            setExpenses(expensesData);
+            setExpenses(snapshot.expenses);
 
+            void backendGateway.recordInteraction({
+                type: 'dashboard_snapshot_loaded',
+                userId: user.id,
+                companyId: user.companyId,
+                context: {
+                    projectCount: snapshot.projects.length,
+                    taskCount: snapshot.tasks.length,
+                    source: snapshot.metadata.source,
+                    usedFallback: snapshot.metadata.usedFallback,
+                },
+            });
         } catch (error) {
             if (controller.signal.aborted) return;
+            console.error('[Dashboard] Failed to load dashboard data via backend gateway', error);
             addToast("Failed to load dashboard data.", 'error');
+            void backendGateway.recordInteraction({
+                type: 'dashboard_snapshot_failed',
+                userId: user.id,
+                companyId: user.companyId,
+                context: {
+                    message: error instanceof Error ? error.message : String(error),
+                },
+            });
         } finally {
             if (controller.signal.aborted) return;
             setLoading(false);
