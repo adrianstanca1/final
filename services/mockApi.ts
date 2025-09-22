@@ -2,7 +2,7 @@
 // Supports offline queuing for write operations.
 
 import { initialData } from './mockData';
-import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegisterCredentials, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority } from '../types';
+import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegisterCredentials, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority, InvoiceInsights, ClientInsights, InvoicePayment } from '../types';
 
 const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
 
@@ -12,6 +12,407 @@ const ensureNotAborted = (signal?: AbortSignal) => {
     if (signal?.aborted) {
         throw new DOMException('Aborted', 'AbortError');
     }
+};
+
+type PartialInvoiceRecord = Partial<Invoice> & { companyId?: string; company_id?: string };
+type PartialClientRecord = Partial<Client> & { companyId?: string; company_id?: string };
+
+const toNumber = (value: unknown): number => {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+    }
+    if (typeof value === 'string') {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : 0;
+    }
+    return 0;
+};
+
+const parseDateValue = (value?: string | null): number | null => {
+    if (!value) return null;
+    const timestamp = Date.parse(value);
+    return Number.isFinite(timestamp) ? timestamp : null;
+};
+
+const getQuarterStartDate = (reference: Date): Date => {
+    const quarter = Math.floor(reference.getUTCMonth() / 3);
+    return new Date(Date.UTC(reference.getUTCFullYear(), quarter * 3, 1));
+};
+
+const getYearStartDate = (reference: Date): Date => new Date(Date.UTC(reference.getUTCFullYear(), 0, 1));
+
+interface NormalisedInvoice {
+    id: string;
+    clientId: string;
+    status: InvoiceStatus;
+    total: number;
+    amountPaid: number;
+    balance: number;
+    dueDate?: string;
+    issueDate?: string;
+    payments: InvoicePayment[];
+}
+
+const normaliseInvoiceRecord = (invoice: PartialInvoiceRecord): NormalisedInvoice => {
+    const payments = Array.isArray(invoice.payments) ? (invoice.payments as InvoicePayment[]) : [];
+    const total = toNumber(invoice.total);
+    const amountPaid = toNumber(invoice.amountPaid);
+    const explicitBalance = invoice.balance ?? (invoice as any)?.outstanding;
+    const balance = toNumber(explicitBalance) || Math.max(0, total - amountPaid);
+    const dueDate = (invoice.dueDate ?? (invoice as any).dueAt) || undefined;
+    const issueDate = (invoice.issueDate ?? (invoice as any).issuedAt) || undefined;
+
+    return {
+        id: invoice.id ?? '',
+        clientId: invoice.clientId ?? '',
+        status: invoice.status ?? InvoiceStatus.DRAFT,
+        total,
+        amountPaid,
+        balance,
+        dueDate,
+        issueDate,
+        payments,
+    };
+};
+
+const getNormalisedInvoicesForCompany = (companyId: string): NormalisedInvoice[] => {
+    const belongsToCompany = (record: PartialInvoiceRecord) =>
+        record.companyId === companyId || (record.company_id as string | undefined) === companyId;
+
+    return (db.invoices as PartialInvoiceRecord[])
+        .filter(record => belongsToCompany(record))
+        .map(record => normaliseInvoiceRecord(record));
+};
+
+const computeInvoiceInsightsLocal = (companyId: string): InvoiceInsights => {
+    const invoices = getNormalisedInvoicesForCompany(companyId);
+    const clientNameMap = new Map(clients.map(client => [client.id!, client.name ?? 'Unknown client']));
+    const clientMap = new Map(
+        (db.clients as PartialClientRecord[])
+            .filter(client => client.companyId === companyId || client.company_id === companyId)
+            .map(client => [client.id!, client.name ?? 'Unknown client'])
+    );
+
+    const totals = {
+        totalBilled: 0,
+        totalCollected: 0,
+        outstandingBalance: 0,
+        overdueBalance: 0,
+        draftCount: 0,
+    };
+
+    const statusAggregates = new Map<InvoiceStatus, { count: number; total: number; outstanding: number }>();
+    Object.values(InvoiceStatus).forEach(status => {
+        statusAggregates.set(status, { count: 0, total: 0, outstanding: 0 });
+    });
+
+    const now = Date.now();
+    const msInDay = 24 * 60 * 60 * 1000;
+    const upcomingDurations: number[] = [];
+    const overdueDurations: number[] = [];
+    const invoicesWithRecentPayments = new Set<string>();
+    let recentPaymentTotal = 0;
+
+    const expectedThisMonth = { count: 0, total: 0 };
+    const outstandingByClient = new Map<string, { clientId: string; clientName: string; outstanding: number; invoices: number; lastInvoiceDueAt?: string }>();
+
+    invoices.forEach(invoice => {
+        const statusAggregate = statusAggregates.get(invoice.status);
+        if (statusAggregate) {
+            statusAggregate.count += 1;
+            statusAggregate.total += invoice.total;
+            if (invoice.status !== InvoiceStatus.CANCELLED) {
+                statusAggregate.outstanding += invoice.balance;
+            }
+        }
+
+        totals.totalBilled += invoice.total;
+        totals.totalCollected += invoice.amountPaid;
+        if (invoice.status !== InvoiceStatus.CANCELLED) {
+            totals.outstandingBalance += invoice.balance;
+        }
+        if (invoice.status === InvoiceStatus.DRAFT) {
+            totals.draftCount += 1;
+        }
+
+        const dueTimestamp = parseDateValue(invoice.dueDate);
+        if (dueTimestamp !== null && invoice.balance > 0) {
+            if (dueTimestamp >= now) {
+                upcomingDurations.push(Math.round((dueTimestamp - now) / msInDay));
+                expectedThisMonth.count +=
+                    new Date(dueTimestamp).getUTCFullYear() === new Date(now).getUTCFullYear() &&
+                    new Date(dueTimestamp).getUTCMonth() === new Date(now).getUTCMonth()
+                        ? 1
+                        : 0;
+                if (
+                    new Date(dueTimestamp).getUTCFullYear() === new Date(now).getUTCFullYear() &&
+                    new Date(dueTimestamp).getUTCMonth() === new Date(now).getUTCMonth()
+                ) {
+                    expectedThisMonth.total += invoice.balance;
+                }
+            } else {
+                overdueDurations.push(Math.round((now - dueTimestamp) / msInDay));
+                totals.overdueBalance += invoice.balance;
+            }
+        }
+
+        invoice.payments.forEach(payment => {
+            const paymentTimestamp = parseDateValue(payment.date ?? payment.createdAt);
+            if (paymentTimestamp !== null && paymentTimestamp >= now - 30 * msInDay) {
+                invoicesWithRecentPayments.add(invoice.id);
+                recentPaymentTotal += toNumber(payment.amount);
+            }
+        });
+
+        if (invoice.balance > 0) {
+            const existing = outstandingByClient.get(invoice.clientId) ?? {
+                clientId: invoice.clientId,
+                clientName: clientMap.get(invoice.clientId) ?? 'Unknown client',
+                outstanding: 0,
+                invoices: 0,
+                lastInvoiceDueAt: undefined as string | undefined,
+            };
+            existing.outstanding += invoice.balance;
+            existing.invoices += 1;
+            const dueValue = parseDateValue(invoice.dueDate);
+            if (dueValue !== null) {
+                const currentDue = parseDateValue(existing.lastInvoiceDueAt);
+                if (currentDue === null || dueValue > currentDue) {
+                    existing.lastInvoiceDueAt = new Date(dueValue).toISOString();
+                }
+            }
+            outstandingByClient.set(invoice.clientId, existing);
+        }
+    });
+
+    const average = (values: number[]): number | undefined =>
+        values.length ? Math.round(values.reduce((total, value) => total + value, 0) / values.length) : undefined;
+
+    const cashFlow = {
+        upcomingDue: {
+            count: upcomingDurations.length,
+            total: invoices.reduce((total, invoice) => {
+                const dueTimestamp = parseDateValue(invoice.dueDate);
+                return dueTimestamp !== null && dueTimestamp >= now ? total + invoice.balance : total;
+            }, 0),
+            averageDays: average(upcomingDurations),
+        },
+        overdue: {
+            count: overdueDurations.length,
+            total: invoices.reduce((total, invoice) => {
+                const dueTimestamp = parseDateValue(invoice.dueDate);
+                return dueTimestamp !== null && dueTimestamp < now ? total + invoice.balance : total;
+            }, 0),
+            averageDays: average(overdueDurations),
+        },
+        paidLast30Days: {
+            count: invoicesWithRecentPayments.size,
+            total: recentPaymentTotal,
+        },
+        expectedThisMonth,
+    };
+
+    const statusSummary = Array.from(statusAggregates.entries()).map(([status, aggregate]) => ({
+        status,
+        invoiceCount: aggregate.count,
+        totalBilled: aggregate.total,
+        outstandingBalance: aggregate.outstanding,
+    }));
+
+    const topOutstandingClients = Array.from(outstandingByClient.values())
+        .sort((a, b) => b.outstanding - a.outstanding)
+        .slice(0, 5);
+
+    return {
+        updatedAt: new Date().toISOString(),
+        statusSummary,
+        cashFlow,
+        topOutstandingClients,
+        totals: {
+            ...totals,
+            collectionRate: totals.totalBilled > 0 ? Math.round((totals.totalCollected / totals.totalBilled) * 100) : 0,
+        },
+    };
+};
+
+const computeClientInsightsLocal = (companyId: string): ClientInsights => {
+    const clients = (db.clients as PartialClientRecord[]).filter(
+        client => client.companyId === companyId || client.company_id === companyId,
+    );
+    const invoices = getNormalisedInvoicesForCompany(companyId);
+
+    const totalClients = clients.length;
+    const activeClients = clients.filter(client => client.isActive !== false && (client as any).is_active !== 0).length;
+
+    const now = new Date();
+    const quarterStart = getQuarterStartDate(now).getTime();
+    const yearStart = getYearStartDate(now).getTime();
+    const newThisQuarter = clients.filter(client => {
+        const createdAt = parseDateValue(client.createdAt ?? (client as any).created_at);
+        return createdAt !== null && createdAt >= quarterStart;
+    }).length;
+
+    const atRiskMap = new Map<
+        string,
+        {
+            clientId: string;
+            clientName: string;
+            outstanding: number;
+            unpaidInvoices: number;
+            lastInvoiceDueAt?: string;
+        }
+    >();
+
+    const lastPaymentMap = new Map<string, string>();
+    const revenueMap = new Map<string, { clientName: string; totalPaid: number }>();
+
+    invoices.forEach(invoice => {
+        const clientName = clientNameMap.get(invoice.clientId) ?? 'Unknown client';
+
+        invoice.payments.forEach(payment => {
+            const paymentTimestamp = parseDateValue(payment.date ?? payment.createdAt);
+            if (paymentTimestamp !== null) {
+                const existing = lastPaymentMap.get(invoice.clientId);
+                const existingTimestamp = existing ? parseDateValue(existing) : null;
+                if (existingTimestamp === null || paymentTimestamp > existingTimestamp) {
+                    lastPaymentMap.set(invoice.clientId, new Date(paymentTimestamp).toISOString());
+                }
+            }
+        });
+
+        if (invoice.amountPaid > 0) {
+            const revenue = revenueMap.get(invoice.clientId) ?? { clientName, totalPaid: 0 };
+            const issueTimestamp = parseDateValue(invoice.issueDate);
+            if (issueTimestamp === null || issueTimestamp >= yearStart) {
+                revenue.totalPaid += invoice.amountPaid;
+                revenueMap.set(invoice.clientId, revenue);
+            }
+        }
+
+        const dueTimestamp = parseDateValue(invoice.dueDate);
+        if (dueTimestamp !== null && dueTimestamp < Date.now() && invoice.balance > 0) {
+            const existing = atRiskMap.get(invoice.clientId) ?? {
+                clientId: invoice.clientId,
+                clientName,
+                outstanding: 0,
+                unpaidInvoices: 0,
+                lastInvoiceDueAt: undefined as string | undefined,
+            };
+            existing.outstanding += invoice.balance;
+            existing.unpaidInvoices += 1;
+            const currentDue = parseDateValue(existing.lastInvoiceDueAt);
+            const nextDue = parseDateValue(invoice.dueDate);
+            if (nextDue !== null && (currentDue === null || nextDue > currentDue)) {
+                existing.lastInvoiceDueAt = invoice.dueDate;
+            }
+            atRiskMap.set(invoice.clientId, existing);
+        }
+    });
+
+    const topRevenueClients = Array.from(revenueMap.entries())
+        .map(([clientId, value]) => ({ clientId, clientName: value.clientName, totalPaid: value.totalPaid }))
+        .sort((a, b) => b.totalPaid - a.totalPaid)
+        .slice(0, 5);
+
+    const atRiskClients = Array.from(atRiskMap.values())
+        .map(client => ({
+            ...client,
+            lastPaymentAt: lastPaymentMap.get(client.clientId),
+        }))
+        .sort((a, b) => b.outstanding - a.outstanding)
+        .slice(0, 5);
+
+    return {
+        updatedAt: new Date().toISOString(),
+        totalClients,
+        activeClients,
+        dormantClients: Math.max(0, totalClients - activeClients),
+        newThisQuarter,
+        atRiskClients,
+        topRevenueClients,
+    };
+};
+
+const envBackendUrl =
+    (typeof import.meta !== 'undefined' && (import.meta as any)?.env?.VITE_BACKEND_URL) ||
+    (typeof process !== 'undefined' && process.env?.VITE_BACKEND_URL) ||
+    undefined;
+
+const backendBaseUrl = typeof envBackendUrl === 'string' && envBackendUrl.length > 0
+    ? envBackendUrl.replace(/\/$/, '')
+    : undefined;
+
+const isBackendEnabled = Boolean(backendBaseUrl);
+
+const backendFetch = async <T>(
+    path: string,
+    init: RequestInit = {},
+    signal?: AbortSignal,
+): Promise<T> => {
+    if (!backendBaseUrl) {
+        throw new Error('Backend API is not configured.');
+    }
+
+    ensureNotAborted(signal);
+
+    const headers = new Headers(init.headers ?? {});
+    if (init.body && !headers.has('Content-Type')) {
+        headers.set('Content-Type', 'application/json');
+    }
+
+    const response = await fetch(`${backendBaseUrl}${path}`, {
+        ...init,
+        headers,
+        signal,
+    });
+
+    if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        throw new Error(text || `Backend request failed with status ${response.status}`);
+    }
+
+    if (response.status === 204) {
+        return undefined as T;
+    }
+
+    const contentType = response.headers.get('content-type') ?? '';
+    if (contentType.includes('application/json')) {
+        return (await response.json()) as T;
+    }
+
+    return undefined as T;
+};
+
+export const backendCapabilities = {
+    isEnabled: isBackendEnabled,
+    baseUrl: backendBaseUrl,
+    async checkHealth(signal?: AbortSignal) {
+        if (!isBackendEnabled) {
+            return { status: 'mock', mode: 'local', checkedAt: new Date().toISOString() };
+        }
+
+        try {
+            const response = await backendFetch<{ status?: string; mode?: string; checkedAt?: string }>(
+                '/health',
+                { method: 'GET' },
+                signal,
+            );
+            return {
+                status: 'ok' as const,
+                mode: response?.mode ?? 'database',
+                checkedAt: response?.checkedAt ?? new Date().toISOString(),
+            };
+        } catch (error) {
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                throw error;
+            }
+            return {
+                status: 'error' as const,
+                error: error instanceof Error ? error.message : String(error),
+                checkedAt: new Date().toISOString(),
+            };
+        }
+    },
 };
 
 const JWT_SECRET = 'your-super-secret-key-for-mock-jwt';
@@ -538,6 +939,27 @@ export const api = {
     },
     getProjectsByCompany: async (companyId: string, options?: RequestOptions): Promise<Project[]> => {
         ensureNotAborted(options?.signal);
+
+        if (isBackendEnabled) {
+            try {
+                const projects = await backendFetch<Project[]>(
+                    `/companies/${companyId}/projects`,
+                    { method: 'GET' },
+                    options?.signal,
+                );
+                if (!options?.signal?.aborted) {
+                    db.projects = projects.map(project => ({ ...project }));
+                    saveDb();
+                }
+                return projects;
+            } catch (error) {
+                if (error instanceof DOMException && error.name === 'AbortError') {
+                    throw error;
+                }
+                console.warn('Falling back to local projects cache', error);
+            }
+        }
+
         return db.projects.filter(p => p.companyId === companyId) as Project[];
     },
     findGrants: async (keywords: string, location: string): Promise<Grant[]> => {
@@ -604,7 +1026,49 @@ export const api = {
     },
     getInvoicesByCompany: async (companyId: string, options?: RequestOptions): Promise<Invoice[]> => {
         ensureNotAborted(options?.signal);
+
+        if (isBackendEnabled) {
+            try {
+                const invoices = await backendFetch<Invoice[]>(
+                    `/companies/${companyId}/invoices`,
+                    { method: 'GET' },
+                    options?.signal,
+                );
+                if (!options?.signal?.aborted) {
+                    db.invoices = invoices.map(invoice => ({ ...invoice, companyId }));
+                    saveDb();
+                }
+                return invoices;
+            } catch (error) {
+                if (error instanceof DOMException && error.name === 'AbortError') {
+                    throw error;
+                }
+                console.warn('Falling back to local invoices cache', error);
+            }
+        }
+
         return db.invoices as Invoice[];
+    },
+    getInvoiceInsights: async (companyId: string, options?: RequestOptions): Promise<InvoiceInsights> => {
+        ensureNotAborted(options?.signal);
+
+        if (isBackendEnabled) {
+            try {
+                const insights = await backendFetch<InvoiceInsights>(
+                    `/companies/${companyId}/invoice-insights`,
+                    { method: 'GET' },
+                    options?.signal,
+                );
+                return insights;
+            } catch (error) {
+                if (error instanceof DOMException && error.name === 'AbortError') {
+                    throw error;
+                }
+                console.warn('Falling back to local invoice insights', error);
+            }
+        }
+
+        return computeInvoiceInsightsLocal(companyId);
     },
     getQuotesByCompany: async (companyId: string, options?: RequestOptions): Promise<Quote[]> => {
         ensureNotAborted(options?.signal);
@@ -612,16 +1076,133 @@ export const api = {
     },
     getClientsByCompany: async (companyId: string, options?: RequestOptions): Promise<Client[]> => {
         ensureNotAborted(options?.signal);
-        return db.clients as Client[];
+
+        if (isBackendEnabled) {
+            try {
+                const clients = await backendFetch<Client[]>(
+                    `/companies/${companyId}/clients`,
+                    { method: 'GET' },
+                    options?.signal,
+                );
+                if (!options?.signal?.aborted) {
+                    db.clients = clients.map(client => ({ ...client, companyId }));
+                    saveDb();
+                }
+                return clients;
+            } catch (error) {
+                if (error instanceof DOMException && error.name === 'AbortError') {
+                    throw error;
+                }
+                console.warn('Falling back to local clients cache', error);
+            }
+        }
+
+        return db.clients
+            .filter(client => client.companyId === companyId)
+            .map(client => ({
+                ...client,
+                isActive: client.isActive ?? true,
+            })) as Client[];
+    },
+    getClientInsights: async (companyId: string, options?: RequestOptions): Promise<ClientInsights> => {
+        ensureNotAborted(options?.signal);
+
+        if (isBackendEnabled) {
+            try {
+                const insights = await backendFetch<ClientInsights>(
+                    `/companies/${companyId}/client-insights`,
+                    { method: 'GET' },
+                    options?.signal,
+                );
+                return insights;
+            } catch (error) {
+                if (error instanceof DOMException && error.name === 'AbortError') {
+                    throw error;
+                }
+                console.warn('Falling back to local client insights', error);
+            }
+        }
+
+        return computeClientInsightsLocal(companyId);
     },
     updateClient: async (id:string, data:any, userId:string): Promise<Client> => {
+        if (isBackendEnabled) {
+            try {
+                const updated = await backendFetch<Client>(
+                    `/clients/${id}`,
+                    {
+                        method: 'PUT',
+                        body: JSON.stringify(data),
+                    },
+                );
+
+                const idx = db.clients.findIndex(client => client.id === id);
+                if (idx >= 0) {
+                    db.clients[idx] = { ...updated };
+                } else {
+                    db.clients.push({ ...updated });
+                }
+                saveDb();
+                return updated;
+            } catch (error) {
+                console.error('Backend client update failed, using local fallback.', error);
+            }
+        }
+
         const index = db.clients.findIndex(c=>c.id === id);
-        db.clients[index] = {...db.clients[index], ...data};
+        if (index === -1) {
+            throw new Error('Client not found');
+        }
+        db.clients[index] = {
+            ...db.clients[index],
+            ...data,
+            updatedAt: new Date().toISOString(),
+        };
         saveDb();
         return db.clients[index] as Client;
     },
     createClient: async (data:any, userId:string): Promise<Client> => {
-        const newClient = {...data, id: String(Date.now()), companyId: db.users.find(u=>u.id===userId)!.companyId};
+        const timestamp = new Date().toISOString();
+        const userRecord = db.users.find(u => u.id === userId);
+        const companyId = userRecord?.companyId;
+        if (!companyId) {
+            throw new Error('Unable to determine company for client creation.');
+        }
+
+        const normalized = {
+            name: data.name,
+            contactPerson: data.contactPerson || '',
+            contactEmail: data.contactEmail || data.email,
+            contactPhone: data.contactPhone || data.phone,
+            email: data.email || data.contactEmail || '',
+            phone: data.phone || data.contactPhone || '',
+            billingAddress: data.billingAddress || '',
+            paymentTerms: data.paymentTerms || 'Net 30',
+            isActive: typeof data.isActive === 'boolean' ? data.isActive : true,
+            address: data.address || { street: '', city: '', state: '', zipCode: '', country: '' },
+        };
+
+        if (isBackendEnabled) {
+            const created = await backendFetch<Client>(
+                `/companies/${companyId}/clients`,
+                {
+                    method: 'POST',
+                    body: JSON.stringify(normalized),
+                },
+            );
+
+            db.clients = [...db.clients.filter(client => client.id !== created.id), { ...created }];
+            saveDb();
+            return created;
+        }
+
+        const newClient = {
+            ...normalized,
+            id: String(Date.now()),
+            companyId,
+            createdAt: timestamp,
+            updatedAt: timestamp,
+        };
         db.clients.push(newClient);
         saveDb();
         return newClient as Client;
@@ -630,6 +1211,44 @@ export const api = {
         await delay();
         const index = db.invoices.findIndex(i => i.id === id);
         if (index === -1) throw new Error("Invoice not found");
+
+        const normalizedLineItems = (data.lineItems ?? []).map((item: any) => ({
+            description: item.description,
+            quantity: Number(item.quantity ?? 0),
+            unitPrice: Number(item.unitPrice ?? item.rate ?? 0),
+        })).filter(item => item.description && item.quantity > 0 && item.unitPrice >= 0);
+
+        if (isBackendEnabled) {
+            const payload: Record<string, unknown> = {
+                clientId: data.clientId,
+                projectId: data.projectId,
+                invoiceNumber: data.invoiceNumber,
+                issuedAt: data.issuedAt ?? data.issueDate,
+                dueAt: data.dueAt ?? data.dueDate,
+                status: data.status,
+                notes: data.notes,
+            };
+
+            if (typeof data.taxRate === 'number') payload.taxRate = data.taxRate;
+            if (typeof data.retentionRate === 'number') payload.retentionRate = data.retentionRate;
+            if (normalizedLineItems.length > 0) payload.lineItems = normalizedLineItems;
+
+            const updated = await backendFetch<Invoice>(
+                `/invoices/${id}`,
+                {
+                    method: 'PUT',
+                    body: JSON.stringify(payload),
+                },
+            );
+
+            const previousInvoiceNumber = db.invoices[index]?.invoiceNumber;
+            db.invoices = [...db.invoices.filter(inv => inv.id !== updated.id), { ...updated }];
+            saveDb();
+            if (previousInvoiceNumber && previousInvoiceNumber !== updated.invoiceNumber) {
+                addAuditLog(userId, 'UPDATE_INVOICE_NUMBER', { type: 'Invoice', id, name: updated.invoiceNumber });
+            }
+            return updated;
+        }
 
         const existingInvoice = db.invoices[index]!;
         const companyId = existingInvoice.companyId ?? db.users.find(u => u.id === userId)?.companyId;
@@ -672,6 +1291,43 @@ export const api = {
             throw new Error("Unable to determine company for invoice creation.");
         }
 
+        const normalizedLineItems = (data.lineItems ?? []).map((item: any) => ({
+            description: item.description,
+            quantity: Number(item.quantity ?? 0),
+            unitPrice: Number(item.unitPrice ?? item.rate ?? 0),
+        })).filter(item => item.description && item.quantity > 0 && item.unitPrice >= 0);
+
+        if (!normalizedLineItems.length) {
+            throw new Error('Invoice requires at least one valid line item.');
+        }
+
+        if (isBackendEnabled) {
+            const payload = {
+                clientId: data.clientId,
+                projectId: data.projectId,
+                issuedAt: data.issuedAt ?? data.issueDate ?? new Date().toISOString(),
+                dueAt: data.dueAt ?? data.dueDate ?? new Date().toISOString(),
+                status: data.status ?? InvoiceStatus.DRAFT,
+                notes: data.notes ?? '',
+                taxRate: typeof data.taxRate === 'number' ? data.taxRate : 0,
+                retentionRate: typeof data.retentionRate === 'number' ? data.retentionRate : 0,
+                lineItems: normalizedLineItems,
+            };
+
+            const created = await backendFetch<Invoice>(
+                `/companies/${companyId}/invoices`,
+                {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                },
+            );
+
+            db.invoices = [...db.invoices.filter(inv => inv.id !== created.id), { ...created }];
+            saveDb();
+            addAuditLog(userId, 'CREATE_INVOICE', { type: 'Invoice', id: created.id, name: created.invoiceNumber });
+            return created;
+        }
+
         const companyInvoices = db.invoices.filter(inv => {
             if (!inv.companyId) return true;
             return inv.companyId === companyId;
@@ -704,8 +1360,31 @@ export const api = {
             throw new Error("Failed to generate invoice number.");
         }
 
+        const subtotal = normalizedLineItems.reduce((total, item) => total + item.quantity * item.unitPrice, 0);
+        const taxRate = typeof data.taxRate === 'number' ? data.taxRate : 0;
+        const retentionRate = typeof data.retentionRate === 'number' ? data.retentionRate : 0;
+        const taxAmount = subtotal * taxRate;
+        const retentionAmount = subtotal * retentionRate;
+        const total = subtotal + taxAmount - retentionAmount;
+
         const newInvoice = {
             ...data,
+            lineItems: normalizedLineItems.map(item => ({
+                id: String(Date.now() + Math.random()),
+                description: item.description,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                rate: item.unitPrice,
+                amount: item.quantity * item.unitPrice,
+            })),
+            subtotal,
+            taxRate,
+            taxAmount,
+            retentionRate,
+            retentionAmount,
+            total,
+            balance: total - (data.amountPaid || 0),
+            amountPaid: data.amountPaid || 0,
             id: String(Date.now()),
             companyId,
             invoiceNumber,
@@ -721,6 +1400,32 @@ export const api = {
         const index = db.invoices.findIndex(i => i.id === id);
         if (index === -1) throw new Error("Invoice not found");
         const inv = db.invoices[index]!;
+
+        if (isBackendEnabled) {
+            const payload = {
+                amount: Number(data.amount),
+                method: data.method,
+                reference: data.reference,
+                notes: data.notes,
+            };
+
+            const updated = await backendFetch<Invoice>(
+                `/invoices/${id}/payments`,
+                {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                },
+            );
+
+            db.invoices = [...db.invoices.filter(invoice => invoice.id !== updated.id), { ...updated }];
+            saveDb();
+            addAuditLog(userId, `RECORD_PAYMENT (amount: ${payload.amount})`, { type: 'Invoice', id, name: updated.invoiceNumber });
+            if (updated.status === InvoiceStatus.PAID && inv.status !== InvoiceStatus.PAID) {
+                addAuditLog(userId, `UPDATE_INVOICE_STATUS: ${inv.status} -> ${InvoiceStatus.PAID}`, { type: 'Invoice', id, name: updated.invoiceNumber });
+            }
+            return updated;
+        }
+
         if (!inv.payments) inv.payments = [];
         const newPayment = { ...data, id: String(Date.now()), createdBy: userId, date: new Date().toISOString(), invoiceId: id };
         inv.payments.push(newPayment);
@@ -738,6 +1443,7 @@ export const api = {
         saveDb();
         return inv as Invoice;
     },
+
     submitExpense: async (data:any, userId:string): Promise<Expense> => {
         const newExpense = {...data, id: String(Date.now()), userId, status: ExpenseStatus.PENDING, submittedAt: new Date().toISOString()};
         db.expenses.push(newExpense);

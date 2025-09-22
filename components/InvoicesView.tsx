@@ -1,12 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { differenceInCalendarDays, format } from 'date-fns';
-import { api } from '../services/mockApi';
+import { differenceInCalendarDays, format, formatDistanceToNow } from 'date-fns';
+import { api, backendCapabilities } from '../services/mockApi';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 import { InvoiceStatusBadge } from './ui/StatusBadge';
 import { Tag } from './ui/Tag';
 import { ViewHeader } from './layout/ViewHeader';
-import { Client, Invoice, InvoiceStatus, Project, User } from '../types';
+import { Client, Invoice, InvoiceInsights, InvoiceStatus, Project, User } from '../types';
 import { getDerivedStatus, getInvoiceFinancials } from '../utils/finance';
 
 type StatusFilter = 'ALL' | InvoiceStatus;
@@ -30,6 +30,14 @@ const STATUS_ORDER: Record<InvoiceStatus, number> = {
   [InvoiceStatus.DRAFT]: 2,
   [InvoiceStatus.PAID]: 3,
   [InvoiceStatus.CANCELLED]: 4,
+};
+
+const STATUS_COLORS: Record<InvoiceStatus, string> = {
+  [InvoiceStatus.DRAFT]: 'bg-slate-400',
+  [InvoiceStatus.SENT]: 'bg-sky-500',
+  [InvoiceStatus.OVERDUE]: 'bg-rose-500',
+  [InvoiceStatus.PAID]: 'bg-emerald-500',
+  [InvoiceStatus.CANCELLED]: 'bg-zinc-400',
 };
 
 const formatCurrency = (amount: number): string =>
@@ -107,10 +115,13 @@ interface InvoicesViewProps {
   addToast: (message: string, type: 'success' | 'error') => void;
 }
 
+type BackendHealth = { state: 'checking' | 'connected' | 'mock' | 'error'; checkedAt?: string; error?: string };
+
 export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [insights, setInsights] = useState<InvoiceInsights | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
@@ -119,6 +130,10 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('BANK_TRANSFER');
   const [isRecordingPayment, setIsRecordingPayment] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [backendHealth, setBackendHealth] = useState<BackendHealth>(() =>
+    backendCapabilities.isEnabled ? { state: 'checking' } : { state: 'mock' },
+  );
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(
@@ -136,15 +151,18 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
         setProjects([]);
         if (controller.signal.aborted) return null;
         setClients([]);
+        if (controller.signal.aborted) return null;
+        setInsights(null);
         if (showLoader && !controller.signal.aborted) setLoading(false);
         return null;
       }
 
       try {
-        const [invoiceData, projectData, clientData] = await Promise.all([
+        const [invoiceData, projectData, clientData, insightsData] = await Promise.all([
           api.getInvoicesByCompany(user.companyId, { signal: controller.signal }),
           api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
           api.getClientsByCompany(user.companyId, { signal: controller.signal }),
+          api.getInvoiceInsights(user.companyId, { signal: controller.signal }),
         ]);
 
         if (controller.signal.aborted) return null;
@@ -153,6 +171,8 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
         setProjects(projectData);
         if (controller.signal.aborted) return null;
         setClients(clientData);
+        if (controller.signal.aborted) return null;
+        setInsights(insightsData);
         return { invoiceData, projectData, clientData };
       } catch (error) {
         console.error('Failed to load invoices', error);
@@ -173,6 +193,43 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
       abortControllerRef.current?.abort();
     };
   }, [fetchData]);
+
+  useEffect(() => {
+    if (!backendCapabilities.isEnabled) {
+      return;
+    }
+    let cancelled = false;
+    backendCapabilities
+      .checkHealth()
+      .then(result => {
+        if (cancelled) return;
+        if (result.status === 'ok') {
+          setBackendHealth({ state: 'connected', checkedAt: result.checkedAt });
+        } else if (result.status === 'error') {
+          setBackendHealth({ state: 'error', checkedAt: result.checkedAt, error: result.error });
+        } else {
+          setBackendHealth({ state: 'mock', checkedAt: result.checkedAt });
+        }
+      })
+      .catch(error => {
+        if (cancelled) return;
+        setBackendHealth({
+          state: 'error',
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const describeRelativeTime = useCallback((value?: string) => {
+    if (!value) return 'unknown';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return 'unknown';
+    return formatDistanceToNow(parsed, { addSuffix: true });
+  }, []);
 
   useEffect(() => {
     if (selectedInvoiceId && !invoices.some((invoice) => invoice.id === selectedInvoiceId)) {
@@ -205,7 +262,65 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
     setPaymentMethod('BANK_TRANSFER');
   }, [selectedInvoice]);
 
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await fetchData(false);
+      if (backendCapabilities.isEnabled) {
+        const result = await backendCapabilities.checkHealth();
+        if (result.status === 'ok') {
+          setBackendHealth({ state: 'connected', checkedAt: result.checkedAt });
+        } else if (result.status === 'error') {
+          setBackendHealth({ state: 'error', checkedAt: result.checkedAt, error: result.error });
+        } else {
+          setBackendHealth({ state: 'mock', checkedAt: result.checkedAt });
+        }
+      }
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      addToast('Unable to refresh invoices.', 'error');
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [fetchData, addToast]);
+
+  const dataSourceMeta = useMemo(() => {
+    if (backendHealth.state === 'connected') {
+      return {
+        value: 'Live database',
+        helper: backendHealth.checkedAt
+          ? `Checked ${describeRelativeTime(backendHealth.checkedAt)}`
+          : 'Synchronised with the backend service',
+        indicator: 'positive' as const,
+      };
+    }
+    if (backendHealth.state === 'error') {
+      return {
+        value: 'Degraded',
+        helper: backendHealth.error ?? 'Falling back to cached data',
+        indicator: 'negative' as const,
+      };
+    }
+    return {
+      value: 'Local mock',
+      helper: 'Using in-browser data cache',
+      indicator: 'neutral' as const,
+    };
+  }, [backendHealth, describeRelativeTime]);
+
+  const isInitialLoading = loading && invoices.length === 0;
+
   const summary = useMemo(() => {
+    if (insights) {
+      return {
+        outstanding: insights.totals.outstandingBalance,
+        overdue: insights.totals.overdueBalance,
+        draft: insights.totals.draftCount,
+        paidLast30: insights.cashFlow.paidLast30Days.total,
+        collectionRate: insights.totals.collectionRate,
+      };
+    }
+
     let outstanding = 0;
     let overdue = 0;
     let draft = 0;
@@ -244,9 +359,26 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
     const collectionRate = totalBilled > 0 ? Math.round((totalCollected / totalBilled) * 100) : 0;
 
     return { outstanding, overdue, draft, paidLast30, collectionRate };
-  }, [invoices]);
+  }, [insights, invoices]);
 
   const statusCounts = useMemo(() => {
+    if (insights) {
+      const counts: Record<StatusFilter, number> = {
+        ALL: insights.statusSummary.reduce((total, entry) => total + entry.invoiceCount, 0),
+        [InvoiceStatus.DRAFT]: 0,
+        [InvoiceStatus.SENT]: 0,
+        [InvoiceStatus.OVERDUE]: 0,
+        [InvoiceStatus.PAID]: 0,
+        [InvoiceStatus.CANCELLED]: 0,
+      };
+
+      insights.statusSummary.forEach((entry) => {
+        counts[entry.status] = entry.invoiceCount;
+      });
+
+      return counts;
+    }
+
     const counts: Record<StatusFilter, number> = {
       ALL: invoices.length,
       [InvoiceStatus.DRAFT]: 0,
@@ -264,7 +396,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
     counts.ALL = invoices.length;
 
     return counts;
-  }, [invoices]);
+  }, [insights, invoices]);
 
   const filteredInvoices = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -575,38 +707,56 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
       <ViewHeader
         view="invoices"
         actions={
-          <Button
-            variant="secondary"
-            onClick={() =>
-              addToast('Invoice creation is available from the Financials workspace.', 'success')
-            }
-          >
-            New invoice
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" size="sm" onClick={handleRefresh} isLoading={isRefreshing}>
+              Refresh data
+            </Button>
+            <Button
+              onClick={() =>
+                addToast('Invoice creation is available from the Financials workspace.', 'success')
+              }
+            >
+              New invoice
+            </Button>
+          </div>
         }
         meta={[
           {
             label: 'Outstanding balance',
             value: formatCurrency(summary.outstanding),
-            helper: summary.outstanding > 0 ? 'Across open invoices' : 'All invoices settled',
+            helper: insights
+              ? `${insights.cashFlow.upcomingDue.count} due soon`
+              : summary.outstanding > 0
+              ? 'Across open invoices'
+              : 'All invoices settled',
             indicator: summary.outstanding > 0 ? 'warning' : 'positive',
           },
           {
             label: 'Overdue exposure',
             value: formatCurrency(summary.overdue),
-            helper: summary.overdue > 0 ? 'Requires follow up' : 'No overdue balances',
+            helper: insights
+              ? `${insights.cashFlow.overdue.count} waiting on payment`
+              : summary.overdue > 0
+              ? 'Requires follow up'
+              : 'No overdue balances',
             indicator: summary.overdue > 0 ? 'negative' : 'positive',
           },
           {
             label: 'Collection rate',
             value: `${summary.collectionRate}%`,
-            helper: 'Paid in the last 30 days',
+            helper: `${formatCurrency(summary.paidLast30)} collected in 30 days`,
             indicator: collectionIndicator,
+          },
+          {
+            label: 'Data source',
+            value: dataSourceMeta.value,
+            helper: dataSourceMeta.helper,
+            indicator: dataSourceMeta.indicator,
           },
         ]}
       />
 
-      {loading ? (
+      {isInitialLoading ? (
         <Card>Loading invoices...</Card>
       ) : (
         <>
@@ -615,7 +765,13 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
               title="Outstanding balance"
               value={formatCurrency(summary.outstanding)}
               helper={
-                summary.outstanding > 0
+                insights
+                  ? `${formatCurrency(insights.cashFlow.upcomingDue.total)} due within ${
+                      insights.cashFlow.upcomingDue.averageDays !== undefined
+                        ? `${Math.max(insights.cashFlow.upcomingDue.averageDays, 0)} days`
+                        : 'the current cycle'
+                    }.`
+                  : summary.outstanding > 0
                   ? 'Outstanding balance across sent invoices.'
                   : 'All invoices have been settled.'
               }
@@ -628,7 +784,11 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
                 statusCounts[InvoiceStatus.OVERDUE] > 0
                   ? `${statusCounts[InvoiceStatus.OVERDUE]} invoice${
                       statusCounts[InvoiceStatus.OVERDUE] === 1 ? '' : 's'
-                    } require attention.`
+                    } require attention${
+                      insights?.cashFlow.overdue.averageDays !== undefined
+                        ? ` • avg ${insights.cashFlow.overdue.averageDays} days past due`
+                        : ''
+                    }.`
                   : 'No invoices are overdue right now.'
               }
               tone={summary.overdue > 0 ? 'danger' : 'success'}
@@ -636,26 +796,166 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
             <SummaryCard
               title="Draft invoices"
               value={`${summary.draft}`}
-              helper="Prepare and send these invoices to start the billing cycle."
+              helper={
+                summary.draft > 0
+                  ? 'Prepare and send to start the billing cycle.'
+                  : 'No invoices waiting to be issued.'
+              }
               tone={summary.draft > 0 ? 'warning' : 'default'}
             />
-            <SummaryCard
-              title="Collection rate"
-              value={`${summary.collectionRate}%`}
-              helper={
-                summary.collectionRate >= 90
+          <SummaryCard
+            title="Collection rate"
+            value={`${summary.collectionRate}%`}
+            helper={
+              summary.collectionRate >= 90
                   ? 'Collections are on track.'
-                  : 'Aim for at least 90% to maintain healthy cash flow.'
-              }
-              tone={
-                summary.collectionRate >= 90
-                  ? 'success'
-                  : summary.collectionRate >= 60
-                  ? 'warning'
-                  : 'danger'
-              }
-            />
-          </div>
+                  : `Target 90%+ — ${formatCurrency(summary.paidLast30)} collected recently.`
+            }
+            tone={
+              summary.collectionRate >= 90
+                ? 'success'
+                : summary.collectionRate >= 60
+                ? 'warning'
+                : 'danger'
+            }
+          />
+        </div>
+
+          {insights && (
+            <div className="grid gap-4 xl:grid-cols-3">
+              <Card className="col-span-1 space-y-4">
+                <h3 className="font-semibold text-foreground">Cash flow radar</h3>
+                {(() => {
+                  const outstandingScale = Math.max(insights.totals.outstandingBalance, 1);
+                  const rows = [
+                    {
+                      key: 'dueSoon',
+                      label: 'Due soon',
+                      bucket: insights.cashFlow.upcomingDue,
+                      tone: 'bg-amber-500/70',
+                      suffix:
+                        insights.cashFlow.upcomingDue.averageDays !== undefined
+                          ? `${Math.max(insights.cashFlow.upcomingDue.averageDays, 0)} day${
+                              insights.cashFlow.upcomingDue.averageDays === 1 ? '' : 's'
+                            } remaining`
+                          : undefined,
+                    },
+                    {
+                      key: 'overdue',
+                      label: 'Overdue',
+                      bucket: insights.cashFlow.overdue,
+                      tone: 'bg-rose-500/80',
+                      suffix:
+                        insights.cashFlow.overdue.averageDays !== undefined
+                          ? `${insights.cashFlow.overdue.averageDays} day${
+                              insights.cashFlow.overdue.averageDays === 1 ? '' : 's'
+                            } past due`
+                          : undefined,
+                    },
+                    {
+                      key: 'expected',
+                      label: 'Expected this month',
+                      bucket: insights.cashFlow.expectedThisMonth,
+                      tone: 'bg-sky-500/70',
+                      suffix: `${insights.cashFlow.expectedThisMonth.count} invoice${
+                        insights.cashFlow.expectedThisMonth.count === 1 ? '' : 's'
+                      } scheduled`,
+                    },
+                    {
+                      key: 'collected',
+                      label: 'Collected (30d)',
+                      bucket: insights.cashFlow.paidLast30Days,
+                      tone: 'bg-emerald-500/70',
+                      suffix: `${insights.cashFlow.paidLast30Days.count} invoice${
+                        insights.cashFlow.paidLast30Days.count === 1 ? '' : 's'
+                      } closed`,
+                    },
+                  ];
+
+                  return rows.map(({ key, label, bucket, tone, suffix }) => {
+                    const percentage = Math.min(
+                      100,
+                      outstandingScale > 0 ? Math.round((bucket.total / outstandingScale) * 100) : 0,
+                    );
+
+                    return (
+                      <div key={key} className="space-y-2">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-sm font-medium text-foreground">{label}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {suffix || `${bucket.count} invoice${bucket.count === 1 ? '' : 's'}`}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">{formatCurrency(bucket.total)}</p>
+                            {bucket.averageDays !== undefined && (
+                              <p className="text-xs text-muted-foreground">Avg {Math.abs(bucket.averageDays)} days</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="h-1.5 w-full rounded-full bg-muted">
+                          <div className={`h-full rounded-full ${tone}`} style={{ width: `${percentage}%` }} />
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </Card>
+
+              <Card className="col-span-1 space-y-4">
+                <h3 className="font-semibold text-foreground">Status pipeline</h3>
+                <div className="space-y-3">
+                  {insights.statusSummary.map((entry) => (
+                    <div key={entry.status} className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <span className={`h-2.5 w-2.5 rounded-full ${STATUS_COLORS[entry.status]}`} />
+                        <div>
+                          <p className="text-sm font-medium text-foreground capitalize">{entry.status.toLowerCase()}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {entry.invoiceCount} invoice{entry.invoiceCount === 1 ? '' : 's'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold">{formatCurrency(entry.outstandingBalance)}</p>
+                        <p className="text-xs text-muted-foreground">Outstanding</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <Card className="col-span-1 space-y-4">
+                <h3 className="font-semibold text-foreground">Top outstanding clients</h3>
+                <ul className="space-y-3">
+                  {insights.topOutstandingClients.length > 0 ? (
+                    insights.topOutstandingClients.map((client) => {
+                      const lastDue = client.lastInvoiceDueAt
+                        ? formatDistanceToNow(new Date(client.lastInvoiceDueAt), { addSuffix: true })
+                        : 'No due date';
+                      return (
+                        <li key={client.clientId} className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="font-medium text-foreground">{client.clientName}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {client.invoices} open invoice{client.invoices === 1 ? '' : 's'} • {lastDue}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">{formatCurrency(client.outstanding)}</p>
+                            <p className="text-xs text-muted-foreground">Outstanding</p>
+                          </div>
+                        </li>
+                      );
+                    })
+                  ) : (
+                    <li className="text-sm text-muted-foreground">All balances cleared.</li>
+                  )}
+                </ul>
+              </Card>
+            </div>
+          )}
 
           <Card>
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">

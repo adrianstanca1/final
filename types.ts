@@ -466,6 +466,76 @@ export interface InvoicePayment {
   createdAt: string;
 }
 
+export interface InvoiceStatusSummary {
+  status: InvoiceStatus;
+  invoiceCount: number;
+  totalBilled: number;
+  outstandingBalance: number;
+}
+
+export interface InvoiceCashFlowBucket {
+  count: number;
+  total: number;
+  averageDays?: number;
+}
+
+export interface InvoiceCashFlowSnapshot {
+  upcomingDue: InvoiceCashFlowBucket;
+  overdue: InvoiceCashFlowBucket;
+  paidLast30Days: InvoiceCashFlowBucket;
+  expectedThisMonth: InvoiceCashFlowBucket;
+}
+
+export interface TopOutstandingClientInsight {
+  clientId: string;
+  clientName: string;
+  outstanding: number;
+  invoices: number;
+  lastInvoiceDueAt?: string;
+}
+
+export interface InvoiceTotalsInsight {
+  totalBilled: number;
+  totalCollected: number;
+  outstandingBalance: number;
+  overdueBalance: number;
+  draftCount: number;
+  collectionRate: number;
+}
+
+export interface InvoiceInsights {
+  updatedAt: string;
+  statusSummary: InvoiceStatusSummary[];
+  cashFlow: InvoiceCashFlowSnapshot;
+  topOutstandingClients: TopOutstandingClientInsight[];
+  totals: InvoiceTotalsInsight;
+}
+
+export interface ClientAtRiskInsight {
+  clientId: string;
+  clientName: string;
+  outstanding: number;
+  unpaidInvoices: number;
+  lastInvoiceDueAt?: string;
+  lastPaymentAt?: string;
+}
+
+export interface ClientRevenueInsight {
+  clientId: string;
+  clientName: string;
+  totalPaid: number;
+}
+
+export interface ClientInsights {
+  updatedAt: string;
+  totalClients: number;
+  activeClients: number;
+  dormantClients: number;
+  newThisQuarter: number;
+  atRiskClients: ClientAtRiskInsight[];
+  topRevenueClients: ClientRevenueInsight[];
+}
+
 export interface Equipment {
   id: string;
   name: string;
