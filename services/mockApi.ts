@@ -2118,5 +2118,47 @@ export const api = {
         db.projectMessages.push(newMessage);
         saveDb();
         return newMessage as ProjectMessage;
+    },
+    
+    generateCostEstimate: async (description: string, sqft: number, quality: string): Promise<any> => {
+        await delay();
+        
+        // Basic cost calculation based on UK construction rates
+        const baseRatePerSqft = quality === 'basic' ? 80 : quality === 'medium' ? 120 : 180;
+        const baseTotal = sqft * baseRatePerSqft;
+        const contingency = Math.round(baseTotal * 0.15); // 15% contingency
+        const totalEstimate = baseTotal + contingency;
+        
+        const breakdown = [
+            {
+                category: 'Materials',
+                cost: Math.round(baseTotal * 0.4),
+                details: 'Construction materials, fixtures, and finishes'
+            },
+            {
+                category: 'Labour',
+                cost: Math.round(baseTotal * 0.35),
+                details: 'Skilled trades and construction workers'
+            },
+            {
+                category: 'Equipment & Tools',
+                cost: Math.round(baseTotal * 0.1),
+                details: 'Machinery, tools, and equipment rental'
+            },
+            {
+                category: 'Permits & Professional Services',
+                cost: Math.round(baseTotal * 0.15),
+                details: 'Building permits, architect fees, engineering services'
+            }
+        ];
+        
+        const summary = `Estimated cost for ${sqft} sq ft ${quality} quality construction project. This estimate includes materials, labour, equipment, and professional services with a 15% contingency buffer.`;
+        
+        return {
+            totalEstimate,
+            breakdown,
+            contingency,
+            summary
+        };
     }
 };
