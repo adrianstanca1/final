@@ -9,6 +9,7 @@ import { Avatar } from './ui/Avatar';
 import { EquipmentStatusBadge } from './ui/StatusBadge';
 import { Tag } from './ui/Tag';
 import { ViewHeader } from './layout/ViewHeader';
+import { UserAccessSummaryCard } from './access/UserAccessSummaryCard';
 // FIX: Removed `startOfWeek` from import and added a local implementation to resolve the module export error.
 import { format, eachDayOfInterval, isWithinInterval } from 'date-fns';
 
@@ -182,6 +183,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                         indicator: Number(kpiData.budgetUtilization) > 90 ? 'warning' : 'positive',
                     },
                 ]}
+            />
+
+            <UserAccessSummaryCard
+                userId={user.id}
+                companyId={user.companyId}
+                className="animate-card-enter border border-primary/10"
             />
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
