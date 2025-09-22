@@ -1,33 +1,95 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react';
-import { User, View, Project, Role, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import {
+  User,
+  View,
+  Project,
+  Role,
+  Notification,
+  CompanySettings,
+  IncidentStatus,
+  TimesheetStatus,
+  NotificationType,
+} from './types';
 import { api } from './services/mockApi';
-import { notificationService } from './services/notificationService';
-import { analytics } from './services/analyticsService';
-import { backupService } from './services/backupService';
-import { authService } from './services/auth';
+import { usePerformanceMonitor } from './hooks/usePerformanceMonitor';
 import { Login } from './components/Login';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
-import { Dashboard } from './components/Dashboard';
-import { MyDayView } from './components/MyDayView';
-import { ForemanDashboard } from './components/ForemanDashboard';
-import { PrincipalAdminDashboard } from './components/PrincipalAdminDashboard';
-import { ProjectsView } from './components/ProjectsView';
-import { ProjectDetailView } from './components/ProjectDetailView';
-import { AllTasksView } from './components/AllTasksView';
-import { ProjectsMapView } from './components/ProjectsMapView';
-import { TimeTrackingView } from './components/TimeTrackingView';
-import { TimesheetsView } from './components/TimesheetsView';
-import { DocumentsView } from './components/DocumentsView';
-import { SafetyView } from './components/SafetyView';
-import { FinancialsView } from './components/FinancialsView';
-import { TeamView } from './components/TeamView';
-import { EquipmentView } from './components/EquipmentView';
-import { TemplatesView } from './components/TemplatesView';
-import { ToolsView } from './components/ToolsView';
-import { AuditLogView } from './components/AuditLogView';
-import { SettingsView } from './components/SettingsView';
-import { ChatView } from './components/ChatView';
+
+// Lazy-load heavy view components to reduce initial bundle size
+const Dashboard = React.lazy(() =>
+  import('./components/Dashboard').then(m => ({ default: m.Dashboard }))
+);
+const MyDayView = React.lazy(() =>
+  import('./components/MyDayView').then(m => ({ default: m.MyDayView }))
+);
+const ForemanDashboard = React.lazy(() =>
+  import('./components/ForemanDashboard').then(m => ({ default: m.ForemanDashboard }))
+);
+const PrincipalAdminDashboard = React.lazy(() =>
+  import('./components/PrincipalAdminDashboard').then(m => ({
+    default: m.PrincipalAdminDashboard,
+  }))
+);
+const ProjectsView = React.lazy(() =>
+  import('./components/ProjectsView').then(m => ({ default: m.ProjectsView }))
+);
+const ProjectDetailView = React.lazy(() =>
+  import('./components/ProjectDetailView').then(m => ({ default: m.ProjectDetailView }))
+);
+const AllTasksView = React.lazy(() =>
+  import('./components/AllTasksView').then(m => ({ default: m.AllTasksView }))
+);
+const ProjectsMapView = React.lazy(() =>
+  import('./components/ProjectsMapView').then(m => ({ default: m.ProjectsMapView }))
+);
+const TimeTrackingView = React.lazy(() =>
+  import('./components/TimeTrackingView').then(m => ({ default: m.TimeTrackingView }))
+);
+const TimesheetsView = React.lazy(() =>
+  import('./components/TimesheetsView').then(m => ({ default: m.TimesheetsView }))
+);
+const DocumentsView = React.lazy(() =>
+  import('./components/DocumentsView').then(m => ({ default: m.DocumentsView }))
+);
+const SafetyView = React.lazy(() =>
+  import('./components/SafetyView').then(m => ({ default: m.SafetyView }))
+);
+const FinancialsView = React.lazy(() =>
+  import('./components/FinancialsView').then(m => ({ default: m.FinancialsView }))
+);
+const TeamView = React.lazy(() =>
+  import('./components/TeamView').then(m => ({ default: m.TeamView }))
+);
+const EquipmentView = React.lazy(() =>
+  import('./components/EquipmentView').then(m => ({ default: m.EquipmentView }))
+);
+const TemplatesView = React.lazy(() =>
+  import('./components/TemplatesView').then(m => ({ default: m.TemplatesView }))
+);
+const ToolsView = React.lazy(() =>
+  import('./components/ToolsView').then(m => ({ default: m.ToolsView }))
+);
+const AuditLogView = React.lazy(() =>
+  import('./components/AuditLogView').then(m => ({ default: m.AuditLogView }))
+);
+const SettingsView = React.lazy(() =>
+  import('./components/SettingsView').then(m => ({ default: m.SettingsView }))
+);
+const ChatView = React.lazy(() =>
+  import('./components/ChatView').then(m => ({ default: m.ChatView }))
+);
+const ClientsView = React.lazy(() =>
+  import('./components/ClientsView').then(m => ({ default: m.ClientsView }))
+);
+const InvoicesView = React.lazy(() =>
+  import('./components/InvoicesView').then(m => ({ default: m.InvoicesView }))
+);
+const SecurityManagementView = React.lazy(() =>
+  import('./components/SecurityManagementView').then(m => ({ default: m.SecurityManagementView }))
+);
+
+// Keep these as regular imports since they're small and used conditionally
 import { AISearchModal } from './components/AISearchModal';
 import { CommandPalette } from './components/CommandPalette';
 import { useOfflineSync } from './hooks/useOfflineSync';
@@ -94,11 +156,16 @@ const ToastMessage: React.FC<{ toast: Toast; onDismiss: (id: number) => void }> 
       return toast.type === 'success' ? '🎉' : '🚨';
     }
     switch (toast.notification?.type) {
-      case NotificationType.APPROVAL_REQUEST: return '📄';
-      case NotificationType.TASK_ASSIGNED: return '✅';
-      case NotificationType.NEW_MESSAGE: return '💬';
-      case NotificationType.SAFETY_ALERT: return '⚠️';
-      default: return '🔔';
+      case NotificationType.APPROVAL_REQUEST:
+        return '📄';
+      case NotificationType.TASK_ASSIGNED:
+        return '✅';
+      case NotificationType.NEW_MESSAGE:
+        return '💬';
+      case NotificationType.SAFETY_ALERT:
+        return '⚠️';
+      default:
+        return '🔔';
     }
   };
 
@@ -119,7 +186,12 @@ const ToastMessage: React.FC<{ toast: Toast; onDismiss: (id: number) => void }> 
         <p className="font-bold">{title}</p>
         <p>{toast.message}</p>
       </div>
-      <button type="button" onClick={() => onDismiss(toast.id)} className="p-1 -m-1 rounded-full hover:bg-black/10 flex-shrink-0">&times;</button>
+      <button
+        onClick={() => onDismiss(toast.id)}
+        className='p-1 -m-1 rounded-full hover:bg-black/10 flex-shrink-0'
+      >
+        &times;
+      </button>
     </div>
   );
 };
@@ -221,15 +293,15 @@ function AppContent() {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     if (token) {
-        setResetToken(token);
-        setAuthView('reset-password');
+      setResetToken(token);
+      setAuthView('reset-password');
     }
   }, []);
 
   const { isOnline } = useOfflineSync(addToast);
   const { isCommandPaletteOpen, setIsCommandPaletteOpen } = useCommandPalette();
   useReminderService(user);
-  
+
   useEffect(() => {
     if (!user?.companyId) {
       setCompanySettings(null);
@@ -258,7 +330,7 @@ function AppContent() {
   }, [user, addToast]);
 
   useEffect(() => {
-    if(companySettings) {
+    if (companySettings) {
       document.documentElement.classList.toggle('dark', companySettings.theme === 'dark');
     }
   }, [companySettings]);
@@ -296,7 +368,7 @@ function AppContent() {
       setPendingTimesheetCount(timesheets.filter(t => t.status === TimesheetStatus.PENDING).length);
       setOpenIncidentCount(incidents.filter(i => i.status !== IncidentStatus.RESOLVED).length);
       setUnreadMessageCount(conversations.filter(c => c.lastMessage && !c.lastMessage.isRead && c.lastMessage.senderId !== user.id).length);
-      
+
       const unreadNotifications = fetchedNotifications.filter(n => !n.isRead);
       setUnreadNotificationCount(unreadNotifications.length);
 
@@ -305,10 +377,10 @@ function AppContent() {
 
       if (newUnreadNotifications.length > 0) {
         newUnreadNotifications.forEach(n => {
-            addToast(n.message, 'success', n);
+          addToast(n.message, 'success', n);
         });
       }
-      
+
       previousNotificationsRef.current = fetchedNotifications;
       setNotifications(fetchedNotifications);
 
@@ -316,7 +388,7 @@ function AppContent() {
       console.error("Could not update notification counts.", error);
     }
   }, [addToast]);
-  
+
   useEffect(() => {
     if (user) {
       api.getNotificationsForUser(user.id).then(initialNotifications => {
@@ -327,9 +399,9 @@ function AppContent() {
     }
 
     const interval = setInterval(() => {
-        if (user) {
-            updateBadgeCounts(user);
-        }
+      if (user) {
+        updateBadgeCounts(user);
+      }
     }, 5000);
     return () => clearInterval(interval);
   }, [user, updateBadgeCounts]);
@@ -360,10 +432,10 @@ function AppContent() {
     setSelectedProject(project);
     setActiveView('project-detail');
   };
-  
+
   const handleStartChat = (recipient: User) => {
-      setInitialChatRecipient(recipient);
-      setActiveView('chat');
+    setInitialChatRecipient(recipient);
+    setActiveView('chat');
   };
 
   const handleNotificationClick = useCallback(async (notification: Notification) => {
@@ -425,7 +497,7 @@ function AppContent() {
   const renderView = () => {
     if (!user) return null;
     if (activeView === 'project-detail' && selectedProject) {
-      return <ProjectDetailView project={selectedProject} user={user} onBack={() => navigateToView('projects')} addToast={addToast} isOnline={isOnline} onStartChat={handleStartChat}/>;
+      return <ProjectDetailView project={selectedProject} user={user} onBack={() => navigateToView('projects')} addToast={addToast} isOnline={isOnline} onStartChat={handleStartChat} />;
     }
 
     switch (activeView) {
@@ -455,7 +527,7 @@ function AppContent() {
             onSettingsUpdate={handleCompanySettingsUpdate}
           />
         );
-      case 'chat': return <ChatView user={user} addToast={addToast} initialRecipient={initialChatRecipient}/>;
+      case 'chat': return <ChatView user={user} addToast={addToast} initialRecipient={initialChatRecipient} />;
       case 'clients': return <ClientsView user={user} addToast={addToast} />;
       case 'invoices': return <InvoicesView user={user} addToast={addToast} />;
       default: return <Dashboard user={user} addToast={addToast} activeView={activeView} setActiveView={navigateToView} onSelectProject={handleSelectProject} />;
@@ -500,21 +572,21 @@ function AppContent() {
   }
 
   if (!isAuthenticated || !user) {
-    switch(authView) {
-        case 'login':
-            return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
-        case 'register':
-            return <UserRegistration onSwitchToLogin={() => setAuthView('login')} />;
-        case 'forgot-password':
-            return <ForgotPassword onSwitchToLogin={() => setAuthView('login')} />;
-        case 'reset-password':
-            if (resetToken) {
-                return <ResetPassword token={resetToken} onSuccess={() => { setAuthView('login'); setResetToken(null); window.history.pushState({}, '', window.location.pathname); }} />;
-            }
-            // Fallback to login if no token
-            return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
-        default:
-             return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
+    switch (authView) {
+      case 'login':
+        return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
+      case 'register':
+        return <UserRegistration onSwitchToLogin={() => setAuthView('login')} />;
+      case 'forgot-password':
+        return <ForgotPassword onSwitchToLogin={() => setAuthView('login')} />;
+      case 'reset-password':
+        if (resetToken) {
+          return <ResetPassword token={resetToken} onSuccess={() => { setAuthView('login'); setResetToken(null); window.history.pushState({}, '', window.location.pathname); }} />;
+        }
+        // Fallback to login if no token
+        return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
+      default:
+        return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
     }
   }
 
