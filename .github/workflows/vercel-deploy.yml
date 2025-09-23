@@ -48,7 +48,7 @@ steps : -name : Checkout repository
 
                                                                                                                           -
                                                                                                                           name : Run unit tests
-                                                                                                                                     run : npm run test-- --run
+                                                                                                                                     run : npm test-- --run
 
                                                                                                                                            -
                                                                                                                                            name : Ensure Vite Gemini key fallback
@@ -136,3 +136,4 @@ vercel - project - id : $
   }
 }
 working - directory :.vercel - args : '--prod --prebuilt' github - comment : false
+#Removed corrupted lines

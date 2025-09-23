@@ -558,13 +558,14 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
       <div className="flex flex-wrap gap-2">
         {PROJECT_FILTERS.map((filterOption) => (
           <button
+            type="button"
             key={filterOption.value}
             onClick={() => setFilter(filterOption.value)}
             className={`rounded-full px-3 py-1.5 text-sm transition-colors ${filter === filterOption.value
               ? 'bg-primary text-primary-foreground shadow-sm'
               : 'bg-muted text-muted-foreground hover:bg-muted/80'
               }`}
-            aria-pressed={filter === filterOption.value ? true : false}
+            aria-pressed={filter === filterOption.value ? 'true' : 'false'}
           >
             {filterOption.label}
           </button>

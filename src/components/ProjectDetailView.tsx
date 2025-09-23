@@ -119,6 +119,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, u
         )}
         {canManage && !isBlocked && (
           <button
+            type="button"
             onClick={() => onEdit({} as Todo)}
             className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-black/10 text-muted-foreground hover:text-foreground transition-opacity disabled:opacity-50"
             aria-label="Edit task"

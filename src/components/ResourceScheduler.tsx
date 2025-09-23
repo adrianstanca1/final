@@ -260,29 +260,38 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
                                             const project = projectMap.get(a.projectId.toString());
 
                                             return (
-                                                <div
-                                                    key={a.id}
-                                                    onClick={() => openModal(a)}
-                                                    className={`resource-block resource-block-positioned px-2 py-1 rounded text-white text-xs overflow-hidden cursor-pointer group flex justify-between items-center ${a.resourceType === 'user' ? 'bg-sky-600' : 'bg-green-600'}`}
-                                                    style={{ '--block-left': `${left}%`, '--block-width': `calc(${width}% - 4px)` } as React.CSSProperties}
-                                                    title={`${project?.name}\n${new Date(a.startDate).toLocaleDateString()} - ${new Date(a.endDate).toLocaleDateString()}`}
+                                                {/* style variables required for positioning; safe in React */ }
+                                                < div
+                                                    key = { a.id }
+                                            onClick = {() => openModal(a)}
+                                    className={`resource-block resource-block-positioned px-2 py-1 rounded text-white text-xs overflow-hidden cursor-pointer group flex justify-between items-center ${a.resourceType === 'user' ? 'bg-sky-600' : 'bg-green-600'}`}
+                                    style={{ '--block-left': `${left}%`, '--block-width': `calc(${width}% - 4px)` } as React.CSSProperties}
+                                    title={`${project?.name}\n${new Date(a.startDate).toLocaleDateString()} - ${new Date(a.endDate).toLocaleDateString()}`}
                                                 >
-                                                    <span className="truncate">{project?.name || 'Unknown Project'}</span>
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); handleDelete(a.id); }}
-                                                        className="opacity-0 group-hover:opacity-100 text-white/70 hover:text-white/100 ml-2"
-                                                    >
-                                                        &times;
-                                                    </button>
-                                                </div>
-                                            );
-                                        })}
+                                    <span className="truncate">{project?.name || 'Unknown Project'}</span>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleDelete(a.id); }}
+                                        className="opacity-0 group-hover:opacity-100 text-white/70 hover:text-white/100 ml-2"
+                                    >
+                                        &times;
+                                    </button>
                                 </div>
-                            </React.Fragment>
-                        )
+                                <span className="truncate">{project?.name || 'Unknown Project'}</span>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); handleDelete(a.id); }}
+                                    className="opacity-0 group-hover:opacity-100 text-white/70 hover:text-white/100 ml-2"
+                                >
+                                    &times;
+                                </button>
+                            </div>
+                        );
                     })}
                 </div>
-            </div>
-        </Card>
+            </React.Fragment>
+            )
+                    })}
+        </div>
+            </div >
+        </Card >
     );
 };

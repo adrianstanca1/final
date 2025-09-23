@@ -156,23 +156,27 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
                             ))}
                         </select>
                         <div>
-                            <label className="text-xs">Issued Date</label>
+                            <label htmlFor="issued-date" className="text-xs">Issued Date</label>
                             <input
+                                id="issued-date"
                                 type="date"
                                 value={issuedAt}
                                 onChange={e => setIssuedAt(e.target.value)}
                                 className="w-full p-2 border rounded"
                                 disabled={isReadOnly}
+                                title="Select the date the invoice was issued"
                             />
                         </div>
                         <div>
-                            <label className="text-xs">Due Date</label>
+                            <label htmlFor="due-date" className="text-xs">Due Date</label>
                             <input
+                                id="due-date"
                                 type="date"
                                 value={dueAt}
                                 onChange={e => setDueAt(e.target.value)}
                                 className="w-full p-2 border rounded"
                                 disabled={isReadOnly}
+                                title="Select the date the invoice is due"
                             />
                         </div>
                     </div>

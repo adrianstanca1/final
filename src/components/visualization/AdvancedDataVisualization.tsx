@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import './AdvancedDataVisualization.css';
 import * as d3 from 'd3';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -288,11 +289,11 @@ export const AdvancedDataVisualization: React.FC<VisualizationProps> = ({
             .call(d3.axisBottom(xScale));
 
         g.append('g')
-            .call(d3.axisLeft(yScale).tickFormat(d => `$${d / 1000000}M`));
+            .call(d3.axisLeft(yScale).tickFormat(d => `$${(d as number) / 1000000}M`));
 
         g.append('g')
             .attr('transform', `translate(${width}, 0)`)
-            .call(d3.axisRight(roiScale).tickFormat(d => `${d}%`))
+            .call(d3.axisRight(roiScale).tickFormat(d => `${d as number}%`))
             .selectAll('text')
             .attr('fill', '#8B5CF6');
 
@@ -695,12 +696,12 @@ export const AdvancedDataVisualization: React.FC<VisualizationProps> = ({
                                     </div>
                                     <div className="mt-2">
                                         <div className="w-full bg-gray-200 rounded-full h-2">
-                                            <div
-                                                className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-                                                style={{
-                                                    width: `${Math.min((metric.value / metric.target) * 100, 100)}%`
-                                                }}
-                                            ></div>
+                                            {(() => {
+                                                const pct = Math.min((metric.value / metric.target) * 100, 100);
+                                                const step = Math.round(pct / 5) * 5;
+                                                const cls = `advdv-width-${step}`;
+                                                return <div className={`bg-blue-600 h-2 rounded-full transition-all duration-500 ${cls}`}></div>;
+                                            })()}
                                         </div>
                                         <div className="flex justify-between text-xs text-gray-500 mt-1">
                                             <span>Current</span>

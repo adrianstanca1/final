@@ -1,6 +1,6 @@
 name : Disabled - legacy deploy
 
-                      on : workflow_dispatch :
+                      on : workflow_dispatch
 
-    jobs : noop : runs -
-                  on : ubuntu - latest steps : -name : Notice run : echo "This workflow is disabled. Use vercel-deploy.yml."
+                               jobs : noop : runs -
+                                             on : ubuntu - latest steps : -name : Notice run : echo "This workflow is disabled. Use vercel-deploy.yml."

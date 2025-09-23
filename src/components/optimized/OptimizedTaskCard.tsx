@@ -1,5 +1,5 @@
 import React, { memo, useMemo, useCallback } from 'react';
-import type { Todo, User, TodoStatus } from '../../types';
+import { Todo, User, TodoStatus } from '../../types';
 
 interface TaskCardProps {
   todo: Todo;
@@ -24,7 +24,7 @@ const OptimizedTaskCard: React.FC<TaskCardProps> = memo(({
   onDragStart
 }) => {
   // Memoize assignee lookup to prevent recalculation on every render
-  const assignee = useMemo(() => 
+  const assignee = useMemo(() =>
     personnel.find(p => p.id === (todo as any).assigneeId),
     [personnel, todo]
   );
@@ -33,7 +33,7 @@ const OptimizedTaskCard: React.FC<TaskCardProps> = memo(({
   const isBlocked = useMemo(() => {
     const dependsOn = (todo as any).dependsOn;
     if (!dependsOn || dependsOn.length === 0) return false;
-    
+
     return dependsOn.some((depId: any) => {
       const dependency = allTodos.find(t => t.id == depId);
       return dependency && dependency.status !== TodoStatus.DONE;
@@ -42,10 +42,10 @@ const OptimizedTaskCard: React.FC<TaskCardProps> = memo(({
 
   // Memoize priority display component
   const PriorityDisplay = useMemo(() => {
-    const priority = (todo as any).priority;
+    const priority = (todo as any).priority as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT' | undefined;
     if (!priority) return null;
 
-    const priorityColors = {
+    const priorityColors: Record<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT', string> = {
       LOW: 'bg-green-100 text-green-800',
       MEDIUM: 'bg-yellow-100 text-yellow-800',
       HIGH: 'bg-red-100 text-red-800',
@@ -53,7 +53,7 @@ const OptimizedTaskCard: React.FC<TaskCardProps> = memo(({
     };
 
     return (
-      <span className={`px-2 py-1 text-xs rounded-full ${priorityColors[priority] || 'bg-gray-100 text-gray-800'}`}>
+      <span className={`px-2 py-1 text-xs rounded-full ${priority ? priorityColors[priority] : 'bg-gray-100 text-gray-800'}`}>
         {priority}
       </span>
     );
@@ -61,7 +61,7 @@ const OptimizedTaskCard: React.FC<TaskCardProps> = memo(({
 
   // Memoize status display
   const statusDisplay = useMemo(() => {
-    const statusColors = {
+    const statusColors: Record<TodoStatus, string> = {
       [TodoStatus.TODO]: 'bg-gray-100 text-gray-800',
       [TodoStatus.IN_PROGRESS]: 'bg-blue-100 text-blue-800',
       [TodoStatus.DONE]: 'bg-green-100 text-green-800',
@@ -86,7 +86,7 @@ const OptimizedTaskCard: React.FC<TaskCardProps> = memo(({
   // Memoize assignee display
   const assigneeDisplay = useMemo(() => {
     if (!assignee) return null;
-    
+
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-xs font-medium">
@@ -134,6 +134,7 @@ const OptimizedTaskCard: React.FC<TaskCardProps> = memo(({
             checked={isSelected}
             onChange={handleSelectionChange}
             className="rounded border-gray-300"
+            aria-label={`Select task: ${todo.text}`}
           />
           <span className="font-medium text-sm flex-1">{todo.text}</span>
         </div>
@@ -142,7 +143,7 @@ const OptimizedTaskCard: React.FC<TaskCardProps> = memo(({
 
       <div className="space-y-2">
         {statusDisplay}
-        
+
         {isBlocked && (
           <div className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
             ⚠️ Blocked by dependencies

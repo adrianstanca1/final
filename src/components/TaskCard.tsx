@@ -57,12 +57,12 @@ export const TaskCard: React.FC<TaskCardProps> = ({ todo, allTodos, user, person
             onKeyDown={handleKeyDown}
             tabIndex={0}
             role="button"
-            aria-pressed={isSelected}
-            aria-disabled={isBlocked}
+            aria-pressed={isSelected ? 'true' : 'false'}
+            aria-disabled={isBlocked ? 'true' : 'false'}
             className={`p-3 rounded-md border-l-4 shadow-sm transition-all ${isBlocked
-                    ? 'bg-slate-100 dark:bg-slate-800/60 cursor-not-allowed opacity-70'
-                    // FIX: Use enum for priority comparison
-                    : `bg-white dark:bg-slate-900 cursor-pointer ${isSelected ? 'ring-2 ring-sky-500' : 'hover:shadow-md'}`
+                ? 'bg-slate-100 dark:bg-slate-800/60 cursor-not-allowed opacity-70'
+                // FIX: Use enum for priority comparison
+                : `bg-white dark:bg-slate-900 cursor-pointer ${isSelected ? 'ring-2 ring-sky-500' : 'hover:shadow-md'}`
                 } ${todo.priority === TodoPriority.HIGH ? 'border-l-red-500' : todo.priority === TodoPriority.MEDIUM ? 'border-l-amber-500' : 'border-l-blue-500'}`}
         >
             <div className="flex justify-between items-start">

@@ -44,16 +44,18 @@ const NavItem: React.FC<NavItemProps> = ({ icon, label, view, activeView, setAct
     <button
       onClick={() => setActiveView(view)}
       className={`group flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 ${isActive
-          ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
-          : 'border border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted/70 hover:text-foreground'
+        ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+        : 'border border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted/70 hover:text-foreground'
         }`}
       title={description}
+      role="link"
+      aria-current={isActive ? 'page' : undefined}
     >
       <span className="flex items-center gap-3 text-left">
         <span
           className={`flex h-9 w-9 items-center justify-center rounded-lg border text-base transition-colors ${isActive
-              ? 'border-primary-foreground/60 bg-primary-foreground/20'
-              : 'border-border bg-card group-hover:border-primary/40 group-hover:text-primary'
+            ? 'border-primary-foreground/60 bg-primary-foreground/20'
+            : 'border-border bg-card group-hover:border-primary/40 group-hover:text-primary'
             }`}
           aria-hidden
         >
@@ -159,6 +161,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <div className="mt-6">
         <button
+          type="button"
           onClick={onLogout}
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200/70 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-500/20"
         >
