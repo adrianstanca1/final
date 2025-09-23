@@ -146,6 +146,11 @@ const icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18M6 7l1 12h10l1-12M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2" />
     </svg>
   ),
+  ai: (
+    <svg xmlns="http://www.w3.org/2000/svg" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+    </svg>
+  ),
   reports: (
     <svg xmlns="http://www.w3.org/2000/svg" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-6a2 2 0 012-2h8M9 17H7a2 2 0 01-2-2V7a2 2 0 012-2h6m-4 12h4" />
@@ -299,6 +304,14 @@ const navigationSchema: NavigationSectionConfig[] = [
     id: 'business',
     title: 'Commercial',
     items: [
+      {
+        id: 'procurement-ai',
+        label: 'AI Procurement',
+        view: 'procurement-ai',
+        icon: icons.ai,
+        description: 'AI-powered tender analysis and proposal generation (Platform Admins & Owners only).',
+        roles: [Role.PRINCIPAL_ADMIN, Role.OWNER],
+      },
       {
         id: 'procurement-vendors',
         label: 'Vendors',

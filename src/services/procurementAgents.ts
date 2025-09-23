@@ -1,4 +1,4 @@
-import { generateProjectInsights, generateSafetyRecommendations } from './ai';
+import { generateCostEstimate, generateProjectHealthSummary } from './ai';
 import { CompanyProfile, getCompanyProfile } from '../data/companyProfile';
 import { TenderOpportunity, AnalysisReport, WinStrategy, TenderResponse } from '../types/procurement';
 
