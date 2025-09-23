@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { User, Budget, Project } from '../../types';
 import { api } from '../../services/mockApi';
+import { accountsService } from '../../services/accountsService';
 
 export const AccountsDashboard: React.FC<{ user: User; addToast: (m: string, t?: 'success' | 'error') => void }>
     = ({ user, addToast }) => {
@@ -12,7 +13,25 @@ export const AccountsDashboard: React.FC<{ user: User; addToast: (m: string, t?:
                 try {
                     const ps = await api.getProjectsByCompany(user.companyId);
                     setProjects(ps as any);
-                    setRows(ps.map((p: any) => ({ project: p, budget: p.budget ?? 0, spent: p.spent ?? 0 })));
+
+                    // Try Supabase-backed budgets first
+                    let budgets: Budget[] = [];
+                    try {
+                        budgets = await accountsService.listBudgets(user.companyId);
+                    } catch {
+                        budgets = [];
+                    }
+
+                    if (budgets.length > 0) {
+                        const byProject = new Map(budgets.map(b => [b.projectId, b]));
+                        setRows(ps.map((p: any) => {
+                            const b = byProject.get(p.id);
+                            return { project: p, budget: b ? b.amount : (p.budget ?? 0), spent: b ? b.spent : (p.spent ?? 0) };
+                        }));
+                    } else {
+                        // Fallback to project-derived fields
+                        setRows(ps.map((p: any) => ({ project: p, budget: p.budget ?? 0, spent: p.spent ?? 0 })));
+                    }
                 } catch {
                     addToast('Failed to load budgets', 'error');
                 }

@@ -35,6 +35,16 @@ export const PurchaseOrdersView: React.FC<{ user: User; addToast: (m: string, t?
             addToast('Purchase order created');
         };
 
+        const receive = async (poId: string) => {
+            try {
+                const updated = await procurementService.receive(poId, user.companyId, user.id);
+                setPOs(list => list.map(p => p.id === updated.id ? updated : p));
+                addToast('PO received: inventory and expenses updated');
+            } catch (e) {
+                addToast('Failed to receive PO', 'error');
+            }
+        };
+
         return (
             <div className="space-y-4">
                 <h1 className="text-xl font-semibold">Purchase Orders</h1>
@@ -51,6 +61,7 @@ export const PurchaseOrdersView: React.FC<{ user: User; addToast: (m: string, t?
                             <th className="text-left p-2">Date</th>
                             <th className="text-left p-2">Status</th>
                             <th className="text-right p-2">Total</th>
+                            <th className="text-right p-2">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -60,6 +71,11 @@ export const PurchaseOrdersView: React.FC<{ user: User; addToast: (m: string, t?
                                 <td className="p-2">{new Date(po.date).toLocaleDateString()}</td>
                                 <td className="p-2">{po.status}</td>
                                 <td className="p-2 text-right">{po.totalCost.toFixed(2)}</td>
+                                <td className="p-2 text-right">
+                                    {po.status !== 'RECEIVED' && (
+                                        <button onClick={() => receive(po.id)} className="rounded border px-2 py-1 text-xs">Mark Received</button>
+                                    )}
+                                </td>
                             </tr>
                         ))}
                     </tbody>

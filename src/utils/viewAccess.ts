@@ -44,6 +44,16 @@ const financialRule: ViewAccessRule = {
   description: 'Financial permissions allow visibility into invoices, payments and cost tracking.',
 };
 
+const procurementRule: ViewAccessRule = {
+  anyPermissions: [Permission.VIEW_PROCUREMENT, Permission.MANAGE_PROCUREMENT],
+  description: 'Procurement permissions grant access to vendors and purchase orders.',
+};
+
+const accountsRule: ViewAccessRule = {
+  anyPermissions: [Permission.VIEW_ACCOUNTS, Permission.MANAGE_BUDGETS, Permission.VIEW_FINANCIAL_REPORTS],
+  description: 'Accounts and budgets require commercial permissions.',
+};
+
 export const viewMetadata: Record<View, ViewMetadata> = {
   dashboard: {
     title: 'Operations Overview',
@@ -137,6 +147,22 @@ export const viewMetadata: Record<View, ViewMetadata> = {
     title: 'Todos',
     description: 'Lightweight Supabase-backed list for connectivity checks.',
   },
+  'procurement-vendors': {
+    title: 'Vendors',
+    description: 'Supplier directory, categories and compliance.',
+  },
+  'procurement-pos': {
+    title: 'Purchase Orders',
+    description: 'Create and track purchase orders and receipts.',
+  },
+  accounts: {
+    title: 'Accounts',
+    description: 'Budgets, cost centres and spend tracking.',
+  },
+  'financial-reports': {
+    title: 'Financial Reports',
+    description: 'P&L with committed costs and trends.',
+  },
 };
 
 export const viewAccessRules: Partial<Record<View, ViewAccessRule>> = {
@@ -159,6 +185,10 @@ export const viewAccessRules: Partial<Record<View, ViewAccessRule>> = {
   safety: safetyRule,
   financials: financialRule,
   invoices: financialRule,
+  'procurement-vendors': procurementRule,
+  'procurement-pos': procurementRule,
+  accounts: accountsRule,
+  'financial-reports': accountsRule,
   users: {
     anyPermissions: [Permission.VIEW_TEAM, Permission.MANAGE_TEAM],
     description: 'Team administration requires workforce visibility permissions.',

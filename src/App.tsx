@@ -421,10 +421,10 @@ function App() {
       case 'clients': return <ClientsView user={user} addToast={addToast} />;
       case 'invoices': return <InvoicesView user={user} addToast={addToast} />;
       case 'todos': return <TodosView user={user} addToast={addToast} />;
-  case 'procurement-vendors': return <VendorsView user={user} addToast={addToast} />;
-  case 'procurement-pos': return <PurchaseOrdersView user={user} addToast={addToast} />;
-  case 'accounts': return <AccountsDashboard user={user} addToast={addToast} />;
-  case 'financial-reports': return <FinancialReports user={user} addToast={addToast} />;
+      case 'procurement-vendors': return <VendorsView user={user} addToast={addToast} />;
+      case 'procurement-pos': return <PurchaseOrdersView user={user} addToast={addToast} />;
+      case 'accounts': return <AccountsDashboard user={user} addToast={addToast} />;
+      case 'financial-reports': return <FinancialReports user={user} addToast={addToast} />;
       default:
         return (
           <Dashboard

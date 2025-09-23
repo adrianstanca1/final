@@ -983,3 +983,13 @@ export interface Budget {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface InventoryItem {
+  id: string;
+  companyId: string;
+  sku: string;
+  description?: string;
+  quantity: number;
+  avgUnitCost: number;
+  updatedAt: string;
+}

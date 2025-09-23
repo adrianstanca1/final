@@ -279,6 +279,7 @@ const PERSISTED_COLLECTION_KEYS = [
     'vendors',
     'purchaseOrders',
     'budgets',
+    'inventory',
 ] as const;
 
 const createInitialDbState = () => ({
@@ -309,6 +310,7 @@ const createInitialDbState = () => ({
     vendors: hydrateData('vendors', []),
     purchaseOrders: hydrateData('purchaseOrders', []),
     budgets: hydrateData('budgets', []),
+    inventory: hydrateData('inventory', []),
 } satisfies {
     companies: Partial<Company>[];
     users: Partial<User>[];
@@ -337,6 +339,7 @@ const createInitialDbState = () => ({
     vendors: any[];
     purchaseOrders: any[];
     budgets: any[];
+    inventory: any[];
 });
 
 let db = createInitialDbState();
@@ -409,6 +412,15 @@ const getCompanyCurrency = (companyId: string): string => {
         return settingsCurrency;
     }
     return 'GBP';
+};
+
+const generateId = (): string => {
+    try {
+        if (typeof crypto !== 'undefined' && (crypto as any).randomUUID) {
+            return (crypto as any).randomUUID();
+        }
+    } catch {}
+    return String(Date.now() + Math.random());
 };
 
 const saveDb = () => {
@@ -687,6 +699,92 @@ export const resetMockApi = () => {
 };
 
 export const api = {
+    // Accounts: Budgets
+    async listBudgets(companyId: string) {
+        await delay();
+        return db.budgets.filter(b => String((b as any).companyId) === String(companyId)) as any[];
+    },
+    async upsertBudget(budget: any) {
+        await delay();
+        const now = new Date().toISOString();
+        if (!budget.id) {
+            const created = { id: generateId(), createdAt: now, updatedAt: now, ...budget };
+            db.budgets.push(created);
+            saveDb();
+            return created as any;
+        }
+        const idx = db.budgets.findIndex(b => b.id === budget.id);
+        if (idx >= 0) {
+            db.budgets[idx] = { ...db.budgets[idx], ...budget, updatedAt: now };
+            saveDb();
+            return db.budgets[idx] as any;
+        }
+        const created = { id: budget.id, createdAt: now, updatedAt: now, ...budget };
+        db.budgets.push(created);
+        saveDb();
+        return created as any;
+    },
+    async deleteBudget(budgetId: string) {
+        await delay();
+        db.budgets = db.budgets.filter(b => b.id !== budgetId);
+        saveDb();
+    },
+    // Inventory helpers
+    async listInventory(companyId: string) {
+        await delay();
+        return db.inventory.filter(i => String((i as any).companyId) === String(companyId)) as any[];
+    },
+    async upsertInventoryItem(item: any) {
+        await delay();
+        const idx = db.inventory.findIndex(i => i.companyId === item.companyId && i.sku === item.sku);
+        const now = new Date().toISOString();
+        if (idx >= 0) {
+            const current: any = db.inventory[idx];
+            const totalQty = Number(current.quantity || 0) + Number(item.quantity || 0);
+            const totalCost = Number(current.avgUnitCost || 0) * Number(current.quantity || 0) + Number(item.avgUnitCost || 0) * Number(item.quantity || 0);
+            const avgUnitCost = totalQty > 0 ? totalCost / totalQty : 0;
+            db.inventory[idx] = { ...current, quantity: totalQty, avgUnitCost, updatedAt: now };
+            saveDb();
+            return db.inventory[idx] as any;
+        }
+        const created = { id: generateId(), updatedAt: now, ...item };
+        db.inventory.push(created);
+        saveDb();
+        return created as any;
+    },
+
+    // Receive PO: update inventory and create expense entries
+    async receivePurchaseOrder(poId: string, companyId: string, userId: string) {
+        await delay();
+        const idx = db.purchaseOrders.findIndex(p => p.id === poId && String((p as any).companyId) === String(companyId));
+        if (idx < 0) throw new Error('PO not found');
+        const po: any = db.purchaseOrders[idx];
+        // Update inventory by SKU/category
+        (po.items || []).forEach((it: any) => {
+            const sku = it.sku || it.description || `ITEM-${it.id}`;
+            const avgUnitCost = Number(it.unitPrice || 0);
+            void api.upsertInventoryItem({ companyId, sku, description: it.description, quantity: Number(it.quantity || 0), avgUnitCost });
+        });
+        // Create a single expense record for the PO totalCost
+        const expense: any = {
+            id: generateId(),
+            description: `PO ${po.id} receipt` ,
+            amount: Number(po.totalCost || 0),
+            category: 'MATERIALS',
+            projectId: po.projectId ?? '',
+            userId,
+            date: new Date().toISOString(),
+            status: 'APPROVED',
+            submittedAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+        };
+        db.expenses.push(expense);
+        // Update PO status
+        db.purchaseOrders[idx] = { ...po, status: 'RECEIVED', receivedDate: new Date().toISOString(), updatedAt: new Date().toISOString() };
+        saveDb();
+        return db.purchaseOrders[idx] as any;
+    },
     // Procurement: Vendors
     async listVendors(companyId: string) {
         await delay();
@@ -696,20 +794,20 @@ export const api = {
         await delay();
         const now = new Date().toISOString();
         if (!vendor.id) {
-            const created = { id: crypto.randomUUID(), isActive: true, createdAt: now, updatedAt: now, ...vendor };
+            const created = { id: generateId(), isActive: true, createdAt: now, updatedAt: now, ...vendor };
             db.vendors.push(created);
-            persist();
+            saveDb();
             return created as any;
         }
         const idx = db.vendors.findIndex(v => v.id === vendor.id);
         if (idx >= 0) {
             db.vendors[idx] = { ...db.vendors[idx], ...vendor, updatedAt: now };
-            persist();
+            saveDb();
             return db.vendors[idx] as any;
         }
         const created = { id: vendor.id, isActive: true, createdAt: now, updatedAt: now, ...vendor };
         db.vendors.push(created);
-        persist();
+        saveDb();
         return created as any;
     },
 
@@ -721,12 +819,12 @@ export const api = {
     async createPurchaseOrder(po: any) {
         await delay();
         const now = new Date().toISOString();
-        const items = (po.items || []).map((it: any) => ({ ...it, id: crypto.randomUUID(), amount: Number(it.quantity) * Number(it.unitPrice) }));
+        const items = (po.items || []).map((it: any) => ({ ...it, id: generateId(), amount: Number(it.quantity) * Number(it.unitPrice) }));
         const subtotal = items.reduce((s: number, it: any) => s + Number(it.amount || 0), 0);
         const taxAmount = subtotal * Number(po.taxRate || 0);
         const totalCost = subtotal + taxAmount;
         const created = {
-            id: crypto.randomUUID(),
+            id: generateId(),
             status: 'DRAFT',
             subtotal,
             taxAmount,
@@ -737,7 +835,7 @@ export const api = {
             items,
         };
         db.purchaseOrders.push(created);
-        persist();
+        saveDb();
         return created as any;
     },
     async updatePurchaseOrder(poId: string, updates: any) {
@@ -755,7 +853,7 @@ export const api = {
         const taxAmount = subtotal * Number(taxRate);
         const totalCost = subtotal + taxAmount;
         db.purchaseOrders[idx] = { ...existing, ...updates, items, subtotal, taxAmount, totalCost, updatedAt: now };
-        persist();
+        saveDb();
         return db.purchaseOrders[idx] as any;
     },
     async addPurchaseOrderItem(poId: string, item: any) {
@@ -763,14 +861,14 @@ export const api = {
         const idx = db.purchaseOrders.findIndex(p => p.id === poId);
         if (idx < 0) throw new Error('PO not found');
         const now = new Date().toISOString();
-        const withId = { ...item, id: crypto.randomUUID(), amount: Number(item.quantity) * Number(item.unitPrice) };
+        const withId = { ...item, id: generateId(), amount: Number(item.quantity) * Number(item.unitPrice) };
         const po: any = db.purchaseOrders[idx];
         const items = [...(po.items || []), withId];
         const subtotal = items.reduce((s: number, it: any) => s + Number(it.amount || 0), 0);
         const taxAmount = subtotal * Number(po.taxRate || 0);
         const totalCost = subtotal + taxAmount;
         db.purchaseOrders[idx] = { ...po, items, subtotal, taxAmount, totalCost, updatedAt: now };
-        persist();
+        saveDb();
         return db.purchaseOrders[idx] as any;
     },
     getUserAndCompanyByEmail: async (email: string): Promise<{ user: User; company: Company } | null> => {

@@ -23,4 +23,7 @@ export const procurementService = {
   async setStatus(poId: string, status: PurchaseOrderStatus): Promise<PurchaseOrder> {
     return api.updatePurchaseOrder(poId, { status });
   },
+  async receive(poId: string, companyId: string, userId: string): Promise<PurchaseOrder> {
+    return (api as any).receivePurchaseOrder(poId, companyId, userId);
+  },
 };

@@ -28,6 +28,7 @@ import { useDashboardSnapshot } from '../hooks/useDashboardSnapshot';
 import { useBackendConnection } from '../hooks/useBackendConnection';
 import InviteQRPanel from './InviteQRPanel';
 import { Role } from '../types';
+import { useProjectGeofencing } from '../hooks/useProjectGeofencing';
 
 interface DashboardProps {
     user: User;
@@ -146,6 +147,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     }, [snapshot?.projects]);
 
     const projects = snapshot?.projects ?? [];
+    useProjectGeofencing(user, projects, true);
     const team = snapshot?.team ?? [];
     const equipment = snapshot?.equipment ?? [];
     const tasks = snapshot?.tasks ?? [];
