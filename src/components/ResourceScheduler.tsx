@@ -276,14 +276,14 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
                                                     </button>
                                                 </div>
                             </div>
-                        );
+                                );
                     })}
-                </div>
+                            </div>
             </React.Fragment>
-            )
+                )
                     })}
-        </div>
-            </div >
+            </div>
+        </div >
         </Card >
     );
 };

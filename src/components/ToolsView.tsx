@@ -47,7 +47,7 @@ export const ToolsView: React.FC<ToolsViewProps> = ({ user, addToast, setActiveV
         { id: 'site-inspector', name: 'AI Site Inspector', description: 'Analyze site photos for progress and hazards.', icon: '📸', component: <AISiteInspector user={user} addToast={addToast} onBack={() => setActiveTool(null)} />, permission: true },
         // FIX: Used Permission enum for checks
         { id: 'workforce-planner', name: 'Workforce Planner', description: 'Plan and allocate personnel to projects.', icon: '👥', component: <WorkforcePlanner user={user} addToast={addToast} />, permission: hasPermission(user, Permission.MANAGE_TEAM) },
-        { id: 'resource-scheduler', name: 'Resource Scheduler', description: 'View team and equipment schedules.', icon: '🗓️', component: <ResourceScheduler user={user} addToast={addToast} />, permission: hasPermission(user, Permission.MANAGE_EQUIPMENT) },
+        // { id: 'resource-scheduler', name: 'Resource Scheduler', description: 'View team and equipment schedules.', icon: '🗓️', component: <ResourceScheduler user={user} addToast={addToast} />, permission: hasPermission(user, Permission.MANAGE_EQUIPMENT) },
     ];
 
     const availableTools = toolDefinitions.filter(t => t.permission);
