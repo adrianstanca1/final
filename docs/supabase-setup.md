@@ -111,3 +111,66 @@ npm run dev
 ```
 
 The login screen supports Google sign-in (when enabled in Supabase). The app falls back to mock services if no backend URL is provided.
+
+## TLS/SSL (Root CA) for server connections
+Supabase recommends TLS for Postgres connections. Most environments already trust the required CAs. If your platform requires a custom CA, use the provided `prod-ca-2021.crt` on the server side only.
+
+Important: never ship CA files or DB credentials in the web or Expo client.
+
+Options:
+- Add `sslmode=require` (or `verify-full`) to your `DATABASE_URL` when supported.
+- Provide the CA via env and load it in your server code.
+- For Prisma/psql, use `PGSSLROOTCERT` or a connection parameter.
+
+Examples
+1) Node.js with `pg` (server only)
+```js
+import pg from 'pg'
+import fs from 'node:fs'
+
+const ssl = process.env.PGSSLROOTCERT
+  ? { ca: process.env.PGSSLROOTCERT, rejectUnauthorized: true }
+  : { rejectUnauthorized: true }
+
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL, // include ?pgbouncer=true&sslmode=require
+  ssl,
+})
+```
+
+Alternatively, base64 encode the CA and decode at runtime:
+```sh
+# locally
+base64 -w0 prod-ca-2021.crt > prod-ca-2021.crt.b64
+# store as secret: PGSSLROOTCERT_BASE64
+```
+```js
+const ca = Buffer.from(process.env.PGSSLROOTCERT_BASE64 || '', 'base64').toString('utf8')
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, ssl: { ca, rejectUnauthorized: true } })
+```
+
+2) Prisma (server only)
+```
+DATABASE_URL="postgresql://...:6543/postgres?pgbouncer=true&sslmode=require"
+```
+If your runtime needs a CA file, point to it via env:
+```
+PGSSLROOTCERT=/path/to/prod-ca-2021.crt
+```
+
+3) psql (admin/migrations)
+```sh
+export PGSSLROOTCERT=/path/to/prod-ca-2021.crt
+psql "postgresql://...:6543/postgres?pgbouncer=true&sslmode=verify-full"
+```
+
+4) GitHub Actions (CI) — write CA to a file
+```yaml
+- name: Write PG SSL root cert
+  if: ${{ secrets.PGSSLROOTCERT_BASE64 != '' }}
+  run: |
+    echo "$PGSSLROOTCERT_BASE64" | base64 -d > prod-ca-2021.crt
+    echo "PGSSLROOTCERT=$PWD/prod-ca-2021.crt" >> $GITHUB_ENV
+  env:
+    PGSSLROOTCERT_BASE64: ${{ secrets.PGSSLROOTCERT_BASE64 }}
+```
