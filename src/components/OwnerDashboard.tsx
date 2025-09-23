@@ -373,6 +373,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       <ViewHeader
         title="Executive control centre"
         description="Monitor the commercial pulse and operational risk across the portfolio."
+        isOnline={true}
         actions={
           setActiveView
             ? (
@@ -382,12 +383,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             )
             : undefined
         }
-        meta={[
-          {
-            label: 'Portfolio value',
-            value: formatCurrency(portfolioSummary.pipelineValue, currency),
-            helper: `${portfolioSummary.totalProjects} active engagements`,
-          },
+        stats={[
+          { label: 'Portfolio value', value: formatCurrency(portfolioSummary.pipelineValue, currency), tone: 'neutral' },
         ]}
       />
       <InviteQRPanel

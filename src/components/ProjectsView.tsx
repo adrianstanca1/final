@@ -564,7 +564,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
               ? 'bg-primary text-primary-foreground shadow-sm'
               : 'bg-muted text-muted-foreground hover:bg-muted/80'
               }`}
-            aria-pressed={filter === filterOption.value}
+            aria-pressed={filter === filterOption.value ? true : false}
           >
             {filterOption.label}
           </button>

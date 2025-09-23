@@ -107,7 +107,7 @@ export const MapView: React.FC<MapViewProps> = ({ markers, height = '100%', clas
 
 
     return (
-        <div style={{ height }} className={className}>
+        <div className={`map-view-container ${className ?? ''}`.trim()}>
             <AnyMapContainer ref={mapRef as any} center={center} zoom={zoom} scrollWheelZoom={true} onMoveEnd={updateMapState} onZoomEnd={updateMapState}>
                 <AnyTileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 

@@ -44,3 +44,7 @@
     align-items: center;
     justify-content: center;
 }
+
+.map-view-container {
+    height: var(--map-view-height, 100%);
+}
