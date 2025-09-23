@@ -53,6 +53,7 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ invoice, balance, onClose, 
                     value={method}
                     onChange={e => setMethod(e.target.value as 'CREDIT_CARD' | 'BANK_TRANSFER' | 'CASH')}
                     className="w-full p-2 border rounded mt-2 bg-white"
+                    aria-label="Select payment method"
                 >
                     <option value="BANK_TRANSFER">Bank Transfer</option>
                     <option value="CREDIT_CARD">Card</option>

@@ -59,11 +59,11 @@ export const MultiTenantLogin: React.FC<{ onSwitchToRegister: () => void; onSwit
                 </div>
                 <div className="mb-3">
                     <label htmlFor="email" className="mb-1 block text-sm font-medium text-muted-foreground">Email</label>
-                    <input id="email" className="w-full rounded-md border border-border bg-background p-2" type="email" placeholder="name@example.com" value={email} onChange={e => setEmail(e.target.value)} />
+                    <input id="email" className="w-full rounded-md border border-border bg-background p-2" type="email" placeholder="name@example.com" value={email} onChange={e => setEmail(e.target.value)} aria-label="Email address" />
                 </div>
                 <div className="mb-3">
                     <label htmlFor="password" className="mb-1 block text-sm font-medium text-muted-foreground">Password</label>
-                    <input id="password" className="w-full rounded-md border border-border bg-background p-2" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} />
+                    <input id="password" className="w-full rounded-md border border-border bg-background p-2" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} aria-label="Password" />
                 </div>
                 <button disabled={loading} onClick={handleLocal} className="mt-1 w-full rounded-md bg-primary p-2 text-primary-foreground">Sign in</button>
                 {showAdminShortcut && (

@@ -127,7 +127,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
                 </h3>
                 <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto pr-2 flex-grow">
                     <div className="grid grid-cols-2 gap-4">
-                                                <select
+                        <select
                             value={clientId}
                             onChange={(e) => setClientId(e.target.value)}
                             className="w-full p-2 border rounded bg-white"
@@ -141,7 +141,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
                                 </option>
                             ))}
                         </select>
-                                                <select
+                        <select
                             value={projectId}
                             onChange={(e) => setProjectId(e.target.value)}
                             className="w-full p-2 border rounded bg-white"

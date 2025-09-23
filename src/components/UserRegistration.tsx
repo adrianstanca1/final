@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { identity } from '../services/identityProvider';
+import './UserRegistration.css';
 
 interface UserRegistrationProps {
     onSwitchToLogin: () => void;
@@ -36,7 +37,7 @@ const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password =
 
     return (
         <div className="w-full bg-muted rounded-full h-1.5 mt-1">
-            <div className={`h-1.5 rounded-full transition-all duration-300 ${color}`} style={{ width: `${width}%` }}></div>
+            <div className={`h-1.5 rounded-full transition-all duration-300 ${color} password-strength-${Math.round(width)}`}></div>
         </div>
     );
 };

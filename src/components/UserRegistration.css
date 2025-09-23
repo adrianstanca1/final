@@ -1,7 +1,24 @@
 /* Password strength indicator widths */
-.password-strength-0 { width: 0%; }
-.password-strength-20 { width: 20%; }
-.password-strength-40 { width: 40%; }
-.password-strength-60 { width: 60%; }
-.password-strength-80 { width: 80%; }
-.password-strength-100 { width: 100%; }
+.password-strength-0 {
+    width: 0%;
+}
+
+.password-strength-20 {
+    width: 20%;
+}
+
+.password-strength-40 {
+    width: 40%;
+}
+
+.password-strength-60 {
+    width: 60%;
+}
+
+.password-strength-80 {
+    width: 80%;
+}
+
+.password-strength-100 {
+    width: 100%;
+}

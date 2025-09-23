@@ -157,12 +157,12 @@ const UserProfileSettings: React.FC<{ user: User, addToast: (m: string, t: 'succ
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium">First Name</label>
-                        <input value={formData.firstName} onChange={e => handleChange('firstName', e.target.value)} className={`w-full p-2 border rounded ${errors.firstName ? 'border-destructive' : 'border-border'}`} />
+                        <input value={formData.firstName} onChange={e => handleChange('firstName', e.target.value)} className={`w-full p-2 border rounded ${errors.firstName ? 'border-destructive' : 'border-border'}`} aria-label="First name" />
                         {errors.firstName && <p className="text-xs text-destructive mt-1">{errors.firstName}</p>}
                     </div>
                     <div>
                         <label className="block text-sm font-medium">Last Name</label>
-                        <input value={formData.lastName} onChange={e => handleChange('lastName', e.target.value)} className={`w-full p-2 border rounded ${errors.lastName ? 'border-destructive' : 'border-border'}`} />
+                        <input value={formData.lastName} onChange={e => handleChange('lastName', e.target.value)} className={`w-full p-2 border rounded ${errors.lastName ? 'border-destructive' : 'border-border'}`} aria-label="Last name" />
                         {errors.lastName && <p className="text-xs text-destructive mt-1">{errors.lastName}</p>}
                     </div>
                     <div>
@@ -171,7 +171,7 @@ const UserProfileSettings: React.FC<{ user: User, addToast: (m: string, t: 'succ
                     </div>
                     <div>
                         <label className="block text-sm font-medium">Phone</label>
-                        <input type="tel" value={formData.phone} onChange={e => handleChange('phone', e.target.value)} className="w-full p-2 border rounded" />
+                        <input type="tel" value={formData.phone} onChange={e => handleChange('phone', e.target.value)} className="w-full p-2 border rounded" aria-label="Phone number" />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-muted-foreground">Role</label>

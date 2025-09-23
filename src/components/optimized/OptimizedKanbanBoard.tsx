@@ -62,7 +62,7 @@ const OptimizedKanbanColumn: React.FC<KanbanColumnProps> = memo(({
     const total = todos.length;
     const completed = todos.filter(todo => todo.status === TodoStatus.DONE).length;
     const inProgress = todos.filter(todo => todo.status === TodoStatus.IN_PROGRESS).length;
-    
+
     return { total, completed, inProgress };
   }, [todos]);
 
@@ -86,7 +86,7 @@ const OptimizedKanbanColumn: React.FC<KanbanColumnProps> = memo(({
   ), [title, columnStats, status]);
 
   return (
-    <div 
+    <div
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -96,10 +96,10 @@ const OptimizedKanbanColumn: React.FC<KanbanColumnProps> = memo(({
       `}
     >
       {columnHeader}
-      
+
       <div className="space-y-3 h-full overflow-y-auto pr-1 max-h-[calc(100vh-16rem)]">
         {todos.map(todo => (
-          <OptimizedTaskCard 
+          <OptimizedTaskCard
             key={todo.id}
             todo={todo}
             allTodos={allTodos}
@@ -110,7 +110,7 @@ const OptimizedKanbanColumn: React.FC<KanbanColumnProps> = memo(({
             onDragStart={onDragStart}
           />
         ))}
-        
+
         {todos.length === 0 && (
           <div className="text-center py-8 text-muted-foreground">
             <div className="text-4xl mb-2">📋</div>
@@ -195,12 +195,11 @@ export const OptimizedKanbanBoard: React.FC<KanbanBoardProps> = memo(({
           )}
         </div>
       </div>
-      
+
       {/* Progress bar */}
       <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-        <div 
-          className="bg-green-500 h-2 rounded-full transition-all duration-300"
-          style={{ width: `${boardStats.completionRate}%` }}
+        <div
+          className={`bg-green-500 h-2 rounded-full transition-all duration-300 completion-${Math.round(boardStats.completionRate / 5) * 5}`}
         />
       </div>
     </div>
@@ -209,11 +208,11 @@ export const OptimizedKanbanBoard: React.FC<KanbanBoardProps> = memo(({
   return (
     <div className="space-y-4">
       {boardHeader}
-      
+
       <div className="flex gap-4 h-[calc(100vh-22rem)]">
-        <OptimizedKanbanColumn 
-          title="To Do" 
-          status={TodoStatus.TODO} 
+        <OptimizedKanbanColumn
+          title="To Do"
+          status={TodoStatus.TODO}
           todos={columns[TodoStatus.TODO]}
           allTodos={allTodos}
           user={user}
@@ -223,10 +222,10 @@ export const OptimizedKanbanBoard: React.FC<KanbanBoardProps> = memo(({
           onDrop={handleDrop}
           onDragStart={handleDragStart}
         />
-        
-        <OptimizedKanbanColumn 
-          title="In Progress" 
-          status={TodoStatus.IN_PROGRESS} 
+
+        <OptimizedKanbanColumn
+          title="In Progress"
+          status={TodoStatus.IN_PROGRESS}
           todos={columns[TodoStatus.IN_PROGRESS]}
           allTodos={allTodos}
           user={user}
@@ -236,10 +235,10 @@ export const OptimizedKanbanBoard: React.FC<KanbanBoardProps> = memo(({
           onDrop={handleDrop}
           onDragStart={handleDragStart}
         />
-        
-        <OptimizedKanbanColumn 
-          title="Done" 
-          status={TodoStatus.DONE} 
+
+        <OptimizedKanbanColumn
+          title="Done"
+          status={TodoStatus.DONE}
           todos={columns[TodoStatus.DONE]}
           allTodos={allTodos}
           user={user}

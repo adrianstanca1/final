@@ -81,8 +81,7 @@ const MiniBarChart: React.FC<{
           <div className="text-xs font-semibold text-muted-foreground">{item.label}</div>
           <div className="flex h-32 w-full items-end overflow-hidden rounded bg-muted/60">
             <div
-              className={`${color} w-full rounded-t transition-all`}
-              style={{ height: `${Math.max(6, (item.value / max) * 100)}%` }}
+              className={`${color} w-full rounded-t transition-all chart-height-${Math.max(6, Math.round((item.value / max) * 100 / 10) * 10)}`}
               title={`${item.label}: ${item.value.toLocaleString()}`}
             />
           </div>
@@ -108,7 +107,7 @@ const CostBreakdownList: React.FC<{ data: CostBreakdown[]; currency: string }> =
               <span>{formatCurrency(entry.amount || 0, currency)}</span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded bg-muted">
-              <div className="h-full rounded bg-primary/80" style={{ width: `${share}%` }} />
+              <div className={`h-full rounded bg-primary/80 chart-width-${Math.round(share / 5) * 5}`} />
             </div>
             <p className="text-xs text-muted-foreground">{share}% of tracked spend</p>
           </div>

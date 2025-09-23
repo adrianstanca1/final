@@ -1,0 +1,84 @@
+/* Kanban completion rate progress bar widths */
+.completion-0 {
+    width: 0%;
+}
+
+.completion-5 {
+    width: 5%;
+}
+
+.completion-10 {
+    width: 10%;
+}
+
+.completion-15 {
+    width: 15%;
+}
+
+.completion-20 {
+    width: 20%;
+}
+
+.completion-25 {
+    width: 25%;
+}
+
+.completion-30 {
+    width: 30%;
+}
+
+.completion-35 {
+    width: 35%;
+}
+
+.completion-40 {
+    width: 40%;
+}
+
+.completion-45 {
+    width: 45%;
+}
+
+.completion-50 {
+    width: 50%;
+}
+
+.completion-55 {
+    width: 55%;
+}
+
+.completion-60 {
+    width: 60%;
+}
+
+.completion-65 {
+    width: 65%;
+}
+
+.completion-70 {
+    width: 70%;
+}
+
+.completion-75 {
+    width: 75%;
+}
+
+.completion-80 {
+    width: 80%;
+}
+
+.completion-85 {
+    width: 85%;
+}
+
+.completion-90 {
+    width: 90%;
+}
+
+.completion-95 {
+    width: 95%;
+}
+
+.completion-100 {
+    width: 100%;
+}

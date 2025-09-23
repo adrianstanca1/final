@@ -3,6 +3,7 @@ import React from 'react';
 import { Task, User, TodoStatus, TodoPriority } from '../types';
 import { Avatar } from './ui/Avatar';
 import { PriorityDisplay } from './ui/PriorityDisplay';
+import './TaskCard.css';
 
 interface TaskCardProps {
     todo: Task;
@@ -45,9 +46,9 @@ export const TaskCard: React.FC<TaskCardProps> = ({ todo, allTodos, user, person
             }
         }
     };
-    
+
     const text = (todo as any).text || todo.title;
-    
+
     return (
         <div
             draggable={!isBlocked}
@@ -58,13 +59,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({ todo, allTodos, user, person
             role="button"
             aria-pressed={isSelected}
             aria-disabled={isBlocked}
-            className={`p-3 rounded-md border-l-4 shadow-sm transition-all ${
-                isBlocked
-                ? 'bg-slate-100 dark:bg-slate-800/60 cursor-not-allowed opacity-70'
-                // FIX: Use enum for priority comparison
-                : `bg-white dark:bg-slate-900 cursor-pointer ${isSelected ? 'ring-2 ring-sky-500' : 'hover:shadow-md'}`
-            }`}
-            style={{ borderColor: todo.priority === TodoPriority.HIGH ? '#ef4444' : todo.priority === TodoPriority.MEDIUM ? '#f59e0b' : '#3b82f6' }}
+            className={`p-3 rounded-md border-l-4 shadow-sm transition-all ${isBlocked
+                    ? 'bg-slate-100 dark:bg-slate-800/60 cursor-not-allowed opacity-70'
+                    // FIX: Use enum for priority comparison
+                    : `bg-white dark:bg-slate-900 cursor-pointer ${isSelected ? 'ring-2 ring-sky-500' : 'hover:shadow-md'}`
+                } ${todo.priority === TodoPriority.HIGH ? 'border-l-red-500' : todo.priority === TodoPriority.MEDIUM ? 'border-l-amber-500' : 'border-l-blue-500'}`}
         >
             <div className="flex justify-between items-start">
                 <p className="font-medium text-sm text-slate-800 dark:text-slate-100 pr-2">{text}</p>
@@ -82,6 +81,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ todo, allTodos, user, person
                         onChange={!isBlocked ? () => onSelectionChange(todo.id) : undefined}
                         disabled={isBlocked}
                         className="h-4 w-4 rounded border-gray-300 text-sky-600 focus:ring-sky-500"
+                        aria-label={`Select task: ${text}`}
                     />
                 </div>
             </div>
@@ -96,8 +96,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({ todo, allTodos, user, person
                 </div>
                 <div className="w-full bg-slate-200 rounded-full h-1.5 dark:bg-slate-700">
                     <div
-                        className="bg-sky-600 h-1.5 rounded-full transition-all duration-300"
-                        style={{ width: `${(todo as any).progress ?? 0}%` }}
+                        className={`bg-sky-600 h-1.5 rounded-full transition-all duration-300 task-progress-${Math.round(((todo as any).progress ?? 0) / 10) * 10}`}
                     ></div>
                 </div>
             </div>

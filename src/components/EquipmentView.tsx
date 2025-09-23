@@ -7,8 +7,8 @@ import { Button } from './ui/Button';
 import { EquipmentStatusBadge } from './ui/StatusBadge';
 
 interface EquipmentViewProps {
-  user: User;
-  addToast: (message: string, type: 'success' | 'error') => void;
+    user: User;
+    addToast: (message: string, type: 'success' | 'error') => void;
 }
 
 const EquipmentModal: React.FC<{
@@ -23,7 +23,7 @@ const EquipmentModal: React.FC<{
 }> = ({ equipmentToEdit, projects, assignments, user, onClose, onSuccess, addToast, currentAssignment }) => {
     const [name, setName] = useState('');
     // This state holds the *persistent* status ('Available' or 'Maintenance'), which is the value we want to save.
-// FIX: Used EquipmentStatus enum for useState initial value.
+    // FIX: Used EquipmentStatus enum for useState initial value.
     const [persistentStatus, setPersistentStatus] = useState<EquipmentStatus>(EquipmentStatus.AVAILABLE);
     const [isSaving, setIsSaving] = useState(false);
     const isCurrentlyInUse = !!currentAssignment;
@@ -36,13 +36,13 @@ const EquipmentModal: React.FC<{
             // The form should reflect the underlying, persistent status.
             // A derived 'In Use' status from the schedule should not be the editable value.
             // If the database has a stale 'In Use', we treat it as 'Available'.
-// FIX: Used EquipmentStatus enum for comparison and value.
+            // FIX: Used EquipmentStatus enum for comparison and value.
             const underlyingStatus = equipmentToEdit.status === EquipmentStatus.IN_USE ? EquipmentStatus.AVAILABLE : equipmentToEdit.status;
             setPersistentStatus(underlyingStatus);
         } else {
             // Reset for "Add Equipment" mode
             setName('');
-// FIX: Used EquipmentStatus enum for state update.
+            // FIX: Used EquipmentStatus enum for state update.
             setPersistentStatus(EquipmentStatus.AVAILABLE);
         }
     }, [equipmentToEdit]);
@@ -74,7 +74,7 @@ const EquipmentModal: React.FC<{
             }
             onSuccess();
             onClose();
-        } catch(error) {
+        } catch (error) {
             addToast(error instanceof Error ? error.message : "Failed to save equipment.", "error");
         } finally {
             setIsSaving(false);
@@ -86,8 +86,8 @@ const EquipmentModal: React.FC<{
             <Card className="w-full max-w-xl" onClick={e => e.stopPropagation()}>
                 <h3 className="font-bold text-lg mb-4">{equipmentToEdit ? 'Equipment Details' : 'Add Equipment'}</h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Equipment Name" className="w-full p-2 border rounded" required />
-                    
+                    <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Equipment Name" className="w-full p-2 border rounded" required aria-label="Equipment name" />
+
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-slate-300">Status</label>
                         {isCurrentlyInUse && (
@@ -122,7 +122,7 @@ const EquipmentModal: React.FC<{
                                     })}
                                 </div>
                             ) : (
-                                 <p className="text-sm text-slate-500 p-2">No assignments found. Manage assignments in the Resource Scheduler.</p>
+                                <p className="text-sm text-slate-500 p-2">No assignments found. Manage assignments in the Resource Scheduler.</p>
                             )}
                         </div>
                     )}
@@ -183,14 +183,14 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) 
             abortControllerRef.current?.abort();
         };
     }, [fetchData]);
-    
+
     const projectMap = useMemo(() => new Map(projects.map(p => [p.id, p.name])), [projects]);
 
     const currentAssignments = useMemo(() => {
-// FIX: Changed Map key from number to string to match resourceId type.
+        // FIX: Changed Map key from number to string to match resourceId type.
         const map = new Map<string, ResourceAssignment>();
         const today = new Date();
-        today.setHours(0, 0, 0, 0); 
+        today.setHours(0, 0, 0, 0);
         assignments.forEach(a => {
             if (a.resourceType === 'equipment') {
                 const startDate = new Date(a.startDate);
@@ -208,15 +208,15 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) 
     const getDerivedStatus = (item: Equipment): EquipmentStatus => {
         // If there's an active assignment for today, the status is always 'In Use'.
         if (currentAssignments.has(item.id)) {
-// FIX: Used EquipmentStatus enum member.
+            // FIX: Used EquipmentStatus enum member.
             return EquipmentStatus.IN_USE;
         }
         // Otherwise, it's the status set in the database ('Available' or 'Maintenance').
         // We safeguard against a stale 'In Use' status in the DB.
-// FIX: Used EquipmentStatus enum for comparison and value.
+        // FIX: Used EquipmentStatus enum for comparison and value.
         return item.status === EquipmentStatus.IN_USE ? EquipmentStatus.AVAILABLE : item.status;
     };
-    
+
     const openModal = (item: Equipment | null = null) => {
         setEditingEquipment(item);
         setIsModalOpen(true);
@@ -243,7 +243,7 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) 
                 {canManage && <Button onClick={() => openModal()}>Add Equipment</Button>}
             </div>
             <Card>
-                 <div className="overflow-x-auto">
+                <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
                         <thead className="bg-slate-50 dark:bg-slate-800">
                             <tr>

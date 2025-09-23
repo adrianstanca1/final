@@ -1,0 +1,13 @@
+/* Resource scheduler positioning classes */
+.resource-block {
+    position: absolute;
+    top: 0.5rem;
+    margin: 0 2px;
+    height: 2rem;
+}
+
+/* Dynamic positioning via CSS custom properties (necessary for positioning calculations) */
+.resource-block-positioned {
+    left: var(--block-left, 0%);
+    width: var(--block-width, 100%);
+}

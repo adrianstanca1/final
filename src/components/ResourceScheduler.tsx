@@ -263,8 +263,8 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
                                                 <div
                                                     key={a.id}
                                                     onClick={() => openModal(a)}
-                                                    className={`absolute h-8 px-2 py-1 rounded text-white text-xs overflow-hidden cursor-pointer group flex justify-between items-center ${a.resourceType === 'user' ? 'bg-sky-600' : 'bg-green-600'}`}
-                                                    style={{ left: `${left}%`, width: `calc(${width}% - 4px)`, top: '0.5rem', margin: '0 2px' }}
+                                                    className={`resource-block resource-block-positioned px-2 py-1 rounded text-white text-xs overflow-hidden cursor-pointer group flex justify-between items-center ${a.resourceType === 'user' ? 'bg-sky-600' : 'bg-green-600'}`}
+                                                    style={{ '--block-left': `${left}%`, '--block-width': `calc(${width}% - 4px)` } as React.CSSProperties}
                                                     title={`${project?.name}\n${new Date(a.startDate).toLocaleDateString()} - ${new Date(a.endDate).toLocaleDateString()}`}
                                                 >
                                                     <span className="truncate">{project?.name || 'Unknown Project'}</span>

@@ -1,0 +1,44 @@
+/* Task progress indicator widths */
+.task-progress-0 {
+    width: 0%;
+}
+
+.task-progress-10 {
+    width: 10%;
+}
+
+.task-progress-20 {
+    width: 20%;
+}
+
+.task-progress-30 {
+    width: 30%;
+}
+
+.task-progress-40 {
+    width: 40%;
+}
+
+.task-progress-50 {
+    width: 50%;
+}
+
+.task-progress-60 {
+    width: 60%;
+}
+
+.task-progress-70 {
+    width: 70%;
+}
+
+.task-progress-80 {
+    width: 80%;
+}
+
+.task-progress-90 {
+    width: 90%;
+}
+
+.task-progress-100 {
+    width: 100%;
+}

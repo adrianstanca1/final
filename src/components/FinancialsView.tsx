@@ -18,6 +18,7 @@ import {
   FinancialForecast,
 } from '../types';
 import { api } from '../services/mockApi';
+import './FinancialsView.css';
 import { generateFinancialForecast } from '../services/ai';
 import { getDerivedStatus, getInvoiceFinancials, formatCurrency } from '../utils/finance';
 import { hasPermission } from '../services/auth';
@@ -56,8 +57,7 @@ const BarChart: React.FC<{ data: { label: string; value: number }[]; barColor: s
       {data.map(entry => (
         <div key={entry.label} className="flex flex-col items-center justify-end h-full w-full">
           <div
-            className={`w-3/4 rounded-t-md transition-all ${barColor}`}
-            style={{ height: `${maxValue > 0 ? Math.round((entry.value / maxValue) * 100) : 0}%` }}
+            className={`w-3/4 rounded-t-md transition-all ${barColor} chart-height-${Math.max(5, Math.round((entry.value / (maxValue || 1)) * 100 / 5) * 5)}`}
             title={formatCurrency(entry.value)}
           />
           <span className="text-xs mt-2 text-slate-600 dark:text-slate-300">{entry.label}</span>
