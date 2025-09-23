@@ -1,5 +1,7 @@
 import { api } from './mockApi';
 import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
+import { withRetry, DEFAULT_RETRY_CONFIGS } from '../utils/errorHandling';
+import { getStorage } from '../utils/storage';
 import {
   AuditLog,
   BackendConnectionState,
@@ -135,9 +137,21 @@ class BackendGateway {
     if (this.connectionInfo.mode === 'backend' && this.connectionInfo.baseUrl && this.state.online) {
       try {
         const query = new URLSearchParams({ userId, companyId }).toString();
-        const remote = await this.fetchFromBackend<partialDashboardSnapshot>(
-          `/app/dashboard/snapshot?${query}`,
-          { method: 'GET', signal },
+        const remote = await withRetry(
+          () => this.fetchFromBackend<partialDashboardSnapshot>(
+            `/app/dashboard/snapshot?${query}`,
+            { method: 'GET', signal },
+          ),
+          {
+            ...DEFAULT_RETRY_CONFIGS.api,
+            maxAttempts: 3,
+          },
+          {
+            operation: 'fetch_dashboard_snapshot',
+            component: 'backendGateway',
+            timestamp: new Date().toISOString(),
+            metadata: { userId, companyId },
+          }
         );
         if (remote && Array.isArray(remote.projects)) {
           snapshot = this.normaliseRemoteSnapshot(remote);
@@ -194,7 +208,8 @@ class BackendGateway {
     const headers = new Headers(init.headers ?? {});
     // Inject Authorization token if present
     try {
-      const token = (globalThis as any)?.localStorage?.getItem?.('token');
+      const storage = getStorage();
+      const token = storage.getItem('token');
       if (token && !headers.has('Authorization')) {
         headers.set('Authorization', `Bearer ${token}`);
       }
