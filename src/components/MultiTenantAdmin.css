@@ -1,0 +1,93 @@
+/* Multi-tenant admin specific styles */
+.progress-bar {
+    transition: width 0.3s ease-in-out;
+}
+
+.progress-bar[data-width] {
+    width: var(--progress-width, 0%);
+}
+
+/* Set the CSS custom property dynamically */
+.progress-bar[data-width="0%"] {
+    --progress-width: 0%;
+}
+
+.progress-bar[data-width="5%"] {
+    --progress-width: 5%;
+}
+
+.progress-bar[data-width="10%"] {
+    --progress-width: 10%;
+}
+
+.progress-bar[data-width="15%"] {
+    --progress-width: 15%;
+}
+
+.progress-bar[data-width="20%"] {
+    --progress-width: 20%;
+}
+
+.progress-bar[data-width="25%"] {
+    --progress-width: 25%;
+}
+
+.progress-bar[data-width="30%"] {
+    --progress-width: 30%;
+}
+
+.progress-bar[data-width="35%"] {
+    --progress-width: 35%;
+}
+
+.progress-bar[data-width="40%"] {
+    --progress-width: 40%;
+}
+
+.progress-bar[data-width="45%"] {
+    --progress-width: 45%;
+}
+
+.progress-bar[data-width="50%"] {
+    --progress-width: 50%;
+}
+
+.progress-bar[data-width="55%"] {
+    --progress-width: 55%;
+}
+
+.progress-bar[data-width="60%"] {
+    --progress-width: 60%;
+}
+
+.progress-bar[data-width="65%"] {
+    --progress-width: 65%;
+}
+
+.progress-bar[data-width="70%"] {
+    --progress-width: 70%;
+}
+
+.progress-bar[data-width="75%"] {
+    --progress-width: 75%;
+}
+
+.progress-bar[data-width="80%"] {
+    --progress-width: 80%;
+}
+
+.progress-bar[data-width="85%"] {
+    --progress-width: 85%;
+}
+
+.progress-bar[data-width="90%"] {
+    --progress-width: 90%;
+}
+
+.progress-bar[data-width="95%"] {
+    --progress-width: 95%;
+}
+
+.progress-bar[data-width="100%"] {
+    --progress-width: 100%;
+}

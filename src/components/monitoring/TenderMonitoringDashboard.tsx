@@ -1,52 +1,30 @@
-import React, { useState, useEffect } from 'react'; import React, { useState, useEffect } from 'react';
-
-import { Card } from '../ui/Card'; import { Card } from '../ui/Card';
-
-import { Button } from '../ui/Button'; import { Button } from '../ui/Button';
-
-import { import { Badge } from '../ui/Badge';
-
-tenderMonitoringService, import { Modal } from '../ui/Modal';
-
-TenderSource, import { Input } from '../ui/Input';
-
-MonitoringAlert, import {
-
-    RelevanceFilter     tenderMonitoringService,
-
-} from '../../services/tenderMonitoring'; TenderSource,
-
-import { User } from '../../types'; MonitoringAlert,
-
-import { TenderOpportunity } from '../../types/procurement'; RelevanceFilter
-
+import React, { useState, useEffect } from 'react';
+import { Card } from '../ui/Card';
+import { Button } from '../ui/Button';
+import { Badge } from '../ui/Badge';
+import { Modal } from '../ui/Modal';
+import { Input } from '../ui/Input';
+import {
+    tenderMonitoringService,
+    TenderSource,
+    MonitoringAlert,
+    RelevanceFilter
 } from '../../services/tenderMonitoring';
+import { User } from '../../types';
+import { TenderOpportunity } from '../../types/procurement';
 
-interface TenderMonitoringDashboardProps {import { User } from '../../types';
-
-user: User; import { TenderOpportunity } from '../../types/procurement'; interface TenderMonitoringDashboardProps {
-
-    onTenderDiscovered?: (tender: TenderOpportunity) => void; user: User;
-
-}    onTenderDiscovered ?: (tende                        onChange = {(e: React.ChangeEvent<HTMLInputElement>) => setNewSource({ ...newSource, url: e.target.value })}: Tender                            onChange = {(e: React.ChangeEvent<HTMLSelectElement>) => setNewSource({ ...newSource, type: e.target.value as any })}pportunity) => void;
-
+interface TenderMonitoringDashboardProps {
+    user: User;
+    onTenderDiscovered?: (tender: TenderOpportunity) => void;
 }
 
 export const TenderMonitoringDashboard: React.FC<TenderMonitoringDashboardProps> = ({
-
-    user, export const TenderMonitoringDashboard: React.FC<TenderMonitoringDashboardProps> = ({
-
-        onTenderDiscovered     user,
-
-    }) => {
-        onTenderDiscovered
-
-        const [sources, setSources] = useState<TenderSource[]>([]);
-    }) => {
-
-    const [alerts, setAlerts] = useState<MonitoringAlert[]>([]); const [sources, setSources] = useState<TenderSource[]>([]);
-
-    const [filters, setFilters] = useState<RelevanceFilter[]>([]); const [alerts, setAlerts] = useState<MonitoringAlert[]>([]);
+    user,
+    onTenderDiscovered
+}) => {
+    const [sources, setSources] = useState<TenderSource[]>([]);
+    const [alerts, setAlerts] = useState<MonitoringAlert[]>([]);
+    const [filters, setFilters] = useState<RelevanceFilter[]>([]);
 
     const [isMonitoring, setIsMonitoring] = useState(false); const [filters, setFilters] = useState<RelevanceFilter[]>([]);
 

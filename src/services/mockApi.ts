@@ -2,6 +2,7 @@
 // Supports offline queuing for write operations.
 
 import { initialData } from './mockData';
+import { multiTenantService } from './multiTenant';
 import {
     User,
     Company,
@@ -195,6 +196,56 @@ const safeNumber = (value: unknown): number => {
         }
     }
     return 0;
+};
+
+// Multi-tenant helper functions
+const scopeDataByTenant = <T extends { id: string; companyId?: string; tenantId?: string }>(
+    data: T[],
+    tenantId: string
+): T[] => {
+    return multiTenantService.scopeData(data, tenantId);
+};
+
+const addTenantScope = <T extends Record<string, any>>(
+    data: T,
+    tenantId: string
+): T & { tenantId: string } => {
+    return { ...data, tenantId };
+};
+
+const logTenantAction = async (
+    tenantId: string,
+    userId: string,
+    action: string,
+    resourceType: string,
+    resourceId: string,
+    details: Record<string, any> = {}
+): Promise<void> => {
+    await multiTenantService.logAction(
+        tenantId,
+        userId,
+        action,
+        resourceType,
+        resourceId,
+        details,
+        '127.0.0.1',
+        navigator?.userAgent || 'unknown'
+    );
+};
+
+const checkTenantResourceLimit = async (
+    tenantId: string,
+    resourceType: string
+): Promise<boolean> => {
+    return multiTenantService.enforceResourceLimits(tenantId, resourceType);
+};
+
+const updateTenantUsage = async (
+    tenantId: string,
+    resourceType: keyof ReturnType<typeof multiTenantService.getTenantStats>,
+    increment: number = 1
+): Promise<void> => {
+    await multiTenantService.updateResourceUsage(tenantId, resourceType as any, increment);
 };
 
 const parseDate = (value: unknown): Date | null => {
@@ -2182,5 +2233,114 @@ export const api = {
         db.projectMessages.push(newMessage);
         saveDb();
         return newMessage as ProjectMessage;
+    },
+
+    // Multi-tenant functionality
+    getTenantInfo: async (tenantId: string): Promise<any> => {
+        return multiTenantService.getTenant(tenantId);
+    },
+
+    getTenantStats: async (tenantId: string): Promise<any> => {
+        return multiTenantService.getTenantStats(tenantId);
+    },
+
+    checkTenantFeature: async (tenantId: string, feature: string): Promise<boolean> => {
+        return multiTenantService.hasFeature(tenantId, feature as any);
+    },
+
+    getTenantAuditLogs: async (tenantId: string, limit?: number): Promise<any[]> => {
+        return multiTenantService.getAuditLogs(tenantId, limit);
+    },
+
+    // Enhanced data access with tenant scoping
+    getProjectsScoped: async (tenantId: string, options?: RequestOptions): Promise<Project[]> => {
+        ensureNotAborted(options?.signal);
+        const allProjects = db.projects as Project[];
+        return scopeDataByTenant(allProjects, tenantId);
+    },
+
+    getUsersScoped: async (tenantId: string, options?: RequestOptions): Promise<User[]> => {
+        ensureNotAborted(options?.signal);
+        const allUsers = db.users as User[];
+        return scopeDataByTenant(allUsers, tenantId);
+    },
+
+    getTasksScoped: async (tenantId: string, options?: RequestOptions): Promise<Task[]> => {
+        ensureNotAborted(options?.signal);
+        const allTasks = db.tasks as Task[];
+        return scopeDataByTenant(allTasks, tenantId);
+    },
+
+    // Resource limit checking
+    canCreateProject: async (tenantId: string): Promise<boolean> => {
+        return checkTenantResourceLimit(tenantId, 'projects');
+    },
+
+    canCreateUser: async (tenantId: string): Promise<boolean> => {
+        return checkTenantResourceLimit(tenantId, 'users');
+    },
+
+    canUseAICredits: async (tenantId: string): Promise<boolean> => {
+        return checkTenantResourceLimit(tenantId, 'ai_credits');
+    },
+
+    // Enhanced create operations with tenant scope and usage tracking
+    createProjectWithTenant: async (data: any, userId: string, tenantId: string): Promise<Project> => {
+        const canCreate = await checkTenantResourceLimit(tenantId, 'projects');
+        if (!canCreate) {
+            throw new Error('Project limit reached for current plan');
+        }
+
+        const projectData = addTenantScope(data, tenantId);
+        const newProject = { 
+            ...projectData, 
+            id: generateId(), 
+            ownerId: userId, 
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        
+        db.projects.push(newProject);
+        await updateTenantUsage(tenantId, 'projects');
+        await logTenantAction(tenantId, userId, 'project_created', 'project', newProject.id, { name: data.name });
+        
+        saveDb();
+        return newProject as Project;
+    },
+
+    createUserWithTenant: async (data: any, creatorId: string, tenantId: string): Promise<User> => {
+        const canCreate = await checkTenantResourceLimit(tenantId, 'users');
+        if (!canCreate) {
+            throw new Error('User limit reached for current plan');
+        }
+
+        const userData = addTenantScope(data, tenantId);
+        const newUser = { 
+            ...userData, 
+            id: generateId(),
+            companyId: tenantId,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+        
+        db.users.push(newUser);
+        await updateTenantUsage(tenantId, 'users');
+        await logTenantAction(tenantId, creatorId, 'user_created', 'user', newUser.id, { email: data.email, role: data.role });
+        
+        saveDb();
+        return newUser as User;
+    },
+
+    // AI credit usage tracking
+    useAICredits: async (tenantId: string, userId: string, amount: number = 1): Promise<boolean> => {
+        const canUse = await checkTenantResourceLimit(tenantId, 'ai_credits');
+        if (!canUse) {
+            return false;
+        }
+
+        await updateTenantUsage(tenantId, 'aiCreditsUsed', amount);
+        await logTenantAction(tenantId, userId, 'ai_credits_used', 'ai_usage', 'general', { amount });
+        
+        return true;
     }
 };
