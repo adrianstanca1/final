@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { User, Project, Todo, Role, Permission, TodoStatus, TodoPriority } from '../types';
+import { User, Project, Todo, Role, Permission, TodoStatus, TodoPriority, Milestone } from '../types';
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
 import { Card } from './ui/Card';
@@ -24,6 +24,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
     const [taskToEdit, setTaskToEdit] = useState<Todo | null>(null);
     const [bulkAction, setBulkAction] = useState({ type: '', value: '' });
+    const [milestones, setMilestones] = useState<Milestone[]>([]);
 
     const canManage = hasPermission(user, Permission.MANAGE_ALL_TASKS);
     const abortControllerRef = useRef<AbortController | null>(null);
@@ -62,6 +63,10 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                 const allTodos = await api.getTodosByProjectIds(projData.map(p => p.id), { signal: controller.signal });
                 if (controller.signal.aborted) return;
                 setTodos(allTodos);
+                // Load milestones for first project as a simple example
+                const ms = await api.listMilestones(projData[0].id);
+                if (controller.signal.aborted) return;
+                setMilestones(ms as any);
             }
         } catch (error) {
             if ((error as Error).name !== 'AbortError') {
@@ -136,7 +141,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
         if (bulkAction.type === 'priority') updates.priority = bulkAction.value as TodoPriority;
 
         const originalTodos = [...todos];
-        const selectedIdsArray: string[] = Array.from(selectedTaskIds);
+    const selectedIdsArray: string[] = Array.from(selectedTaskIds).map(String);
         setTodos(prev => prev.map(t => selectedIdsArray.includes(t.id) ? { ...t, ...updates } : t));
 
         try {
@@ -158,26 +163,12 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
         <div className="space-y-6">
             {isTaskModalOpen && <TaskModal user={user} projects={projects} users={personnel} onClose={() => setIsTaskModalOpen(false)} onSuccess={handleTaskModalSuccess} addToast={addToast} taskToEdit={taskToEdit} allProjectTasks={todos} />}
             <ViewHeader
-                view="all-tasks"
-                actions={canManage ? <Button onClick={() => handleOpenTaskModal(null)}>Add Task</Button> : undefined}
-                meta={[
-                    {
-                        label: 'Total tasks',
-                        value: `${taskSummary.total}`,
-                        helper: `${taskSummary.completionRate}% complete`,
-                    },
-                    {
-                        label: 'In progress',
-                        value: `${taskSummary.inProgress}`,
-                        helper: 'Actively being worked',
-                        indicator: taskSummary.inProgress > 0 ? 'positive' : 'neutral',
-                    },
-                    {
-                        label: 'Overdue',
-                        value: `${taskSummary.overdue}`,
-                        helper: taskSummary.overdue > 0 ? 'Needs attention' : 'On track',
-                        indicator: taskSummary.overdue > 0 ? 'negative' : 'positive',
-                    },
+                title="All Tasks"
+                isOnline={isOnline}
+                stats={[
+                    { label: 'Total tasks', value: `${taskSummary.total}` },
+                    { label: 'In progress', value: `${taskSummary.inProgress}`, tone: taskSummary.inProgress > 0 ? 'info' : 'neutral' },
+                    { label: 'Overdue', value: `${taskSummary.overdue}`, tone: taskSummary.overdue > 0 ? 'warning' : 'success' },
                 ]}
             />
 
@@ -187,7 +178,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                         <input type="checkbox" checked={isAllSelected} onChange={handleSelectAll} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
                         Select all
                     </label>
-                    <select
+                    <select aria-label="Project filter"
                         value={selectedProjectId}
                         onChange={e => setSelectedProjectId(e.target.value)}
                         className="rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none"
@@ -199,14 +190,14 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                 {selectedTaskIds.size > 0 && (
                     <div className="flex flex-wrap items-center gap-4 border-t border-border bg-primary/5 px-4 py-4 text-sm">
                         <span className="font-semibold text-foreground">{selectedTaskIds.size} task(s) selected</span>
-                        <select
+                        <select aria-label="Bulk status"
                             onChange={e => setBulkAction({ type: 'status', value: e.target.value })}
                             className="rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none"
                         >
                             <option value="">Change status...</option>
                             {Object.values(TodoStatus).map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
                         </select>
-                        <select
+                        <select aria-label="Bulk assignee"
                             onChange={e => setBulkAction({ type: 'assignee', value: e.target.value })}
                             className="rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none"
                         >
@@ -214,7 +205,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                             <option value="unassigned">Unassigned</option>
                             {personnel.map(p => <option key={p.id} value={p.id}>{`${p.firstName} ${p.lastName}`}</option>)}
                         </select>
-                        <select
+                        <select aria-label="Bulk priority"
                             onChange={e => setBulkAction({ type: 'priority', value: e.target.value })}
                             className="rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none"
                         >
@@ -235,6 +226,32 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                 onTaskSelectionChange={handleTaskSelectionChange}
                 selectedTaskIds={selectedTaskIds}
             />
+
+            {milestones.length > 0 && (
+                <div className="rounded border p-4">
+                    <h3 className="font-semibold mb-2">Milestones & Dependencies</h3>
+                    <table className="w-full text-sm">
+                        <thead className="text-muted-foreground">
+                            <tr>
+                                <th className="text-left p-2">Milestone</th>
+                                <th className="text-left p-2">Start</th>
+                                <th className="text-left p-2">End</th>
+                                <th className="text-left p-2">Depends On</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {milestones.map(m => (
+                                <tr key={m.id} className="border-t">
+                                    <td className="p-2">{m.name}</td>
+                                    <td className="p-2">{new Date(m.startDate).toLocaleDateString()}</td>
+                                    <td className="p-2">{new Date(m.endDate).toLocaleDateString()}</td>
+                                    <td className="p-2">{(m.dependsOn || []).join(', ') || '—'}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
         </div>
     );
 };

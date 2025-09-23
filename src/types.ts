@@ -390,6 +390,18 @@ export interface UpcomingProjectDeadline {
   isOverdue: boolean;
 }
 
+export interface Milestone {
+  id: string;
+  projectId: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  completed?: boolean;
+  dependsOn?: string[]; // milestone ids
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ProjectPortfolioSummary {
   totalProjects: number;
   activeProjects: number;

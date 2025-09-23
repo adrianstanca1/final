@@ -275,6 +275,7 @@ const PERSISTED_COLLECTION_KEYS = [
     'documents',
     'projectInsights',
     'financialForecasts',
+    'milestones',
     // Procurement/Accounts
     'vendors',
     'purchaseOrders',
@@ -307,6 +308,7 @@ const createInitialDbState = () => ({
     documents: hydrateData('documents', []),
     projectInsights: hydrateData('projectInsights', (initialData as any).projectInsights || []),
     financialForecasts: hydrateData('financialForecasts', (initialData as any).financialForecasts || []),
+    milestones: hydrateData('milestones', []),
     vendors: hydrateData('vendors', []),
     purchaseOrders: hydrateData('purchaseOrders', []),
     budgets: hydrateData('budgets', []),
@@ -336,6 +338,7 @@ const createInitialDbState = () => ({
     documents: Partial<Document>[];
     projectInsights: Partial<ProjectInsight>[];
     financialForecasts: Partial<FinancialForecast>[];
+    milestones: any[];
     vendors: any[];
     purchaseOrders: any[];
     budgets: any[];
@@ -699,6 +702,31 @@ export const resetMockApi = () => {
 };
 
 export const api = {
+    // Milestones
+    async listMilestones(projectId: string) {
+        await delay();
+        return db.milestones.filter(m => String((m as any).projectId) === String(projectId)) as any[];
+    },
+    async upsertMilestone(m: any) {
+        await delay();
+        const now = new Date().toISOString();
+        if (!m.id) {
+            const created = { id: generateId(), createdAt: now, updatedAt: now, ...m };
+            db.milestones.push(created);
+            saveDb();
+            return created as any;
+        }
+        const idx = db.milestones.findIndex(x => x.id === m.id);
+        if (idx >= 0) {
+            db.milestones[idx] = { ...db.milestones[idx], ...m, updatedAt: now };
+            saveDb();
+            return db.milestones[idx] as any;
+        }
+        const created = { id: m.id, createdAt: now, updatedAt: now, ...m };
+        db.milestones.push(created);
+        saveDb();
+        return created as any;
+    },
     // Accounts: Budgets
     async listBudgets(companyId: string) {
         await delay();
