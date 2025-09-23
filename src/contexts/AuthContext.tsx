@@ -70,7 +70,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           tokenRefreshTimeout = setTimeout(async () => {
             const storedRefreshToken = storage.getItem('refreshToken');
             if (!storedRefreshToken) {
-              logout();
+              // Clear auth state without calling logout to avoid circular dependency
+              storage.removeItem('token');
+              storage.removeItem('refreshToken');
+              if (tokenRefreshTimeout) clearTimeout(tokenRefreshTimeout);
+              setAuthState({
+                isAuthenticated: false,
+                token: null,
+                refreshToken: null,
+                user: null,
+                company: null,
+                loading: false,
+                error: null,
+              });
               return;
             }
 
@@ -81,15 +93,39 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
               scheduleTokenRefresh(newToken);
             } catch (error) {
               console.error('Proactive token refresh failed', error);
-              logout();
+              // Clear auth state without calling logout to avoid circular dependency
+              storage.removeItem('token');
+              storage.removeItem('refreshToken');
+              if (tokenRefreshTimeout) clearTimeout(tokenRefreshTimeout);
+              setAuthState({
+                isAuthenticated: false,
+                token: null,
+                refreshToken: null,
+                user: null,
+                company: null,
+                loading: false,
+                error: null,
+              });
             }
           }, expiresIn);
         } else {
-          logout();
+          // Clear auth state without calling logout to avoid circular dependency
+          storage.removeItem('token');
+          storage.removeItem('refreshToken');
+          if (tokenRefreshTimeout) clearTimeout(tokenRefreshTimeout);
+          setAuthState({
+            isAuthenticated: false,
+            token: null,
+            refreshToken: null,
+            user: null,
+            company: null,
+            loading: false,
+            error: null,
+          });
         }
       }
     },
-    [logout],
+    [], // Remove logout dependency to break circular dependency
   );
 
   const finalizeLogin = useCallback(
@@ -117,14 +153,38 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (token && refreshToken) {
       try {
         const { user, company } = await authClient.me(token);
-        finalizeLogin({ token, refreshToken, user, company });
+        // Inline the finalizeLogin logic to avoid circular dependency
+        storage.setItem('token', token);
+        storage.setItem('refreshToken', refreshToken);
+        setAuthState({
+          isAuthenticated: true,
+          token,
+          refreshToken,
+          user,
+          company,
+          loading: false,
+          error: null,
+        });
+        scheduleTokenRefresh(token);
         return;
       } catch (error) {
         console.log('Stored access token invalid, attempting refresh…');
         try {
           const { token: newToken } = await authClient.refreshToken(refreshToken);
           const { user, company } = await authClient.me(newToken);
-          finalizeLogin({ token: newToken, refreshToken, user, company });
+          // Inline the finalizeLogin logic to avoid circular dependency
+          storage.setItem('token', newToken);
+          storage.setItem('refreshToken', refreshToken);
+          setAuthState({
+            isAuthenticated: true,
+            token: newToken,
+            refreshToken,
+            user,
+            company,
+            loading: false,
+            error: null,
+          });
+          scheduleTokenRefresh(newToken);
           return;
         } catch (refreshError) {
           console.error('Auth init failed after refresh attempt', refreshError);
@@ -133,7 +193,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     setAuthState(prev => ({ ...prev, loading: false }));
-  }, [finalizeLogin]);
+  }, [scheduleTokenRefresh]); // Only depend on scheduleTokenRefresh
 
   useEffect(() => {
     initAuth();
@@ -142,7 +202,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         clearTimeout(tokenRefreshTimeout);
       }
     };
-  }, [initAuth]);
+  }, []); // Empty dependency array - only run once on mount
 
   const login = async (credentials: LoginCredentials): Promise<{ mfaRequired: boolean; userId?: string }> => {
     setAuthState(prev => ({ ...prev, loading: true, error: null }));
@@ -170,7 +230,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     try {
       const response = await authClient.login(validation.sanitizedData as LoginCredentials);
-      if (response.mfaRequired) {
+      if ('mfaRequired' in response && response.mfaRequired) {
         setAuthState(prev => ({ ...prev, loading: false }));
         return { mfaRequired: true, userId: response.userId };
       }

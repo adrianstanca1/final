@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { User } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
-import { api } from '../services/mockApi';
+import { generateCostEstimate, CostEstimateInput, CostEstimateResult } from '../services/ai';
 
 
 interface CostEstimatorProps {
