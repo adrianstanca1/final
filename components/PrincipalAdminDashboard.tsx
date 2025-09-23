@@ -8,6 +8,7 @@ import { InviteCompanyModal } from './InviteCompanyModal';
 interface PrincipalAdminDashboardProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
+  selectedTenantName?: string | null;
 }
 
 const KpiCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode }> = ({
@@ -82,7 +83,7 @@ const SystemHealthIndicator: React.FC<{ health: SystemHealth }> = ({ health }) =
   );
 };
 
-export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = ({ user, addToast }) => {
+export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = ({ user, addToast, selectedTenantName }) => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [totalUsers, setTotalUsers] = useState(0);
   const [metrics, setMetrics] = useState<UsageMetric[]>([]);
@@ -166,6 +167,12 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
         </div>
         <Button onClick={() => setIsInviteModalOpen(true)}>Invite New Company</Button>
       </div>
+
+      {selectedTenantName && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 px-4 py-3 text-sm text-primary">
+          Spotlight tenant: <span className="font-semibold text-slate-900">{selectedTenantName}</span>
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard
@@ -262,7 +269,12 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
               </thead>
               <tbody className="divide-y divide-border bg-card">
                 {companies.map((company) => (
-                  <tr key={company.id} className="hover:bg-muted/50">
+                  <tr
+                    key={company.id}
+                    className={`hover:bg-muted/50 ${
+                      selectedTenantName && company.name === selectedTenantName ? 'border-l-4 border-primary bg-primary/5' : ''
+                    }`}
+                  >
                     <td className="px-4 py-3">
                       <div className="font-semibold text-slate-900">{company.name}</div>
                       <p className="text-xs text-slate-500">{company.email || 'No contact email'}</p>

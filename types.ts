@@ -27,6 +27,7 @@ export interface RegisterCredentials {
 }
 
 export type RegistrationPayload = Partial<RegisterCredentials & {
+  username?: string;
   companyName?: string;
   companyType?: CompanyType;
   companyEmail?: string;
@@ -38,6 +39,8 @@ export type RegistrationPayload = Partial<RegisterCredentials & {
   updatesOptIn?: boolean;
   termsAccepted?: boolean;
 }>;
+
+export type SocialProvider = 'google' | 'facebook';
 
 export interface Company {
   id: string;
@@ -105,6 +108,7 @@ export interface User {
   firstName: string;
   lastName: string;
   email: string;
+  username?: string;
   password?: string;
   passwordHash?: string;
   passwordSalt?: string;
@@ -785,6 +789,46 @@ export interface OperationalInsights {
         outstandingReceivables: number;
     };
     alerts: OperationalAlert[];
+}
+
+export interface DashboardSnapshotMetadata {
+    source: 'mock' | 'backend';
+    generatedAt: string;
+    usedFallback: boolean;
+    projectCount?: number;
+    fallbackReason?: string;
+    [key: string]: unknown;
+}
+
+export interface DashboardSnapshot {
+    projects: Project[];
+    team: User[];
+    equipment: Equipment[];
+    tasks: Todo[];
+    activityLog: AuditLog[];
+    operationalInsights: OperationalInsights | null;
+    incidents: SafetyIncident[];
+    expenses: Expense[];
+    portfolioSummary: ProjectPortfolioSummary | null;
+    metadata: DashboardSnapshotMetadata;
+}
+
+export interface BackendInteractionEvent {
+    id?: string;
+    type: string;
+    userId?: string;
+    companyId?: string;
+    context?: Record<string, unknown>;
+    createdAt?: string;
+    metadata?: Record<string, unknown>;
+}
+
+export interface BackendConnectionState {
+    mode: 'mock' | 'backend';
+    baseUrl: string | null;
+    online: boolean;
+    pendingMutations: number;
+    lastSync: string | null;
 }
 
 export interface ProjectTemplate {

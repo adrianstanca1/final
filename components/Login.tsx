@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LoginCredentials } from '../types';
+import { LoginCredentials, SocialProvider } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,7 +16,7 @@ type LoginStep = 'credentials' | 'mfa';
 const validateEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForgotPassword }) => {
-    const { login, verifyMfaAndFinalize, error: authError, loading: isLoading } = useAuth();
+    const { login, verifyMfaAndFinalize, socialLogin, error: authError, loading: isLoading } = useAuth();
     const [step, setStep] = useState<LoginStep>('credentials');
     const initialRememberedEmail = readRememberedEmail();
     const [email, setEmail] = useState(initialRememberedEmail);
@@ -115,6 +115,15 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
         }
     };
     
+    const handleSocialLogin = async (provider: SocialProvider) => {
+        setError(null);
+        try {
+            await socialLogin(provider);
+        } catch (err: any) {
+            setError(err?.message ?? `Unable to sign in with ${provider}.`);
+        }
+    };
+
     const renderCredentialStep = () => (
       <form onSubmit={handleCredentialSubmit} className="space-y-6">
         <div>
@@ -227,6 +236,41 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
         </div>
         <Card className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
             <AuthEnvironmentNotice className="mb-4" />
+            <div className="space-y-3 px-4">
+                <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full flex items-center justify-center gap-2"
+                    onClick={() => handleSocialLogin('google')}
+                    isLoading={isLoading}
+                >
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.09-1.92 3.28-4.74 3.28-8.09z" />
+                        <path fill="#34A853" d="M12 24c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.25 1.05-3.71 1.05-2.85 0-5.26-1.92-6.13-4.49H2.18v2.82C3.99 21.53 7.68 24 12 24z" />
+                        <path fill="#FBBC05" d="M5.87 15.13c-.22-.66-.35-1.36-.35-2.13s.13-1.47.35-2.13V8.05H2.18A11.99 11.99 0 000 12.99c0 1.9.45 3.69 1.18 4.94l4.69-2.8z" />
+                        <path fill="#EA4335" d="M12 4.75c1.62 0 3.07.56 4.21 1.64l3.16-3.16C17.46 1.16 14.97 0 12 0 7.68 0 3.99 2.47 2.18 6.05l3.69 2.82C6.74 6.67 9.15 4.75 12 4.75z" />
+                        <path fill="none" d="M0 0h24v24H0z" />
+                    </svg>
+                    Continue with Google
+                </Button>
+                <Button
+                    type="button"
+                    variant="secondary"
+                    className="w-full flex items-center justify-center gap-2"
+                    onClick={() => handleSocialLogin('facebook')}
+                    isLoading={isLoading}
+                >
+                    <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+                        <path fill="#1877F2" d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.09 4.388 23.093 10.125 24v-8.437H7.078V12.07h3.047V9.412c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953h-1.513c-1.492 0-1.955.931-1.955 1.887v2.252h3.328l-.532 3.493h-2.796V24C19.612 23.093 24 18.09 24 12.073z" />
+                    </svg>
+                    Continue with Facebook
+                </Button>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex-1 border-t border-dashed border-border" />
+                    <span>or use your email</span>
+                    <div className="flex-1 border-t border-dashed border-border" />
+                </div>
+            </div>
             {error && <div className="mb-4 p-3 bg-destructive/10 text-destructive text-sm rounded-md border border-destructive/20">{error}</div>}
             {step === 'credentials' ? renderCredentialStep() : renderMfaStep()}
         </Card>

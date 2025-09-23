@@ -6,9 +6,6 @@ import {
     Todo,
     Equipment,
     AuditLog,
-    ResourceAssignment,
-    Role,
-    Permission,
     TodoStatus,
     AvailabilityStatus,
     SafetyIncident,
@@ -17,24 +14,19 @@ import {
     ExpenseStatus,
     ProjectPortfolioSummary,
     OperationalInsights,
-
-import './ui/storageUsage.css';
-    // full contents of components/Dashboard.tsx
-
+    DashboardSnapshotMetadata,
 } from '../types';
+import './ui/storageUsage.css';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
-// FIX: Corrected API import from mockApi
-import { api } from '../services/mockApi';
-import { hasPermission } from '../services/auth';
 import { Avatar } from './ui/Avatar';
 import { EquipmentStatusBadge } from './ui/StatusBadge';
 import { Tag } from './ui/Tag';
 import { ViewHeader } from './layout/ViewHeader';
-// FIX: Removed `startOfWeek` from import and added a local implementation to resolve the module export error.
 import { format, eachDayOfInterval, isWithinInterval } from 'date-fns';
 import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
 import { generateProjectHealthSummary, ProjectHealthSummaryResult } from '../services/ai';
+import { backendGateway } from '../services/backendGateway';
 
 interface DashboardProps {
     user: User;
@@ -123,6 +115,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     const [incidents, setIncidents] = useState<SafetyIncident[]>([]);
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [operationalInsights, setOperationalInsights] = useState<OperationalInsights | null>(null);
+    const [snapshotMetadata, setSnapshotMetadata] = useState<DashboardSnapshotMetadata | null>(null);
 
     const [aiSelectedProjectId, setAiSelectedProjectId] = useState<string | null>(null);
     const [aiSummary, setAiSummary] = useState<ProjectHealthSummaryResult | null>(null);
@@ -131,61 +124,67 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     const [aiError, setAiError] = useState<string | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
 
-    const fetchData = useCallback(async () => {
+    const fetchData = useCallback(async (forceRefresh = false) => {
         const controller = new AbortController();
         abortControllerRef.current?.abort();
         abortControllerRef.current = controller;
 
         setLoading(true);
         try {
-            if (!user.companyId) return;
-            const [projData, usersData, equipData, assignmentsData, logsData, insightsData] = await Promise.all([
-                api.getProjectsByManager(user.id, { signal: controller.signal }),
-                api.getUsersByCompany(user.companyId, { signal: controller.signal }),
-                api.getEquipmentByCompany(user.companyId, { signal: controller.signal }),
-                api.getResourceAssignments(user.companyId, { signal: controller.signal }),
-                api.getAuditLogsByCompany(user.companyId, { signal: controller.signal }),
-                api.getOperationalInsights(user.companyId, { signal: controller.signal }),
-            ]);
+            if (!user.companyId) {
+                return;
+            }
+
+            const snapshot = await backendGateway.getDashboardSnapshot({
+                userId: user.id,
+                companyId: user.companyId,
+                signal: controller.signal,
+                forceRefresh,
+            });
 
             if (controller.signal.aborted) return;
-            setProjects(projData);
-            setAiSelectedProjectId(prev => prev ?? projData.find(p => p.status === 'ACTIVE')?.id ?? projData[0]?.id ?? null);
+            setSnapshotMetadata(snapshot.metadata);
+            setProjects(snapshot.projects);
+            setAiSelectedProjectId(prev => prev ?? snapshot.projects.find(p => p.status === 'ACTIVE')?.id ?? snapshot.projects[0]?.id ?? null);
             if (controller.signal.aborted) return;
-            setTeam(usersData.filter(u => u.role !== Role.PRINCIPAL_ADMIN));
-
-            // FIX: Use uppercase 'ACTIVE' for ProjectStatus enum comparison.
-            const activeProjectIds = new Set(projData.filter(p => p.status === 'ACTIVE').map(p => p.id));
-            const tasksData = await api.getTodosByProjectIds(Array.from(activeProjectIds), { signal: controller.signal });
+            setTeam(snapshot.team);
             if (controller.signal.aborted) return;
-            setTasks(tasksData);
-
-            const assignedEquipmentIds = new Set(assignmentsData
-                .filter(a => a.resourceType === 'equipment' && activeProjectIds.has(a.projectId))
-                .map(a => a.resourceId));
+            setEquipment(snapshot.equipment);
             if (controller.signal.aborted) return;
-            setEquipment(equipData.filter(e => assignedEquipmentIds.has(e.id)));
-
+            setTasks(snapshot.tasks);
             if (controller.signal.aborted) return;
-            setActivityLog(logsData.filter(l => l.action.includes('task')).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
-
+            setActivityLog(snapshot.activityLog);
             if (controller.signal.aborted) return;
-            setOperationalInsights(insightsData);
-
-
-            const [incidentsData, expensesData] = await Promise.all([
-                api.getSafetyIncidentsByCompany(user.companyId),
-                api.getExpensesByCompany(user.companyId, { signal: controller.signal }),
-            ]);
-
+            setOperationalInsights(snapshot.operationalInsights);
             if (controller.signal.aborted) return;
-            setIncidents(incidentsData);
+            setIncidents(snapshot.incidents);
             if (controller.signal.aborted) return;
-            setExpenses(expensesData);
+            setExpenses(snapshot.expenses);
 
+            void backendGateway.recordInteraction({
+                type: 'dashboard_snapshot_loaded',
+                userId: user.id,
+                companyId: user.companyId,
+                context: {
+                    projectCount: snapshot.projects.length,
+                    taskCount: snapshot.tasks.length,
+                    source: snapshot.metadata.source,
+                    usedFallback: snapshot.metadata.usedFallback,
+                    fallbackReason: snapshot.metadata.fallbackReason,
+                },
+            });
         } catch (error) {
             if (controller.signal.aborted) return;
+            console.error('[Dashboard] Failed to load dashboard data via backend gateway', error);
             addToast("Failed to load dashboard data.", 'error');
+            void backendGateway.recordInteraction({
+                type: 'dashboard_snapshot_failed',
+                userId: user.id,
+                companyId: user.companyId,
+                context: {
+                    message: error instanceof Error ? error.message : String(error),
+                },
+            });
         } finally {
             if (controller.signal.aborted) return;
             setLoading(false);
@@ -344,6 +343,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
 
     return (
         <div className="space-y-6">
+            {snapshotMetadata?.usedFallback && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
+                    <p className="text-sm font-semibold">Showing cached workspace data</p>
+                    <p className="text-xs">
+                        {snapshotMetadata.fallbackReason ??
+                            'We could not reach the live backend, so this view reflects the latest cached information.'}
+                    </p>
+                </div>
+            )}
             <ViewHeader
                 title={`Welcome back, ${user.firstName}!`}
                 description="Your live delivery and commercial snapshot."
@@ -405,63 +413,56 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
 
             <section className="grid gap-6 lg:grid-cols-3">
                 <Card className="space-y-4 p-6">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-4">
                         <div>
                             <h2 className="text-lg font-semibold text-foreground">Focus projects</h2>
                             <p className="text-sm text-muted-foreground">Highest-risk delivery or budget positions.</p>
-
-                            <div className="space-y-8">
-                                <h1 className="text-3xl font-bold text-slate-800">Welcome back, {user.name.split(' ')[0]}!</h1>
-
-                                {isAdmin && healthStats && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                        <KpiCard title="Total Users" value={healthStats.totalUsers} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656-.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>} />
-                                        <KpiCard title="Active Projects" value={healthStats.activeProjects} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>} />
-                                        <KpiCard title="Storage Usage" value={`${healthStats.storageUsageGB.toFixed(1)} GB`} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" /></svg>}>
-                                            <div className="w-full bg-slate-200 rounded-full h-2">
-                                                <div className="bg-sky-500 h-2 rounded-full storage-usage-bar" style={{ '--storage-usage': `${(healthStats.storageUsageGB / healthStats.storageCapacityGB) * 100}%` } as React.CSSProperties}></div>
-                                            </div>
-                                            <Button variant="ghost" size="sm" onClick={() => setActiveView('projects')}>View all</Button>
-                                    </div>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => setActiveView('projects')}>
+                            View all
+                        </Button>
+                    </div>
                     {atRiskProjects.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground">All monitored projects are currently stable.</p>
-                                ) : (
-                                    <div className="space-y-4">
-                                        {atRiskProjects.map(({ project, budget, actual, progress, overdue }) => (
-                                            <div key={project.id} className="space-y-2 rounded-lg border border-border/60 p-3">
-                                                <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <p className="font-semibold text-foreground">{project.name}</p>
-                                                        <p className="text-xs text-muted-foreground">{project.location?.city ?? project.location?.address}</p>
-                                                    </div>
-                                                    <Tag
-                                                        label={project.status.replace(/_/g, ' ')}
-                                                        color={project.status === 'ACTIVE' ? 'green' : project.status === 'ON_HOLD' ? 'yellow' : 'red'}
-                                                    />
-                                                </div>
-                                                <div className="grid grid-cols-3 gap-3 text-xs text-muted-foreground">
-                                                    <div>
-                                                        <p>Budget</p>
-                                                        <p className="font-semibold text-foreground">{formatCurrency(budget)}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p>Actual</p>
-                                                        <p className="font-semibold text-foreground">{formatCurrency(actual)}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p>Progress</p>
-                                                        <p className="font-semibold text-foreground">{clampPercentage(progress)}%</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                                    <span>{overdue ? '⚠️ Overdue milestone' : 'On schedule'}</span>
-                                                    <Button size="sm" variant="secondary" onClick={() => onSelectProject(project)}>Open</Button>
-                                                </div>
-                                            </div>
-                                        ))}
+                        <p className="text-sm text-muted-foreground">All monitored projects are currently stable.</p>
+                    ) : (
+                        <div className="space-y-4">
+                            {atRiskProjects.map(({ project, budget, actual, progress, overdue }) => (
+                                <div key={project.id} className="space-y-2 rounded-lg border border-border/60 p-3">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="font-semibold text-foreground">{project.name}</p>
+                                            <p className="text-xs text-muted-foreground">{project.location?.city ?? project.location?.address}</p>
+                                        </div>
+                                        <Tag
+                                            label={project.status.replace(/_/g, ' ')}
+                                            color={project.status === 'ACTIVE' ? 'green' : project.status === 'ON_HOLD' ? 'yellow' : 'red'}
+                                        />
                                     </div>
-                                )}
-                            </Card>
+                                    <div className="grid grid-cols-3 gap-3 text-xs text-muted-foreground">
+                                        <div>
+                                            <p>Budget</p>
+                                            <p className="font-semibold text-foreground">{formatCurrency(budget)}</p>
+                                        </div>
+                                        <div>
+                                            <p>Actual</p>
+                                            <p className="font-semibold text-foreground">{formatCurrency(actual)}</p>
+                                        </div>
+                                        <div>
+                                            <p>Progress</p>
+                                            <p className="font-semibold text-foreground">{clampPercentage(progress)}%</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                        <span>{overdue ? '⚠️ Overdue milestone' : 'On schedule'}</span>
+                                        <Button size="sm" variant="secondary" onClick={() => onSelectProject(project)}>
+                                            Open
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </Card>
                             <Card className="space-y-4 p-6">
                                 <h2 className="text-lg font-semibold text-foreground">Upcoming deadlines</h2>
                                 {upcomingDeadlines.length === 0 ? (
