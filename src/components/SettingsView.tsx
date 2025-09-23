@@ -237,6 +237,22 @@ const CompanySettingsComponent: React.FC<{ settings: CompanySettings, onSettings
                     </div>
                  </div>
             </Card>
+
+            <Card>
+                <h3 className="font-bold text-lg">Geofencing</h3>
+                <div className="mt-4 space-y-4">
+                    <div className="flex justify-between items-center">
+                        <label>
+                            <p>Enable site-entry alerts</p>
+                            <p className="text-sm text-muted-foreground">Send notifications when users enter a project geofence.</p>
+                        </label>
+                        <ToggleSwitch
+                            checked={(settings as any).geofencingEnabled ?? true}
+                            onChange={(checked) => onSettingsUpdate({ ...(settings as any), geofencingEnabled: checked } as any)}
+                        />
+                    </div>
+                </div>
+            </Card>
         </div>
     );
 };

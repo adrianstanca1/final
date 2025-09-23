@@ -422,7 +422,16 @@ function App() {
       case 'tools':
         return <ToolsView user={user} addToast={addToast} setActiveView={changeView} />;
       case 'audit-log': return <AuditLogView user={user} addToast={addToast} />;
-      case 'settings': return <SettingsView user={user} addToast={addToast} settings={companySettings} onSettingsUpdate={(s) => setCompanySettings(prev => ({ ...prev!, ...s }))} />;
+      case 'settings': return <SettingsView user={user} addToast={addToast} settings={companySettings} onSettingsUpdate={async (s) => {
+        if (!user?.companyId) return;
+        try {
+          const updated = await api.updateCompanySettings(user.companyId, s, user.id);
+          setCompanySettings(updated);
+          addToast('Settings updated', 'success');
+        } catch (e: any) {
+          addToast(e?.message || 'Failed to update settings', 'error');
+        }
+      }} />;
       case 'chat': return <ChatView user={user} addToast={addToast} initialRecipient={initialChatRecipient} />;
       case 'clients': return <ClientsView user={user} addToast={addToast} />;
       case 'invoices': return <InvoicesView user={user} addToast={addToast} />;
