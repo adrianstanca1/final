@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       setupFiles: ['./tests/setup-simple.ts'],
       css: true,
-      include: ['src/services/**/*.test.ts', 'src/utils/**/*.test.ts'],
+      include: ['src/services/**/*.test.ts', 'src/utils/**/*.test.ts', 'src/components/**/*.test.ts'],
       exclude: ['**/node_modules/**', '**/dist/**', 'dist-services/**', 'legacy/**'],
       coverage: {
         provider: 'v8',
