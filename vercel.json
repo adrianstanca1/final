@@ -5,6 +5,11 @@
   "outputDirectory": "dist",
   "installCommand": "npm ci",
   "devCommand": "npm run dev",
+  "functions": {
+    "api/**/*.js": {
+      "runtime": "nodejs18.x"
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",
@@ -25,5 +30,13 @@
       "source": "/api/(.*)",
       "destination": "/api/$1"
     }
-  ]
+  ],
+  "env": {
+    "API_BASE_URL": "https://api.constructapp.com/api",
+    "WEBSOCKET_URL": "wss://api.constructapp.com/ws",
+    "GEMINI_API_KEY": "",
+    "VAPID_PUBLIC_KEY": "",
+    "ANALYTICS_ENABLED": true,
+    "DEBUG_MODE": false
+  }
 }
