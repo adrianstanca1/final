@@ -14,7 +14,7 @@ import { RiskBot } from './RiskBot';
 import { SafetyAnalysis } from './SafetyAnalysis';
 import { AISiteInspector } from './AISiteInspector';
 import { WorkforcePlanner } from './WorkforcePlanner';
-import { ResourceScheduler } from './ResourceScheduler';
+// import { ResourceScheduler } from './ResourceScheduler';
 
 interface ToolsViewProps {
     user: User;
