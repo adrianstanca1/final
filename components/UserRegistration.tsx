@@ -45,9 +45,10 @@ const INITIAL_STATE: RegistrationState = {
     lastName: '',
     email: '',
     username: '',
- 
      phone: '',
-    password: '',
+  
+     phone: '',
+     password: '',
     confirmPassword: '',
     companySelection: '',
     companyName: '',
@@ -73,7 +74,8 @@ const COMPANY_TYPES: { value: CompanyType; label: string }[] = [
     { value: 'SUPPLIER', label: 'Supplier' },
     { value: 'CONSULTANT', label: 'Consultant' },
     { value: 'CLIENT', label: 'Client / Asset owner' },
-  
+ ];
+
 const STEP_SEQUENCE: { id: RegistrationStep; title: string; description: string }[] = [
     { id: 'account', title: 'Account', description: 'Introduce yourself and secure access.' },
     { id: 'workspace', title: 'Workspace', description: 'Create a company or join an existing team.' },
@@ -94,10 +96,12 @@ const COMPANY_TYPES: { value: CompanyType; label: string }[] = [
     { value: 'CLIENT', label: 'Client' },
  ];
 
-const ROLE_DETAILS: Record<Role, { label: string; description: string }> = {
+ const ROLE_DETAILS: Record<Role, { label: string; description: string }> = {
     [Role.OWNER]: {
         label: 'Owner',
         description: 'Full tenant administration, billing and security authority.',
+     },
+ 
       },
     [Role.ADMIN]: {
         label: 'Administrator',
@@ -137,7 +141,7 @@ const URL_REGEX = /^https?:\/\/\S+$/i;
 const PASSWORD_MIN_LENGTH = 8;
         description: 'Full administrative access, billing controls, and user management.',
      },
-    [Role.ADMIN]: {
+     [Role.ADMIN]: {
         label: 'Administrator',
         description: 'Manage people, approvals, permissions and commercial workflows.',
     },
@@ -174,7 +178,8 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const URL_REGEX = /^https?:\/\/\S+$/i;
 const PASSWORD_MIN_LENGTH = 8;
 
- const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password }) => {
+ const StepIndicator: React.FC<{ currentStep: RegistrationStep }> = ({ currentStep }) => (
+  const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password }) => {
     const rules = [
         password.length >= 8,
         /[A-Z]/.test(password),
@@ -199,7 +204,7 @@ const PASSWORD_MIN_LENGTH = 8;
 };
 
  const StepIndicator: React.FC<{ currentStep: RegistrationStep }> = ({ currentStep }) => (
-    <ol className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+     <ol className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {STEP_SEQUENCE.map((step, index) => {
             const isActive = step.id === currentStep;
             const isComplete = STEP_SEQUENCE.findIndex(item => item.id === currentStep) > index;
@@ -259,6 +264,8 @@ const SocialAuthButtons: React.FC<{
     </div>
 );
 
+ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLogin }) => {
+ 
   
 interface SelectionCardProps {
     title: string;
@@ -282,7 +289,7 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
 
 
  export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLogin }) => {
-    const { register, socialLogin, error: authError, loading: isSubmitting } = useAuth();
+     const { register, socialLogin, error: authError, loading: isSubmitting } = useAuth();
 
     const [step, setStep] = useState<RegistrationStep>('account');
     const [form, setForm] = useState<RegistrationState>(INITIAL_STATE);
@@ -443,6 +450,16 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
             if (form.username && form.username.trim().length < 3) nextErrors.username = 'Username must be at least 3 characters.';
             if (form.password.length < PASSWORD_MIN_LENGTH) {
                 nextErrors.password = `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`;
+             }
+            if (form.confirmPassword !== form.password) {
+                nextErrors.confirmPassword = 'Passwords do not match.';
+            }
+        }
+        if (currentStep === 'workspace') {
+            if (!form.companySelection) {
+                nextErrors.companySelection = 'Select whether you are creating or joining a workspace.';
+            }
+ 
             }
             if (form.confirmPassword !== form.password) {
                 nextErrors.confirmPassword = 'Passwords do not match.';
@@ -452,7 +469,7 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
             if (!form.companySelection) {
                 nextErrors.companySelection = 'Select whether you are creating or joining a workspace.';
             }
-            if (form.companySelection === 'create') {
+             if (form.companySelection === 'create') {
                 if (!form.companyName.trim()) nextErrors.companyName = 'Provide the company or workspace name.';
                 if (!form.companyType) nextErrors.companyType = 'Select a company type.';
                 if (form.companyEmail && !EMAIL_REGEX.test(form.companyEmail.trim())) {
@@ -900,6 +917,81 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
                                 {errors.termsAccepted && <p className="text-xs text-destructive">{errors.termsAccepted}</p>}
                             </div>
                         )}
+                        <div className="flex flex-col-reverse items-start gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex gap-3">
+                                {step !== 'account' && (
+                                    <Button type="button" variant="ghost" onClick={goToPreviousStep}>
+                                        Back
+                                    </Button>
+                                )}
+                                {step !== 'confirm' && (
+                                    <Button type="button" onClick={goToNextStep}>
+                                        Continue
+                                    </Button>
+                                )}
+                                {step === 'confirm' && (
+                                    <Button type="submit" isLoading={isSubmitting}>
+                                        Launch workspace
+                                    </Button>
+                                )}
+                            </div>
+                              </div>
+                        )}
+                        {step === 'confirm' && (
+                            <div className="space-y-6">
+                                <Card className="border border-dashed border-border bg-muted/40 p-4">
+                                    <h3 className="text-sm font-semibold text-foreground">Tenant summary</h3>
+                                    <dl className="mt-3 grid gap-3 text-xs text-muted-foreground sm:grid-cols-2">
+                                        <div>
+                                            <dt className="font-semibold text-foreground">Owner</dt>
+                                            <dd>{form.firstName} {form.lastName}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="font-semibold text-foreground">Email</dt>
+                                            <dd>{form.email}</dd>
+                                        </div>
+                                        <div>
+                                            <dt className="font-semibold text-foreground">Workspace mode</dt>
+                                            <dd>{form.companySelection === 'create' ? 'Creating new tenant' : 'Joining existing tenant'}</dd>
+                                        </div>
+                                        {form.companySelection === 'create' && (
+                                            <div>
+                                                <dt className="font-semibold text-foreground">Company</dt>
+                                                <dd>{form.companyName} ({form.companyType || 'Type pending'})</dd>
+                                            </div>
+                                        )}
+                                        {form.companySelection === 'join' && invitePreview && (
+                                            <div>
+                                                <dt className="font-semibold text-foreground">Joining</dt>
+                                                <dd>{invitePreview.companyName}</dd>
+                                            </div>
+                                        )}
+                                        <div>
+                                            <dt className="font-semibold text-foreground">Role</dt>
+                                            <dd>{ROLE_DETAILS[(form.role || Role.OWNER) as Role]?.label ?? 'Owner'}</dd>
+                                        </div>
+                                    </dl>
+                                </Card>
+                                <label className="flex items-start gap-3 text-sm text-muted-foreground">
+                                    <input
+                                        type="checkbox"
+                                        checked={form.termsAccepted}
+                                        onChange={event => updateField('termsAccepted', event.target.checked)}
+                                        className={`mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary ${
+                                            errors.termsAccepted ? 'border-destructive' : ''
+                                        }`}
+                                    />
+                                    <span>
+                                        I agree to the{' '}
+                                        <a href="https://asagents.co.uk/terms" className="text-primary underline" target="_blank" rel="noreferrer">
+                                            AS Agents Terms, Security & Data Processing policies
+                                        </a>
+                                        .
+                                    </span>
+                                </label>
+                                {errors.termsAccepted && <p className="text-xs text-destructive">{errors.termsAccepted}</p>}
+                            </div>
+                        )}
  
                             </div>
                         )}
@@ -976,7 +1068,7 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
                                     </Button>
                                 )}
                             </div>
-                            <p className="text-xs text-muted-foreground">
+                             <p className="text-xs text-muted-foreground">
                                 Need help? Contact{' '}
                                 <a className="text-primary underline" href="mailto:platform@asagents.co.uk">
                                     platform@asagents.co.uk
@@ -1031,8 +1123,9 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
         </div>
     );
 };
-  
+    
 
 
 */
+ 
  

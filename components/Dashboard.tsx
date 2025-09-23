@@ -14,7 +14,8 @@ import {
     ExpenseStatus,
     ProjectPortfolioSummary,
     OperationalInsights,
-} from '../types';
+    DashboardSnapshotMetadata,
+ } from '../types';
 import './ui/storageUsage.css';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -114,6 +115,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     const [incidents, setIncidents] = useState<SafetyIncident[]>([]);
     const [expenses, setExpenses] = useState<Expense[]>([]);
     const [operationalInsights, setOperationalInsights] = useState<OperationalInsights | null>(null);
+    const [snapshotMetadata, setSnapshotMetadata] = useState<DashboardSnapshotMetadata | null>(null);
 
     const [aiSelectedProjectId, setAiSelectedProjectId] = useState<string | null>(null);
     const [aiSummary, setAiSummary] = useState<ProjectHealthSummaryResult | null>(null);
@@ -141,7 +143,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
             });
 
             if (controller.signal.aborted) return;
-            setProjects(snapshot.projects);
+             setSnapshotMetadata(snapshot.metadata);
+              setProjects(snapshot.projects);
             setAiSelectedProjectId(prev => prev ?? snapshot.projects.find(p => p.status === 'ACTIVE')?.id ?? snapshot.projects[0]?.id ?? null);
             if (controller.signal.aborted) return;
             setTeam(snapshot.team);
@@ -167,7 +170,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                     taskCount: snapshot.tasks.length,
                     source: snapshot.metadata.source,
                     usedFallback: snapshot.metadata.usedFallback,
-                },
+                     fallbackReason: snapshot.metadata.fallbackReason,
+                  },
             });
         } catch (error) {
             if (controller.signal.aborted) return;
@@ -339,6 +343,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
 
     return (
         <div className="space-y-6">
+            {snapshotMetadata?.usedFallback && (
+                <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
+                    <p className="text-sm font-semibold">Showing cached workspace data</p>
+                    <p className="text-xs">
+                        {snapshotMetadata.fallbackReason ??
+                            'We could not reach the live backend, so this view reflects the latest cached information.'}
+                    </p>
+                </div>
+            )}
             <ViewHeader
                 title={`Welcome back, ${user.firstName}!`}
                 description="Your live delivery and commercial snapshot."

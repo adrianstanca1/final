@@ -35,8 +35,10 @@ vercel secrets add gemini_api_key YOUR_KEY_VALUE
 vercel secrets add api_base_url https://auth.example.com
 ```
 
+ > **Note:** Secrets referenced in `vercel.json` apply to every environment. If you need different API base URLs per environment, define `VITE_API_BASE_URL` directly in the Vercel dashboard (or with `vercel env add`) for each environment; those values will override the shared secret.
+ 
 > **Note:** Secrets referenced in `vercel.json` (like `@api_base_url`) apply to all environments. To use different API base URLs for preview and production, define `VITE_API_BASE_URL` as a separate environment variable for each specific environment in the Vercel project settings. These environment-specific variables will override the shared secret.
-
+ 
 ## 3. Connect GitHub Actions deployment
 
 The workflow at [`.github/workflows/vercel-deploy.yml`](../.github/workflows/vercel-deploy.yml) handles previews (pull requests) and production deployments (pushes to `main`). Configure these repository secrets in GitHub (`Settings → Secrets and variables → Actions`):
