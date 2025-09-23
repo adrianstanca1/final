@@ -1037,6 +1037,50 @@ export const api = {
         saveDb();
         return { inviteToken: token };
     },
+    createUserInvite: async (
+        companyId: string,
+        actorId: string,
+        targetRole: Role,
+    ): Promise<{ inviteToken: string }> => {
+        await delay();
+        const actor = db.users.find(u => u.id === actorId);
+        if (!actor) throw new Error('Actor not found.');
+        if (!actor.companyId || String(actor.companyId) !== String(companyId)) {
+            throw new Error('Actor does not belong to this company.');
+        }
+        const company = db.companies.find(c => c.id === companyId);
+        if (!company) throw new Error('Company not found.');
+
+        const allowedTargets = (role: Role): Role[] => {
+            switch (role) {
+                case Role.OWNER:
+                    return [Role.ADMIN, Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE, Role.CLIENT];
+                case Role.ADMIN:
+                    return [Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE, Role.CLIENT];
+                case Role.PROJECT_MANAGER:
+                    return [Role.FOREMAN, Role.OPERATIVE];
+                case Role.FOREMAN:
+                    return [Role.OPERATIVE];
+                default:
+                    return [];
+            }
+        };
+
+        const permitted = allowedTargets(actor.role as Role);
+        if (!permitted.includes(targetRole)) {
+            throw new Error('You are not allowed to invite this role.');
+        }
+
+        const token = `INVT-${Math.random().toString(36).slice(2, 8)}-${String(companyId).slice(-4)}`.toUpperCase();
+        inviteTokenDirectory.set(normalizeInviteToken(token), {
+            companyId: String(companyId),
+            allowedRoles: [targetRole],
+            suggestedRole: targetRole,
+        });
+        addAuditLog(actorId, 'CREATE_USER_INVITE', { type: 'company', id: String(companyId), name: (company as any).name ?? 'Company' });
+        saveDb();
+        return { inviteToken: token };
+    },
     getPlatformUsageMetrics: async (options?: RequestOptions): Promise<UsageMetric[]> => {
         ensureNotAborted(options?.signal);
         return [
