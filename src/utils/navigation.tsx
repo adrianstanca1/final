@@ -141,6 +141,16 @@ const icons = {
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m-4 4h4m-4 4h4m-4 4h4m-8-8h.01m-.01 4h.01m-.01 4h.01" />
     </svg>
   ),
+  procurement: (
+    <svg xmlns="http://www.w3.org/2000/svg" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7h18M6 7l1 12h10l1-12M8 7V5a2 2 0 012-2h4a2 2 0 012 2v2" />
+    </svg>
+  ),
+  reports: (
+    <svg xmlns="http://www.w3.org/2000/svg" className={iconClass} viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-6a2 2 0 012-2h8M9 17H7a2 2 0 01-2-2V7a2 2 0 012-2h6m-4 12h4" />
+    </svg>
+  ),
 };
 
 const navigationSchema: NavigationSectionConfig[] = [
@@ -290,12 +300,36 @@ const navigationSchema: NavigationSectionConfig[] = [
     title: 'Commercial',
     items: [
       {
+        id: 'procurement-vendors',
+        label: 'Vendors',
+        view: 'procurement-vendors',
+        icon: icons.procurement,
+        description: 'Manage suppliers and partners.',
+        requiredPermissions: [Permission.VIEW_PROCUREMENT],
+      },
+      {
+        id: 'procurement-pos',
+        label: 'Purchase Orders',
+        view: 'procurement-pos',
+        icon: icons.procurement,
+        description: 'Track POs and receipts.',
+        requiredPermissions: [Permission.VIEW_PROCUREMENT],
+      },
+      {
         id: 'financials',
         label: 'Financials',
         view: 'financials',
         icon: icons.financials,
         description: 'Track burn rate, budget variances, and forecasts.',
         requiredPermissions: [Permission.VIEW_FINANCES],
+      },
+      {
+        id: 'financial-reports',
+        label: 'Financial Reports',
+        view: 'financial-reports',
+        icon: icons.reports,
+        description: 'P&L and committed costs overview.',
+        requiredPermissions: [Permission.VIEW_FINANCIAL_REPORTS],
       },
       {
         id: 'invoices',

@@ -189,6 +189,14 @@ export enum Permission {
   SEND_DIRECT_MESSAGE = 'SEND_DIRECT_MESSAGE',
   ACCESS_ALL_TOOLS = 'ACCESS_ALL_TOOLS',
   SUBMIT_EXPENSE = 'SUBMIT_EXPENSE',
+  // Procurement & Accounts
+  VIEW_PROCUREMENT = 'VIEW_PROCUREMENT',
+  MANAGE_PROCUREMENT = 'MANAGE_PROCUREMENT',
+  MANAGE_VENDORS = 'MANAGE_VENDORS',
+  MANAGE_PURCHASE_ORDERS = 'MANAGE_PURCHASE_ORDERS',
+  VIEW_ACCOUNTS = 'VIEW_ACCOUNTS',
+  MANAGE_BUDGETS = 'MANAGE_BUDGETS',
+  VIEW_FINANCIAL_REPORTS = 'VIEW_FINANCIAL_REPORTS',
 }
 
 export type ResourceType = 
@@ -671,7 +679,7 @@ export interface Weather {
 }
 
 // FIX: Added all missing types from across the application
-export type View = 'dashboard' | 'my-day' | 'foreman-dashboard' | 'principal-dashboard' | 'projects' | 'project-detail' | 'all-tasks' | 'map' | 'time' | 'timesheets' | 'documents' | 'safety' | 'financials' | 'users' | 'equipment' | 'templates' | 'tools' | 'audit-log' | 'settings' | 'chat' | 'clients' | 'invoices' | 'todos';
+export type View = 'dashboard' | 'my-day' | 'foreman-dashboard' | 'principal-dashboard' | 'projects' | 'project-detail' | 'all-tasks' | 'map' | 'time' | 'timesheets' | 'documents' | 'safety' | 'financials' | 'users' | 'equipment' | 'templates' | 'tools' | 'audit-log' | 'settings' | 'chat' | 'clients' | 'invoices' | 'todos' | 'procurement-vendors' | 'procurement-pos' | 'accounts' | 'financial-reports';
 
 export interface Quote {
     id: string;
@@ -883,12 +891,17 @@ export const RolePermissions: Record<Role, Set<Permission>> = {
         Permission.VIEW_ALL_TIMESHEETS, Permission.MANAGE_TIMESHEETS, Permission.UPLOAD_DOCUMENTS, Permission.VIEW_DOCUMENTS, Permission.VIEW_SAFETY_REPORTS,
         Permission.MANAGE_SAFETY_REPORTS, Permission.VIEW_FINANCES, Permission.MANAGE_FINANCES, Permission.VIEW_TEAM, Permission.MANAGE_TEAM,
         Permission.MANAGE_EQUIPMENT, Permission.VIEW_AUDIT_LOG, Permission.SEND_DIRECT_MESSAGE, Permission.ACCESS_ALL_TOOLS, Permission.SUBMIT_EXPENSE,
-        Permission.MANAGE_PROJECT_TEMPLATES
+        Permission.MANAGE_PROJECT_TEMPLATES,
+        // Procurement & Accounts
+        Permission.VIEW_PROCUREMENT, Permission.MANAGE_PROCUREMENT, Permission.MANAGE_VENDORS, Permission.MANAGE_PURCHASE_ORDERS,
+        Permission.VIEW_ACCOUNTS, Permission.MANAGE_BUDGETS, Permission.VIEW_FINANCIAL_REPORTS
     ]),
     [Role.PROJECT_MANAGER]: new Set([
         Permission.VIEW_ALL_PROJECTS, Permission.MANAGE_PROJECT_DETAILS, Permission.VIEW_ALL_TASKS, Permission.MANAGE_ALL_TASKS, Permission.VIEW_ALL_TIMESHEETS,
         Permission.MANAGE_TIMESHEETS, Permission.UPLOAD_DOCUMENTS, Permission.VIEW_DOCUMENTS, Permission.VIEW_SAFETY_REPORTS, Permission.VIEW_FINANCES,
-        Permission.VIEW_TEAM, Permission.MANAGE_EQUIPMENT, Permission.SEND_DIRECT_MESSAGE, Permission.SUBMIT_EXPENSE
+        Permission.VIEW_TEAM, Permission.MANAGE_EQUIPMENT, Permission.SEND_DIRECT_MESSAGE, Permission.SUBMIT_EXPENSE,
+        // Read access to business modules
+        Permission.VIEW_PROCUREMENT, Permission.VIEW_ACCOUNTS, Permission.VIEW_FINANCIAL_REPORTS
     ]),
     [Role.FOREMAN]: new Set([
         Permission.VIEW_ASSIGNED_PROJECTS, Permission.SUBMIT_TIMESHEET, Permission.UPLOAD_DOCUMENTS, Permission.VIEW_DOCUMENTS,
@@ -900,3 +913,73 @@ export const RolePermissions: Record<Role, Set<Permission>> = {
     [Role.CLIENT]: new Set([Permission.VIEW_ASSIGNED_PROJECTS, Permission.VIEW_DOCUMENTS]),
     [Role.PRINCIPAL_ADMIN]: new Set(Object.values(Permission)),
 };
+
+// === PROCUREMENT & ACCOUNTS TYPES ===
+export interface Vendor {
+  id: string;
+  companyId: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: Address;
+  taxId?: string;
+  categories?: string[];
+  rating?: number; // 1-5
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PurchaseOrderItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  sku?: string;
+  category?: string;
+  equipmentId?: string;
+  projectId?: string;
+}
+
+export enum PurchaseOrderStatus {
+  DRAFT = 'DRAFT',
+  SUBMITTED = 'SUBMITTED',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+  ORDERED = 'ORDERED',
+  PARTIALLY_RECEIVED = 'PARTIALLY_RECEIVED',
+  RECEIVED = 'RECEIVED',
+  CANCELLED = 'CANCELLED',
+}
+
+export interface PurchaseOrder {
+  id: string;
+  companyId: string;
+  vendorId: string;
+  projectId?: string;
+  date: string;
+  status: PurchaseOrderStatus;
+  items: PurchaseOrderItem[];
+  subtotal: number;
+  taxRate: number;
+  taxAmount: number;
+  totalCost: number;
+  notes?: string;
+  createdBy: string;
+  approvedBy?: string;
+  receivedDate?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Budget {
+  id: string;
+  companyId: string;
+  projectId: string;
+  amount: number;
+  spent: number;
+  currency: string;
+  createdAt: string;
+  updatedAt: string;
+}

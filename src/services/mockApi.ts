@@ -275,6 +275,10 @@ const PERSISTED_COLLECTION_KEYS = [
     'documents',
     'projectInsights',
     'financialForecasts',
+    // Procurement/Accounts
+    'vendors',
+    'purchaseOrders',
+    'budgets',
 ] as const;
 
 const createInitialDbState = () => ({
@@ -302,6 +306,9 @@ const createInitialDbState = () => ({
     documents: hydrateData('documents', []),
     projectInsights: hydrateData('projectInsights', (initialData as any).projectInsights || []),
     financialForecasts: hydrateData('financialForecasts', (initialData as any).financialForecasts || []),
+    vendors: hydrateData('vendors', []),
+    purchaseOrders: hydrateData('purchaseOrders', []),
+    budgets: hydrateData('budgets', []),
 } satisfies {
     companies: Partial<Company>[];
     users: Partial<User>[];
@@ -327,6 +334,9 @@ const createInitialDbState = () => ({
     documents: Partial<Document>[];
     projectInsights: Partial<ProjectInsight>[];
     financialForecasts: Partial<FinancialForecast>[];
+    vendors: any[];
+    purchaseOrders: any[];
+    budgets: any[];
 });
 
 let db = createInitialDbState();
@@ -677,6 +687,92 @@ export const resetMockApi = () => {
 };
 
 export const api = {
+    // Procurement: Vendors
+    async listVendors(companyId: string) {
+        await delay();
+        return db.vendors.filter(v => String((v as any).companyId) === String(companyId)) as any[];
+    },
+    async upsertVendor(vendor: any) {
+        await delay();
+        const now = new Date().toISOString();
+        if (!vendor.id) {
+            const created = { id: crypto.randomUUID(), isActive: true, createdAt: now, updatedAt: now, ...vendor };
+            db.vendors.push(created);
+            persist();
+            return created as any;
+        }
+        const idx = db.vendors.findIndex(v => v.id === vendor.id);
+        if (idx >= 0) {
+            db.vendors[idx] = { ...db.vendors[idx], ...vendor, updatedAt: now };
+            persist();
+            return db.vendors[idx] as any;
+        }
+        const created = { id: vendor.id, isActive: true, createdAt: now, updatedAt: now, ...vendor };
+        db.vendors.push(created);
+        persist();
+        return created as any;
+    },
+
+    // Procurement: Purchase Orders
+    async listPurchaseOrders(companyId: string) {
+        await delay();
+        return db.purchaseOrders.filter(p => String((p as any).companyId) === String(companyId)) as any[];
+    },
+    async createPurchaseOrder(po: any) {
+        await delay();
+        const now = new Date().toISOString();
+        const items = (po.items || []).map((it: any) => ({ ...it, id: crypto.randomUUID(), amount: Number(it.quantity) * Number(it.unitPrice) }));
+        const subtotal = items.reduce((s: number, it: any) => s + Number(it.amount || 0), 0);
+        const taxAmount = subtotal * Number(po.taxRate || 0);
+        const totalCost = subtotal + taxAmount;
+        const created = {
+            id: crypto.randomUUID(),
+            status: 'DRAFT',
+            subtotal,
+            taxAmount,
+            totalCost,
+            createdAt: now,
+            updatedAt: now,
+            ...po,
+            items,
+        };
+        db.purchaseOrders.push(created);
+        persist();
+        return created as any;
+    },
+    async updatePurchaseOrder(poId: string, updates: any) {
+        await delay();
+        const idx = db.purchaseOrders.findIndex(p => p.id === poId);
+        if (idx < 0) throw new Error('PO not found');
+        const now = new Date().toISOString();
+        const existing = db.purchaseOrders[idx];
+        let items = existing.items || [];
+        if (updates.items) {
+            items = updates.items.map((it: any) => ({ ...it, amount: Number(it.quantity) * Number(it.unitPrice) }));
+        }
+        const subtotal = (items as any[]).reduce((s, it: any) => s + Number(it.amount || 0), 0);
+        const taxRate = updates.taxRate ?? existing.taxRate ?? 0;
+        const taxAmount = subtotal * Number(taxRate);
+        const totalCost = subtotal + taxAmount;
+        db.purchaseOrders[idx] = { ...existing, ...updates, items, subtotal, taxAmount, totalCost, updatedAt: now };
+        persist();
+        return db.purchaseOrders[idx] as any;
+    },
+    async addPurchaseOrderItem(poId: string, item: any) {
+        await delay();
+        const idx = db.purchaseOrders.findIndex(p => p.id === poId);
+        if (idx < 0) throw new Error('PO not found');
+        const now = new Date().toISOString();
+        const withId = { ...item, id: crypto.randomUUID(), amount: Number(item.quantity) * Number(item.unitPrice) };
+        const po: any = db.purchaseOrders[idx];
+        const items = [...(po.items || []), withId];
+        const subtotal = items.reduce((s: number, it: any) => s + Number(it.amount || 0), 0);
+        const taxAmount = subtotal * Number(po.taxRate || 0);
+        const totalCost = subtotal + taxAmount;
+        db.purchaseOrders[idx] = { ...po, items, subtotal, taxAmount, totalCost, updatedAt: now };
+        persist();
+        return db.purchaseOrders[idx] as any;
+    },
     getUserAndCompanyByEmail: async (email: string): Promise<{ user: User; company: Company } | null> => {
         await delay();
         const user = db.users.find(u => String(u.email).toLowerCase() === String(email).toLowerCase());
