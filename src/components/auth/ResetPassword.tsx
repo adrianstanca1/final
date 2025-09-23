@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { AuthEnvironmentNotice } from './AuthEnvironmentNotice';
+// styles are inlined via utility classes; no external CSS
 
 interface ResetPasswordProps {
     token: string;
@@ -19,13 +20,15 @@ const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password =
         if (/[^A-Za-z0-9]/.test(password)) score++;
         return score;
     };
-    const strength = getStrength();
     const width = (strength / 5) * 100;
     const color = strength < 3 ? 'bg-destructive' : strength < 5 ? 'bg-yellow-500' : 'bg-green-500';
 
     return (
         <div className="w-full bg-muted rounded-full h-1.5 mt-1">
-            <div className={`h-1.5 rounded-full transition-all duration-300 ${color}`} style={{ width: `${width}%` }}></div>
+            <div
+                className={`h-1.5 rounded-full transition-all duration-300 ${color} password-strength-bar`}
+                data-width={width}
+            ></div>
         </div>
     );
 };

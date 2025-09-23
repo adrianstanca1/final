@@ -54,14 +54,23 @@ const BarChart: React.FC<{ data: { label: string, value: number }[], barColor: s
         <div className="w-full h-48 flex items-end justify-around gap-2 p-2">
             {data.map((item, index) => (
                 <div key={index} className="flex flex-col items-center justify-end h-full w-full group">
-                    <div className="text-xs font-bold text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{item.value}</div>
-                    <div className={`${barColor} w-full rounded-t-sm group-hover:opacity-80 transition-opacity`} style={{ height: `${(item.value / maxValue) * 90}%` }} title={`${item.label}: ${item.value}`}></div>
+                    <div
+                        className={`${barColor} w-full rounded-t-sm group-hover:opacity-80 transition-opacity bar-chart-bar`}
+                        style={{ height: `${(item.value / maxValue) * 90}%` }}
+                        title={`${item.label}: ${item.value}`}
+                    ></div>
                     <span className="text-xs mt-1 text-muted-foreground">{item.label}</span>
                 </div>
             ))}
         </div>
     );
 };
+
+const sanitize = (html: string) =>
+    html
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/ on[a-z]+="[^"]*"/gi, '')
+        .replace(/ on[a-z]+='[^']*'/gi, '');
 
 const renderMarkdownSummary = (summary: string) =>
     summary
@@ -73,9 +82,11 @@ const renderMarkdownSummary = (summary: string) =>
                 key={`${line}-${index}`}
                 className="text-sm text-muted-foreground"
                 dangerouslySetInnerHTML={{
-                    __html: line
-                        .replace(/\*\*(.*?)\*\*/g, '<strong class="text-foreground">$1</strong>')
-                        .replace(/^[-•]\s+/, '• '),
+                    __html: sanitize(
+                        line
+                            .replace(/\*\*(.*?)\*\*/g, '<strong class="text-foreground">$1<\/strong>')
+                            .replace(/^[-•]\s+/, '• ')
+                    ),
                 }}
             />
         ));
@@ -224,10 +235,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
         const weekInterval = { start: weekStart, end: now };
         const daysOfWeek = eachDayOfInterval(weekInterval);
 
-        return daysOfWeek.map(day => ({
-            label: format(day, 'E'),
-            value: tasks.filter(t => t.completedAt && isWithinInterval(new Date(t.completedAt), { start: day, end: new Date(day).setHours(23, 59, 59, 999) })).length
-        }));
+        return daysOfWeek.map(day => {
+            const dayEnd = new Date(day);
+            dayEnd.setHours(23, 59, 59, 999);
+            return {
+                label: format(day, 'E'),
+                value: tasks.filter(t => t.completedAt && isWithinInterval(new Date(t.completedAt), { start: day, end: dayEnd })).length,
+            };
+        });
     }, [tasks]);
 
     const availabilityBreakdown = useMemo(() => {
@@ -260,6 +275,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     const scheduleInProgress = insight?.schedule.tasksInProgress ?? tasksInProgress;
     const operationalAlerts = insight?.alerts ?? [];
 
+    const withTimeout = <T,>(p: Promise<T>, ms = 15000) =>
+        Promise.race<T>([
+            p,
+            new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Timed out')), ms))
+        ]);
+
     const handleGenerateProjectBrief = useCallback(async () => {
         if (!aiSelectedProjectId) {
             setAiError('Select a project to analyse.');
@@ -283,12 +304,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
             const projectExpenses = approvedExpenses.filter(expense => expense.projectId === project.id);
 
 
-            const summary = await generateProjectHealthSummary({
-                project,
-                tasks: projectTasks,
-                incidents: projectIncidents,
-                expenses: projectExpenses,
-            });
+            const summary = await withTimeout(
+                generateProjectHealthSummary({
+                    project,
+                    tasks: projectTasks,
+                    incidents: projectIncidents,
+                    expenses: projectExpenses,
+                }),
+                20000
+            );
 
             setAiSummary(summary);
             setAiSummaryProjectId(project.id);
@@ -316,49 +340,49 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
 
     return (
         <div className="space-y-6">
-        <ViewHeader
-            title={`Welcome back, ${user.firstName}!`}
-            description="Your live delivery and commercial snapshot."
-            actions={headerActions}
-            meta={[
-                {
-                    label: 'Active projects',
-                    value: kpiData.activeProjectsCount.toString(),
-                    helper: `${portfolioSummary.completedProjects} completed`,
-                    indicator: kpiData.activeProjectsCount > 0 ? 'positive' : 'neutral',
-                },
-                {
-                    label: 'At-risk',
-                    value: `${kpiData.atRisk}`,
-                    helper: atRiskProjects.length > 0 ? 'See priority list below' : 'All projects steady',
-                    indicator: kpiData.atRisk > 0 ? 'warning' : 'positive',
-                },
-                {
-                    label: 'Open incidents',
-                    value: `${kpiData.openIncidents}`,
-                    helper: highSeverityIncidents.length > 0 ? `${highSeverityIncidents.length} high severity` : 'No critical alerts',
-                    indicator: kpiData.openIncidents > 0 ? 'warning' : 'positive',
-                },
-                {
-                    label: 'Budget utilisation',
-                    value: `${kpiData.budgetUtilization}%`,
-                    helper: 'Across active projects',
-                    indicator: Number(kpiData.budgetUtilization) > 90 ? 'warning' : 'positive',
-                },
-            ]}
-        />
+            <ViewHeader
+                title={`Welcome back, ${user.firstName}!`}
+                description="Your live delivery and commercial snapshot."
+                actions={headerActions}
+                meta={[
+                    {
+                        label: 'Active projects',
+                        value: kpiData.activeProjectsCount.toString(),
+                        helper: `${portfolioSummary.completedProjects} completed`,
+                        indicator: kpiData.activeProjectsCount > 0 ? 'positive' : 'neutral',
+                    },
+                    {
+                        label: 'At-risk',
+                        value: `${kpiData.atRisk}`,
+                        helper: atRiskProjects.length > 0 ? 'See priority list below' : 'All projects steady',
+                        indicator: kpiData.atRisk > 0 ? 'warning' : 'positive',
+                    },
+                    {
+                        label: 'Open incidents',
+                        value: `${kpiData.openIncidents}`,
+                        helper: highSeverityIncidents.length > 0 ? `${highSeverityIncidents.length} high severity` : 'No critical alerts',
+                        indicator: kpiData.openIncidents > 0 ? 'warning' : 'positive',
+                    },
+                    {
+                        label: 'Budget utilisation',
+                        value: `${kpiData.budgetUtilization}%`,
+                        helper: 'Across active projects',
+                        indicator: Number(kpiData.budgetUtilization) > 90 ? 'warning' : 'positive',
+                    },
+                ]}
+            />
 
-        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-            <span>
-                Source: {metadata?.usedFallback ? 'Fallback to local data' : metadata?.source === 'backend' ? 'Live backend' : 'Local mock'}
-            </span>
-            <span>
-                Last sync: {metadata ? new Date(metadata.generatedAt).toLocaleString() : '—'}
-            </span>
-            {connectionState.mode === 'backend' && !connectionState.online && (
-                <span className="font-medium text-destructive">Offline mode</span>
-            )}
-        </div>
+            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                <span>
+                    Source: {metadata?.usedFallback ? 'Fallback to local data' : metadata?.source === 'backend' ? 'Live backend' : 'Local mock'}
+                </span>
+                <span>
+                    Last sync: {metadata ? new Date(metadata.generatedAt).toLocaleString() : '—'}
+                </span>
+                {connectionState.mode === 'backend' && !connectionState.online && (
+                    <span className="font-medium text-destructive">Offline mode</span>
+                )}
+            </div>
 
             <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                 <KpiCard
@@ -550,7 +574,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                         <p className="text-sm text-muted-foreground">Add an active project to run an AI briefing.</p>
                     ) : (
                         <div className="flex flex-wrap items-center gap-3">
+                            <label htmlFor="ai-project-select" className="sr-only">
+                                Select project for AI briefing
+                            </label>
                             <select
+                                id="ai-project-select"
+                                aria-label="Select project for AI briefing"
                                 value={aiSelectedProjectId ?? ''}
                                 onChange={event => setAiSelectedProjectId(event.target.value || null)}
                                 className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"

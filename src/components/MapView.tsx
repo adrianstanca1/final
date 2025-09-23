@@ -2,6 +2,7 @@ import React from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import useSupercluster from 'use-supercluster';
+// styles provided via Tailwind and leaflet defaults
 
 export interface MapMarkerData {
     id: string | number;
@@ -53,8 +54,16 @@ const RecenterAutomatically: React.FC<{ center: [number, number] }> = ({ center 
     return null;
 
 };
-
 export const MapView: React.FC<MapViewProps> = ({ markers, height = '100%', className }) => {
+    // Set height via CSS variable if provided
+    React.useEffect(() => {
+        if (height) {
+            document.documentElement.style.setProperty('--map-view-height', height);
+        }
+        return () => {
+            document.documentElement.style.removeProperty('--map-view-height');
+        };
+    }, [height]);
     const mapRef = React.useRef<L.Map>(null);
     const [bounds, setBounds] = React.useState<any>(null);
     const [zoom, setZoom] = React.useState(13);
@@ -82,8 +91,8 @@ export const MapView: React.FC<MapViewProps> = ({ markers, height = '100%', clas
             setZoom(map.getZoom());
         }
     };
-
-    const center: [number, number] = React.useMemo(() => {
+    // Determine map center
+    const center = React.useMemo(() => {
         if (projectMarkers.length > 0) {
             return [projectMarkers[0].lat, projectMarkers[0].lng];
         }

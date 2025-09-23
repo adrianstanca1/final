@@ -36,6 +36,12 @@ const formatCurrency = (value: number, currency: string = 'GBP') =>
 
 const clampPercentage = (value: number) => Math.max(0, Math.min(100, Math.round(value)));
 
+const sanitize = (html: string) =>
+  html
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/ on[a-z]+="[^"]*"/gi, '')
+    .replace(/ on[a-z]+='[^']*'/gi, '');
+
 const renderMarkdownSummary = (summary: string) =>
   summary
     .split('\n')
@@ -46,9 +52,11 @@ const renderMarkdownSummary = (summary: string) =>
         key={`${line}-${index}`}
         className="text-sm text-muted-foreground"
         dangerouslySetInnerHTML={{
-          __html: line
-            .replace(/\*\*(.*?)\*\*/g, '<strong class="text-foreground">$1</strong>')
-            .replace(/^[-•]\s+/, '• '),
+          __html: sanitize(
+            line
+              .replace(/\*\*(.*?)\*\*/g, '<strong class="text-foreground">$1<\/strong>')
+              .replace(/^[-•]\s+/, '• ')
+          ),
         }}
       />
     ));
@@ -311,13 +319,19 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const latestForecast = data.forecasts[0] ?? null;
   const previousForecasts = data.forecasts.slice(1, 4);
 
+  const withTimeout = <T,>(p: Promise<T>, ms = 20000) =>
+    Promise.race<T>([
+      p,
+      new Promise<T>((_, reject) => setTimeout(() => reject(new Error('Timed out')), ms))
+    ]);
+
   const handleGenerateBrief = useCallback(
     async (horizon: number) => {
       if (!user.companyId) return;
       setIsGeneratingBrief(true);
       setBriefError(null);
       try {
-        const forecast = await generateFinancialForecast({
+        const forecast = await withTimeout(generateFinancialForecast({
           companyName: data.companyName ?? 'Portfolio',
           currency,
           horizonMonths: horizon,
@@ -326,7 +340,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           costs: data.costs,
           invoices: data.invoices,
           expenses: data.expenses,
-        });
+        }), 25000);
         const saved = await api.createFinancialForecast(
           {
             companyId: user.companyId,

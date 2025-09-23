@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+// cspell:ignore Timesheet
 import { User, View, Project, Role, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
 import { api } from './services/mockApi';
 import { Login } from './components/Login';
@@ -21,13 +22,14 @@ import { evaluateViewAccess, getDefaultViewForUser } from './utils/viewAccess';
 const Dashboard = React.lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
 const OwnerDashboard = React.lazy(() => import('./components/OwnerDashboard').then(m => ({ default: m.OwnerDashboard })));
 const MyDayView = React.lazy(() => import('./components/MyDayView').then(m => ({ default: m.MyDayView })));
-const ForemanDashboard = React.lazy(() => import('./components/ForemanDashboard'));
+const ForemanDashboard = React.lazy(() => import('./components/ForemanDashboard').then(m => ({ default: m.default })));
 const PrincipalAdminDashboard = React.lazy(() => import('./components/PrincipalAdminDashboard').then(m => ({ default: m.PrincipalAdminDashboard })));
 const ProjectsView = React.lazy(() => import('./components/ProjectsView').then(m => ({ default: m.ProjectsView })));
 const ProjectDetailView = React.lazy(() => import('./components/ProjectDetailView').then(m => ({ default: m.ProjectDetailView })));
 const AllTasksView = React.lazy(() => import('./components/AllTasksView').then(m => ({ default: m.AllTasksView })));
 const ProjectsMapView = React.lazy(() => import('./components/ProjectsMapView').then(m => ({ default: m.ProjectsMapView })));
 const TimeTrackingView = React.lazy(() => import('./components/TimeTrackingView').then(m => ({ default: m.TimeTrackingView })));
+// cspell:ignore Timesheets Financials
 const TimesheetsView = React.lazy(() => import('./components/TimesheetsView').then(m => ({ default: m.TimesheetsView })));
 const DocumentsView = React.lazy(() => import('./components/DocumentsView').then(m => ({ default: m.DocumentsView })));
 const SafetyView = React.lazy(() => import('./components/SafetyView').then(m => ({ default: m.SafetyView })));
@@ -120,12 +122,18 @@ function App() {
         setSelectedProject(null);
       }
       setActiveView(view);
+      try {
+        if (user?.id) localStorage.setItem(`activeView:${user.id}`, view);
+      } catch { }
     },
-    [] // Remove dependencies to prevent re-creation
+    [user?.id] // keep stable unless user changes
   );
 
   const addToast = useCallback((message: string, type: 'success' | 'error' = 'success', notification?: Notification) => {
-    setToasts(currentToasts => [...currentToasts, { id: Date.now(), message, type, notification }]);
+    setToasts(currentToasts => {
+      const next = [...currentToasts, { id: Date.now(), message, type, notification }];
+      return next.length > 5 ? next.slice(next.length - 5) : next;
+    });
   }, []);
 
   const dismissToast = (id: number) => {
@@ -154,16 +162,24 @@ function App() {
 
       // Subscribe to new notifications - use setToasts directly to avoid circular dependency
       const unsubscribe = notificationService.subscribe((notification) => {
-        setToasts(currentToasts => [
-          ...currentToasts,
-          {
-            id: Date.now() + Math.random(),
-            message: notification.message,
-            type: 'success',
-            notification
-          }
-        ]);
-        setUnreadNotificationCount(prev => prev + 1);
+        const seen = previousNotificationsRef.current.some(n => n.id === notification.id);
+        if (!seen) {
+          setNotifications(prev => [notification, ...prev]);
+          previousNotificationsRef.current = [notification, ...previousNotificationsRef.current];
+          setUnreadNotificationCount(prev => prev + (notification.isRead ? 0 : 1));
+          setToasts(currentToasts => {
+            const next = [
+              ...currentToasts,
+              {
+                id: Date.now() + Math.random(),
+                message: notification.message,
+                type: 'success',
+                notification
+              }
+            ];
+            return next.length > 5 ? next.slice(next.length - 5) : next;
+          });
+        }
       });
 
       return () => {
@@ -187,70 +203,68 @@ function App() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      const next = getDefaultViewForUser(user);
-      if (next !== activeView) {
-        setActiveView(next);
+      let next = activeView;
+      try {
+        const saved = localStorage.getItem(`activeView:${user.id}`) as View | null;
+        next = saved || getDefaultViewForUser(user);
+      } catch {
+        next = getDefaultViewForUser(user);
       }
+      if (next !== activeView) setActiveView(next);
     }
-  }, [isAuthenticated, user, activeView]);
+  }, [isAuthenticated, user]);
 
 
-  const updateBadgeCounts = useCallback(async (user: User) => {
-    if (!user.companyId) return;
-    try {
-      const [timesheets, incidents, conversations, fetchedNotifications] = await Promise.all([
-        api.getTimesheetsByCompany(user.companyId, user.id),
-        api.getSafetyIncidentsByCompany(user.companyId),
-        api.getConversationsForUser(user.id),
-        api.getNotificationsForUser(user.id),
-      ]);
-      setPendingTimesheetCount(timesheets.filter(t => t.status === TimesheetStatus.PENDING).length);
-      setOpenIncidentCount(incidents.filter(i => i.status !== IncidentStatus.RESOLVED).length);
-      setUnreadMessageCount(conversations.filter(c => c.lastMessage && !c.lastMessage.isRead && c.lastMessage.senderId !== user.id).length);
 
-      const unreadNotifications = fetchedNotifications.filter(n => !n.isRead);
-      setUnreadNotificationCount(unreadNotifications.length);
-
-      const previousUnreadIds = new Set(previousNotificationsRef.current.filter(n => !n.isRead).map(n => n.id));
-      const newUnreadNotifications = unreadNotifications.filter(n => !n.id || !previousUnreadIds.has(n.id));
-
-      // Use setToasts directly to avoid circular dependency with addToast
-      if (newUnreadNotifications.length > 0) {
-        setToasts(currentToasts => [
-          ...currentToasts,
-          ...newUnreadNotifications.map(n => ({
-            id: Date.now() + Math.random(),
-            message: n.message,
-            type: 'success' as const,
-            notification: n
-          }))
-        ]);
-      }
-
-      previousNotificationsRef.current = fetchedNotifications;
-      setNotifications(fetchedNotifications);
-
-    } catch (error) {
-      console.error("Could not update notification counts.", error);
-    }
-  }, []); // Remove addToast dependency
 
   useEffect(() => {
-    if (user) {
-      api.getNotificationsForUser(user.id).then(initialNotifications => {
-        previousNotificationsRef.current = initialNotifications;
-        setNotifications(initialNotifications);
-        updateBadgeCounts(user);
-      });
-    }
+    if (!user) return;
 
-    const interval = setInterval(() => {
-      if (user) {
-        updateBadgeCounts(user);
+    // Initial load
+    api.getNotificationsForUser(user.id).then(initialNotifications => {
+      previousNotificationsRef.current = initialNotifications;
+      setNotifications(initialNotifications);
+    });
+
+    // Update badge counts initially and then periodically
+    const updateCounts = async () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      if (!user.companyId) return;
+      try {
+        const [timesheets, incidents, conversations, fetchedNotifications] = await Promise.all([
+          api.getTimesheetsByCompany(user.companyId, user.id),
+          api.getSafetyIncidentsByCompany(user.companyId),
+          api.getConversationsForUser(user.id),
+          api.getNotificationsForUser(user.id),
+        ]);
+
+        setPendingTimesheetCount(timesheets.filter(t => t.status === TimesheetStatus.PENDING).length);
+        setOpenIncidentCount(incidents.filter(i => i.status !== IncidentStatus.RESOLVED).length);
+        setUnreadMessageCount(conversations.filter(c => c.lastMessage && !c.lastMessage.isRead && c.lastMessage.senderId !== user.id).length);
+
+        const unreadNotifications = fetchedNotifications.filter(n => !n.isRead);
+        setUnreadNotificationCount(unreadNotifications.length);
+
+        previousNotificationsRef.current = fetchedNotifications;
+        setNotifications(fetchedNotifications);
+      } catch (error) {
+        console.error("Could not update notification counts.", error);
       }
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [user, updateBadgeCounts]);
+    };
+
+    updateCounts();
+    const interval = setInterval(updateCounts, 5000);
+    const onVisibilityChange = () => {
+      if (!document.hidden) {
+        void updateCounts();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [user]);
 
   const handleLogout = () => {
     logout();
@@ -448,13 +462,15 @@ function App() {
           onLogout={handleLogout}
           onSearchClick={() => setIsSearchModalOpen(true)}
           onCommandPaletteClick={() => setIsCommandPaletteOpen(true)}
+          isOnline={isOnline}
           unreadNotificationCount={unreadNotificationCount}
           notifications={notifications}
           onNotificationClick={handleNotificationClick}
           onMarkAllNotificationsAsRead={async () => {
             if (!user) return;
             await api.markAllNotificationsAsRead(user.id);
-            updateBadgeCounts(user);
+            setUnreadNotificationCount(0);
+            setNotifications(prev => prev.map(n => ({ ...n, isRead: true, read: true })));
           }}
           addToast={addToast}
         />
@@ -484,7 +500,7 @@ function App() {
         />
       )}
 
-      <div className="fixed bottom-4 right-4 z-50 space-y-2">
+      <div className="fixed bottom-4 right-4 z-50 space-y-2" aria-live="polite" aria-atomic="false">
         {toasts.map(toast => (
           <ToastMessage key={toast.id} toast={toast} onDismiss={dismissToast} />
         ))}
