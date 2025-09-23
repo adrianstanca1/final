@@ -55,7 +55,8 @@ const detectBaseUrl = (): string | null => {
     if (typeof window !== 'undefined' && typeof (window as any).__ASAGENTS_API_BASE_URL__ === 'string') {
         return sanitizeBaseUrl((window as any).__ASAGENTS_API_BASE_URL__);
     }
-    // Prefer VITE_BACKEND_URL if present (explicit real backend)
+    // Prefer Vite's VITE_BACKEND_URL if present (explicit real backend)
+    /* eslint-disable spellcheck/spell-checker */
     if (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_BACKEND_URL) {
         return sanitizeBaseUrl((import.meta as any).env.VITE_BACKEND_URL);
     }
@@ -68,6 +69,7 @@ const detectBaseUrl = (): string | null => {
     if (typeof process !== 'undefined' && typeof process.env?.VITE_API_BASE_URL === 'string') {
         return sanitizeBaseUrl(process.env.VITE_API_BASE_URL);
     }
+    /* eslint-enable spellcheck/spell-checker */
     return null;
 };
 
