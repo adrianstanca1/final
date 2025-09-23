@@ -27,6 +27,11 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
   const [showPassword, setShowPassword] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
+  const [isSubmittingCredentials, setIsSubmittingCredentials] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isMagicLoading, setIsMagicLoading] = useState(false);
+  const [isFacebookLoading, setIsFacebookLoading] = useState(false);
+  const [isAppleLoading, setIsAppleLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{ email?: string; password?: string; mfa?: string }>({});
 
   const [userId, setUserId] = useState<string | null>(null);
@@ -73,6 +78,7 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
     if (Object.keys(newErrors).length > 0) return;
 
     try {
+      setIsSubmittingCredentials(true);
       setEmail(trimmedEmail);
       const res = await login({ email: trimmedEmail, password, rememberMe });
       if (res.mfaRequired && res.userId) {
@@ -94,6 +100,8 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
       // If not MFA, the AuthProvider handles the redirect and state change.
     } catch (err) {
       // Error is handled and set by the AuthContext, no need to set it here.
+    } finally {
+      setIsSubmittingCredentials(false);
     }
   };
 
@@ -106,6 +114,7 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
     }
 
     try {
+      setIsSubmittingCredentials(true);
       if (!userId) throw new Error("User ID not found");
       await verifyMfaAndFinalize(userId, mfaCode);
       persistRememberedEmail(rememberMe, email.trim().toLowerCase());
@@ -113,20 +122,50 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
       // On success, AuthProvider will handle redirect.
     } catch (err) {
       // Error is handled and set by the AuthContext
+    } finally {
+      setIsSubmittingCredentials(false);
     }
   };
 
   const handleGoogle = async () => {
     try {
+      setIsGoogleLoading(true);
       const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
       await identity.loginWithGoogle(redirectTo);
     } catch (e: any) {
       setError(e?.message || 'Google login failed');
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
+  const handleFacebook = async () => {
+    try {
+      setIsFacebookLoading(true);
+      const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+      await identity.loginWithFacebook(redirectTo);
+    } catch (e: any) {
+      setError(e?.message || 'Facebook login failed');
+    } finally {
+      setIsFacebookLoading(false);
+    }
+  };
+
+  const handleApple = async () => {
+    try {
+      setIsAppleLoading(true);
+      const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+      await identity.loginWithApple(redirectTo);
+    } catch (e: any) {
+      setError(e?.message || 'Apple login failed');
+    } finally {
+      setIsAppleLoading(false);
     }
   };
 
   const handleMagicLink = async () => {
     try {
+      setIsMagicLoading(true);
       const trimmedEmail = email.trim();
       if (!validateEmail(trimmedEmail)) {
         setValidationErrors({ email: 'Enter a valid email to receive a magic link.' });
@@ -138,6 +177,8 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
       alert('Magic link sent! Check your email.');
     } catch (e: any) {
       setError(e?.message || 'Could not send magic link');
+    } finally {
+      setIsMagicLoading(false);
     }
   };
 
@@ -197,9 +238,19 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
         </div>
       </div>
       <div className="space-y-2">
-        <Button type="submit" className="w-full" isLoading={isLoading}>Sign in</Button>
-        <button type="button" onClick={handleGoogle} className="w-full rounded-md border border-border p-2 text-sm">Continue with Google</button>
-        <button type="button" onClick={handleMagicLink} className="w-full rounded-md border border-dashed p-2 text-sm">Email me a magic link</button>
+        <Button type="submit" className="w-full" isLoading={isSubmittingCredentials || isLoading} disabled={isGoogleLoading || isMagicLoading || isFacebookLoading || isAppleLoading}>Sign in</Button>
+        <button type="button" onClick={handleGoogle} disabled={isSubmittingCredentials || isMagicLoading || isFacebookLoading || isAppleLoading || isLoading} className="w-full rounded-md border border-border p-2 text-sm">
+          {isGoogleLoading ? 'Redirecting…' : 'Continue with Google'}
+        </button>
+        <button type="button" onClick={handleFacebook} disabled={isSubmittingCredentials || isGoogleLoading || isMagicLoading || isAppleLoading || isLoading} className="w-full rounded-md border border-border p-2 text-sm">
+          {isFacebookLoading ? 'Redirecting…' : 'Continue with Facebook'}
+        </button>
+        <button type="button" onClick={handleApple} disabled={isSubmittingCredentials || isGoogleLoading || isMagicLoading || isFacebookLoading || isLoading} className="w-full rounded-md border border-border p-2 text-sm">
+          {isAppleLoading ? 'Redirecting…' : 'Continue with Apple'}
+        </button>
+        <button type="button" onClick={handleMagicLink} disabled={isSubmittingCredentials || isGoogleLoading || isFacebookLoading || isAppleLoading || isLoading} className="w-full rounded-md border border-dashed p-2 text-sm">
+          {isMagicLoading ? 'Sending magic link…' : 'Email me a magic link'}
+        </button>
       </div>
     </form>
   );

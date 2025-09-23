@@ -151,12 +151,18 @@ function App() {
     setToasts(currentToasts => currentToasts.filter(toast => toast.id !== id));
   };
 
-  // Check for password reset token in URL on initial load
+  // Check for password reset token in URL on initial load (supports both custom and Supabase recovery)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
+    const type = params.get('type');
+    const accessToken = params.get('access_token');
     if (token) {
       setResetToken(token);
+      setAuthView('reset-password');
+    } else if (type === 'recovery' && accessToken) {
+      // Supabase sends access_token in URL for password recovery. No need to store token; AuthContext uses Supabase session.
+      setResetToken('supabase');
       setAuthView('reset-password');
     }
     const invite = params.get('invite');

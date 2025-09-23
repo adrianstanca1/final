@@ -29,6 +29,7 @@ import { useBackendConnection } from '../hooks/useBackendConnection';
 import InviteQRPanel from './InviteQRPanel';
 import { Role } from '../types';
 import { useProjectGeofencing } from '../hooks/useProjectGeofencing';
+import { BarChart as FinancialBarChart } from './financials/BarChart';
 
 interface DashboardProps {
     user: User;
@@ -51,21 +52,24 @@ const KpiCard: React.FC<{ title: string; value: string; subtext?: string; icon: 
     </Card>
 );
 
-const BarChart: React.FC<{ data: { label: string, value: number }[], barColor: string }> = ({ data, barColor }) => {
-    const maxValue = Math.max(...data.map(d => d.value), 1); // Ensure maxValue is at least 1 to avoid division by zero
+const BarChart: React.FC<{ data: { label: string, value: number }[] }> = ({ data }) => {
     return (
-        <div className="w-full h-48 flex items-end justify-around gap-2 p-2">
-            {data.map((item, index) => (
-                <div key={index} className="flex flex-col items-center justify-end h-full w-full group">
-                    <div
-                        className={`${barColor} w-full rounded-t-sm group-hover:opacity-80 transition-opacity bar-chart-bar`}
-                        style={{ height: `${(item.value / maxValue) * 90}%` }}
-                        title={`${item.label}: ${item.value}`}
-                    ></div>
-                    <span className="text-xs mt-1 text-muted-foreground">{item.label}</span>
-                </div>
-            ))}
-        </div>
+        <table className="w-full text-sm">
+            <thead className="text-muted-foreground">
+                <tr>
+                    <th className="text-left p-2">Label</th>
+                    <th className="text-right p-2">Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                {data.map((item, index) => (
+                    <tr key={index} className="border-t">
+                        <td className="p-2">{item.label}</td>
+                        <td className="p-2 text-right">{item.value}</td>
+                    </tr>
+                ))}
+            </tbody>
+        </table>
     );
 };
 
@@ -347,34 +351,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
             <ViewHeader
                 title={`Welcome back, ${user.firstName}!`}
                 description="Your live delivery and commercial snapshot."
-                actions={headerActions}
-                meta={[
-                    {
-                        label: 'Active projects',
-                        value: kpiData.activeProjectsCount.toString(),
-                        helper: `${portfolioSummary.completedProjects} completed`,
-                        indicator: kpiData.activeProjectsCount > 0 ? 'positive' : 'neutral',
-                    },
-                    {
-                        label: 'At-risk',
-                        value: `${kpiData.atRisk}`,
-                        helper: atRiskProjects.length > 0 ? 'See priority list below' : 'All projects steady',
-                        indicator: kpiData.atRisk > 0 ? 'warning' : 'positive',
-                    },
-                    {
-                        label: 'Open incidents',
-                        value: `${kpiData.openIncidents}`,
-                        helper: highSeverityIncidents.length > 0 ? `${highSeverityIncidents.length} high severity` : 'No critical alerts',
-                        indicator: kpiData.openIncidents > 0 ? 'warning' : 'positive',
-                    },
-                    {
-                        label: 'Budget utilisation',
-                        value: `${kpiData.budgetUtilization}%`,
-                        helper: 'Across active projects',
-                        indicator: Number(kpiData.budgetUtilization) > 90 ? 'warning' : 'positive',
-                    },
+                isOnline={connectionState.online}
+                stats={[
+                    { label: 'Active projects', value: kpiData.activeProjectsCount.toString(), tone: kpiData.activeProjectsCount > 0 ? 'success' : 'neutral' },
+                    { label: 'At-risk', value: `${kpiData.atRisk}`, tone: kpiData.atRisk > 0 ? 'warning' : 'success' },
+                    { label: 'Open incidents', value: `${kpiData.openIncidents}`, tone: kpiData.openIncidents > 0 ? 'warning' : 'success' },
+                    { label: 'Budget utilisation', value: `${kpiData.budgetUtilization}%`, tone: Number(kpiData.budgetUtilization) > 90 ? 'warning' : 'success' },
                 ]}
             />
+
+            <div className="flex items-center gap-2">{headerActions}</div>
 
             <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                 <span>
@@ -433,7 +419,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <p className="font-semibold text-foreground">{project.name}</p>
-                                            <p className="text-xs text-muted-foreground">{project.location?.city ?? project.location?.address}</p>
+                                            <p className="text-xs text-muted-foreground">{project.location?.address}</p>
                                         </div>
                                         <Tag
                                             label={project.status.replace(/_/g, ' ')}
@@ -649,7 +635,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
             <section className="grid gap-6 lg:grid-cols-2">
                 <Card className="p-6">
                     <h2 className="text-lg font-semibold text-foreground">Tasks completed this week</h2>
-                    <BarChart data={weeklyTaskData} barColor="bg-primary" />
+                    <BarChart data={weeklyTaskData} />
                 </Card>
                 <Card className="space-y-4 p-6">
                     <h2 className="text-lg font-semibold text-foreground">People on deck</h2>

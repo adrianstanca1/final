@@ -1,12 +1,13 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, ReactNode } from 'react';
 import { User, Company, LoginCredentials, RegistrationPayload, AuthState, Permission } from '../types';
-import { authClient, type AuthenticatedSession } from '../services/authClient';
+import { authClient, type AuthenticatedSession, type LoginResult } from '../services/authClient';
 import { hasPermission as checkPermission, authService } from '../services/auth';
 import { api } from '../services/mockApi';
 import { analytics } from '../services/analyticsService';
 import { ValidationService } from '../services/validationService';
 import { getStorage } from '../utils/storage';
 import { getSupabase } from '../services/supabaseClient';
+import { identity } from '../services/identityProvider';
 
 const storage = getStorage();
 
@@ -156,7 +157,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const email = session?.user?.email;
         if (email) {
           try {
-            const match = await api.getUserAndCompanyByEmail(email);
+            let match = await api.getUserAndCompanyByEmail(email);
+            if (!match) {
+              match = await api.ensureUserAndCompanyForEmail(email);
+            }
             if (match) {
               setAuthState({
                 isAuthenticated: true,
@@ -233,7 +237,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const email = session?.user?.email;
         if (!email) return;
         try {
-          const match = await api.getUserAndCompanyByEmail(email);
+          let match = await api.getUserAndCompanyByEmail(email);
+          if (!match) {
+            match = await api.ensureUserAndCompanyForEmail(email);
+          }
           if (match) {
             setAuthState({
               isAuthenticated: true,
@@ -285,13 +292,46 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     try {
+      const sb = getSupabase();
+      if (sb) {
+        const { data, error } = await sb.auth.signInWithPassword({
+          email: (validation.sanitizedData as LoginCredentials).email,
+          password: (validation.sanitizedData as LoginCredentials).password,
+        });
+        if (error) {
+          // If email not confirmed, surface helpful message
+          if ((error as any).message?.toLowerCase().includes('email') && (error as any).message?.toLowerCase().includes('confirm')) {
+            throw new Error('Please confirm your email address before signing in.');
+          }
+          throw error;
+        }
+        const email = data.user?.email;
+        if (email) {
+          const match = await api.getUserAndCompanyByEmail(email);
+          if (match) {
+            setAuthState({
+              isAuthenticated: true,
+              token: 'supabase',
+              refreshToken: 'supabase',
+              user: match.user,
+              company: match.company,
+              loading: false,
+              error: null,
+            });
+            return { mfaRequired: false };
+          }
+        }
+        // No mapping found, fall through to mock login to keep UX working
+      }
       const response = await authClient.login(validation.sanitizedData as LoginCredentials);
-      if ('mfaRequired' in response && response.mfaRequired) {
+      const isMfaResponse = (r: LoginResult): r is { success: true; mfaRequired: true; userId: string } =>
+        (r as any)?.mfaRequired === true && typeof (r as any)?.userId === 'string';
+      if (isMfaResponse(response)) {
         setAuthState(prev => ({ ...prev, loading: false }));
         return { mfaRequired: true, userId: response.userId };
       }
 
-      finalizeLogin(response);
+      finalizeLogin(response as any);
       authService.recordLoginAttempt(credentials.email, true, {
         ipAddress: 'unknown',
         userAgent: navigator.userAgent,
@@ -336,9 +376,44 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const register = async (credentials: RegistrationPayload): Promise<AuthenticatedSession> => {
     setAuthState(prev => ({ ...prev, loading: true, error: null }));
     try {
-      const session = await authClient.register(credentials);
-      finalizeLogin(session);
-      return session;
+      const sb = getSupabase();
+      const hasInvite = !!credentials.inviteToken;
+      if (hasInvite) {
+        // Always register locally to attach to invited company and role
+        const session = await authClient.register(credentials);
+        // Log user in immediately for a smooth invite experience
+        finalizeLogin(session);
+        // If Supabase is configured, trigger account creation + verification email in background
+        if (sb && credentials.email && credentials.password) {
+          try {
+            const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+            await identity.registerWithPassword(credentials, redirectTo);
+          } catch (e) {
+            console.warn('Supabase sign-up (invite) failed:', e);
+          }
+        }
+        return session;
+      }
+
+      // Non-invite self-registration (e.g., workspace creation)
+      if (sb && credentials.email && credentials.password) {
+        // Initialize local workspace/user so app is ready post-confirmation
+        try {
+          await authClient.register(credentials);
+        } catch (e) {
+          console.warn('Local registration (workspace) failed but proceeding with Supabase sign-up', e);
+        }
+        const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+        await identity.registerWithPassword(credentials, redirectTo);
+        setAuthState(prev => ({ ...prev, loading: false }));
+        const friendly = new Error('Registration pending. Check your email to confirm your address.');
+        (friendly as any).code = 'EMAIL_CONFIRMATION_REQUIRED';
+        throw friendly;
+      } else {
+        const session = await authClient.register(credentials);
+        finalizeLogin(session);
+        return session;
+      }
     } catch (error: any) {
       setAuthState(prev => ({ ...prev, loading: false, error: error?.message || 'Registration failed' }));
       throw error;
@@ -361,7 +436,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const requestPasswordReset = async (email: string) => {
     setAuthState(prev => ({ ...prev, loading: true, error: null }));
     try {
-      await authClient.requestPasswordReset(email);
+      const sb = getSupabase();
+      if (sb) {
+        const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+        const { error } = await sb.auth.resetPasswordForEmail(email, redirectTo ? { redirectTo } : undefined);
+        if (error) throw error;
+      } else {
+        await authClient.requestPasswordReset(email);
+      }
       setAuthState(prev => ({ ...prev, loading: false }));
     } catch (error: any) {
       setAuthState(prev => ({ ...prev, loading: false, error: error?.message || 'Request failed' }));
@@ -372,8 +454,43 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const resetPassword = async (token: string, newPassword: string) => {
     setAuthState(prev => ({ ...prev, loading: true, error: null }));
     try {
-      await authClient.resetPassword(token, newPassword);
-      setAuthState(prev => ({ ...prev, loading: false }));
+      const sb = getSupabase();
+      if (sb) {
+        const { error } = await sb.auth.updateUser({ password: newPassword });
+        if (error) throw error;
+        // After successful update, ensure mapping exists and auth state is set
+        const { data: sessionData } = await sb.auth.getSession();
+        const email = sessionData?.session?.user?.email;
+        if (email) {
+          try {
+            let match = await api.getUserAndCompanyByEmail(email);
+            if (!match) {
+              match = await api.ensureUserAndCompanyForEmail(email);
+            }
+            if (match) {
+              setAuthState(prev => ({
+                ...prev,
+                isAuthenticated: true,
+                token: 'supabase',
+                refreshToken: 'supabase',
+                user: match.user,
+                company: match.company,
+                loading: false,
+                error: null,
+              }));
+              return;
+            }
+          } catch (e) {
+            console.warn('Post-reset mapping failed', e);
+          }
+        }
+        setAuthState(prev => ({ ...prev, loading: false }));
+        return;
+      } else {
+        await authClient.resetPassword(token, newPassword);
+        setAuthState(prev => ({ ...prev, loading: false }));
+        return;
+      }
     } catch (error: any) {
       setAuthState(prev => ({ ...prev, loading: false, error: error?.message || 'Password reset failed' }));
       throw error;

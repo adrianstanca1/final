@@ -17,6 +17,22 @@ export const identity = {
     if (error) throw error;
   },
 
+  loginWithFacebook: async (redirectTo?: string): Promise<void> => {
+    const sb = getSupabase();
+    if (!sb) throw new Error('Facebook login not configured');
+    const target = redirectTo || (typeof window !== 'undefined' ? window.location.origin : undefined);
+    const { error } = await sb.auth.signInWithOAuth({ provider: 'facebook', options: target ? { redirectTo: target } : undefined });
+    if (error) throw error;
+  },
+
+  loginWithApple: async (redirectTo?: string): Promise<void> => {
+    const sb = getSupabase();
+    if (!sb) throw new Error('Apple login not configured');
+    const target = redirectTo || (typeof window !== 'undefined' ? window.location.origin : undefined);
+    const { error } = await sb.auth.signInWithOAuth({ provider: 'apple', options: target ? { redirectTo: target } : undefined });
+    if (error) throw error;
+  },
+
   logout: async (): Promise<void> => {
     const sb = getSupabase();
     if (sb) await sb.auth.signOut();
@@ -30,10 +46,11 @@ export const identity = {
     return data;
   },
 
-  registerWithPassword: async (payload: RegistrationPayload) => {
+  registerWithPassword: async (payload: RegistrationPayload, redirectTo?: string) => {
     const sb = getSupabase();
     if (!sb) return authClient.register(payload);
-    const { data, error } = await sb.auth.signUp({ email: payload.email, password: payload.password });
+    const options = redirectTo ? { emailRedirectTo: redirectTo } : undefined;
+    const { data, error } = await sb.auth.signUp({ email: payload.email!, password: payload.password!, options });
     if (error) throw error;
     return data;
   },
@@ -43,6 +60,13 @@ export const identity = {
     if (!sb) throw new Error('Magic link not configured');
     const target = redirectTo || (typeof window !== 'undefined' ? window.location.origin : undefined);
     const { error } = await sb.auth.signInWithOtp({ email, options: target ? { emailRedirectTo: target } : undefined });
+    if (error) throw error;
+  },
+  resendVerification: async (email: string, redirectTo?: string): Promise<void> => {
+    const sb = getSupabase();
+    if (!sb) throw new Error('Email verification not configured');
+    const options = redirectTo ? { emailRedirectTo: redirectTo } : undefined;
+    const { error } = await sb.auth.resend({ type: 'signup', email, options });
     if (error) throw error;
   },
 };

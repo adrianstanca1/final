@@ -103,6 +103,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [generalError, setGeneralError] = useState<string | null>(null);
     const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
+    const [awaitingEmailConfirmation, setAwaitingEmailConfirmation] = useState(false);
 
     useEffect(() => {
         setGeneralError(authError);
@@ -190,6 +191,10 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
             await register(formData);
             // On success, the AuthProvider will handle navigation.
         } catch (error: any) {
+            // If Supabase path requires email confirmation, show dedicated UI
+            if ((error as any)?.code === 'EMAIL_CONFIRMATION_REQUIRED' || /confirm your email/i.test(String(error?.message))) {
+                setAwaitingEmailConfirmation(true);
+            }
             // Error is handled by the context and set via useEffect
         }
     };
@@ -320,6 +325,28 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
 
                     <Card>
                         {generalError && <div className="mb-4 p-3 bg-destructive/10 text-destructive text-sm rounded-md">{generalError}</div>}
+                        {awaitingEmailConfirmation && (
+                            <div className="mb-4 rounded-md border border-border bg-muted p-3 text-sm">
+                                <p className="font-medium">Confirm your email to continue</p>
+                                <p className="text-muted-foreground">We sent a verification link to {formData.email}. Click the link to activate your account, then return to sign in.</p>
+                                <div className="mt-2">
+                                    <button
+                                        type="button"
+                                        className="rounded-md border border-border px-3 py-1 text-xs"
+                                        onClick={async () => {
+                                            try {
+                                                await identity.resendVerification(formData.email!, typeof window !== 'undefined' ? window.location.origin : undefined);
+                                                setGeneralError('Verification email re-sent. Check your inbox.');
+                                            } catch (e: any) {
+                                                setGeneralError(e?.message || 'Could not resend verification email');
+                                            }
+                                        }}
+                                    >
+                                        Resend verification email
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                         <div className="space-y-6">
                             {renderStepContent()}
                         </div>

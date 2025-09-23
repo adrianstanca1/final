@@ -11,7 +11,7 @@ interface ResetPasswordProps {
 }
 
 const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password = '' }) => {
-    const getStrength = () => {
+    const strength = (() => {
         let score = 0;
         if (password.length >= 8) score++;
         if (/[A-Z]/.test(password)) score++;
@@ -19,16 +19,13 @@ const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password =
         if (/\d/.test(password)) score++;
         if (/[^A-Za-z0-9]/.test(password)) score++;
         return score;
-    };
-    const width = (strength / 5) * 100;
+    })();
     const color = strength < 3 ? 'bg-destructive' : strength < 5 ? 'bg-yellow-500' : 'bg-green-500';
+    const widthClass = ['w-0', 'w-1/5', 'w-2/5', 'w-3/5', 'w-4/5', 'w-full'][strength] || 'w-0';
 
     return (
         <div className="w-full bg-muted rounded-full h-1.5 mt-1">
-            <div
-                className={`h-1.5 rounded-full transition-all duration-300 ${color} password-strength-bar`}
-                data-width={width}
-            ></div>
+            <div className={`h-1.5 rounded-full transition-all duration-300 ${color} ${widthClass} password-strength-bar`}></div>
         </div>
     );
 };

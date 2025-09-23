@@ -702,6 +702,49 @@ export const resetMockApi = () => {
 };
 
 export const api = {
+        // Provision local mapping for Supabase signups
+        async ensureUserAndCompanyForEmail(email: string, options?: { companyName?: string; role?: Role }): Promise<{ user: User; company: Company }> {
+                await delay();
+                let existing = db.users.find(u => String(u.email).toLowerCase() === String(email).toLowerCase());
+                if (existing) {
+                        const company = db.companies.find(c => c.id === existing!.companyId) as Company | undefined;
+                        if (!company) throw new Error('Company not found for existing user');
+                        return { user: existing as User, company };
+                }
+                const company: any = {
+                        id: generateId(),
+                        name: options?.companyName || email.split('@')[1] || 'New Company',
+                        type: 'GENERAL_CONTRACTOR',
+                        email,
+                        phone: '',
+                        website: '',
+                        status: 'Active',
+                        subscriptionPlan: 'FREE',
+                        storageUsageGB: 0,
+                        settings: clone(DEFAULT_COMPANY_SETTINGS),
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                        isActive: true,
+                        address: { line1: '', city: '', state: '', postalCode: '', country: 'US' },
+                    };
+                db.companies.push(company);
+                const user: any = {
+                        id: generateId(),
+                        firstName: email.split('@')[0],
+                        lastName: '',
+                        email,
+                        password: '',
+                        role: options?.role || 'OWNER',
+                        companyId: company.id,
+                        isActive: true,
+                        isEmailVerified: true,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                    };
+                db.users.push(user);
+                saveDb();
+                return { user: user as User, company: company as Company };
+        },
     // Milestones
     async listMilestones(projectId: string) {
         await delay();
