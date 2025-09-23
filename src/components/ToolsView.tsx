@@ -1,4 +1,4 @@
-// full contents of components/ToolsView.tsx
+// full contents// import { ResourceScheduler } from './ResourceScheduler';of components/ToolsView.tsx
 
 import React, { useState } from 'react';
 // FIX: Imported correct types

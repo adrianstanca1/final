@@ -260,7 +260,6 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
                                             const project = projectMap.get(a.projectId.toString());
 
                                             return (
-                                                {/* style variables required for positioning; safe in React */}
                                                 <div
                                                     key={a.id}
                                                     onClick={() => openModal(a)}
