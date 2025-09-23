@@ -1,5 +1,5 @@
 import React from 'react';
-// import { ProcurementChain } from './ProcurementChain';
+import { ProcurementChain } from './ProcurementChain';
 import { getSampleTenders } from '../data/sampleTenders';
 import { AnalysisReport } from '../types/procurement';
 import { User, Role } from '../types';
@@ -69,17 +69,12 @@ export const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ user
                 user={user}
                 databaseContext={databaseContext}
             /> */}
-            <div className="p-8 text-center">
-                <h3 className="text-lg font-semibold text-gray-600">
-                    🚀 AI Procurement Analysis Enhanced
-                </h3>
-                <p className="text-gray-500 mt-2">
-                    New features implemented: Export & Reporting, AI Confidence Scoring
-                </p>
-                <p className="text-sm text-gray-400 mt-4">
-                    Export Service available at: src/services/exportService.ts
-                </p>
-            </div>
+                        <ProcurementChain
+                tenders={getSampleTenders()}
+                onAnalysisComplete={handleAnalysisComplete}
+                user={user}
+                databaseContext={databaseContext}
+            />
         </div>
     );
 };
