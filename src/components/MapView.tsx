@@ -2,7 +2,7 @@ import React from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import useSupercluster from 'use-supercluster';
-// styles provided via Tailwind and leaflet defaults
+import './MapView.css';
 
 export interface MapMarkerData {
     id: string | number;
