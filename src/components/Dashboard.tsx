@@ -13,6 +13,7 @@ import {
     IncidentStatus,
     ExpenseStatus,
     ProjectPortfolioSummary,
+    CompanySettings,
 } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -29,7 +30,7 @@ import { useBackendConnection } from '../hooks/useBackendConnection';
 import InviteQRPanel from './InviteQRPanel';
 import { Role } from '../types';
 import { useProjectGeofencing } from '../hooks/useProjectGeofencing';
-import { BarChart as FinancialBarChart } from './financials/BarChart';
+import FinancialBarChart from './financials/BarChart';
 
 interface DashboardProps {
     user: User;
@@ -37,6 +38,7 @@ interface DashboardProps {
     activeView: View;
     setActiveView: (view: View) => void;
     onSelectProject: (project: Project) => void;
+    settings?: CompanySettings | null;
 }
 
 const KpiCard: React.FC<{ title: string; value: string; subtext?: string; icon: React.ReactNode }> = ({ title, value, subtext, icon }) => (
@@ -120,7 +122,7 @@ const startOfWeek = (date: Date, options?: { weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 
     return d;
 };
 
-export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveView, onSelectProject }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveView, onSelectProject, settings }) => {
     const { snapshot, loading, error, refresh } = useDashboardSnapshot(user);
     const connectionState = useBackendConnection();
     const [aiSelectedProjectId, setAiSelectedProjectId] = useState<string | null>(null);
@@ -151,7 +153,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     }, [snapshot?.projects]);
 
     const projects = snapshot?.projects ?? [];
-    useProjectGeofencing(user, projects, true);
+    const geofencingEnabled = (settings as any)?.geofencingEnabled !== false;
+    useProjectGeofencing(user, projects, geofencingEnabled);
     const team = snapshot?.team ?? [];
     const equipment = snapshot?.equipment ?? [];
     const tasks = snapshot?.tasks ?? [];

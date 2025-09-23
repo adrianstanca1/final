@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // FIX: Corrected import paths to be relative.
-import { User, View, Project, Timesheet, TimesheetStatus } from '../types';
+import { User, View, Project, Timesheet, TimesheetStatus, CompanySettings } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -11,6 +11,7 @@ interface TimeTrackingViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
   setActiveView: (view: View) => void;
+    settings?: CompanySettings | null;
 }
 
 const Timer: React.FC<{ startTime: Date }> = ({ startTime }) => {
@@ -33,7 +34,7 @@ const Timer: React.FC<{ startTime: Date }> = ({ startTime }) => {
     return <p className="text-4xl font-mono font-bold text-center">{duration}</p>;
 };
 
-export const TimeTrackingView: React.FC<TimeTrackingViewProps> = ({ user, addToast, setActiveView }) => {
+export const TimeTrackingView: React.FC<TimeTrackingViewProps> = ({ user, addToast, setActiveView, settings }) => {
     const [loading, setLoading] = useState(true);
     const [projects, setProjects] = useState<Project[]>([]);
     const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
@@ -59,6 +60,7 @@ export const TimeTrackingView: React.FC<TimeTrackingViewProps> = ({ user, addToa
     }, [selectedProject]);
 
     const { data: geoData, watchLocation, stopWatching, insideGeofenceIds } = useGeolocation({ geofences });
+    const geofencingEnabled = (settings as any)?.geofencingEnabled !== false;
     
     const activeTimesheet = useMemo(() => timesheets.find(ts => ts.clockOut === null), [timesheets]);
     
@@ -101,9 +103,12 @@ export const TimeTrackingView: React.FC<TimeTrackingViewProps> = ({ user, addToa
     }, [fetchData]);
 
     useEffect(() => {
-        watchLocation();
-        return () => stopWatching();
-    }, [watchLocation, stopWatching]);
+        if (geofencingEnabled) {
+            watchLocation();
+            return () => stopWatching();
+        }
+        return;
+    }, [watchLocation, stopWatching, geofencingEnabled]);
 
     const handleClockIn = async () => {
         if (!selectedProject) {
@@ -111,7 +116,7 @@ export const TimeTrackingView: React.FC<TimeTrackingViewProps> = ({ user, addToa
             return;
         }
 
-        if (selectedProject.geofenceRadius) {
+        if (geofencingEnabled && selectedProject.geofenceRadius) {
             const isInside = insideGeofenceIds.has(selectedProject.id);
             if (!isInside) {
                 const proceed = window.confirm( "Warning: You appear to be outside the project's geofence. This action will be logged. Are you sure you want to clock in?");
@@ -169,7 +174,8 @@ export const TimeTrackingView: React.FC<TimeTrackingViewProps> = ({ user, addToa
                     </div>
                 ) : (
                     <div className="space-y-4">
-                        <select value={selectedProjectId} onChange={e => setSelectedProjectId(e.target.value)} className="w-full p-3 border rounded-md bg-white dark:bg-slate-800">
+                        <label htmlFor="tt-project-select" className="sr-only">Select project</label>
+                        <select id="tt-project-select" aria-label="Select project" value={selectedProjectId} onChange={e => setSelectedProjectId(e.target.value)} className="w-full p-3 border rounded-md bg-white dark:bg-slate-800">
                             <option value="">-- Select a project --</option>
                             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>

@@ -77,6 +77,9 @@ const DEFAULT_COMPANY_SETTINGS: CompanySettings = {
         equipment: true,
         reporting: true,
     },
+    // Extended setting used by UI to mute geofence alerts
+    // @ts-ignore - extra field tolerated by partial updates
+    geofencingEnabled: true,
 };
 
 type RequestOptions = { signal?: AbortSignal };

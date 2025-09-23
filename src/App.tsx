@@ -401,6 +401,7 @@ function App() {
             activeView={activeView}
             setActiveView={changeView}
             onSelectProject={handleSelectProject}
+            settings={companySettings}
           />
         );
       case 'my-day': return <MyDayView user={user} addToast={addToast} />;
@@ -410,7 +411,7 @@ function App() {
       case 'all-tasks': return <AllTasksView user={user} addToast={addToast} isOnline={isOnline} />;
       case 'map': return <ProjectsMapView user={user} addToast={addToast} />;
       case 'time':
-        return <TimeTrackingView user={user} addToast={addToast} setActiveView={changeView} />;
+        return <TimeTrackingView user={user} addToast={addToast} setActiveView={changeView} settings={companySettings} />;
       case 'timesheets': return <TimesheetsView user={user} addToast={addToast} />;
       case 'documents': return <DocumentsView user={user} addToast={addToast} isOnline={isOnline} settings={companySettings} />;
       case 'safety':
@@ -448,6 +449,7 @@ function App() {
             activeView={activeView}
             setActiveView={changeView}
             onSelectProject={handleSelectProject}
+            settings={companySettings}
           />
         );
     }

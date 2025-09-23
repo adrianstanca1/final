@@ -71,6 +71,8 @@ export interface CompanySettings {
   accessibility: {
     highContrast: boolean;
   };
+  // Optional flags used by UI features
+  geofencingEnabled?: boolean;
 }
 
 export interface WorkingHours {

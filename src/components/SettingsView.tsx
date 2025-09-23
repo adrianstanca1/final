@@ -8,13 +8,13 @@ import { useAuth } from '../contexts/AuthContext';
 import { Avatar } from './ui/Avatar';
 
 interface SettingsViewProps {
-  user: User;
-  addToast: (message: string, type: 'success' | 'error') => void;
-  settings: CompanySettings | null;
-  onSettingsUpdate: (updatedSettings: Partial<CompanySettings>) => void;
+    user: User;
+    addToast: (message: string, type: 'success' | 'error') => void;
+    settings: CompanySettings | null;
+    onSettingsUpdate: (updatedSettings: Partial<CompanySettings>) => void;
 }
 
-const FailedSyncActions: React.FC<{ addToast: (m:string,t:'success'|'error')=>void }> = ({ addToast }) => {
+const FailedSyncActions: React.FC<{ addToast: (m: string, t: 'success' | 'error') => void }> = ({ addToast }) => {
     const [failedActions, setFailedActions] = useState<FailedActionForUI[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -22,7 +22,7 @@ const FailedSyncActions: React.FC<{ addToast: (m:string,t:'success'|'error')=>vo
         const actions = getFailedSyncActions().map(formatFailedActionForUI);
         setFailedActions(actions);
     }, []);
-    
+
     useEffect(() => {
         loadFailedActions();
         const interval = setInterval(loadFailedActions, 5000);
@@ -35,12 +35,12 @@ const FailedSyncActions: React.FC<{ addToast: (m:string,t:'success'|'error')=>vo
             await retryFailedAction(id);
             addToast("Retrying action...", "success");
         } catch (error) {
-             addToast("Retry failed immediately.", "error");
+            addToast("Retry failed immediately.", "error");
         }
         loadFailedActions();
         setIsLoading(false);
     };
-    
+
     const handleDiscard = (id: number) => {
         discardFailedAction(id);
         addToast("Action discarded.", "success");
@@ -72,7 +72,7 @@ const FailedSyncActions: React.FC<{ addToast: (m:string,t:'success'|'error')=>vo
     );
 };
 
-const UserProfileSettings: React.FC<{ user: User, addToast: (m:string,t:'success'|'error')=>void }> = ({ user, addToast }) => {
+const UserProfileSettings: React.FC<{ user: User, addToast: (m: string, t: 'success' | 'error') => void }> = ({ user, addToast }) => {
     const { updateUserProfile } = useAuth();
     const [formData, setFormData] = useState({
         firstName: user.firstName,
@@ -119,7 +119,7 @@ const UserProfileSettings: React.FC<{ user: User, addToast: (m:string,t:'success
         // Mock avatar upload by cycling through a few images
         const newAvatarId = Math.floor(Math.random() * 100);
         const newAvatarUrl = `https://i.pravatar.cc/150?u=${user.id}-${newAvatarId}`;
-        setFormData(prev => ({...prev, avatar: newAvatarUrl}));
+        setFormData(prev => ({ ...prev, avatar: newAvatarUrl }));
         addToast("Profile picture updated. Save changes to confirm.", "success");
     };
 
@@ -142,13 +142,13 @@ const UserProfileSettings: React.FC<{ user: User, addToast: (m:string,t:'success
             setIsSaving(false);
         }
     };
-    
+
     return (
-         <Card>
+        <Card>
             <h3 className="font-bold text-lg mb-4">My Profile</h3>
             <form onSubmit={handleSubmit} className="space-y-6">
-                 <div className="flex items-center gap-6">
-                    <Avatar name={`${formData.firstName} ${formData.lastName}`} imageUrl={formData.avatar} className="w-24 h-24 text-3xl"/>
+                <div className="flex items-center gap-6">
+                    <Avatar name={`${formData.firstName} ${formData.lastName}`} imageUrl={formData.avatar} className="w-24 h-24 text-3xl" />
                     <div>
                         <Button type="button" variant="secondary" onClick={handleAvatarUpload}>Upload Photo</Button>
                         <p className="text-xs text-muted-foreground mt-2">Recommended: Square image, 200x200px</p>
@@ -157,13 +157,13 @@ const UserProfileSettings: React.FC<{ user: User, addToast: (m:string,t:'success
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium">First Name</label>
-                        <input value={formData.firstName} onChange={e => handleChange('firstName', e.target.value)} className={`w-full p-2 border rounded ${errors.firstName ? 'border-destructive' : 'border-border'}`}/>
+                        <input value={formData.firstName} onChange={e => handleChange('firstName', e.target.value)} className={`w-full p-2 border rounded ${errors.firstName ? 'border-destructive' : 'border-border'}`} />
                         {errors.firstName && <p className="text-xs text-destructive mt-1">{errors.firstName}</p>}
                     </div>
-                     <div>
+                    <div>
                         <label className="block text-sm font-medium">Last Name</label>
-                        <input value={formData.lastName} onChange={e => handleChange('lastName', e.target.value)} className={`w-full p-2 border rounded ${errors.lastName ? 'border-destructive' : 'border-border'}`}/>
-                         {errors.lastName && <p className="text-xs text-destructive mt-1">{errors.lastName}</p>}
+                        <input value={formData.lastName} onChange={e => handleChange('lastName', e.target.value)} className={`w-full p-2 border rounded ${errors.lastName ? 'border-destructive' : 'border-border'}`} />
+                        {errors.lastName && <p className="text-xs text-destructive mt-1">{errors.lastName}</p>}
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-muted-foreground">Email</label>
@@ -171,9 +171,9 @@ const UserProfileSettings: React.FC<{ user: User, addToast: (m:string,t:'success
                     </div>
                     <div>
                         <label className="block text-sm font-medium">Phone</label>
-                        <input type="tel" value={formData.phone} onChange={e => handleChange('phone', e.target.value)} className="w-full p-2 border rounded"/>
+                        <input type="tel" value={formData.phone} onChange={e => handleChange('phone', e.target.value)} className="w-full p-2 border rounded" />
                     </div>
-                     <div>
+                    <div>
                         <label className="block text-sm font-medium text-muted-foreground">Role</label>
                         <p className="p-2 capitalize">{user.role.replace(/_/g, ' ').toLowerCase()}</p>
                     </div>
@@ -187,16 +187,16 @@ const UserProfileSettings: React.FC<{ user: User, addToast: (m:string,t:'success
 }
 
 const CompanySettingsComponent: React.FC<{ settings: CompanySettings, onSettingsUpdate: (updatedSettings: Partial<CompanySettings>) => void }> = ({ settings, onSettingsUpdate }) => {
-    
+
     const handleSettingsChange = (key: keyof CompanySettings, value: any) => {
         if (settings && (settings as any)[key] !== value) {
             onSettingsUpdate({ [key]: value });
         }
     };
-    
+
     const handleAccessibilityChange = (key: keyof CompanySettings['accessibility'], value: any) => {
         if (settings && settings.accessibility && settings.accessibility[key] !== value) {
-             onSettingsUpdate({
+            onSettingsUpdate({
                 accessibility: { ...settings.accessibility, [key]: value }
             });
         }
@@ -223,19 +223,19 @@ const CompanySettingsComponent: React.FC<{ settings: CompanySettings, onSettings
             </Card>
 
             <Card>
-                 <h3 className="font-bold text-lg">Accessibility</h3>
-                 <div className="mt-4 space-y-4">
+                <h3 className="font-bold text-lg">Accessibility</h3>
+                <div className="mt-4 space-y-4">
                     <div className="flex justify-between items-center">
                         <label>
                             <p>High Contrast Mode</p>
                             <p className="text-sm text-muted-foreground">Increases text and UI element contrast.</p>
                         </label>
-                        <ToggleSwitch 
-                            checked={settings.accessibility.highContrast} 
+                        <ToggleSwitch
+                            checked={settings.accessibility.highContrast}
                             onChange={(checked) => handleAccessibilityChange('highContrast', checked)}
                         />
                     </div>
-                 </div>
+                </div>
             </Card>
 
             <Card>
@@ -283,7 +283,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, addToast, sett
             {activeTab === 'profile' && (
                 <UserProfileSettings user={user} addToast={addToast} />
             )}
-            
+
             {activeTab === 'company' && (
                 <div className="space-y-6">
                     <CompanySettingsComponent settings={settings} onSettingsUpdate={onSettingsUpdate} />

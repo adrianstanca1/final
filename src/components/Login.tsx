@@ -239,16 +239,31 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
       </div>
       <div className="space-y-2">
         <Button type="submit" className="w-full" isLoading={isSubmittingCredentials || isLoading} disabled={isGoogleLoading || isMagicLoading || isFacebookLoading || isAppleLoading}>Sign in</Button>
-        <button type="button" onClick={handleGoogle} disabled={isSubmittingCredentials || isMagicLoading || isFacebookLoading || isAppleLoading || isLoading} className="w-full rounded-md border border-border p-2 text-sm">
+        <button type="button" onClick={handleGoogle} disabled={isSubmittingCredentials || isMagicLoading || isFacebookLoading || isAppleLoading || isLoading} className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-border p-2 text-sm hover:bg-accent">
+          <span className="inline-flex h-4 w-4 items-center justify-center" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="h-4 w-4">
+              <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303C33.582 31.91 29.197 35 24 35c-7.18 0-13-5.82-13-13s5.82-13 13-13c3.314 0 6.329 1.243 8.606 3.269l5.657-5.657C34.833 3.014 29.671 1 24 1 10.745 1 0 11.745 0 25s10.745 24 24 24c12.683 0 23.172-9.236 23.172-24 0-1.613-.172-3.182-.561-4.917z"/>
+              <path fill="#FF3D00" d="M6.306 14.691l6.571 4.816C14.707 16.396 18.994 13 24 13c3.314 0 6.329 1.243 8.606 3.269l5.657-5.657C34.833 3.014 29.671 1 24 1 15.325 1 7.75 5.566 3.686 12.301l2.62 2.39z"/>
+              <path fill="#4CAF50" d="M24 49c5.058 0 9.673-1.717 13.283-4.657l-6.103-5.158C29.304 40.487 26.774 41 24 41c-5.152 0-9.523-3.117-11.335-7.539l-6.48 5.004C9.08 44.909 16.054 49 24 49z"/>
+              <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-1.638 4.073-6.005 7-11.303 7-5.152 0-9.523-3.117-11.335-7.539l-6.48 5.004C9.08 44.909 16.054 49 24 49c12.683 0 23.172-9.236 23.172-24 0-1.613-.172-3.182-.561-4.917z"/>
+            </svg>
+          </span>
           {isGoogleLoading ? 'Redirecting…' : 'Continue with Google'}
         </button>
-        <button type="button" onClick={handleFacebook} disabled={isSubmittingCredentials || isGoogleLoading || isMagicLoading || isAppleLoading || isLoading} className="w-full rounded-md border border-border p-2 text-sm">
+        <button type="button" onClick={handleFacebook} disabled={isSubmittingCredentials || isGoogleLoading || isMagicLoading || isAppleLoading || isLoading} className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-border p-2 text-sm hover:bg-accent">
+          <span className="inline-flex h-4 w-4 items-center justify-center" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4 fill-[#1877F2]"><path d="M22.676 0H1.324C.593 0 0 .593 0 1.324v21.352C0 23.407.593 24 1.324 24h11.483v-9.294H9.691V11.01h3.116V8.352c0-3.09 1.887-4.774 4.645-4.774 1.321 0 2.455.098 2.785.142v3.23l-1.912.001c-1.5 0-1.791.713-1.791 1.761v2.309h3.58l-.466 3.696h-3.114V24h6.102C23.407 24 24 23.407 24 22.676V1.324C24 .593 23.407 0 22.676 0z"/></svg>
+          </span>
           {isFacebookLoading ? 'Redirecting…' : 'Continue with Facebook'}
         </button>
-        <button type="button" onClick={handleApple} disabled={isSubmittingCredentials || isGoogleLoading || isMagicLoading || isFacebookLoading || isLoading} className="w-full rounded-md border border-border p-2 text-sm">
+        <button type="button" onClick={handleApple} disabled={isSubmittingCredentials || isGoogleLoading || isMagicLoading || isFacebookLoading || isLoading} className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-border p-2 text-sm hover:bg-accent">
+          <span className="inline-flex h-4 w-4 items-center justify-center" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-4 w-4"><path d="M16.365 1.43c0 1.14-.467 2.245-1.278 3.07-.82.835-2.005 1.397-3.135 1.316-.134-1.093.423-2.244 1.29-3.09.856-.86 2.338-1.475 3.123-1.296zM20.52 17.27c-.536 1.242-.79 1.79-1.478 2.886-.958 1.486-2.312 3.343-4.01 3.36-1.488.014-1.874-.967-3.493-.967-1.62 0-2.046.952-3.506.98-1.674.03-2.948-1.61-3.91-3.09-2.14-3.318-3.77-9.365-1.57-13.484.108-.205.822-1.51 1.845-1.536 1.443-.034 2.46 1.05 3.488 1.05 1.019 0 2.15-1.07 3.624-1.03 1.48.03 2.397 1.055 3.383 1.04 1.003-.02 1.98-1.053 3.412-1.085.574-.01 2.2.14 3.247 1.677-2.86 1.566-2.408 5.56.38 6.58-.67 1.526-.752 1.996-1.292 3.66z"/></svg>
+          </span>
           {isAppleLoading ? 'Redirecting…' : 'Continue with Apple'}
         </button>
-        <button type="button" onClick={handleMagicLink} disabled={isSubmittingCredentials || isGoogleLoading || isFacebookLoading || isAppleLoading || isLoading} className="w-full rounded-md border border-dashed p-2 text-sm">
+        <button type="button" onClick={handleMagicLink} disabled={isSubmittingCredentials || isGoogleLoading || isFacebookLoading || isAppleLoading || isLoading} className="w-full inline-flex items-center justify-center gap-2 rounded-md border border-dashed p-2 text-sm hover:bg-accent">
+          <span className="inline-flex h-4 w-4 items-center justify-center" aria-hidden="true">✉️</span>
           {isMagicLoading ? 'Sending magic link…' : 'Email me a magic link'}
         </button>
       </div>
