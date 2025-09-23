@@ -27,17 +27,17 @@ const DraggablePostIt: React.FC<{
     const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
         // Prevent drag from starting on textareas, buttons, or while editing
         if (isEditing || (e.target as HTMLElement).tagName === 'TEXTAREA' || (e.target as HTMLElement).tagName === 'BUTTON') return;
-        
+
         const noteNode = noteRef.current;
         const containerNode = containerRef.current;
         if (!noteNode || !containerNode) return;
-        
+
         // Bring note to front when dragging
         noteNode.style.zIndex = '100';
 
         const startX = e.pageX - noteNode.offsetLeft;
         const startY = e.pageY - noteNode.offsetTop;
-        
+
         const handleMouseMove = (moveEvent: MouseEvent) => {
             const newX = moveEvent.pageX - startX;
             const newY = moveEvent.pageY - startY;
@@ -49,19 +49,19 @@ const DraggablePostIt: React.FC<{
         const handleMouseUp = (upEvent: MouseEvent) => {
             document.removeEventListener('mousemove', handleMouseMove);
             document.removeEventListener('mouseup', handleMouseUp);
-            
+
             // Reset z-index
             noteNode.style.zIndex = '1';
-            
+
             const finalX = upEvent.pageX - startX;
             const finalY = upEvent.pageY - startY;
-            
+
             // Only call update if position actually changed
-            if(note.position.x !== finalX || note.position.y !== finalY) {
-               onUpdate(note.id, { position: { x: finalX, y: finalY } });
+            if (note.position.x !== finalX || note.position.y !== finalY) {
+                onUpdate(note.id, { position: { x: finalX, y: finalY } });
             }
         };
-        
+
         document.addEventListener('mousemove', handleMouseMove);
         document.addEventListener('mouseup', handleMouseUp);
 
@@ -108,12 +108,14 @@ const DraggablePostIt: React.FC<{
             )}
         </div>
     );
+};
+
 
 // Main Whiteboard View Component
 interface WhiteboardViewProps {
-  project: Project;
-  user: User;
-  addToast: (message: string, type: 'success' | 'error') => void;
+    project: Project;
+    user: User;
+    addToast: (message: string, type: 'success' | 'error') => void;
 }
 
 export const WhiteboardView: React.FC<WhiteboardViewProps> = ({ project, user, addToast }) => {
@@ -164,7 +166,7 @@ export const WhiteboardView: React.FC<WhiteboardViewProps> = ({ project, user, a
             addToast("Failed to add note.", "error");
         }
     };
-    
+
     const handleUpdateNote = useCallback(async (id: string, updates: Partial<Omit<WhiteboardNote, 'id'>>) => {
         // Optimistic update
         setNotes(prev => prev.map(n => n.id === id ? { ...n, ...updates } as WhiteboardNote : n));

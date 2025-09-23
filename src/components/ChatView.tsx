@@ -8,9 +8,9 @@ import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 
 interface ChatViewProps {
-  user: User;
-  addToast: (message: string, type: 'success' | 'error') => void;
-  initialRecipient?: User | null;
+    user: User;
+    addToast: (message: string, type: 'success' | 'error') => void;
+    initialRecipient?: User | null;
 }
 
 const NewChatModal: React.FC<{
@@ -27,12 +27,12 @@ const NewChatModal: React.FC<{
 
     return (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <Card className="w-full max-w-md" onClick={e=>e.stopPropagation()}>
+            <Card className="w-full max-w-md" onClick={e => e.stopPropagation()}>
                 <h3 className="text-lg font-bold mb-4">Start a New Chat</h3>
                 <div className="space-y-2 max-h-96 overflow-y-auto">
                     {availableUsers.length > 0 ? availableUsers.map(p => (
                         <button key={p.id} onClick={() => onStartConversation(p)} className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-slate-100">
-                            <Avatar name={`${p.firstName} ${p.lastName}`} imageUrl={p.avatar} className="w-10 h-10"/>
+                            <Avatar name={`${p.firstName} ${p.lastName}`} imageUrl={p.avatar} className="w-10 h-10" />
                             <div>{`${p.firstName} ${p.lastName}`}</div>
                         </button>
                     )) : <p className="text-slate-500 text-center py-4">No new people to message.</p>}
@@ -59,13 +59,13 @@ export const ChatView: React.FC<ChatViewProps> = ({ user, addToast, initialRecip
     const activeConversation = useMemo(() => {
         return conversations.find(c => c.id === activeConversationId);
     }, [conversations, activeConversationId]);
-    
+
     const fetchData = useCallback(async (isInitialLoad = false) => {
         const controller = new AbortController();
         abortControllerRef.current?.abort();
         abortControllerRef.current = controller;
 
-        if(isInitialLoad) setLoading(true);
+        if (isInitialLoad) setLoading(true);
         try {
             if (!user.companyId) return;
             const [convoData, personnelData] = await Promise.all([
@@ -89,7 +89,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ user, addToast, initialRecip
             if (controller.signal.aborted) return;
             addToast("Failed to load chat data", "error");
         } finally {
-            if(isInitialLoad && !controller.signal.aborted) setLoading(false);
+            if (isInitialLoad && !controller.signal.aborted) setLoading(false);
         }
     }, [user, addToast, initialRecipient]);
 
@@ -100,11 +100,11 @@ export const ChatView: React.FC<ChatViewProps> = ({ user, addToast, initialRecip
         };
     }, [fetchData]);
 
-     useEffect(() => {
+    useEffect(() => {
         if (!activeConversationId) return;
 
         const fetchMessages = async () => {
-             try {
+            try {
                 const newMessages = await api.getMessagesForConversation(activeConversationId, user.id);
                 setMessages(currentMessages => {
                     // This prevents replacing optimistically sent messages with server response if they are the same
@@ -155,7 +155,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ user, addToast, initialRecip
             isRead: true,
             isSending: true,
         };
-        
+
         setMessages(prev => [...prev, optimisticMessage]);
         setNewMessage('');
         setIsSending(true);
@@ -164,7 +164,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ user, addToast, initialRecip
             const { conversation: updatedConvo, message: sentMessage } = await api.sendMessage(user.id, otherParticipantId, optimisticMessage.content, activeConversation.id.startsWith('new-') ? undefined : activeConversation.id);
             setMessages(prev => prev.map(m => m.id === tempId ? sentMessage : m));
             setConversations(prev => prev.map(c => c.id === activeConversation.id ? updatedConvo : c.id === updatedConvo.id ? updatedConvo : c));
-            if(activeConversation.id !== updatedConvo.id) setActiveConversationId(updatedConvo.id);
+            if (activeConversation.id !== updatedConvo.id) setActiveConversationId(updatedConvo.id);
         } catch (error) {
             setMessages(prev => prev.map(m => m.id === tempId ? { ...m, isSending: false, error: 'Failed to send' } : m));
             addToast("Failed to send message.", "error");
@@ -172,7 +172,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ user, addToast, initialRecip
             setIsSending(false);
         }
     };
-    
+
     const getOtherParticipant = (convo: Conversation) => {
         const otherId = convo.participantIds.find(id => id !== user.id);
         return userMap.get(otherId || '');
@@ -215,7 +215,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ user, addToast, initialRecip
                             <div className="flex-grow p-4 overflow-y-auto space-y-4">
                                 {messages.map(msg => (
                                     <div key={msg.id} className={`flex gap-3 ${msg.senderId === user.id ? 'justify-end' : 'justify-start'}`}>
-                                        {msg.senderId !== user.id && <Avatar name={`${getOtherParticipant(activeConversation)?.firstName} ${getOtherParticipant(activeConversation)?.lastName}` || ''} imageUrl={getOtherParticipant(activeConversation)?.avatar} className="w-8 h-8 self-end"/>}
+                                        {msg.senderId !== user.id && <Avatar name={`${getOtherParticipant(activeConversation)?.firstName} ${getOtherParticipant(activeConversation)?.lastName}` || ''} imageUrl={getOtherParticipant(activeConversation)?.avatar} className="w-8 h-8 self-end" />}
                                         <div className={`p-3 rounded-lg max-w-lg ${msg.senderId === user.id ? 'bg-sky-600 text-white' : 'bg-slate-100 dark:bg-slate-700'} ${msg.isSending ? 'opacity-70' : ''}`}>
                                             {msg.content}
                                             {msg.error && <span className="text-xs text-red-300 block mt-1">{msg.error}</span>}

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { backendGateway } from '../services/backendGateway';
 import { DashboardSnapshot, User } from '../types';
 
@@ -17,10 +18,23 @@ export const useDashboardSnapshot = (
   user: User | null | undefined,
   options: UseDashboardSnapshotOptions = {},
 ): UseDashboardSnapshotResult => {
-  const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const queryClient = useQueryClient();
+
+  const query = useQuery<DashboardSnapshot, Error>({
+    queryKey: ['dashboard', user?.id],
+    enabled: Boolean(user?.id && user?.companyId) && options.enabled !== false,
+    staleTime: 60_000,
+    queryFn: ({ signal }) => {
+      if (!user?.id || !user.companyId) {
+        throw new Error('A user with an associated company is required to load dashboard data.');
+      }
+      return backendGateway.getDashboardSnapshot({
+        userId: user.id,
+        companyId: user.companyId,
+        signal,
+      });
+    },
+  });
 
   const refresh = useCallback(
     async (forceRefresh = false) => {
@@ -28,48 +42,25 @@ export const useDashboardSnapshot = (
         return;
       }
 
-      const controller = new AbortController();
-      abortRef.current?.abort();
-      abortRef.current = controller;
-
-      setLoading(true);
-      setError(null);
-      try {
+      if (forceRefresh) {
         const data = await backendGateway.getDashboardSnapshot({
           userId: user.id,
           companyId: user.companyId,
-          signal: controller.signal,
           forceRefresh,
         });
-        if (!controller.signal.aborted) {
-          setSnapshot(data);
-        }
-      } catch (err) {
-        if (!controller.signal.aborted) {
-          setError(err as Error);
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
+        queryClient.setQueryData(['dashboard', user.id], data);
+        return;
       }
+
+      await query.refetch();
     },
-    [user?.id, user?.companyId],
+    [query, queryClient, user?.id, user?.companyId],
   );
 
-  useEffect(() => {
-    if (options.enabled === false) {
-      return;
-    }
-    void refresh();
-    return () => abortRef.current?.abort();
-  }, [options.enabled, refresh]);
-
   return {
-    snapshot,
-    loading,
-    error,
+    snapshot: query.data ?? null,
+    loading: query.isInitialLoading,
+    error: query.error ?? null,
     refresh,
   };
 };
-

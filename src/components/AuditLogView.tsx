@@ -186,8 +186,8 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ user, addToast }) =>
             >
               <option value="all">All users</option>
               {Array.from(users.values()).map((actor) => (
-                <option key={actor.id} value={actor.id}>
-                  {actor.firstName} {actor.lastName}
+                <option key={(actor as User).id} value={(actor as User).id}>
+                  {(actor as User).firstName} {(actor as User).lastName}
                 </option>
               ))}
             </select>

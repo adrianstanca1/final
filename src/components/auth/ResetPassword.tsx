@@ -5,8 +5,8 @@ import { Button } from '../ui/Button';
 import { AuthEnvironmentNotice } from './AuthEnvironmentNotice';
 
 interface ResetPasswordProps {
-  token: string;
-  onSuccess: () => void;
+    token: string;
+    onSuccess: () => void;
 }
 
 const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password = '' }) => {
@@ -30,11 +30,11 @@ const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password =
     );
 };
 
-const InputField = ({ label, name, type = 'text', value = '', onChange, error }: { label: string; name: string; type?: string; value?: string; onChange: (name: string, value: string) => void; error?: string;}) => (
+const InputField = ({ label, name, type = 'text', value = '', onChange, error }: { label: string; name: string; type?: string; value?: string; onChange: (name: string, value: string) => void; error?: string; }) => (
     <div>
         <label htmlFor={name} className="block text-sm font-medium text-muted-foreground">{label}</label>
         <input id={name} name={name} type={type} value={value} onChange={e => onChange(name, e.target.value)} required
-                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm ${error ? 'border-destructive' : 'border-border'}`} />
+            className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm ${error ? 'border-destructive' : 'border-border'}`} />
         {error && <p className="text-xs text-destructive mt-1">{error}</p>}
     </div>
 );
@@ -73,7 +73,7 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ token, onSuccess }
 
     if (success) {
         return (
-             <div className="min-h-screen bg-background flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+            <div className="min-h-screen bg-background flex flex-col justify-center py-12 sm:px-6 lg:px-8">
                 <Card className="sm:mx-auto sm:w-full sm:max-w-md text-center">
                     <AuthEnvironmentNotice className="mb-4" />
                     <h2 className="text-2xl font-bold text-foreground mb-4">Password Reset Successfully!</h2>
@@ -93,8 +93,8 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ token, onSuccess }
                 </p>
             </div>
             <Card className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-                 <AuthEnvironmentNotice className="mb-4" />
-                 {error && <div className="mb-4 p-3 bg-destructive/10 text-destructive text-sm rounded-md">{error}</div>}
+                <AuthEnvironmentNotice className="mb-4" />
+                {error && <div className="mb-4 p-3 bg-destructive/10 text-destructive text-sm rounded-md">{error}</div>}
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <InputField label="New Password" name="password" type="password" value={password} onChange={(_, val) => setPassword(val)} />
                     <PasswordStrengthIndicator password={password} />

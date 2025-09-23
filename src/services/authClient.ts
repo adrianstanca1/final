@@ -255,7 +255,9 @@ export const authClient = {
         withAuthFallback<EmailAvailability>(
             `/auth/email-availability?email=${encodeURIComponent(email)}`,
             { method: 'GET' },
-            () => authApi.checkEmailAvailability(email)
+            () => (authApi as any).checkEmailAvailability
+                ? (authApi as any).checkEmailAvailability(email)
+                : Promise.resolve({ available: true })
         ),
 
     lookupInviteToken: (token: string): Promise<InvitePreview> =>

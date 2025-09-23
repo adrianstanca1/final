@@ -10,9 +10,9 @@ import { Avatar } from './ui/Avatar';
 import { Tag } from './ui/Tag';
 
 interface TeamViewProps {
-  user: User;
-  addToast: (message: string, type: 'success' | 'error') => void;
-  onStartChat: (recipient: User) => void;
+    user: User;
+    addToast: (message: string, type: 'success' | 'error') => void;
+    onStartChat: (recipient: User) => void;
 }
 
 const availabilityTagColor: Record<AvailabilityStatus, 'green' | 'blue' | 'gray'> = {
@@ -20,7 +20,7 @@ const availabilityTagColor: Record<AvailabilityStatus, 'green' | 'blue' | 'gray'
     [AvailabilityStatus.ON_PROJECT]: 'blue',
     [AvailabilityStatus.ON_LEAVE]: 'gray',
 
-// --- User Profile & Management Modal ---
+    // --- User Profile & Management Modal ---
 }
 
 const UserModal: React.FC<{
@@ -51,7 +51,7 @@ const UserModal: React.FC<{
         if (member) {
             const memberAssignments = allAssignments.filter(a => a.userId === member.id).map(a => a.projectId);
             setAssignedProjectIds(new Set(memberAssignments));
-            
+
             api.getUserPerformanceMetrics(member.id).then(setPerformance);
         } else {
             setAssignedProjectIds(new Set());
@@ -69,11 +69,11 @@ const UserModal: React.FC<{
             setNewSkill('');
         }
     };
-    
+
     const handleSkillRemove = (skill: string) => {
         handleInputChange('skills', formData.skills?.filter(s => s !== skill));
     };
-    
+
     const handleProjectToggle = (projectId: string | number) => {
         setAssignedProjectIds(prev => {
             const newSet = new Set(prev);
@@ -88,7 +88,7 @@ const UserModal: React.FC<{
         setIsSaving(true);
         try {
             if (isAddMode) {
-                await api.createUser(formData as Omit<User, 'id'|'companyId'>, loggedInUser.id);
+                await api.createUser(formData as Omit<User, 'id' | 'companyId'>, loggedInUser.id);
                 addToast("Team member added.", "success");
             } else if (member) {
                 await api.updateUser(member.id, formData, Array.from(assignedProjectIds), loggedInUser.id);
@@ -120,27 +120,27 @@ const UserModal: React.FC<{
                 </div>
                 {canManage && (
                     <div className="flex gap-2 mt-2">
-                        <input value={newSkill} onChange={e => setNewSkill(e.target.value)} placeholder="Add a skill" className="flex-grow p-1 border rounded bg-background"/>
+                        <input value={newSkill} onChange={e => setNewSkill(e.target.value)} placeholder="Add a skill" className="flex-grow p-1 border rounded bg-background" />
                         <Button type="button" size="sm" variant="secondary" onClick={handleSkillAdd}>Add</Button>
                     </div>
                 )}
             </div>
         </>
     );
-    
+
     const renderFormField = (label: string, type: string, field: keyof User, forceEditable = true) => (
         <div>
             <label className="block text-sm font-medium text-muted-foreground">{label}</label>
             {canManage && forceEditable ? (
-                <input type={type} value={String(formData[field] || '')} onChange={e => handleInputChange(field, e.target.value)} className="w-full p-2 border rounded bg-background"/>
+                <input type={type} value={String(formData[field] || '')} onChange={e => handleInputChange(field, e.target.value)} className="w-full p-2 border rounded bg-background" />
             ) : (
                 <p className="p-2 text-foreground">{String(formData[field] || 'N/A')}</p>
             )}
         </div>
     );
-    
+
     const renderSelectField = (label: string, field: keyof User, options: string[]) => (
-         <div>
+        <div>
             <label className="block text-sm font-medium text-muted-foreground">{label}</label>
             {canManage ? (
                 <select value={String(formData[field] || '')} onChange={e => handleInputChange(field, e.target.value)} className="w-full p-2 border rounded bg-background">
@@ -151,7 +151,7 @@ const UserModal: React.FC<{
             )}
         </div>
     );
-    
+
     const renderPerformanceTab = () => (
         <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -180,7 +180,7 @@ const UserModal: React.FC<{
                         <p className="text-sm text-muted-foreground">Not assigned to any projects.</p>
                     )}
                 </div>
-                
+
                 {canManage && (
                     <div className="pt-4 border-t">
                         <h4 className="font-semibold text-muted-foreground mb-2">Edit Assignments</h4>
@@ -214,11 +214,11 @@ const UserModal: React.FC<{
 
     return (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <form onSubmit={handleSubmit} className="w-full max-w-4xl" onClick={e=>e.stopPropagation()}>
+            <form onSubmit={handleSubmit} className="w-full max-w-4xl" onClick={e => e.stopPropagation()}>
                 <Card>
                     <div className="flex gap-6">
                         <div className="w-1/3 text-center">
-                            <Avatar name={`${formData.firstName || ''} ${formData.lastName || ''}`.trim() || '?'} imageUrl={formData.avatar} className="w-32 h-32 mx-auto mb-4 text-4xl"/>
+                            <Avatar name={`${formData.firstName || ''} ${formData.lastName || ''}`.trim() || '?'} imageUrl={formData.avatar} className="w-32 h-32 mx-auto mb-4 text-4xl" />
                             {canManage && <Button type="button" variant="secondary" size="sm">Upload Photo</Button>}
                             <h3 className="font-bold text-2xl mt-4">{`${formData.firstName || ''} ${formData.lastName || ''}`.trim()}</h3>
                             <p className="text-muted-foreground">{formData.email}</p>
@@ -227,11 +227,11 @@ const UserModal: React.FC<{
                             )}
                         </div>
                         <div className="w-2/3">
-                             <div className="border-b">
+                            <div className="border-b">
                                 <nav className="-mb-px flex space-x-4">
-                                    <button type="button" onClick={() => setActiveTab('details')} className={`py-2 px-1 border-b-2 text-sm ${activeTab==='details' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>Details</button>
-                                    {!isAddMode && <button type="button" onClick={() => setActiveTab('performance')} className={`py-2 px-1 border-b-2 text-sm ${activeTab==='performance' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>Performance</button>}
-                                    {!isAddMode && <button type="button" onClick={() => setActiveTab('assignments')} className={`py-2 px-1 border-b-2 text-sm ${activeTab==='assignments' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>Assignments</button>}
+                                    <button type="button" onClick={() => setActiveTab('details')} className={`py-2 px-1 border-b-2 text-sm ${activeTab === 'details' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>Details</button>
+                                    {!isAddMode && <button type="button" onClick={() => setActiveTab('performance')} className={`py-2 px-1 border-b-2 text-sm ${activeTab === 'performance' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>Performance</button>}
+                                    {!isAddMode && <button type="button" onClick={() => setActiveTab('assignments')} className={`py-2 px-1 border-b-2 text-sm ${activeTab === 'assignments' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>Assignments</button>}
                                 </nav>
                             </div>
                             <div className="pt-4">
@@ -241,7 +241,7 @@ const UserModal: React.FC<{
                             </div>
                         </div>
                     </div>
-                     <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
+                    <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
                         <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
                         {canManage && <Button type="submit" isLoading={isSaving}>{isAddMode ? 'Add Member' : 'Save Changes'}</Button>}
                     </div>
@@ -328,7 +328,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ user, addToast, onStartChat 
                             <h3 className="font-bold text-lg">{memberName}</h3>
                             <p className="text-sm text-muted-foreground">{member.role.replace(/_/g, ' ')}</p>
                             <div className="mt-2">
-                                 <Tag label={(member.availability || 'Unknown').replace(/_/g, ' ')} color={availabilityTagColor[member.availability || AvailabilityStatus.AVAILABLE]}/>
+                                <Tag label={(member.availability || 'Unknown').replace(/_/g, ' ')} color={availabilityTagColor[member.availability || AvailabilityStatus.AVAILABLE]} />
                             </div>
                         </Card>
                     );

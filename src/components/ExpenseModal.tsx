@@ -29,7 +29,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ expenseToEdit, onClo
         }
         return { category: CUSTOM_CATEGORY_VALUE, customCategory: expenseToEdit.category };
     };
-    
+
     const initialState = getInitialCategoryState();
 
     const [projectId, setProjectId] = useState(expenseToEdit?.projectId.toString() || projects[0]?.id.toString() || '');
@@ -41,7 +41,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ expenseToEdit, onClo
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         const finalCategory = category === CUSTOM_CATEGORY_VALUE ? customCategory : category;
 
         if (!projectId || amount === '' || !description.trim() || !finalCategory.trim()) {
@@ -74,7 +74,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ expenseToEdit, onClo
             setIsSaving(false);
         }
     };
-    
+
     return (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
             <Card className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
@@ -86,11 +86,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ expenseToEdit, onClo
                             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
                     </div>
-                     <div>
+                    <div>
                         <label className="block text-sm font-medium">Amount (£)</label>
                         <input type="number" value={amount} onChange={e => setAmount(e.target.value === '' ? '' : Number(e.target.value))} className="w-full p-2 border rounded" placeholder="e.g. 150.00" required />
                     </div>
-                     <div>
+                    <div>
                         <label className="block text-sm font-medium">Description</label>
                         <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} className="w-full p-2 border rounded" placeholder="e.g. Lunch with client, safety vests..." required />
                     </div>
@@ -103,8 +103,8 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ expenseToEdit, onClo
                     </div>
                     {category === CUSTOM_CATEGORY_VALUE && (
                         <div>
-                             <label className="block text-sm font-medium">Custom Category Name</label>
-                             <input type="text" value={customCategory} onChange={e => setCustomCategory(e.target.value)} className="w-full p-2 border rounded" placeholder="e.g. Permits, Software" required />
+                            <label className="block text-sm font-medium">Custom Category Name</label>
+                            <input type="text" value={customCategory} onChange={e => setCustomCategory(e.target.value)} className="w-full p-2 border rounded" placeholder="e.g. Permits, Software" required />
                         </div>
                     )}
                     <div className="flex justify-end gap-2 pt-2 border-t">

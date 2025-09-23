@@ -23,13 +23,13 @@ export const TaskModal: React.FC<{
     const [assigneeId, setAssigneeId] = useState<string>(editableTask?.assigneeId?.toString() || editableTask?.assignedTo?.toString() || '');
     const [dueDate, setDueDate] = useState(editableTask?.dueDate ? new Date(editableTask.dueDate).toISOString().split('T')[0] : '');
     const [priority, setPriority] = useState<TodoPriority>(editableTask?.priority || TodoPriority.MEDIUM);
-    const [dependsOn, setDependsOn] = useState<(string|number)[]>(editableTask?.dependsOn || []);
+    const [dependsOn, setDependsOn] = useState<(string | number)[]>(editableTask?.dependsOn || []);
     const [isSaving, setIsSaving] = useState(false);
 
     const availableTasksForDep = useMemo(() => {
         return allProjectTasks.filter(t => t.projectId.toString() === projectId && t.id !== taskToEdit?.id);
     }, [allProjectTasks, projectId, taskToEdit]);
-    
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!text.trim() || !projectId) {
@@ -67,10 +67,10 @@ export const TaskModal: React.FC<{
     };
 
     const handleDependsOnChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-        const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
+        const selectedOptions = Array.from(e.target.selectedOptions, (option: HTMLOptionElement) => option.value);
         setDependsOn(selectedOptions);
     };
-    
+
     return (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
             <Card className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
@@ -84,25 +84,25 @@ export const TaskModal: React.FC<{
                                 {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                             </select>
                         </div>
-                         <div>
+                        <div>
                             <label className="block text-sm font-medium">Assignee</label>
                             <select value={assigneeId} onChange={e => setAssigneeId(e.target.value)} className="w-full p-2 border rounded bg-white">
                                 <option value="">Unassigned</option>
                                 {users.map(u => <option key={u.id} value={u.id}>{`${u.firstName} ${u.lastName}`}</option>)}
                             </select>
                         </div>
-                         <div>
+                        <div>
                             <label className="block text-sm font-medium">Due Date</label>
                             <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full p-2 border rounded" />
                         </div>
-                         <div>
+                        <div>
                             <label className="block text-sm font-medium">Priority</label>
                             <select value={priority} onChange={e => setPriority(e.target.value as TodoPriority)} className="w-full p-2 border rounded bg-white">
                                 {Object.values(TodoPriority).map(p => <option key={p} value={p}>{p}</option>)}
                             </select>
                         </div>
                     </div>
-                     <div>
+                    <div>
                         <label className="block text-sm font-medium">Depends On (blockers)</label>
                         <select
                             multiple

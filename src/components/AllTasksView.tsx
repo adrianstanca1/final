@@ -9,9 +9,9 @@ import { TaskModal } from './TaskModal';
 import { ViewHeader } from './layout/ViewHeader';
 
 interface AllTasksViewProps {
-  user: User;
-  addToast: (message: string, type: 'success' | 'error') => void;
-  isOnline: boolean;
+    user: User;
+    addToast: (message: string, type: 'success' | 'error') => void;
+    isOnline: boolean;
 }
 
 export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOnline }) => {
@@ -84,7 +84,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
         if (selectedProjectId === 'all') return todos;
         return todos.filter(t => t.projectId.toString() === selectedProjectId);
     }, [todos, selectedProjectId]);
-    
+
     const handleOpenTaskModal = (task: Todo | null) => {
         setTaskToEdit(task);
         setIsTaskModalOpen(true);
@@ -103,7 +103,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                 setTodos(originalTodos);
             });
     };
-    
+
     const handleTaskSelectionChange = (taskId: string | number) => {
         setSelectedTaskIds(prev => {
             const newSet = new Set(prev);
@@ -112,12 +112,12 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
             return newSet;
         });
     };
-    
-     const handleTaskModalSuccess = () => {
+
+    const handleTaskModalSuccess = () => {
         // Just refresh all data to ensure dependency graph is correct
         fetchData();
     };
-    
+
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) {
             setSelectedTaskIds(new Set(filteredTodos.map(t => t.id)));
@@ -136,7 +136,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
         if (bulkAction.type === 'priority') updates.priority = bulkAction.value as TodoPriority;
 
         const originalTodos = [...todos];
-        const selectedIdsArray = Array.from(selectedTaskIds);
+        const selectedIdsArray: string[] = Array.from(selectedTaskIds);
         setTodos(prev => prev.map(t => selectedIdsArray.includes(t.id) ? { ...t, ...updates } : t));
 
         try {
@@ -156,7 +156,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
 
     return (
         <div className="space-y-6">
-            {isTaskModalOpen && <TaskModal user={user} projects={projects} users={personnel} onClose={() => setIsTaskModalOpen(false)} onSuccess={handleTaskModalSuccess} addToast={addToast} taskToEdit={taskToEdit} allProjectTasks={todos}/>}
+            {isTaskModalOpen && <TaskModal user={user} projects={projects} users={personnel} onClose={() => setIsTaskModalOpen(false)} onSuccess={handleTaskModalSuccess} addToast={addToast} taskToEdit={taskToEdit} allProjectTasks={todos} />}
             <ViewHeader
                 view="all-tasks"
                 actions={canManage ? <Button onClick={() => handleOpenTaskModal(null)}>Add Task</Button> : undefined}
@@ -225,7 +225,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                     </div>
                 )}
             </Card>
-            
+
             <KanbanBoard
                 todos={filteredTodos}
                 allTodos={todos}

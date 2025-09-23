@@ -17,9 +17,9 @@ import { WorkforcePlanner } from './WorkforcePlanner';
 import { ResourceScheduler } from './ResourceScheduler';
 
 interface ToolsViewProps {
-  user: User;
-  addToast: (message: string, type: 'success' | 'error') => void;
-  setActiveView: (view: View) => void;
+    user: User;
+    addToast: (message: string, type: 'success' | 'error') => void;
+    setActiveView: (view: View) => void;
 }
 
 type Tool = 'ai-advisor' | 'bid-generator' | 'cost-estimator' | 'daily-summary' | 'funding-bot' | 'risk-bot' | 'safety-analysis' | 'site-inspector' | 'workforce-planner' | 'resource-scheduler';
@@ -49,14 +49,14 @@ export const ToolsView: React.FC<ToolsViewProps> = ({ user, addToast, setActiveV
         { id: 'workforce-planner', name: 'Workforce Planner', description: 'Plan and allocate personnel to projects.', icon: '👥', component: <WorkforcePlanner user={user} addToast={addToast} />, permission: hasPermission(user, Permission.MANAGE_TEAM) },
         { id: 'resource-scheduler', name: 'Resource Scheduler', description: 'View team and equipment schedules.', icon: '🗓️', component: <ResourceScheduler user={user} addToast={addToast} />, permission: hasPermission(user, Permission.MANAGE_EQUIPMENT) },
     ];
-    
+
     const availableTools = toolDefinitions.filter(t => t.permission);
     const currentTool = availableTools.find(t => t.id === activeTool);
 
     if (currentTool) {
         return (
             <div>
-                 <button onClick={() => setActiveTool(null)} className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 mb-4">
+                <button onClick={() => setActiveTool(null)} className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 mb-4">
                     &larr; Back to all tools
                 </button>
                 {currentTool.component}

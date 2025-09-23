@@ -340,8 +340,9 @@ type partialDashboardSnapshot = {
   };
 };
 
-export const backendGateway = BackendGateway.getInstance();
+export let backendGateway = BackendGateway.getInstance();
 
 export const __resetBackendGatewayForTests = () => {
   BackendGateway.resetForTests();
+  backendGateway = BackendGateway.getInstance();
 };

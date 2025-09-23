@@ -212,14 +212,14 @@ export class AuthService {
 
   // Private methods
   private checkContextualPermissions(user: User, permission: Permission, context: any): boolean {
-    // Example: Users can only edit their own profile
-    if (permission === Permission.EDIT_USER && context.userId) {
-      return user.id === context.userId || this.hasPermission(user, Permission.MANAGE_USERS);
+    const permStr = String(permission);
+    // Users can edit their own profile even without broader team permissions
+    if (permStr === 'EDIT_USER' && context?.userId) {
+      return user.id === context.userId || RolePermissions[user.role]?.has(Permission.MANAGE_TEAM) === true;
     }
 
-    // Example: Project managers can only access their assigned projects
-    if (permission === Permission.VIEW_PROJECT && context.projectId) {
-      // This would need to check project assignments in a real implementation
+    // Project-specific access checks (placeholder for real assignment checks)
+    if (permStr === 'VIEW_PROJECT' && context?.projectId) {
       return true;
     }
 

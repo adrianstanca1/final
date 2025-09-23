@@ -93,7 +93,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, u
   const [activeTab, setActiveTab] = useState<DetailTab>('overview');
   const [progress, setProgress] = useState<number>(project.progress ?? 0);
   const [isBlocked, setIsBlocked] = useState<boolean>(false);
-  const canManage = hasPermission(user, Permission.MANAGE_PROJECTS);
+  const canManage = hasPermission(user, Permission.MANAGE_PROJECT_DETAILS);
 
   const handleProgressChangeCommit = (value: number) => {
     setProgress(value);

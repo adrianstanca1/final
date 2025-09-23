@@ -24,7 +24,7 @@ const KpiCard: React.FC<{ title: string; value: string; subtext?: string; icon: 
 
 // --- Modals for the Safety Hub ---
 
-const ReportIncidentModal: React.FC<{ projects: Project[], user: User, onClose: () => void, addToast: (m:string,t:'success'|'error')=>void, onSuccess: () => void }> = ({ projects, user, onClose, addToast, onSuccess }) => {
+const ReportIncidentModal: React.FC<{ projects: Project[], user: User, onClose: () => void, addToast: (m: string, t: 'success' | 'error') => void, onSuccess: () => void }> = ({ projects, user, onClose, addToast, onSuccess }) => {
     const [description, setDescription] = useState('');
     const [severity, setSeverity] = useState<IncidentSeverity>(IncidentSeverity.LOW);
     const [projectId, setProjectId] = useState<string>(projects[0]?.id.toString() || '');
@@ -46,16 +46,16 @@ const ReportIncidentModal: React.FC<{ projects: Project[], user: User, onClose: 
     };
 
     return (
-         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <Card className="w-full max-w-lg" onClick={e=>e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <Card className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
                 <h3 className="text-lg font-bold mb-4">Report New Safety Incident</h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <select value={projectId} onChange={e=>setProjectId(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-800" required>
+                    <select value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-800" required>
                         <option value="">-- Select Project --</option>
                         {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
-                    <textarea value={description} onChange={e=>setDescription(e.target.value)} rows={4} className="w-full p-2 border rounded" placeholder="Describe the incident..." required />
-                    <select value={severity} onChange={e=>setSeverity(e.target.value as IncidentSeverity)} className="w-full p-2 border rounded bg-white dark:bg-slate-800">
+                    <textarea value={description} onChange={e => setDescription(e.target.value)} rows={4} className="w-full p-2 border rounded" placeholder="Describe the incident..." required />
+                    <select value={severity} onChange={e => setSeverity(e.target.value as IncidentSeverity)} className="w-full p-2 border rounded bg-white dark:bg-slate-800">
                         {Object.values(IncidentSeverity).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                     <div className="flex justify-end gap-2">
@@ -68,10 +68,10 @@ const ReportIncidentModal: React.FC<{ projects: Project[], user: User, onClose: 
     );
 };
 
-const IncidentDetailModal: React.FC<{ incident: SafetyIncident; project?: Project; user?: User; manager: User; onClose: () => void; onSuccess: () => void; addToast: (m:string,t:'success'|'error')=>void; }> = ({ incident, project, user, manager, onClose, onSuccess, addToast }) => {
+const IncidentDetailModal: React.FC<{ incident: SafetyIncident; project?: Project; user?: User; manager: User; onClose: () => void; onSuccess: () => void; addToast: (m: string, t: 'success' | 'error') => void; }> = ({ incident, project, user, manager, onClose, onSuccess, addToast }) => {
     const canManage = hasPermission(manager, Permission.MANAGE_SAFETY_REPORTS);
     const [newStatus, setNewStatus] = useState(incident.status);
-    
+
     const handleStatusUpdate = async () => {
         try {
             await api.updateSafetyIncidentStatus(incident.id, newStatus, manager.id);
@@ -79,13 +79,13 @@ const IncidentDetailModal: React.FC<{ incident: SafetyIncident; project?: Projec
             onSuccess();
             onClose();
         } catch (error) {
-             addToast("Failed to update status.", "error");
+            addToast("Failed to update status.", "error");
         }
     }
 
     return (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <Card className="w-full max-w-xl" onClick={e=>e.stopPropagation()}>
+            <Card className="w-full max-w-xl" onClick={e => e.stopPropagation()}>
                 <h3 className="text-xl font-bold mb-2">Incident Details</h3>
                 <div className="space-y-3 text-sm">
                     <p><strong>Project:</strong> {project?.name || 'N/A'}</p>
@@ -95,7 +95,7 @@ const IncidentDetailModal: React.FC<{ incident: SafetyIncident; project?: Projec
                         <p><strong>Severity:</strong> <IncidentSeverityBadge severity={incident.severity} /></p>
                         <p><strong>Status:</strong> <IncidentStatusBadge status={incident.status} /></p>
                     </div>
-                    <p className="p-3 bg-slate-50 dark:bg-slate-800 rounded-md"><strong>Description:</strong><br/>{incident.description}</p>
+                    <p className="p-3 bg-slate-50 dark:bg-slate-800 rounded-md"><strong>Description:</strong><br />{incident.description}</p>
                 </div>
                 {canManage && (
                     <div className="mt-4 pt-4 border-t dark:border-slate-700">
@@ -108,18 +108,18 @@ const IncidentDetailModal: React.FC<{ incident: SafetyIncident; project?: Projec
                         </div>
                     </div>
                 )}
-                 <Button onClick={onClose} variant="secondary" className="mt-4 w-full">Close</Button>
+                <Button onClick={onClose} variant="secondary" className="mt-4 w-full">Close</Button>
             </Card>
         </div>
     );
 };
 
-const SafetyAnalysisModal: React.FC<{ user: User, addToast: (m:string,t:'success'|'error')=>void, onClose: () => void }> = ({ user, addToast, onClose }) => {
+const SafetyAnalysisModal: React.FC<{ user: User, addToast: (m: string, t: 'success' | 'error') => void, onClose: () => void }> = ({ user, addToast, onClose }) => {
     return (
-         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <div className="w-full max-w-3xl" onClick={e=>e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <div className="w-full max-w-3xl" onClick={e => e.stopPropagation()}>
                 <SafetyAnalysis user={user} addToast={addToast} />
-                 <Button onClick={onClose} variant="secondary" className="mt-2 w-full">Close Analysis</Button>
+                <Button onClick={onClose} variant="secondary" className="mt-2 w-full">Close Analysis</Button>
             </div>
         </div>
     );
@@ -127,11 +127,11 @@ const SafetyAnalysisModal: React.FC<{ user: User, addToast: (m:string,t:'success
 
 type SortKey = 'timestamp' | 'severity' | 'status';
 
-const SortableHeader: React.FC<{ 
-    sortKey: SortKey, 
+const SortableHeader: React.FC<{
+    sortKey: SortKey,
     children: React.ReactNode,
     sortConfig: { key: SortKey; direction: 'asc' | 'desc' },
-    requestSort: (key: SortKey) => void 
+    requestSort: (key: SortKey) => void
 }> = ({ sortKey, children, sortConfig, requestSort }) => {
     const isSorted = sortConfig.key === sortKey;
     return (
@@ -146,16 +146,16 @@ const SortableHeader: React.FC<{
 
 // --- Main Safety Hub Component ---
 
-export const SafetyView: React.FC<{ 
-  user: User; 
-  addToast: (message: string, type: 'success' | 'error') => void;
-  setActiveView: (view: View) => void;
+export const SafetyView: React.FC<{
+    user: User;
+    addToast: (message: string, type: 'success' | 'error') => void;
+    setActiveView: (view: View) => void;
 }> = ({ user, addToast, setActiveView }) => {
     const [incidents, setIncidents] = useState<SafetyIncident[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
-    
+
     // Modal states
     const [isReportModalOpen, setIsReportModalOpen] = useState(false);
     const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
@@ -201,14 +201,14 @@ export const SafetyView: React.FC<{
             abortControllerRef.current?.abort();
         };
     }, [fetchData]);
-    
+
     const { projectMap, userMap } = useMemo(() => ({
         projectMap: new Map(projects.map(p => [p.id, p])),
         userMap: new Map(users.map(u => [u.id, u]))
     }), [projects, users]);
 
     const { openIncidents, incidentsThisMonth, daysSinceLastIncident } = useMemo(() => {
-        const sorted = [...incidents].sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        const sorted = [...incidents].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
         const open = sorted.filter(i => i.status !== IncidentStatus.RESOLVED).length;
         const thisMonth = sorted.filter(i => {
             const incidentDate = new Date(i.timestamp);
@@ -270,7 +270,7 @@ export const SafetyView: React.FC<{
             {selectedIncident && <IncidentDetailModal incident={selectedIncident} project={projectMap.get(selectedIncident.projectId)} user={userMap.get(selectedIncident.reportedById)} manager={user} onClose={() => setSelectedIncident(null)} onSuccess={fetchData} addToast={addToast} />}
 
             <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Safety Hub</h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <KpiCard title="Open Incidents" value={openIncidents.toString()} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
                 <KpiCard title="Incidents This Month" value={incidentsThisMonth.toString()} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>} />
@@ -311,7 +311,7 @@ export const SafetyView: React.FC<{
                             ))}
                         </tbody>
                     </table>
-                     {incidents.length === 0 && <p className="text-center py-10 text-slate-500">No incidents have been reported.</p>}
+                    {incidents.length === 0 && <p className="text-center py-10 text-slate-500">No incidents have been reported.</p>}
                 </div>
             </Card>
         </div>

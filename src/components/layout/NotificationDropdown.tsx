@@ -167,7 +167,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ user
                                 <p className="text-xs text-muted-foreground mt-1">{formatDistanceToNow(new Date(n.createdAt))} ago</p>
                             </div>
                         </div>
-                    )
+                    ))
                 )}
             </div>
         </div>

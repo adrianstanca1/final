@@ -6,7 +6,26 @@
   "outputDirectory": "dist",
   "devCommand": "npm run dev -- --host 0.0.0.0 --port 4173",
   "routes": [
-    { "handle": "filesystem" },
-    { "src": "/.*", "dest": "/index.html" }
-  ]
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/.*",
+      "dest": "/index.html"
+    }
+  ],
+  "env": {
+    "VITE_GEMINI_API_KEY": "@gemini_api_key",
+    "GEMINI_API_KEY": "@gemini_api_key"
+  },
+  "preview": {
+    "env": {
+      "VITE_API_BASE_URL": "@preview_api_base_url"
+    }
+  },
+  "production": {
+    "env": {
+      "VITE_API_BASE_URL": "@production_api_base_url"
+    }
+  }
 }

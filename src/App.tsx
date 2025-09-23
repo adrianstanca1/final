@@ -20,7 +20,7 @@ import { evaluateViewAccess, getDefaultViewForUser } from './utils/viewAccess';
 const Dashboard = React.lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
 const OwnerDashboard = React.lazy(() => import('./components/OwnerDashboard').then(m => ({ default: m.OwnerDashboard })));
 const MyDayView = React.lazy(() => import('./components/MyDayView').then(m => ({ default: m.MyDayView })));
-const ForemanDashboard = React.lazy(() => import('./components/ForemanDashboard').then(m => ({ default: m.ForemanDashboard })));
+const ForemanDashboard = React.lazy(() => import('./components/ForemanDashboard'));
 const PrincipalAdminDashboard = React.lazy(() => import('./components/PrincipalAdminDashboard').then(m => ({ default: m.PrincipalAdminDashboard })));
 const ProjectsView = React.lazy(() => import('./components/ProjectsView').then(m => ({ default: m.ProjectsView })));
 const ProjectDetailView = React.lazy(() => import('./components/ProjectDetailView').then(m => ({ default: m.ProjectDetailView })));
@@ -136,15 +136,15 @@ function App() {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('token');
     if (token) {
-        setResetToken(token);
-        setAuthView('reset-password');
+      setResetToken(token);
+      setAuthView('reset-password');
     }
   }, []);
 
   const { isOnline } = useOfflineSync(addToast);
   const { isCommandPaletteOpen, setIsCommandPaletteOpen } = useCommandPalette();
   useReminderService(user);
-  
+
   useEffect(() => {
     if (user && user.companyId) {
       api.getCompanySettings(user.companyId).then(setCompanySettings);
@@ -152,7 +152,7 @@ function App() {
   }, [user]);
 
   useEffect(() => {
-    if(companySettings) {
+    if (companySettings) {
       document.documentElement.classList.toggle('dark', companySettings.theme === 'dark');
     }
   }, [companySettings]);
@@ -176,7 +176,7 @@ function App() {
       setPendingTimesheetCount(timesheets.filter(t => t.status === TimesheetStatus.PENDING).length);
       setOpenIncidentCount(incidents.filter(i => i.status !== IncidentStatus.RESOLVED).length);
       setUnreadMessageCount(conversations.filter(c => c.lastMessage && !c.lastMessage.isRead && c.lastMessage.senderId !== user.id).length);
-      
+
       const unreadNotifications = fetchedNotifications.filter(n => !n.isRead);
       setUnreadNotificationCount(unreadNotifications.length);
 
@@ -185,10 +185,10 @@ function App() {
 
       if (newUnreadNotifications.length > 0) {
         newUnreadNotifications.forEach(n => {
-            addToast(n.message, 'success', n);
+          addToast(n.message, 'success', n);
         });
       }
-      
+
       previousNotificationsRef.current = fetchedNotifications;
       setNotifications(fetchedNotifications);
 
@@ -196,7 +196,7 @@ function App() {
       console.error("Could not update notification counts.", error);
     }
   }, [addToast]);
-  
+
   useEffect(() => {
     if (user) {
       api.getNotificationsForUser(user.id).then(initialNotifications => {
@@ -207,9 +207,9 @@ function App() {
     }
 
     const interval = setInterval(() => {
-        if (user) {
-            updateBadgeCounts(user);
-        }
+      if (user) {
+        updateBadgeCounts(user);
+      }
     }, 5000);
     return () => clearInterval(interval);
   }, [user, updateBadgeCounts]);
@@ -224,10 +224,10 @@ function App() {
     setSelectedProject(project);
     setActiveView('project-detail');
   };
-  
+
   const handleStartChat = (recipient: User) => {
-      setInitialChatRecipient(recipient);
-      setActiveView('chat');
+    setInitialChatRecipient(recipient);
+    setActiveView('chat');
   };
 
   const handleNotificationClick = useCallback(async (notification: Notification) => {
@@ -344,8 +344,8 @@ function App() {
       case 'tools':
         return <ToolsView user={user} addToast={addToast} setActiveView={changeView} />;
       case 'audit-log': return <AuditLogView user={user} addToast={addToast} />;
-      case 'settings': return <SettingsView user={user} addToast={addToast} settings={companySettings} onSettingsUpdate={(s) => setCompanySettings(prev => ({...prev!, ...s}))} />;
-      case 'chat': return <ChatView user={user} addToast={addToast} initialRecipient={initialChatRecipient}/>;
+      case 'settings': return <SettingsView user={user} addToast={addToast} settings={companySettings} onSettingsUpdate={(s) => setCompanySettings(prev => ({ ...prev!, ...s }))} />;
+      case 'chat': return <ChatView user={user} addToast={addToast} initialRecipient={initialChatRecipient} />;
       case 'clients': return <ClientsView user={user} addToast={addToast} />;
       case 'invoices': return <InvoicesView user={user} addToast={addToast} />;
       default:
@@ -370,21 +370,21 @@ function App() {
   }
 
   if (!isAuthenticated || !user) {
-    switch(authView) {
-        case 'login':
-            return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
-        case 'register':
-            return <UserRegistration onSwitchToLogin={() => setAuthView('login')} />;
-        case 'forgot-password':
-            return <ForgotPassword onSwitchToLogin={() => setAuthView('login')} />;
-        case 'reset-password':
-            if (resetToken) {
-                return <ResetPassword token={resetToken} onSuccess={() => { setAuthView('login'); setResetToken(null); window.history.pushState({}, '', window.location.pathname); }} />;
-            }
-            // Fallback to login if no token
-            return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
-        default:
-             return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
+    switch (authView) {
+      case 'login':
+        return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
+      case 'register':
+        return <UserRegistration onSwitchToLogin={() => setAuthView('login')} />;
+      case 'forgot-password':
+        return <ForgotPassword onSwitchToLogin={() => setAuthView('login')} />;
+      case 'reset-password':
+        if (resetToken) {
+          return <ResetPassword token={resetToken} onSuccess={() => { setAuthView('login'); setResetToken(null); window.history.pushState({}, '', window.location.pathname); }} />;
+        }
+        // Fallback to login if no token
+        return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
+      default:
+        return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
     }
   }
 
@@ -445,7 +445,7 @@ function App() {
           setActiveView={changeView}
         />
       )}
-      
+
       <div className="fixed bottom-4 right-4 z-50 space-y-2">
         {toasts.map(toast => (
           <ToastMessage key={toast.id} toast={toast} onDismiss={dismissToast} />

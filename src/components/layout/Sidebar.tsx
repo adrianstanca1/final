@@ -43,20 +43,18 @@ const NavItem: React.FC<NavItemProps> = ({ icon, label, view, activeView, setAct
   return (
     <button
       onClick={() => setActiveView(view)}
-      className={`group flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 ${
-        isActive
+      className={`group flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm transition-all duration-200 ${isActive
           ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
           : 'border border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted/70 hover:text-foreground'
-      }`}
+        }`}
       title={description}
     >
       <span className="flex items-center gap-3 text-left">
         <span
-          className={`flex h-9 w-9 items-center justify-center rounded-lg border text-base transition-colors ${
-            isActive
+          className={`flex h-9 w-9 items-center justify-center rounded-lg border text-base transition-colors ${isActive
               ? 'border-primary-foreground/60 bg-primary-foreground/20'
               : 'border-border bg-card group-hover:border-primary/40 group-hover:text-primary'
-          }`}
+            }`}
           aria-hidden
         >
           {icon}

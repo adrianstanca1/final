@@ -16,8 +16,6 @@ import {
 } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
-// FIX: Corrected API import from mockApi
-import { api } from '../services/mockApi';
 import { Avatar } from './ui/Avatar';
 import { EquipmentStatusBadge } from './ui/StatusBadge';
 import { Tag } from './ui/Tag';
@@ -202,6 +200,24 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
         [approvedExpenses],
     );
 
+    const kpiData = useMemo(() => {
+        const activeProjectsCount = activeProjects.length;
+        const teamSize = team.length;
+        const atRiskCount = atRiskProjects.length;
+        const openIncidentsCountLocal = openIncidents.length;
+        const budgetUtilisation = portfolioSummary.pipelineValue > 0
+            ? Math.round((portfolioSummary.totalActualCost / portfolioSummary.pipelineValue) * 100)
+            : 0;
+
+        return {
+            activeProjectsCount,
+            teamSize,
+            atRisk: atRiskCount,
+            openIncidents: openIncidentsCountLocal,
+            budgetUtilization: clampPercentage(budgetUtilisation),
+        };
+    }, [activeProjects.length, team.length, atRiskProjects.length, openIncidents.length, portfolioSummary.pipelineValue, portfolioSummary.totalActualCost]);
+
     const weeklyTaskData = useMemo(() => {
         const now = new Date();
         const weekStart = startOfWeek(now, { weekStartsOn: 1 });
@@ -285,14 +301,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
         }
     }, [aiSelectedProjectId, projects, tasks, openIncidents, expenses, addToast]);
 
-    if (loading) return <Card>Loading project manager dashboard…</Card>;
+    if (loading && !snapshot) return <Card>Loading project manager dashboard…</Card>;
 
-return (
-    <div className="space-y-6">
+    const headerActions = (
+        <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => refresh(true)} disabled={loading}>
+                Refresh
+            </Button>
+            <Button variant="secondary" onClick={() => setActiveView('projects')}>
+                Open projects workspace
+            </Button>
+        </div>
+    );
+
+    return (
+        <div className="space-y-6">
         <ViewHeader
             title={`Welcome back, ${user.firstName}!`}
             description="Your live delivery and commercial snapshot."
-            actions={<Button variant="secondary" onClick={() => setActiveView('projects')}>Open projects workspace</Button>}
+            actions={headerActions}
             meta={[
                 {
                     label: 'Active projects',
@@ -321,305 +348,317 @@ return (
             ]}
         />
 
-        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-            <KpiCard
-                title="Active projects"
-                value={kpiData.activeProjectsCount.toString()}
-                subtext={`${portfolioSummary.totalProjects} in portfolio`}
-                icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>}
-            />
-            <KpiCard
-                title="Team size"
-                value={kpiData.teamSize.toString()}
-                subtext="Across your organisation"
-                icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656-.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
-            />
-            <KpiCard
-                title="Budget utilisation"
-                value={`${kpiData.budgetUtilization}%`}
-                subtext="Across active projects"
-                icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
-            />
-            <KpiCard
-                title="Approved spend"
-                value={formatCurrency(approvedExpenseTotal)}
-                subtext="Approved or paid expenses"
-                icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M9 6h6m-3-2v2m0 12v2m7-5a9 9 0 11-14 0" /></svg>}
-            />
-        </section>
+        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+            <span>
+                Source: {metadata?.usedFallback ? 'Fallback to local data' : metadata?.source === 'backend' ? 'Live backend' : 'Local mock'}
+            </span>
+            <span>
+                Last sync: {metadata ? new Date(metadata.generatedAt).toLocaleString() : '—'}
+            </span>
+            {connectionState.mode === 'backend' && !connectionState.online && (
+                <span className="font-medium text-destructive">Offline mode</span>
+            )}
+        </div>
 
-        <section className="grid gap-6 lg:grid-cols-3">
-            <Card className="space-y-4 p-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-lg font-semibold text-foreground">Focus projects</h2>
-                        <p className="text-sm text-muted-foreground">Highest-risk delivery or budget positions.</p>
+            <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+                <KpiCard
+                    title="Active projects"
+                    value={kpiData.activeProjectsCount.toString()}
+                    subtext={`${portfolioSummary.totalProjects} in portfolio`}
+                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>}
+                />
+                <KpiCard
+                    title="Team size"
+                    value={kpiData.teamSize.toString()}
+                    subtext="Across your organisation"
+                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656-.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
+                />
+                <KpiCard
+                    title="Budget utilisation"
+                    value={`${kpiData.budgetUtilization}%`}
+                    subtext="Across active projects"
+                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
+                />
+                <KpiCard
+                    title="Approved spend"
+                    value={formatCurrency(approvedExpenseTotal)}
+                    subtext="Approved or paid expenses"
+                    icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M9 6h6m-3-2v2m0 12v2m7-5a9 9 0 11-14 0" /></svg>}
+                />
+            </section>
+
+            <section className="grid gap-6 lg:grid-cols-3">
+                <Card className="space-y-4 p-6">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h2 className="text-lg font-semibold text-foreground">Focus projects</h2>
+                            <p className="text-sm text-muted-foreground">Highest-risk delivery or budget positions.</p>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => setActiveView('projects')}>View all</Button>
                     </div>
-                    <Button variant="ghost" size="sm" onClick={() => setActiveView('projects')}>View all</Button>
-                </div>
-                {atRiskProjects.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">All monitored projects are currently stable.</p>
-                ) : (
-                    <div className="space-y-4">
-                        {atRiskProjects.map(({ project, budget, actual, progress, overdue }) => (
-                            <div key={project.id} className="space-y-2 rounded-lg border border-border/60 p-3">
-                                <div className="flex items-center justify-between">
+                    {atRiskProjects.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">All monitored projects are currently stable.</p>
+                    ) : (
+                        <div className="space-y-4">
+                            {atRiskProjects.map(({ project, budget, actual, progress, overdue }) => (
+                                <div key={project.id} className="space-y-2 rounded-lg border border-border/60 p-3">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="font-semibold text-foreground">{project.name}</p>
+                                            <p className="text-xs text-muted-foreground">{project.location?.city ?? project.location?.address}</p>
+                                        </div>
+                                        <Tag
+                                            label={project.status.replace(/_/g, ' ')}
+                                            color={project.status === 'ACTIVE' ? 'green' : project.status === 'ON_HOLD' ? 'yellow' : 'red'}
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-3 text-xs text-muted-foreground">
+                                        <div>
+                                            <p>Budget</p>
+                                            <p className="font-semibold text-foreground">{formatCurrency(budget)}</p>
+                                        </div>
+                                        <div>
+                                            <p>Actual</p>
+                                            <p className="font-semibold text-foreground">{formatCurrency(actual)}</p>
+                                        </div>
+                                        <div>
+                                            <p>Progress</p>
+                                            <p className="font-semibold text-foreground">{clampPercentage(progress)}%</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                        <span>{overdue ? '⚠️ Overdue milestone' : 'On schedule'}</span>
+                                        <Button size="sm" variant="secondary" onClick={() => onSelectProject(project)}>Open</Button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </Card>
+                <Card className="space-y-4 p-6">
+                    <h2 className="text-lg font-semibold text-foreground">Upcoming deadlines</h2>
+                    {upcomingDeadlines.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No due dates in the next few weeks.</p>
+                    ) : (
+                        <ul className="space-y-3 text-sm">
+                            {upcomingDeadlines.map(deadline => (
+                                <li key={deadline.id} className="flex items-center justify-between">
                                     <div>
-                                        <p className="font-semibold text-foreground">{project.name}</p>
-                                        <p className="text-xs text-muted-foreground">{project.location?.city ?? project.location?.address}</p>
+                                        <p className="font-semibold text-foreground">{deadline.name}</p>
+                                        <p className={`text-xs ${deadline.isOverdue ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                            {new Date(deadline.endDate).toLocaleDateString()} • {deadline.isOverdue ? 'Overdue' : `Due in ${Math.max(0, deadline.daysRemaining)} day(s)`}
+                                        </p>
                                     </div>
                                     <Tag
-                                        label={project.status.replace(/_/g, ' ')}
-                                        color={project.status === 'ACTIVE' ? 'green' : project.status === 'ON_HOLD' ? 'yellow' : 'red'}
+                                        label={deadline.status.replace(/_/g, ' ')}
+                                        color={deadline.isOverdue ? 'red' : 'blue'}
                                     />
-                                </div>
-                                <div className="grid grid-cols-3 gap-3 text-xs text-muted-foreground">
-                                    <div>
-                                        <p>Budget</p>
-                                        <p className="font-semibold text-foreground">{formatCurrency(budget)}</p>
-                                    </div>
-                                    <div>
-                                        <p>Actual</p>
-                                        <p className="font-semibold text-foreground">{formatCurrency(actual)}</p>
-                                    </div>
-                                    <div>
-                                        <p>Progress</p>
-                                        <p className="font-semibold text-foreground">{clampPercentage(progress)}%</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                    <span>{overdue ? '⚠️ Overdue milestone' : 'On schedule'}</span>
-                                    <Button size="sm" variant="secondary" onClick={() => onSelectProject(project)}>Open</Button>
-                                </div>
-                            </div>
-                        ))}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </Card>
+                <Card className="space-y-4 p-6">
+                    <h2 className="text-lg font-semibold text-foreground">Operational snapshot</h2>
+                    <div className="space-y-3 text-sm">
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Open incidents</span>
+                            <span className="font-semibold text-foreground">
+                                {openIncidentsCount}
+                                {highSeverityCount > 0 && (
+                                    <span className="text-xs font-medium text-destructive"> • {highSeverityCount} high</span>
+                                )}
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Tasks due next 7 days</span>
+                            <span className={`font-semibold ${tasksDueSoon > 5 ? 'text-amber-600' : 'text-foreground'}`}>{tasksDueSoon}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Overdue tasks</span>
+                            <span className={`font-semibold ${overdueTasks > 0 ? 'text-destructive' : 'text-foreground'}`}>{overdueTasks}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Active tasks</span>
+                            <span className="font-semibold text-foreground">{scheduleInProgress}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Pending approvals</span>
+                            <span className="font-semibold text-foreground">{pendingApprovals}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Avg hours / shift</span>
+                            <span className="font-semibold text-foreground">{averageHours.toFixed(1)}h</span>
+                        </div>
                     </div>
-                )}
-            </Card>
-            <Card className="space-y-4 p-6">
-                <h2 className="text-lg font-semibold text-foreground">Upcoming deadlines</h2>
-                {upcomingDeadlines.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No due dates in the next few weeks.</p>
-                ) : (
-                    <ul className="space-y-3 text-sm">
-                        {upcomingDeadlines.map(deadline => (
-                            <li key={deadline.id} className="flex items-center justify-between">
-                                <div>
-                                    <p className="font-semibold text-foreground">{deadline.name}</p>
-                                    <p className={`text-xs ${deadline.isOverdue ? 'text-destructive' : 'text-muted-foreground'}`}>
-                                        {new Date(deadline.endDate).toLocaleDateString()} • {deadline.isOverdue ? 'Overdue' : `Due in ${Math.max(0, deadline.daysRemaining)} day(s)`}
-                                    </p>
-                                </div>
-                                <Tag
-                                    label={deadline.status.replace(/_/g, ' ')}
-                                    color={deadline.isOverdue ? 'red' : 'blue'}
-                                />
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </Card>
-            <Card className="space-y-4 p-6">
-                <h2 className="text-lg font-semibold text-foreground">Operational snapshot</h2>
-                <div className="space-y-3 text-sm">
-                    <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Open incidents</span>
-                        <span className="font-semibold text-foreground">
-                            {openIncidentsCount}
-                            {highSeverityCount > 0 && (
-                                <span className="text-xs font-medium text-destructive"> • {highSeverityCount} high</span>
-                            )}
-                        </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Tasks due next 7 days</span>
-                        <span className={`font-semibold ${tasksDueSoon > 5 ? 'text-amber-600' : 'text-foreground'}`}>{tasksDueSoon}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Overdue tasks</span>
-                        <span className={`font-semibold ${overdueTasks > 0 ? 'text-destructive' : 'text-foreground'}`}>{overdueTasks}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Active tasks</span>
-                        <span className="font-semibold text-foreground">{scheduleInProgress}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Pending approvals</span>
-                        <span className="font-semibold text-foreground">{pendingApprovals}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Avg hours / shift</span>
-                        <span className="font-semibold text-foreground">{averageHours.toFixed(1)}h</span>
-                    </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                    Burn per active project {formatCurrency(burnPerProject, operationalCurrency)}
-                    {overtimeHours > 0 ? ` • ${overtimeHours.toFixed(1)} overtime hrs` : ''}
-                </p>
-                {operationalAlerts.length > 0 && (
-                    <div className="space-y-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Alerts</p>
-                        <ul className="space-y-1 text-sm text-muted-foreground">
-                            {operationalAlerts.slice(0, 3).map(alert => (
-                                <li key={alert.id} className="flex items-start gap-2">
-                                    <span
-                                        className={`mt-1 h-2 w-2 rounded-full ${alert.severity === 'critical'
+                    <p className="text-xs text-muted-foreground">
+                        Burn per active project {formatCurrency(burnPerProject, operationalCurrency)}
+                        {overtimeHours > 0 ? ` • ${overtimeHours.toFixed(1)} overtime hrs` : ''}
+                    </p>
+                    {operationalAlerts.length > 0 && (
+                        <div className="space-y-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Alerts</p>
+                            <ul className="space-y-1 text-sm text-muted-foreground">
+                                {operationalAlerts.slice(0, 3).map(alert => (
+                                    <li key={alert.id} className="flex items-start gap-2">
+                                        <span
+                                            className={`mt-1 h-2 w-2 rounded-full ${alert.severity === 'critical'
                                                 ? 'bg-destructive'
                                                 : alert.severity === 'warning'
                                                     ? 'bg-amber-500'
                                                     : 'bg-primary'
-                                            }`}
-                                    />
-                                    <span>{alert.message}</span>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-            </Card>
-            <Card className="space-y-4 p-6">
-                <h2 className="text-lg font-semibold text-foreground">Operational snapshot</h2>
-                <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Open incidents</span>
-                        <span className="font-semibold text-foreground">{openIncidents.length}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">High severity</span>
-                        <span className="font-semibold text-destructive">{highSeverityIncidents.length}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Active tasks</span>
-                        <span className="font-semibold text-foreground">{tasksInProgress}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Approved spend</span>
-                        <span className="font-semibold text-foreground">{formatCurrency(approvedExpenseTotal)}</span>
-                    </div>
-                </div>
-
-            </Card>
-        </section>
-
-        <section className="grid gap-6 xl:grid-cols-[2fr,1fr]">
-            <Card className="space-y-4 p-6">
-                <div className="flex flex-col gap-2">
-                    <h2 className="text-lg font-semibold text-foreground">AI project briefing</h2>
-                    <p className="text-sm text-muted-foreground">Generate a Gemini-powered health summary for any live job.</p>
-                </div>
-                {activeProjects.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Add an active project to run an AI briefing.</p>
-                ) : (
-                    <div className="flex flex-wrap items-center gap-3">
-                        <select
-                            value={aiSelectedProjectId ?? ''}
-                            onChange={event => setAiSelectedProjectId(event.target.value || null)}
-                            className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                            disabled={isGeneratingAiSummary}
-                        >
-                            {activeProjects.map(project => (
-                                <option key={project.id} value={project.id}>
-                                    {project.name}
-                                </option>
-                            ))}
-                        </select>
-                        <Button onClick={handleGenerateProjectBrief} isLoading={isGeneratingAiSummary} disabled={isGeneratingAiSummary || !aiSelectedProjectId}>
-                            {aiSummary && aiSummaryProjectId === aiSelectedProjectId ? 'Refresh brief' : 'Generate brief'}
-                        </Button>
-                    </div>
-                )}
-                {aiError && <p className="text-sm text-destructive">{aiError}</p>}
-                {aiSummary && aiSummaryProjectId === aiSelectedProjectId ? (
+                                                }`}
+                                        />
+                                        <span>{alert.message}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                </Card>
+                <Card className="space-y-4 p-6">
+                    <h2 className="text-lg font-semibold text-foreground">Operational snapshot</h2>
                     <div className="space-y-3">
-                        <div className="space-y-1">{renderMarkdownSummary(aiSummary.summary)}</div>
-                        <p className="text-xs text-muted-foreground">
-                            {aiSummary.isFallback ? 'Offline insight' : 'AI insight'}
-                            {aiSummary.model ? ` • ${aiSummary.model}` : ''}
-                        </p>
-                    </div>
-                ) : (
-                    <p className="text-sm text-muted-foreground">Run the assistant to receive targeted recommendations.</p>
-                )}
-            </Card>
-            <Card className="space-y-4 p-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-lg font-semibold text-foreground">Team availability</h2>
-                        <p className="text-sm text-muted-foreground">Crew status across the organisation.</p>
-                    </div>
-                    <Button variant="ghost" size="sm" onClick={() => setActiveView('users')}>Manage team</Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                    {complianceRate}% timesheets approved • {pendingApprovals} pending
-                </p>
-
-                <div className="space-y-3 text-sm">
-                    {Object.entries(availabilityBreakdown).map(([status, count]) => (
-                        <div key={status} className="flex items-center justify-between">
-                            <span className="text-muted-foreground">{status}</span>
-                            <span className="font-semibold text-foreground">{count}</span>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Open incidents</span>
+                            <span className="font-semibold text-foreground">{openIncidents.length}</span>
                         </div>
-                    ))}
-                </div>
-            </Card>
-        </section>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">High severity</span>
+                            <span className="font-semibold text-destructive">{highSeverityIncidents.length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Active tasks</span>
+                            <span className="font-semibold text-foreground">{tasksInProgress}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Approved spend</span>
+                            <span className="font-semibold text-foreground">{formatCurrency(approvedExpenseTotal)}</span>
+                        </div>
+                    </div>
 
-        <section className="grid gap-6 lg:grid-cols-2">
-            <Card className="p-6">
-                <h2 className="text-lg font-semibold text-foreground">Tasks completed this week</h2>
-                <BarChart data={weeklyTaskData} barColor="bg-primary" />
-            </Card>
-            <Card className="space-y-4 p-6">
-                <h2 className="text-lg font-semibold text-foreground">People on deck</h2>
-                <div className="space-y-3 max-h-56 overflow-y-auto pr-2">
-                    {team.slice(0, 10).map(member => (
-                        <div key={member.id} className="flex items-center gap-3 rounded-md p-2 hover:bg-accent">
-                            <Avatar name={`${member.firstName} ${member.lastName}`} imageUrl={member.avatar} className="h-9 w-9" />
-                            <div className="flex-grow">
-                                <p className="text-sm font-semibold text-foreground">{`${member.firstName} ${member.lastName}`}</p>
-                                <p className="text-xs text-muted-foreground">{member.role}</p>
+                </Card>
+            </section>
+
+            <section className="grid gap-6 xl:grid-cols-[2fr,1fr]">
+                <Card className="space-y-4 p-6">
+                    <div className="flex flex-col gap-2">
+                        <h2 className="text-lg font-semibold text-foreground">AI project briefing</h2>
+                        <p className="text-sm text-muted-foreground">Generate a Gemini-powered health summary for any live job.</p>
+                    </div>
+                    {activeProjects.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">Add an active project to run an AI briefing.</p>
+                    ) : (
+                        <div className="flex flex-wrap items-center gap-3">
+                            <select
+                                value={aiSelectedProjectId ?? ''}
+                                onChange={event => setAiSelectedProjectId(event.target.value || null)}
+                                className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                disabled={isGeneratingAiSummary}
+                            >
+                                {activeProjects.map(project => (
+                                    <option key={project.id} value={project.id}>
+                                        {project.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <Button onClick={handleGenerateProjectBrief} isLoading={isGeneratingAiSummary} disabled={isGeneratingAiSummary || !aiSelectedProjectId}>
+                                {aiSummary && aiSummaryProjectId === aiSelectedProjectId ? 'Refresh brief' : 'Generate brief'}
+                            </Button>
+                        </div>
+                    )}
+                    {aiError && <p className="text-sm text-destructive">{aiError}</p>}
+                    {aiSummary && aiSummaryProjectId === aiSelectedProjectId ? (
+                        <div className="space-y-3">
+                            <div className="space-y-1">{renderMarkdownSummary(aiSummary.summary)}</div>
+                            <p className="text-xs text-muted-foreground">
+                                {aiSummary.isFallback ? 'Offline insight' : 'AI insight'}
+                                {aiSummary.model ? ` • ${aiSummary.model}` : ''}
+                            </p>
+                        </div>
+                    ) : (
+                        <p className="text-sm text-muted-foreground">Run the assistant to receive targeted recommendations.</p>
+                    )}
+                </Card>
+                <Card className="space-y-4 p-6">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h2 className="text-lg font-semibold text-foreground">Team availability</h2>
+                            <p className="text-sm text-muted-foreground">Crew status across the organisation.</p>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => setActiveView('users')}>Manage team</Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                        {complianceRate}% timesheets approved • {pendingApprovals} pending
+                    </p>
+
+                    <div className="space-y-3 text-sm">
+                        {Object.entries(availabilityBreakdown).map(([status, count]) => (
+                            <div key={status} className="flex items-center justify-between">
+                                <span className="text-muted-foreground">{status}</span>
+                                <span className="font-semibold text-foreground">{count}</span>
                             </div>
-                            <Tag label={member.availability ?? 'Unknown'} color={availabilityTagColor[member.availability || AvailabilityStatus.AVAILABLE]} />
-                        </div>
-                    ))}
-                </div>
-            </Card>
-        </section>
+                        ))}
+                    </div>
+                </Card>
+            </section>
 
-        <section className="grid gap-6 lg:grid-cols-2">
-            <Card className="space-y-4 p-6">
-                <h2 className="text-lg font-semibold text-foreground">Equipment summary</h2>
-                <div className="space-y-2 max-h-52 overflow-y-auto pr-2">
-                    {equipment.map(item => (
-                        <div key={item.id} className="flex items-center justify-between rounded-md p-2 hover:bg-accent">
-                            <span className="text-sm font-medium text-foreground">{item.name}</span>
-                            <EquipmentStatusBadge status={item.status} />
-                        </div>
-                    ))}
-                </div>
-            </Card>
-            <Card className="space-y-4 p-6">
-                <h2 className="text-lg font-semibold text-foreground">Task activity log</h2>
-                <div className="space-y-3 max-h-52 overflow-y-auto pr-2">
-                    {activityLog.slice(0, 12).map(log => {
-                        const actor = userMap.get(log.actorId);
-                        const actorName = actor ? `${actor.firstName} ${actor.lastName}` : '?';
-                        return (
-                            <div key={log.id} className="flex items-start gap-3">
-                                <Avatar name={actorName} className="h-8 w-8 text-xs" />
-                                <div>
-                                    <p className="text-sm text-foreground">
-                                        <span className="font-semibold">{actorName}</span> {log.action.replace(/_/g, ' ')}
-                                        {log.target?.name ? `: "${log.target.name}"` : ''}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">{new Date(log.timestamp).toLocaleString()}</p>
+            <section className="grid gap-6 lg:grid-cols-2">
+                <Card className="p-6">
+                    <h2 className="text-lg font-semibold text-foreground">Tasks completed this week</h2>
+                    <BarChart data={weeklyTaskData} barColor="bg-primary" />
+                </Card>
+                <Card className="space-y-4 p-6">
+                    <h2 className="text-lg font-semibold text-foreground">People on deck</h2>
+                    <div className="space-y-3 max-h-56 overflow-y-auto pr-2">
+                        {team.slice(0, 10).map(member => (
+                            <div key={member.id} className="flex items-center gap-3 rounded-md p-2 hover:bg-accent">
+                                <Avatar name={`${member.firstName} ${member.lastName}`} imageUrl={member.avatar} className="h-9 w-9" />
+                                <div className="flex-grow">
+                                    <p className="text-sm font-semibold text-foreground">{`${member.firstName} ${member.lastName}`}</p>
+                                    <p className="text-xs text-muted-foreground">{member.role}</p>
                                 </div>
+                                <Tag label={member.availability ?? 'Unknown'} color={availabilityTagColor[member.availability || AvailabilityStatus.AVAILABLE]} />
                             </div>
-                        );
-                    })}
-                </div>
-            </Card>
-        </section>
-    </div>
-);
+                        ))}
+                    </div>
+                </Card>
+            </section>
+
+            <section className="grid gap-6 lg:grid-cols-2">
+                <Card className="space-y-4 p-6">
+                    <h2 className="text-lg font-semibold text-foreground">Equipment summary</h2>
+                    <div className="space-y-2 max-h-52 overflow-y-auto pr-2">
+                        {equipment.map(item => (
+                            <div key={item.id} className="flex items-center justify-between rounded-md p-2 hover:bg-accent">
+                                <span className="text-sm font-medium text-foreground">{item.name}</span>
+                                <EquipmentStatusBadge status={item.status} />
+                            </div>
+                        ))}
+                    </div>
+                </Card>
+                <Card className="space-y-4 p-6">
+                    <h2 className="text-lg font-semibold text-foreground">Task activity log</h2>
+                    <div className="space-y-3 max-h-52 overflow-y-auto pr-2">
+                        {activityLog.slice(0, 12).map(log => {
+                            const actor = userMap.get(log.actorId);
+                            const actorName = actor ? `${actor.firstName} ${actor.lastName}` : '?';
+                            return (
+                                <div key={log.id} className="flex items-start gap-3">
+                                    <Avatar name={actorName} className="h-8 w-8 text-xs" />
+                                    <div>
+                                        <p className="text-sm text-foreground">
+                                            <span className="font-semibold">{actorName}</span> {log.action.replace(/_/g, ' ')}
+                                            {log.target?.name ? `: "${log.target.name}"` : ''}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">{new Date(log.timestamp).toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </Card>
+            </section>
+        </div>
+    );
 };
