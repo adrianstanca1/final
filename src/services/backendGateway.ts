@@ -77,6 +77,12 @@ class BackendGateway {
 
   private readonly listeners = new Set<(state: BackendConnectionState) => void>();
 
+  private failureCount = 0;
+  private lastFailureAt: number | null = null;
+  private readonly CIRCUIT_BREAK_THRESHOLD = 3;
+  private readonly CIRCUIT_BREAK_WINDOW_MS = 30_000; // 30s window
+  private readonly CIRCUIT_OPEN_MS = 15_000; // half-open after 15s
+
   private constructor() {
     if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
       window.addEventListener('online', this.handleOnline);
@@ -173,14 +179,43 @@ class BackendGateway {
       throw new BackendUnavailableError('No backend base URL configured.');
     }
 
+    // Simple circuit-breaker: if multiple recent failures, short-circuit briefly
+    const now = Date.now();
+    if (this.failureCount >= this.CIRCUIT_BREAK_THRESHOLD && this.lastFailureAt) {
+      const since = now - this.lastFailureAt;
+      if (since < this.CIRCUIT_OPEN_MS) {
+        throw new BackendUnavailableError('Backend temporarily unavailable (circuit open).');
+      }
+    }
+
     const url = `${this.connectionInfo.baseUrl}${ensureLeadingSlash(path)}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const headers = new Headers(init.headers ?? {});
+    // Inject Authorization token if present
+    try {
+      const token = (globalThis as any)?.localStorage?.getItem?.('token');
+      if (token && !headers.has('Authorization')) {
+        headers.set('Authorization', `Bearer ${token}`);
+      }
+    } catch {/* ignore storage issues */}
     let response: Response;
     try {
-      response = await fetch(url, init);
+      response = await fetch(url, { ...init, headers, signal: (init as any).signal ?? controller.signal });
     } catch (error) {
+      if ((error as any)?.name === 'AbortError') {
+        this.failureCount++;
+        this.lastFailureAt = now;
+        clearTimeout(timeout);
+        throw new BackendUnavailableError('Backend request timed out.', error);
+      }
+      this.failureCount++;
+      this.lastFailureAt = now;
+      clearTimeout(timeout);
       throw new BackendUnavailableError('Unable to reach the backend service.', error);
     }
 
+    clearTimeout(timeout);
     if (!response.ok) {
       const contentType = response.headers.get('content-type');
       let message = `Request failed with status ${response.status}`;
@@ -193,9 +228,14 @@ class BackendGateway {
           message = text;
         }
       }
+      this.failureCount++;
+      this.lastFailureAt = now;
       throw new BackendUnavailableError(message);
     }
 
+    // success path: reset failure counters and online state
+    this.failureCount = 0;
+    this.setOnlineState(true);
     return response.json() as Promise<T>;
   }
 
