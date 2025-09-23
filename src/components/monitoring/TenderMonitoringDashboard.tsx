@@ -28,7 +28,7 @@ export const TenderMonitoringDashboard: React.FC<TenderMonitoringDashboardProps>
     const [monitoring, setMonitoring] = useState(false);
     const [showAddSource, setShowAddSource] = useState(false);
     const [showAddFilter, setShowAddFilter] = useState(false);
-    
+
     const [newSource, setNewSource] = useState<Partial<TenderSource>>({
         name: '',
         url: '',
@@ -36,7 +36,7 @@ export const TenderMonitoringDashboard: React.FC<TenderMonitoringDashboardProps>
         region: '',
         enabled: true
     });
-    
+
     const [newFilter, setNewFilter] = useState<Partial<RelevanceFilter>>({
         keywords: [],
         minValue: 0,
@@ -61,7 +61,7 @@ export const TenderMonitoringDashboard: React.FC<TenderMonitoringDashboardProps>
             setSources(sourcesData);
             setAlerts(alertsData);
             setFilters(filtersData);
-            
+
             const wasMonitoring = localStorage.getItem('tender_monitoring_active') === 'true';
             if (wasMonitoring) {
                 setMonitoring(true);
@@ -77,14 +77,14 @@ export const TenderMonitoringDashboard: React.FC<TenderMonitoringDashboardProps>
             setMonitoring(true);
             localStorage.setItem('tender_monitoring_active', 'true');
             tenderMonitoringService.startMonitoring(filters);
-            
+
             const discoveredTenders = await tenderMonitoringService.scanAllSources();
             discoveredTenders.forEach(tender => {
                 if (onTenderDiscovered) {
                     onTenderDiscovered(tender);
                 }
             });
-            
+
             await loadData();
         } catch (error) {
             console.error('Failed to start monitoring:', error);
@@ -101,7 +101,7 @@ export const TenderMonitoringDashboard: React.FC<TenderMonitoringDashboardProps>
     const handleAddSource = async () => {
         try {
             if (!newSource.name || !newSource.url) return;
-            
+
             const source = await tenderMonitoringService.addSource(newSource as TenderSource);
             setSources(prev => [...prev, source]);
             setNewSource({
@@ -179,7 +179,7 @@ export const TenderMonitoringDashboard: React.FC<TenderMonitoringDashboardProps>
                         Add Source
                     </Button>
                 </div>
-                
+
                 <div className="space-y-3">
                     {sources.map(source => (
                         <div key={source.id} className="flex items-center justify-between p-3 border rounded-lg">
