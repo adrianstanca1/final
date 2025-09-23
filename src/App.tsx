@@ -50,6 +50,10 @@ const ClientsView = React.lazy(() => import('./components/ClientsView').then(m =
 const InvoicesView = React.lazy(() => import('./components/InvoicesView').then(m => ({ default: m.InvoicesView })));
 const UserRegistration = React.lazy(() => import('./components/UserRegistration').then(m => ({ default: m.UserRegistration })));
 const TodosView = React.lazy(() => import('./components/TodosView').then(m => ({ default: m.TodosView })));
+const VendorsView = React.lazy(() => import('./components/procurement/VendorsView').then(m => ({ default: m.VendorsView })));
+const PurchaseOrdersView = React.lazy(() => import('./components/procurement/PurchaseOrdersView').then(m => ({ default: m.PurchaseOrdersView })));
+const AccountsDashboard = React.lazy(() => import('./components/accounts/AccountsDashboard').then(m => ({ default: m.AccountsDashboard })));
+const FinancialReports = React.lazy(() => import('./components/financials/FinancialReports').then(m => ({ default: m.FinancialReports })));
 
 
 interface Toast {
@@ -417,6 +421,10 @@ function App() {
       case 'clients': return <ClientsView user={user} addToast={addToast} />;
       case 'invoices': return <InvoicesView user={user} addToast={addToast} />;
       case 'todos': return <TodosView user={user} addToast={addToast} />;
+  case 'procurement-vendors': return <VendorsView user={user} addToast={addToast} />;
+  case 'procurement-pos': return <PurchaseOrdersView user={user} addToast={addToast} />;
+  case 'accounts': return <AccountsDashboard user={user} addToast={addToast} />;
+  case 'financial-reports': return <FinancialReports user={user} addToast={addToast} />;
       default:
         return (
           <Dashboard
