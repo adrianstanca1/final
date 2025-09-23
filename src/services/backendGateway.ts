@@ -76,6 +76,7 @@ class BackendGateway {
     pendingMutations: 0,
     lastSync: null,
   };
+  private tenantCode: string | null = null;
 
   private readonly listeners = new Set<(state: BackendConnectionState) => void>();
 
@@ -110,6 +111,10 @@ class BackendGateway {
 
   getState(): BackendConnectionState {
     return { ...this.state };
+  }
+
+  setTenantCode(code: string | null) {
+    this.tenantCode = code && code.trim() ? code.trim() : null;
   }
 
   subscribe(listener: (state: BackendConnectionState) => void): () => void {
@@ -205,13 +210,17 @@ class BackendGateway {
     const url = `${this.connectionInfo.baseUrl}${ensureLeadingSlash(path)}`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
-    const headers = new Headers(init.headers ?? {});
+  const headers = new Headers(init.headers ?? {});
     // Inject Authorization token if present
     try {
       const storage = getStorage();
       const token = storage.getItem('token');
+      const tenant = storage.getItem('tenantCode');
       if (token && !headers.has('Authorization')) {
         headers.set('Authorization', `Bearer ${token}`);
+      }
+      if (tenant && !headers.has('X-Tenant-Code')) {
+        headers.set('X-Tenant-Code', tenant);
       }
     } catch {/* ignore storage issues */}
     let response: Response;

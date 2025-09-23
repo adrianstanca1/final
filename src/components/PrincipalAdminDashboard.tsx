@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { User, Company, SystemHealth, UsageMetric } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
+import { BackendStatus } from './BackendStatus';
 import { Button } from './ui/Button';
 import { InviteCompanyModal } from './InviteCompanyModal';
 
@@ -164,7 +165,10 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
             Manage tenant accounts, monitor platform health, and keep an eye on adoption across the ecosystem.
           </p>
         </div>
-        <Button onClick={() => setIsInviteModalOpen(true)}>Invite New Company</Button>
+        <div className="flex items-center gap-3">
+          <BackendStatus />
+          <Button onClick={() => setIsInviteModalOpen(true)}>Invite New Company</Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

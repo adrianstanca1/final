@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react
 import { User, View, Project, Role, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
 import { api } from './services/mockApi';
 import { Login } from './components/Login';
+import { MultiTenantLogin } from './components/MultiTenantLogin';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { AISearchModal } from './components/AISearchModal';
@@ -98,8 +99,8 @@ const ToastMessage: React.FC<{ toast: Toast; onDismiss: (id: number) => void }> 
 
 
 function App() {
-  const { isAuthenticated, user, loading, logout } = useAuth();
-  const [authView, setAuthView] = useState<'login' | 'register' | 'forgot-password' | 'reset-password'>('login');
+  const { isAuthenticated, user, loading, logout, login } = useAuth();
+  const [authView, setAuthView] = useState<'login' | 'classic-login' | 'register' | 'forgot-password' | 'reset-password'>('login');
   const [resetToken, setResetToken] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<View>('dashboard');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -424,6 +425,25 @@ function App() {
   if (!isAuthenticated || !user) {
     switch (authView) {
       case 'login':
+        return (
+          <MultiTenantLogin
+            onSwitchToRegister={() => setAuthView('register')}
+            onSwitchToForgotPassword={() => setAuthView('forgot-password')}
+            onLocalLogin={async (credentials) => {
+              try {
+                const res = await login(credentials);
+                if (res.mfaRequired) {
+                  addToast('MFA required — continue in classic login.', 'success');
+                  setAuthView('classic-login');
+                }
+              } catch (_) {
+                // AuthContext handles error & state
+              }
+            }}
+            addToast={addToast}
+          />
+        );
+      case 'classic-login':
         return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
       case 'register':
         return <UserRegistration onSwitchToLogin={() => setAuthView('login')} />;
