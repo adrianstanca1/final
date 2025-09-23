@@ -86,14 +86,14 @@ export const TaskModal: React.FC<{
                         </div>
                         <div>
                             <label className="block text-sm font-medium">Assignee</label>
-                                                        <select value={assigneeId} onChange={e => setAssigneeId(e.target.value)} className="w-full p-2 border rounded bg-white" aria-label="Select task assignee">
+                            <select value={assigneeId} onChange={e => setAssigneeId(e.target.value)} className="w-full p-2 border rounded bg-white" aria-label="Select task assignee">
                                 <option value="">Unassigned</option>
                                 {users.map(u => <option key={u.id} value={u.id}>{`${u.firstName} ${u.lastName}`}</option>)}
                             </select>
                         </div>
                         <div>
                             <label className="block text-sm font-medium">Due Date</label>
-                                                        <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full p-2 border rounded" aria-label="Task due date" />
+                            <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full p-2 border rounded" aria-label="Task due date" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium">Priority</label>

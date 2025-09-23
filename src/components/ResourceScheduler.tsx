@@ -56,7 +56,7 @@ const AssignmentModal: React.FC<{
             <Card className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
                 <h3 className="text-lg font-bold mb-4">{assignment ? 'Edit' : 'Create'} Assignment</h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                                        <select value={resourceType} onChange={e => { setResourceType(e.target.value as 'user' | 'equipment'); setResourceId(''); }} className="w-full p-2 border rounded bg-white" aria-label="Select resource type">
+                    <select value={resourceType} onChange={e => { setResourceType(e.target.value as 'user' | 'equipment'); setResourceId(''); }} className="w-full p-2 border rounded bg-white" aria-label="Select resource type">
                         <option value="user">User</option>
                         <option value="equipment">Equipment</option>
                     </select>
