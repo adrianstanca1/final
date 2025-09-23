@@ -20,6 +20,7 @@ interface ViewHeaderProps {
   stats?: ViewHeaderStat[];
   isOnline: boolean;
   className?: string;
+  actions?: React.ReactNode;
 }
 
 const pillToneClasses: Record<Required<ContextPill>['tone'], string> = {
@@ -50,6 +51,7 @@ export const ViewHeader: React.FC<ViewHeaderProps> = ({
   stats,
   isOnline,
   className = '',
+  actions,
 }) => {
   return (
     <section className={`mb-6 rounded-[--radius] border border-border/60 bg-card/70 shadow-sm backdrop-blur ${className}`.trim()} aria-labelledby="view-heading">
@@ -99,6 +101,7 @@ export const ViewHeader: React.FC<ViewHeaderProps> = ({
                 <span className="text-lg font-semibold">{stat.value}</span>
               </div>
             ))}
+            {actions ? <div className="ml-auto">{actions}</div> : null}
           </div>
         </div>
       </div>

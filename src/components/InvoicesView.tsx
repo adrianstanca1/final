@@ -573,7 +573,8 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
       )}
 
       <ViewHeader
-        view="invoices"
+        title="Invoices"
+        isOnline={true}
         actions={
           <Button
             variant="secondary"
@@ -584,25 +585,10 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
             New invoice
           </Button>
         }
-        meta={[
-          {
-            label: 'Outstanding balance',
-            value: formatCurrency(summary.outstanding),
-            helper: summary.outstanding > 0 ? 'Across open invoices' : 'All invoices settled',
-            indicator: summary.outstanding > 0 ? 'warning' : 'positive',
-          },
-          {
-            label: 'Overdue exposure',
-            value: formatCurrency(summary.overdue),
-            helper: summary.overdue > 0 ? 'Requires follow up' : 'No overdue balances',
-            indicator: summary.overdue > 0 ? 'negative' : 'positive',
-          },
-          {
-            label: 'Collection rate',
-            value: `${summary.collectionRate}%`,
-            helper: 'Paid in the last 30 days',
-            indicator: collectionIndicator,
-          },
+        stats={[
+          { label: 'Outstanding', value: formatCurrency(summary.outstanding), tone: summary.outstanding > 0 ? 'warning' : 'success' },
+          { label: 'Overdue', value: formatCurrency(summary.overdue), tone: summary.overdue > 0 ? 'warning' : 'success' },
+          { label: 'Collection', value: `${summary.collectionRate}%`, tone: collectionIndicator === 'negative' ? 'warning' : 'success' },
         ]}
       />
 

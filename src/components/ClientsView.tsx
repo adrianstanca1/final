@@ -384,7 +384,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ user, addToast }) => {
         />
       )}
       <ViewHeader
-        view="clients"
+        title="Clients"
+        isOnline={true}
         actions={
           <Button onClick={() => setIsModalOpen(true)}>
             <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -393,24 +394,10 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ user, addToast }) => {
             Add client
           </Button>
         }
-        meta={[
-          {
-            label: 'Total accounts',
-            value: `${summary.total}`,
-            helper: 'Companies you collaborate with',
-          },
-          {
-            label: 'Active',
-            value: `${summary.active}`,
-            helper: `${summary.active} currently engaged`,
-            indicator: summary.active > 0 ? 'positive' : 'neutral',
-          },
-          {
-            label: 'New this month',
-            value: `${summary.newThisMonth}`,
-            helper: summary.newThisMonth > 0 ? 'Recent wins' : 'No new clients yet',
-            indicator: summary.newThisMonth > 0 ? 'positive' : 'neutral',
-          },
+        stats={[
+          { label: 'Total accounts', value: `${summary.total}`, tone: 'neutral' },
+          { label: 'Active', value: `${summary.active}`, tone: summary.active > 0 ? 'success' : 'neutral' },
+          { label: 'New this month', value: `${summary.newThisMonth}`, tone: summary.newThisMonth > 0 ? 'success' : 'neutral' },
         ]}
       />
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">

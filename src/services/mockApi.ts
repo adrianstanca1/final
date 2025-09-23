@@ -1297,7 +1297,7 @@ export const api = {
             name: companyName,
             type: 'GENERAL_CONTRACTOR',
             email: adminEmail,
-            status: 'Provisioning',
+            status: 'Active',
             subscriptionPlan: 'FREE',
             storageUsageGB: 0,
             settings: clone(DEFAULT_COMPANY_SETTINGS),

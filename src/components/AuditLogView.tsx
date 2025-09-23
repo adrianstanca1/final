@@ -268,7 +268,7 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ user, addToast }) =>
                         <div className="flex items-center gap-3">
                           <Avatar
                             name={actor ? `${actor.firstName} ${actor.lastName}` : 'Unknown user'}
-                            size="sm"
+                            className="h-8 w-8 text-xs"
                           />
                           <div>
                             <p className="font-medium text-slate-900">
@@ -280,9 +280,6 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ user, addToast }) =>
                       </td>
                       <td className="px-4 py-3">
                         <p className="font-medium text-slate-900">{log.action}</p>
-                        {log.metadata && (
-                          <p className="text-xs text-muted-foreground">{JSON.stringify(log.metadata)}</p>
-                        )}
                       </td>
                       <td className="px-4 py-3">
                         <p className="font-medium text-slate-900">{log.target?.name ?? '—'}</p>

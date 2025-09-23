@@ -75,7 +75,7 @@ export const CostEstimator: React.FC<CostEstimatorProps> = ({ user, addToast, on
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Cost Estimator</h2>
-                <Button onClick={onBack} variant="outline">
+                <Button onClick={onBack} variant="secondary">
                     ← Back
                 </Button>
             </div>

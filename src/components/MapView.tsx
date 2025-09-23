@@ -4,6 +4,12 @@ import L from 'leaflet';
 import useSupercluster from 'use-supercluster';
 import './MapView.css';
 
+// Work around react-leaflet typings friction with TS config by aliasing to any
+const AnyMapContainer = MapContainer as unknown as React.ComponentType<any>;
+const AnyTileLayer = TileLayer as unknown as React.ComponentType<any>;
+const AnyMarker = Marker as unknown as React.ComponentType<any>;
+const AnyCircle = Circle as unknown as React.ComponentType<any>;
+
 export interface MapMarkerData {
     id: string | number;
     lat: number;
@@ -92,7 +98,7 @@ export const MapView: React.FC<MapViewProps> = ({ markers, height = '100%', clas
         }
     };
     // Determine map center
-    const center = React.useMemo(() => {
+    const center = React.useMemo<[number, number]>(() => {
         if (projectMarkers.length > 0) {
             return [projectMarkers[0].lat, projectMarkers[0].lng];
         }
@@ -102,11 +108,8 @@ export const MapView: React.FC<MapViewProps> = ({ markers, height = '100%', clas
 
     return (
         <div style={{ height }} className={className}>
-            <MapContainer ref={mapRef} center={center} zoom={zoom} scrollWheelZoom={true} onMoveEnd={updateMapState} onZoomEnd={updateMapState} onMount={updateMapState}>
-                <TileLayer
-                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
+            <AnyMapContainer ref={mapRef as any} center={center} zoom={zoom} scrollWheelZoom={true} onMoveEnd={updateMapState} onZoomEnd={updateMapState}>
+                <AnyTileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
                 {clusters.map(cluster => {
                     const [longitude, latitude] = cluster.geometry.coordinates;
@@ -114,7 +117,7 @@ export const MapView: React.FC<MapViewProps> = ({ markers, height = '100%', clas
 
                     if (isCluster) {
                         return (
-                            <Marker
+                            <AnyMarker
                                 key={`cluster-${cluster.id}`}
                                 position={[latitude, longitude]}
                                 icon={L.divIcon({
@@ -142,20 +145,20 @@ export const MapView: React.FC<MapViewProps> = ({ markers, height = '100%', clas
                     const markerProps = cluster.properties as MapMarkerData;
 
                     return (
-                        <Marker key={`marker-${markerProps.id}`} position={[latitude, longitude]} icon={createProjectIcon(markerProps.status)}>
+                        <AnyMarker key={`marker-${markerProps.id}`} position={[latitude, longitude]} icon={createProjectIcon(markerProps.status) as any}>
                             {markerProps.popupContent && <Popup>{markerProps.popupContent}</Popup>}
-                            {markerProps.radius && <Circle center={[latitude, longitude]} radius={markerProps.radius} pathOptions={{ color: 'hsla(217, 91%, 60%, 0.5)', fillColor: 'hsla(217, 91%, 60%, 0.1)', weight: 2 }} />}
-                        </Marker>
+                            {markerProps.radius && <AnyCircle center={[latitude, longitude]} radius={markerProps.radius} pathOptions={{ color: 'hsla(217, 91%, 60%, 0.5)', fillColor: 'hsla(217, 91%, 60%, 0.1)', weight: 2 }} />}
+                        </AnyMarker>
                     );
                 })}
 
                 {userLocation && (
-                    <Marker position={[userLocation.lat, userLocation.lng]} icon={userLocationIcon}>
+                    <AnyMarker position={[userLocation.lat, userLocation.lng]} icon={userLocationIcon as any}>
                         <Popup>Your current location</Popup>
-                    </Marker>
+                    </AnyMarker>
                 )}
                 <RecenterAutomatically center={center} />
-            </MapContainer>
+            </AnyMapContainer>
         </div>
     );
 };

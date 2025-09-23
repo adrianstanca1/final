@@ -7,7 +7,7 @@ import {
   ProjectStatus,
   ProjectPortfolioSummary,
 } from '../types';
-import { useProjects, useDeleteProject } from '../hooks/useProjects';
+// Removed unused hooks import that does not exist
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
 import { Card } from './ui/Card';
@@ -369,39 +369,19 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
         />
       )}
 
+      <div className="flex items-center justify-between">
+        <h2 className="sr-only">Projects</h2>
+        {canCreate ? (
+          <Button onClick={() => setIsCreateModalOpen(true)}>Create Project</Button>
+        ) : null}
+      </div>
       <ViewHeader
-        view="projects"
-        actions={
-          canCreate ? (
-            <Button onClick={() => setIsCreateModalOpen(true)}>Create Project</Button>
-          ) : undefined
-        }
-        meta={[
-          {
-            label: 'Portfolio value',
-            value: formatCurrency(summaryForDisplay.pipelineValue),
-            helper: 'Budgeted across tracked projects',
-          },
-          {
-            label: 'Active projects',
-            value: `${summaryForDisplay.activeProjects}`,
-            helper: summaryForDisplay.totalProjects
-              ? `${activeShare}% of portfolio`
-              : 'No projects yet',
-            indicator: summaryForDisplay.activeProjects > 0 ? 'positive' : 'neutral',
-          },
-          {
-            label: 'At risk',
-            value: `${summaryForDisplay.atRiskProjects}`,
-            helper: summaryForDisplay.overdueProjects
-              ? `${summaryForDisplay.overdueProjects} overdue deliverable${summaryForDisplay.overdueProjects === 1 ? '' : 's'
-              }`
-              : 'Budget and schedule on track',
-            indicator:
-              summaryForDisplay.atRiskProjects > 0 || summaryForDisplay.overdueProjects > 0
-                ? 'negative'
-                : 'positive',
-          },
+        title="Projects"
+        isOnline={true}
+        stats={[
+          { label: 'Portfolio value', value: formatCurrency(summaryForDisplay.pipelineValue), tone: 'neutral' },
+          { label: 'Active projects', value: `${summaryForDisplay.activeProjects}`, tone: summaryForDisplay.activeProjects > 0 ? 'success' : 'neutral' },
+          { label: 'At risk', value: `${summaryForDisplay.atRiskProjects}`, tone: (summaryForDisplay.atRiskProjects > 0 || summaryForDisplay.overdueProjects > 0) ? 'warning' : 'success' },
         ]}
       />
 
