@@ -2267,7 +2267,7 @@ export const api = {
 
     getTasksScoped: async (tenantId: string, options?: RequestOptions): Promise<Task[]> => {
         ensureNotAborted(options?.signal);
-        const allTasks = db.tasks as Task[];
+        const allTasks = db.todos as Task[];
         return scopeDataByTenant(allTasks, tenantId);
     },
 
