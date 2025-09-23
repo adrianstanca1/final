@@ -155,6 +155,10 @@ export const viewMetadata: Record<View, ViewMetadata> = {
     title: 'Purchase Orders',
     description: 'Create and track purchase orders and receipts.',
   },
+  'procurement-ai': {
+    title: 'AI Procurement Analysis',
+    description: 'AI-powered tender analysis and bid generation system.',
+  },
   accounts: {
     title: 'Accounts',
     description: 'Budgets, cost centres and spend tracking.',
@@ -187,6 +191,7 @@ export const viewAccessRules: Partial<Record<View, ViewAccessRule>> = {
   invoices: financialRule,
   'procurement-vendors': procurementRule,
   'procurement-pos': procurementRule,
+  'procurement-ai': procurementRule,
   accounts: accountsRule,
   'financial-reports': accountsRule,
   users: {
