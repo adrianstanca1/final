@@ -2,7 +2,7 @@
  * Real-time notification service with WebSocket support and offline queuing
  */
 
-import { Notification, NotificationType, User } from '../types';
+import { Notification as AppNotification, NotificationType, User } from '../types';
 
 export interface NotificationOptions {
   title: string;
@@ -11,7 +11,7 @@ export interface NotificationOptions {
   badge?: string;
   tag?: string;
   requireInteraction?: boolean;
-  actions?: NotificationAction[];
+  actions?: Array<{ action: string; title: string; icon?: string }>;
   data?: any;
 }
 
@@ -30,8 +30,8 @@ export class NotificationService {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
-  private subscriptions = new Set<(notification: Notification) => void>();
-  private offlineQueue: Notification[] = [];
+  private subscriptions = new Set<(notification: AppNotification) => void>();
+  private offlineQueue: AppNotification[] = [];
   private isOnline = navigator.onLine;
 
   private constructor() {
@@ -65,7 +65,7 @@ export class NotificationService {
 
       this.websocket.onmessage = (event) => {
         try {
-          const notification: Notification = JSON.parse(event.data);
+          const notification: AppNotification = JSON.parse(event.data);
           this.handleIncomingNotification(notification);
         } catch (error) {
           console.error('Failed to parse notification:', error);
@@ -94,7 +94,7 @@ export class NotificationService {
   }
 
   // Subscription management
-  subscribe(callback: (notification: Notification) => void): () => void {
+  subscribe(callback: (notification: AppNotification) => void): () => void {
     this.subscriptions.add(callback);
     
     return () => {
@@ -103,13 +103,13 @@ export class NotificationService {
   }
 
   // Send notification
-  async sendNotification(notification: Partial<Notification>): Promise<void> {
-    const fullNotification: Notification = {
+  async sendNotification(notification: Partial<AppNotification>): Promise<void> {
+    const fullNotification: AppNotification = {
       id: this.generateId(),
       timestamp: new Date().toISOString(),
       read: false,
-      ...notification,
-    } as Notification;
+      ...(notification as any),
+    } as AppNotification;
 
     if (this.isOnline && this.websocket?.readyState === WebSocket.OPEN) {
       try {
@@ -200,7 +200,7 @@ export class NotificationService {
   }
 
   // Notification templates
-  createTaskNotification(taskTitle: string, projectName: string, assigneeId: string): Partial<Notification> {
+  createTaskNotification(taskTitle: string, projectName: string, assigneeId: string): Partial<AppNotification> {
     return {
       type: NotificationType.TASK_ASSIGNED,
       title: 'New Task Assigned',
@@ -211,10 +211,10 @@ export class NotificationService {
         projectName,
         view: 'all-tasks',
       },
-    };
+    } as Partial<AppNotification>;
   }
 
-  createSafetyAlertNotification(incidentType: string, location: string, companyId: string): Partial<Notification> {
+  createSafetyAlertNotification(incidentType: string, location: string, companyId: string): Partial<AppNotification> {
     return {
       type: NotificationType.SAFETY_ALERT,
       title: 'Safety Alert',
@@ -226,10 +226,10 @@ export class NotificationService {
         view: 'safety',
         priority: 'high',
       },
-    };
+    } as Partial<AppNotification>;
   }
 
-  createApprovalNotification(itemType: string, itemName: string, approverId: string): Partial<Notification> {
+  createApprovalNotification(itemType: string, itemName: string, approverId: string): Partial<AppNotification> {
     return {
       type: NotificationType.APPROVAL_REQUEST,
       title: 'Approval Required',
@@ -240,7 +240,7 @@ export class NotificationService {
         itemName,
         view: 'approvals',
       },
-    };
+    } as Partial<AppNotification>;
   }
 
   // Private methods
@@ -282,7 +282,7 @@ export class NotificationService {
     }, delay);
   }
 
-  private handleIncomingNotification(notification: Notification): void {
+  private handleIncomingNotification(notification: AppNotification): void {
     // Notify all subscribers
     this.subscriptions.forEach(callback => {
       try {
@@ -302,7 +302,7 @@ export class NotificationService {
     }
   }
 
-  private shouldShowBrowserNotification(notification: Notification): boolean {
+  private shouldShowBrowserNotification(notification: AppNotification): boolean {
     // Don't show if document is visible and user is active
     if (!document.hidden) {
       return false;
@@ -321,7 +321,7 @@ export class NotificationService {
     return false;
   }
 
-  private queueOfflineNotification(notification: Notification): void {
+  private queueOfflineNotification(notification: AppNotification): void {
     this.offlineQueue.push(notification);
     
     // Limit queue size

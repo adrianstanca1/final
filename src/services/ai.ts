@@ -74,7 +74,7 @@ const callGemini = async (
     // Use retry mechanism for API calls
     const result = await withRetry(
       async () => {
-        const model = client.getGenerativeModel({ model: MODEL_NAME });
+        const model = (client as any).getGenerativeModel({ model: MODEL_NAME });
         return await model.generateContent(prompt);
       },
       {
@@ -709,12 +709,12 @@ Location: ${location}
 Please provide insights on cost factors, potential variations, and recommendations. Keep response concise.`;
 
       const response = await callGemini(prompt, { maxOutputTokens: 512 });
-      if (response && response.response?.text) {
+      if (response && (response as any)?.response?.text) {
         return {
           totalEstimate: total,
           breakdown,
           contingency,
-          summary: `AI-Enhanced Estimate: ${response.response.text()}`,
+          summary: `AI-Enhanced Estimate: ${(response as any).response.text()}`,
         };
       }
     } catch (error) {
