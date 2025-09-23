@@ -3,6 +3,9 @@ import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react
 import { User, View, Project, Role, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
 import { api } from './services/mockApi';
 import { Login } from './components/Login';
+import { LandingPage } from './components/LandingPage';
+import { AdminLogin } from './components/AdminLogin';
+import { AcceptInvite } from './components/AcceptInvite';
 import { MultiTenantLogin } from './components/MultiTenantLogin';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
@@ -101,8 +104,9 @@ const ToastMessage: React.FC<{ toast: Toast; onDismiss: (id: number) => void }> 
 
 function App() {
   const { isAuthenticated, user, loading, logout, login } = useAuth();
-  const [authView, setAuthView] = useState<'login' | 'classic-login' | 'register' | 'forgot-password' | 'reset-password' | 'admin-login'>('login');
+  const [authView, setAuthView] = useState<'landing' | 'login' | 'classic-login' | 'register' | 'forgot-password' | 'reset-password' | 'admin-login' | 'accept-invite'>('landing');
   const [resetToken, setResetToken] = useState<string | null>(null);
+  const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<View>('dashboard');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -149,6 +153,11 @@ function App() {
     if (token) {
       setResetToken(token);
       setAuthView('reset-password');
+    }
+    const invite = params.get('invite');
+    if (invite) {
+      setInviteToken(invite);
+      setAuthView('accept-invite');
     }
   }, []);
 
@@ -430,6 +439,13 @@ function App() {
 
   if (!isAuthenticated || !user) {
     switch (authView) {
+      case 'landing':
+        return (
+          <LandingPage
+            onCompanyPortal={() => setAuthView('login')}
+            onAdminPortal={() => setAuthView('admin-login')}
+          />
+        );
       case 'login':
         return (
           <MultiTenantLogin
@@ -460,7 +476,21 @@ function App() {
           />
         );
       case 'admin-login':
-        return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
+        return (
+          <AdminLogin
+            onLocalLogin={async (credentials) => {
+              try {
+                const res = await login(credentials);
+                if (!res.mfaRequired) {
+                  setAuthView('login');
+                  changeView('principal-dashboard');
+                }
+              } catch {}
+            }}
+            onBack={() => setAuthView('landing')}
+            addToast={addToast}
+          />
+        );
       case 'classic-login':
         return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
       case 'register':
@@ -473,6 +503,16 @@ function App() {
         }
         // Fallback to login if no token
         return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
+      case 'accept-invite':
+        if (inviteToken) {
+          return <AcceptInvite token={inviteToken} onCancel={() => { setAuthView('login'); setInviteToken(null); window.history.pushState({}, '', window.location.pathname); }} />;
+        }
+        return (
+          <LandingPage
+            onCompanyPortal={() => setAuthView('login')}
+            onAdminPortal={() => setAuthView('admin-login')}
+          />
+        );
       default:
         return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
     }

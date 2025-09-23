@@ -579,6 +579,11 @@ export const authApi = {
             suggestedRole: config.suggestedRole,
         };
     },
+    checkEmailAvailability: async (email: string) => {
+        await delay();
+        const exists = db.users.some(u => String(u.email).toLowerCase() === String(email).toLowerCase());
+        return { available: !exists };
+    },
 };
 
 type OfflineAction = { id: number, type: string, payload: any, retries: number, error?: string };
@@ -1007,6 +1012,30 @@ export const api = {
     getCompanies: async (options?: RequestOptions): Promise<Company[]> => {
         ensureNotAborted(options?.signal);
         return db.companies as Company[];
+    },
+    createCompanyInvite: async (companyName: string, adminEmail: string, actorId: string): Promise<{ inviteToken: string }> => {
+        await delay();
+        const companyId = String(Date.now());
+        const newCompany: Partial<Company> = {
+            id: companyId,
+            name: companyName,
+            type: 'GENERAL_CONTRACTOR',
+            email: adminEmail,
+            status: 'Provisioning',
+            subscriptionPlan: 'FREE',
+            storageUsageGB: 0,
+            settings: clone(DEFAULT_COMPANY_SETTINGS),
+        };
+        db.companies.push(newCompany);
+        const token = `JOIN-${Math.random().toString(36).slice(2, 8)}-${companyId.slice(-4)}`.toUpperCase();
+        inviteTokenDirectory.set(normalizeInviteToken(token), {
+            companyId,
+            allowedRoles: [Role.OWNER, Role.ADMIN, Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE, Role.CLIENT],
+            suggestedRole: Role.OWNER,
+        });
+        addAuditLog(actorId, 'CREATE_COMPANY_INVITE', { type: 'company', id: companyId, name: companyName });
+        saveDb();
+        return { inviteToken: token };
     },
     getPlatformUsageMetrics: async (options?: RequestOptions): Promise<UsageMetric[]> => {
         ensureNotAborted(options?.signal);

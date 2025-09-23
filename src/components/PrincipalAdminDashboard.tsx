@@ -137,8 +137,14 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
   }, [fetchData]);
 
   const handleInvite = async (companyName: string, adminEmail: string) => {
-    addToast(`Invitation sent to ${adminEmail} for ${companyName}.`, 'success');
-    await fetchData();
+    try {
+      const res = await api.createCompanyInvite(companyName, adminEmail, user.id);
+      addToast(`Invite created. Token: ${res.inviteToken}`, 'success');
+    } catch (e) {
+      addToast('Failed to create invite.', 'error');
+    } finally {
+      await fetchData();
+    }
   };
 
   const totalStorage = companies.reduce((acc, company) => acc + (company.storageUsageGB || 0), 0);
