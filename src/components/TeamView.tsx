@@ -132,7 +132,7 @@ const UserModal: React.FC<{
         <div>
             <label className="block text-sm font-medium text-muted-foreground">{label}</label>
             {canManage && forceEditable ? (
-                <input type={type} value={String(formData[field] || '')} onChange={e => handleInputChange(field, e.target.value)} className="w-full p-2 border rounded bg-background" />
+                <input type={type} value={String(formData[field] || '')} onChange={e => handleInputChange(field, e.target.value)} className="w-full p-2 border rounded bg-background" aria-label={`Enter ${field}`} />
             ) : (
                 <p className="p-2 text-foreground">{String(formData[field] || 'N/A')}</p>
             )}
@@ -143,7 +143,7 @@ const UserModal: React.FC<{
         <div>
             <label className="block text-sm font-medium text-muted-foreground">{label}</label>
             {canManage ? (
-                <select value={String(formData[field] || '')} onChange={e => handleInputChange(field, e.target.value)} className="w-full p-2 border rounded bg-background">
+                <select value={String(formData[field] || '')} onChange={e => handleInputChange(field, e.target.value)} className="w-full p-2 border rounded bg-background" aria-label={`Select ${field}`}>
                     {options.map(opt => <option key={opt} value={opt}>{opt.replace(/_/g, ' ')}</option>)}
                 </select>
             ) : (

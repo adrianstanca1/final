@@ -46,7 +46,7 @@ export const InviteQRPanel: React.FC<Props> = ({ user, targetRoles, addToast, ti
                     <p className="text-sm text-muted-foreground">{description || 'Generate a single-use invite QR for quick onboarding.'}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                    <select className="rounded-md border border-input bg-background px-2 py-1 text-sm" value={selectedRole} onChange={(e) => setSelectedRole(e.target.value as Role)}>
+                    <select className="rounded-md border border-input bg-background px-2 py-1 text-sm" value={selectedRole} onChange={(e) => setSelectedRole(e.target.value as Role)} aria-label="Select role for invitation">
                         {targetRoles.map(r => (
                             <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>
                         ))}

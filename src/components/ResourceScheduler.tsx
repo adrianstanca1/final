@@ -56,22 +56,22 @@ const AssignmentModal: React.FC<{
             <Card className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
                 <h3 className="text-lg font-bold mb-4">{assignment ? 'Edit' : 'Create'} Assignment</h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <select value={resourceType} onChange={e => { setResourceType(e.target.value as 'user' | 'equipment'); setResourceId(''); }} className="w-full p-2 border rounded bg-white">
+                                        <select value={resourceType} onChange={e => { setResourceType(e.target.value as 'user' | 'equipment'); setResourceId(''); }} className="w-full p-2 border rounded bg-white" aria-label="Select resource type">
                         <option value="user">User</option>
                         <option value="equipment">Equipment</option>
                     </select>
-                    <select value={resourceId} onChange={e => setResourceId(e.target.value)} className="w-full p-2 border rounded bg-white" required>
+                    <select value={resourceId} onChange={e => setResourceId(e.target.value)} className="w-full p-2 border rounded bg-white" required aria-label="Select specific resource">
                         <option value="">Select {resourceType}...</option>
                         {/* FIX: Combined firstName and lastName for User display name. */}
                         {resourceList.map(r => <option key={r.id} value={r.id}>{resourceType === 'user' ? `${(r as User).firstName} ${(r as User).lastName}` : (r as Equipment).name}</option>)}
                     </select>
-                    <select value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full p-2 border rounded bg-white" required>
+                    <select value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full p-2 border rounded bg-white" required aria-label="Select project for resource assignment">
                         <option value="">Select project...</option>
                         {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                     <div className="grid grid-cols-2 gap-4">
-                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 border rounded" required />
-                        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2 border rounded" required />
+                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 border rounded" required aria-label="Start date" />
+                        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2 border rounded" required aria-label="End date" />
                     </div>
                     <div className="flex justify-between items-center pt-2">
                         <div>{assignment && <Button type="button" variant="danger" onClick={() => onDelete(assignment.id)}>Delete</Button>}</div>

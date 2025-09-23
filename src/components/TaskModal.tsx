@@ -80,24 +80,24 @@ export const TaskModal: React.FC<{
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium">Project</label>
-                            <select value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full p-2 border rounded bg-white" required>
+                            <select value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full p-2 border rounded bg-white" required aria-label="Select project for task">
                                 {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                             </select>
                         </div>
                         <div>
                             <label className="block text-sm font-medium">Assignee</label>
-                            <select value={assigneeId} onChange={e => setAssigneeId(e.target.value)} className="w-full p-2 border rounded bg-white">
+                                                        <select value={assigneeId} onChange={e => setAssigneeId(e.target.value)} className="w-full p-2 border rounded bg-white" aria-label="Select task assignee">
                                 <option value="">Unassigned</option>
                                 {users.map(u => <option key={u.id} value={u.id}>{`${u.firstName} ${u.lastName}`}</option>)}
                             </select>
                         </div>
                         <div>
                             <label className="block text-sm font-medium">Due Date</label>
-                            <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full p-2 border rounded" />
+                                                        <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className="w-full p-2 border rounded" aria-label="Task due date" />
                         </div>
                         <div>
                             <label className="block text-sm font-medium">Priority</label>
-                            <select value={priority} onChange={e => setPriority(e.target.value as TodoPriority)} className="w-full p-2 border rounded bg-white">
+                            <select value={priority} onChange={e => setPriority(e.target.value as TodoPriority)} className="w-full p-2 border rounded bg-white" aria-label="Select task priority">
                                 {Object.values(TodoPriority).map(p => <option key={p} value={p}>{p}</option>)}
                             </select>
                         </div>
@@ -109,6 +109,7 @@ export const TaskModal: React.FC<{
                             value={dependsOn.map(String)}
                             onChange={handleDependsOnChange}
                             className="w-full p-2 border rounded bg-white h-32"
+                            aria-label="Select task dependencies"
                         >
                             {availableTasksForDep.map(task => (
                                 <option key={task.id} value={task.id.toString()}>{(task as any).text || task.title}</option>

@@ -50,12 +50,12 @@ const ReportIncidentModal: React.FC<{ projects: Project[], user: User, onClose: 
             <Card className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
                 <h3 className="text-lg font-bold mb-4">Report New Safety Incident</h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <select value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-800" required>
+                    <select value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-800" required aria-label="Select project for safety report">
                         <option value="">-- Select Project --</option>
                         {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                     <textarea value={description} onChange={e => setDescription(e.target.value)} rows={4} className="w-full p-2 border rounded" placeholder="Describe the incident..." required />
-                    <select value={severity} onChange={e => setSeverity(e.target.value as IncidentSeverity)} className="w-full p-2 border rounded bg-white dark:bg-slate-800">
+                    <select value={severity} onChange={e => setSeverity(e.target.value as IncidentSeverity)} className="w-full p-2 border rounded bg-white dark:bg-slate-800" aria-label="Select incident severity">
                         {Object.values(IncidentSeverity).map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                     <div className="flex justify-end gap-2">
@@ -101,7 +101,7 @@ const IncidentDetailModal: React.FC<{ incident: SafetyIncident; project?: Projec
                     <div className="mt-4 pt-4 border-t dark:border-slate-700">
                         <h4 className="font-semibold mb-2">Manager Actions</h4>
                         <div className="flex items-center gap-4">
-                            <select value={newStatus} onChange={e => setNewStatus(e.target.value as IncidentStatus)} className="p-2 border rounded bg-white dark:bg-slate-800">
+                            <select value={newStatus} onChange={e => setNewStatus(e.target.value as IncidentStatus)} className="p-2 border rounded bg-white dark:bg-slate-800" aria-label="Update incident status">
                                 {Object.values(IncidentStatus).map(s => <option key={s} value={s}>{s}</option>)}
                             </select>
                             <Button onClick={handleStatusUpdate} disabled={newStatus === incident.status}>Update Status</Button>
