@@ -24,7 +24,7 @@ interface ProjectDetailViewProps {
   onStartChat: (recipient: User) => void;
 }
 
-type DetailTab = 'overview' | 'tasks' | 'whiteboard' | 'documents' | 'team' | 'safety' | 'financials';
+type DetailTab = 'overview' | 'tasks' | 'whiteboard' | 'documents' | 'team' | 'safety' | 'finance';
 
 const formatCurrency = (amount: number) =>
   new Intl.NumberFormat('en-GB', {
@@ -156,6 +156,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, u
             onTouchEnd={e => handleProgressChangeCommit(Number(e.currentTarget.value))}
             disabled={!canManage || isBlocked}
             className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer disabled:cursor-not-allowed"
+            title="Project progress"
+            aria-label="Project progress"
           />
           <span className="text-sm font-semibold w-12 text-right">{progress}%</span>
         </div>

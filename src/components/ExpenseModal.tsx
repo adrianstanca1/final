@@ -96,7 +96,13 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ expenseToEdit, onClo
                     </div>
                     <div>
                         <label className="block text-sm font-medium">Category</label>
-                        <select value={category} onChange={e => setCategory(e.target.value)} className="w-full p-2 border rounded bg-white" required>
+                        <select
+                            value={category}
+                            onChange={e => setCategory(e.target.value)}
+                            className="w-full p-2 border rounded bg-white"
+                            required
+                            aria-label="Expense Category"
+                        >
                             {Object.values(ExpenseCategory).map(cat => <option key={cat} value={cat}>{cat}</option>)}
                             <option value={CUSTOM_CATEGORY_VALUE}>Other (Custom)...</option>
                         </select>

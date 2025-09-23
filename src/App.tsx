@@ -100,7 +100,7 @@ const ToastMessage: React.FC<{ toast: Toast; onDismiss: (id: number) => void }> 
 
 function App() {
   const { isAuthenticated, user, loading, logout, login } = useAuth();
-  const [authView, setAuthView] = useState<'login' | 'classic-login' | 'register' | 'forgot-password' | 'reset-password'>('login');
+  const [authView, setAuthView] = useState<'login' | 'classic-login' | 'register' | 'forgot-password' | 'reset-password' | 'admin-login'>('login');
   const [resetToken, setResetToken] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<View>('dashboard');
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
@@ -204,12 +204,16 @@ function App() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      let next = activeView;
-      try {
-        const saved = localStorage.getItem(`activeView:${user.id}`) as View | null;
-        next = saved || getDefaultViewForUser(user);
-      } catch {
-        next = getDefaultViewForUser(user);
+      let next: View;
+      if (user.role === Role.PRINCIPAL_ADMIN) {
+        next = 'principal-dashboard';
+      } else {
+        try {
+          const saved = localStorage.getItem(`activeView:${user.id}`) as View | null;
+          next = saved || getDefaultViewForUser(user);
+        } catch {
+          next = getDefaultViewForUser(user);
+        }
       }
       if (next !== activeView) setActiveView(next);
     }
@@ -431,6 +435,16 @@ function App() {
             onSwitchToForgotPassword={() => setAuthView('forgot-password')}
             onLocalLogin={async (credentials) => {
               try {
+                const targetAdminEmail = 'adrian.stanca1@gmail.com';
+                const isAdminCreds = credentials.email.trim().toLowerCase() === targetAdminEmail && credentials.password === 'Cumparavinde1';
+                if (isAdminCreds) {
+                  const res = await login(credentials);
+                  if (!res.mfaRequired) {
+                    setAuthView('login');
+                    changeView('principal-dashboard');
+                  }
+                  return;
+                }
                 const res = await login(credentials);
                 if (res.mfaRequired) {
                   addToast('MFA required — continue in classic login.', 'success');
@@ -443,6 +457,8 @@ function App() {
             addToast={addToast}
           />
         );
+      case 'admin-login':
+        return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
       case 'classic-login':
         return <Login onSwitchToRegister={() => setAuthView('register')} onSwitchToForgotPassword={() => setAuthView('forgot-password')} />;
       case 'register':

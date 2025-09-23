@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { identity } from '../services/identityProvider';
+import { BackendStatus } from './BackendStatus';
 import type { LoginCredentials } from '../types';
 
 export const MultiTenantLogin: React.FC<{ onSwitchToRegister: () => void; onSwitchToForgotPassword: () => void; onLocalLogin: (credentials: LoginCredentials) => Promise<void>; addToast?: (m: string, t?: 'success' | 'error') => void; }>
@@ -34,9 +35,23 @@ export const MultiTenantLogin: React.FC<{ onSwitchToRegister: () => void; onSwit
             }
         };
 
+        const handlePrincipalAdmin = async () => {
+            setLoading(true);
+            try {
+                try { localStorage.removeItem('tenantCode'); } catch { }
+                await onLocalLogin({ email: 'adrian.stanca1@gmail.com', password: 'Cumparavinde1' });
+                addToast?.('Signed in as Platform Admin', 'success');
+            } catch (e: any) {
+                addToast?.(e?.message || 'Admin login failed', 'error');
+            } finally {
+                setLoading(false);
+            }
+        };
+
         return (
             <div className="mx-auto mt-16 w-full max-w-md rounded-lg bg-card p-6 shadow-md">
                 <h1 className="mb-6 text-center text-2xl font-bold">Welcome back</h1>
+                <div className="mb-4 flex justify-center"><BackendStatus /></div>
                 <div className="mb-4">
                     <label htmlFor="tenantCode" className="mb-1 block text-sm font-medium text-muted-foreground">Tenant code</label>
                     <input id="tenantCode" className="w-full rounded-md border border-border bg-background p-2" placeholder="e.g. ACME-1234" value={tenantCode} onChange={e => setTenantCode(e.target.value)} />
@@ -50,6 +65,7 @@ export const MultiTenantLogin: React.FC<{ onSwitchToRegister: () => void; onSwit
                     <input id="password" className="w-full rounded-md border border-border bg-background p-2" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} />
                 </div>
                 <button disabled={loading} onClick={handleLocal} className="mt-1 w-full rounded-md bg-primary p-2 text-primary-foreground">Sign in</button>
+                <button disabled={loading} onClick={handlePrincipalAdmin} className="mt-2 w-full rounded-md bg-rose-600 p-2 text-white">Sign in as Platform Admin</button>
                 <div className="my-4 text-center text-xs text-muted-foreground">or</div>
                 <button disabled={loading} onClick={handleGoogle} className="w-full rounded-md border border-border p-2">Continue with Google</button>
                 <div className="mt-4 flex items-center justify-between text-sm">

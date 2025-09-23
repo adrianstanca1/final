@@ -132,8 +132,8 @@ const ProjectCard: React.FC<{ project: Project; onSelect: () => void }> = ({ pro
         </div>
         <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
           <div
-            className={`${overBudget ? 'bg-rose-500' : 'bg-emerald-500'} h-full rounded-full transition-all`}
-            style={{ width: `${Math.min(100, Math.max(0, budgetUtilization))}%` }}
+            className={`${overBudget ? 'bg-rose-500' : 'bg-emerald-500'} h-full rounded-full transition-all project-budget-bar`}
+            data-width={Math.min(100, Math.max(0, budgetUtilization))}
           />
         </div>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -144,6 +144,8 @@ const ProjectCard: React.FC<{ project: Project; onSelect: () => void }> = ({ pro
     </Card>
   );
 };
+
+import './ProjectsView.css';
 
 export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSelectProject }) => {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -426,8 +428,8 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
                 <dt className="text-muted-foreground">Budget variance</dt>
                 <dd
                   className={`font-semibold ${summaryForDisplay.budgetVariance < 0
-                      ? 'text-rose-500 dark:text-rose-300'
-                      : 'text-emerald-600 dark:text-emerald-300'
+                    ? 'text-rose-500 dark:text-rose-300'
+                    : 'text-emerald-600 dark:text-emerald-300'
                     }`}
                 >
                   {formatCurrency(summaryForDisplay.budgetVariance)}
@@ -467,11 +469,9 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
                     <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide">
                       <span className={statusAccent[status].text}>{formatStatusLabel(status)}</span>
                       <span className="text-muted-foreground">{count}</span>
-                    </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
                       <div
-                        className={`${statusBarColor[status]} h-full rounded-full transition-all`}
-                        style={{ width: `${share}%` }}
+                        className={`${statusBarColor[status]} h-full rounded-full transition-all status-bar-width`}
+                        data-width={share}
                       />
                     </div>
                   </li>
@@ -581,8 +581,8 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
             key={filterOption.value}
             onClick={() => setFilter(filterOption.value)}
             className={`rounded-full px-3 py-1.5 text-sm transition-colors ${filter === filterOption.value
-                ? 'bg-primary text-primary-foreground shadow-sm'
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              ? 'bg-primary text-primary-foreground shadow-sm'
+              : 'bg-muted text-muted-foreground hover:bg-muted/80'
               }`}
             aria-pressed={filter === filterOption.value}
           >

@@ -46,7 +46,13 @@ const FileUploadModal: React.FC<{ project: Project; onClose: () => void; onSucce
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
             <Card className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
                 <h3 className="font-bold text-lg mb-2">Upload to {project.name}</h3>
-                <input type="file" onChange={e => setFile(e.target.files?.[0] || null)} />
+                <label htmlFor="file-upload" className="block mb-1 font-medium">Select file to upload</label>
+                <input
+                    id="file-upload"
+                    type="file"
+                    title="Select file to upload"
+                    onChange={e => setFile(e.target.files?.[0] || null)}
+                />
                 <input type="text" value={category} onChange={e => setCategory(e.target.value)} placeholder="Category (e.g., Blueprints)" className="w-full p-2 border rounded mt-2" />
                 <div className="flex justify-end gap-2 mt-4">
                     <Button variant="secondary" onClick={onClose}>Cancel</Button>
@@ -131,7 +137,13 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ user, addToast, is
 
             <Card>
                 <div className="mb-4">
-                    <select value={selectedProjectId} onChange={e => setSelectedProjectId(e.target.value)} className="p-2 border rounded bg-white dark:bg-slate-800">
+                    <label htmlFor="project-select" className="sr-only">Select Project</label>
+                    <select
+                        id="project-select"
+                        value={selectedProjectId}
+                        onChange={e => setSelectedProjectId(e.target.value)}
+                        className="p-2 border rounded bg-white dark:bg-slate-800"
+                    >
                         <option value="all">All Projects</option>
                         {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>

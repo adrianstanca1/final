@@ -44,3 +44,22 @@ GEMINI_API_KEY : $
     secrets.GEMINI_API_KEY
   }
 }
+#Optional : provide these if you want CI builds to include live integrations
+VITE_BACKEND_URL : $
+{
+  {
+    secrets.BACKEND_URL
+  }
+}
+VITE_SUPABASE_URL : $
+{
+  {
+    secrets.SUPABASE_URL
+  }
+}
+VITE_SUPABASE_ANON_KEY : $
+{
+  {
+    secrets.SUPABASE_ANON_KEY
+  }
+}

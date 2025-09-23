@@ -1,0 +1,5 @@
+.project-budget-bar::after {
+    content: '';
+}
+
+/* Reuse shared bar behavior via CSS variables if applied elsewhere */
