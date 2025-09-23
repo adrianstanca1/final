@@ -485,7 +485,7 @@ function App() {
                   setAuthView('login');
                   changeView('principal-dashboard');
                 }
-              } catch {}
+              } catch { }
             }}
             onBack={() => setAuthView('landing')}
             addToast={addToast}
