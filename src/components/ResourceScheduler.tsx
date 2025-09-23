@@ -268,21 +268,14 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
                                                     style={{ '--block-left': `${left}%`, '--block-width': `calc(${width}% - 4px)` } as React.CSSProperties}
                                                     title={`${project?.name}\n${new Date(a.startDate).toLocaleDateString()} - ${new Date(a.endDate).toLocaleDateString()}`}
                                                 >
-                                    <span className="truncate">{project?.name || 'Unknown Project'}</span>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); handleDelete(a.id); }}
-                                        className="opacity-0 group-hover:opacity-100 text-white/70 hover:text-white/100 ml-2"
-                                    >
-                                        &times;
-                                    </button>
-                                </div>
-                                <span className="truncate">{project?.name || 'Unknown Project'}</span>
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); handleDelete(a.id); }}
-                                    className="opacity-0 group-hover:opacity-100 text-white/70 hover:text-white/100 ml-2"
-                                >
-                                    &times;
-                                </button>
+                                                    <span className="truncate">{project?.name || 'Unknown Project'}</span>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleDelete(a.id); }}
+                                                        className="opacity-0 group-hover:opacity-100 text-white/70 hover:text-white/100 ml-2"
+                                                    >
+                                                        &times;
+                                                    </button>
+                                                </div>
                             </div>
                         );
                     })}
