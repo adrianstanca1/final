@@ -55,8 +55,15 @@ const detectBaseUrl = (): string | null => {
     if (typeof window !== 'undefined' && typeof (window as any).__ASAGENTS_API_BASE_URL__ === 'string') {
         return sanitizeBaseUrl((window as any).__ASAGENTS_API_BASE_URL__);
     }
+    // Prefer VITE_BACKEND_URL if present (explicit real backend)
+    if (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_BACKEND_URL) {
+        return sanitizeBaseUrl((import.meta as any).env.VITE_BACKEND_URL);
+    }
     if (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL) {
         return sanitizeBaseUrl((import.meta as any).env.VITE_API_BASE_URL);
+    }
+    if (typeof process !== 'undefined' && typeof process.env?.VITE_BACKEND_URL === 'string') {
+        return sanitizeBaseUrl(process.env.VITE_BACKEND_URL);
     }
     if (typeof process !== 'undefined' && typeof process.env?.VITE_API_BASE_URL === 'string') {
         return sanitizeBaseUrl(process.env.VITE_API_BASE_URL);
@@ -104,21 +111,30 @@ const buildHeaders = (headers: HeadersInit | undefined, body: BodyInit | null | 
 
 const ensureLeadingSlash = (path: string) => (path.startsWith('/') ? path : `/${path}`);
 
-const request = async <T>(path: string, init: RequestInit): Promise<T> => {
+const request = async <T>(path: string, init: RequestInit, options: { timeoutMs?: number } = {}): Promise<T> => {
     if (!runtimeBaseUrl) {
         throw new BackendUnavailableError('No authentication backend configured.');
     }
 
     const url = `${runtimeBaseUrl}${ensureLeadingSlash(path)}`;
+    const controller = new AbortController();
+    const timeout = options.timeoutMs && options.timeoutMs > 0
+        ? setTimeout(() => controller.abort(), options.timeoutMs)
+        : null;
     let response: Response;
     try {
         response = await fetch(url, {
             ...init,
             headers: buildHeaders(init.headers, init.body ?? undefined),
+            signal: (init.signal as AbortSignal | undefined) ?? controller.signal,
         });
     } catch (error) {
+        if ((error as any)?.name === 'AbortError') {
+            throw new BackendUnavailableError('Authentication request timed out.', error);
+        }
         throw new BackendUnavailableError('Unable to reach authentication service.', error);
     }
+    if (timeout) clearTimeout(timeout);
 
     let data: any = null;
     const contentType = response.headers.get('content-type');
@@ -145,7 +161,7 @@ const withAuthFallback = async <T>(path: string, init: RequestInit, fallback: ()
         return fallback();
     }
     try {
-        return await request<T>(path, init);
+        return await request<T>(path, init, { timeoutMs: 10000 });
     } catch (error) {
         if (error instanceof BackendUnavailableError) {
             if (allowMockFallback) {
