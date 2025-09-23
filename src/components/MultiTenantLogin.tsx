@@ -3,8 +3,8 @@ import { identity } from '../services/identityProvider';
 import { BackendStatus } from './BackendStatus';
 import type { LoginCredentials } from '../types';
 
-export const MultiTenantLogin: React.FC<{ onSwitchToRegister: () => void; onSwitchToForgotPassword: () => void; onLocalLogin: (credentials: LoginCredentials) => Promise<void>; addToast?: (m: string, t?: 'success' | 'error') => void; }>
-    = ({ onSwitchToRegister, onSwitchToForgotPassword, onLocalLogin, addToast }) => {
+export const MultiTenantLogin: React.FC<{ onSwitchToRegister: () => void; onSwitchToForgotPassword: () => void; onLocalLogin: (credentials: LoginCredentials) => Promise<void>; addToast?: (m: string, t?: 'success' | 'error') => void; showAdminShortcut?: boolean }>
+    = ({ onSwitchToRegister, onSwitchToForgotPassword, onLocalLogin, addToast, showAdminShortcut = true }) => {
         const [email, setEmail] = useState('');
         const [password, setPassword] = useState('');
         const [tenantCode, setTenantCode] = useState('');
@@ -66,7 +66,9 @@ export const MultiTenantLogin: React.FC<{ onSwitchToRegister: () => void; onSwit
                     <input id="password" className="w-full rounded-md border border-border bg-background p-2" type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} />
                 </div>
                 <button disabled={loading} onClick={handleLocal} className="mt-1 w-full rounded-md bg-primary p-2 text-primary-foreground">Sign in</button>
-                <button disabled={loading} onClick={handlePrincipalAdmin} className="mt-2 w-full rounded-md bg-rose-600 p-2 text-white">Sign in as Platform Admin</button>
+                {showAdminShortcut && (
+                    <button disabled={loading} onClick={handlePrincipalAdmin} className="mt-2 w-full rounded-md bg-rose-600 p-2 text-white">Sign in as Platform Admin</button>
+                )}
                 <div className="my-4 text-center text-xs text-muted-foreground">or</div>
                 <button disabled={loading} onClick={handleGoogle} className="w-full rounded-md border border-border p-2">Continue with Google</button>
                 <div className="mt-4 flex items-center justify-between text-sm">

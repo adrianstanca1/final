@@ -5,9 +5,10 @@ interface AdminLoginProps {
     onLocalLogin: (credentials: LoginCredentials) => Promise<void>;
     onBack: () => void;
     addToast?: (m: string, t?: 'success' | 'error') => void;
+    hideBackButton?: boolean;
 }
 
-export const AdminLogin: React.FC<AdminLoginProps> = ({ onLocalLogin, onBack, addToast }) => {
+export const AdminLogin: React.FC<AdminLoginProps> = ({ onLocalLogin, onBack, addToast, hideBackButton }) => {
     const adminEmail = 'adrian.stanca1@gmail.com';
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -25,13 +26,15 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLocalLogin, onBack, ad
     };
 
     return (
-        <div className="mx-auto mt-24 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow">
-            <button onClick={onBack} className="mb-6 text-xs text-muted-foreground hover:text-foreground">← Back</button>
+        <div className="mx-auto mt-4 w-full max-w-md rounded-xl border border-border bg-card p-6 shadow">
+            {!hideBackButton && (
+                <button onClick={onBack} className="mb-6 text-xs text-muted-foreground hover:text-foreground">← Back</button>
+            )}
             <h1 className="mb-2 text-center text-2xl font-bold">Platform Administration</h1>
             <p className="mb-6 text-center text-xs text-muted-foreground">Restricted access. Use admin credentials to proceed.</p>
             <div className="mb-3">
-                <label className="mb-1 block text-sm font-medium text-muted-foreground">Admin Email</label>
-                <input className="w-full cursor-not-allowed rounded-md border border-border bg-muted p-2 text-foreground" value={adminEmail} readOnly />
+                <label htmlFor="admin-email" className="mb-1 block text-sm font-medium text-muted-foreground">Admin Email</label>
+                <input id="admin-email" className="w-full cursor-not-allowed rounded-md border border-border bg-muted p-2 text-foreground" value={adminEmail} readOnly aria-readonly />
             </div>
             <div className="mb-4">
                 <label className="mb-1 block text-sm font-medium text-muted-foreground">Password</label>

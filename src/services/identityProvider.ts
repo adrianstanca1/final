@@ -37,4 +37,12 @@ export const identity = {
     if (error) throw error;
     return data;
   },
+
+  loginWithMagicLink: async (email: string, redirectTo?: string): Promise<void> => {
+    const sb = getSupabase();
+    if (!sb) throw new Error('Magic link not configured');
+    const target = redirectTo || (typeof window !== 'undefined' ? window.location.origin : undefined);
+    const { error } = await sb.auth.signInWithOtp({ email, options: target ? { emailRedirectTo: target } : undefined });
+    if (error) throw error;
+  },
 };

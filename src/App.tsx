@@ -7,6 +7,7 @@ import { LandingPage } from './components/LandingPage';
 import { AdminLogin } from './components/AdminLogin';
 import { AcceptInvite } from './components/AcceptInvite';
 import { MultiTenantLogin } from './components/MultiTenantLogin';
+import { DualPortalHome } from './components/DualPortalHome';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
 import { AISearchModal } from './components/AISearchModal';
@@ -179,7 +180,7 @@ function App() {
           previousNotificationsRef.current = [notification, ...previousNotificationsRef.current];
           setUnreadNotificationCount(prev => prev + (notification.isRead ? 0 : 1));
           setToasts(currentToasts => {
-            const next = [
+            const next: Toast[] = [
               ...currentToasts,
               {
                 id: Date.now() + Math.random(),
@@ -441,9 +442,28 @@ function App() {
     switch (authView) {
       case 'landing':
         return (
-          <LandingPage
-            onCompanyPortal={() => setAuthView('login')}
-            onAdminPortal={() => setAuthView('admin-login')}
+          <DualPortalHome
+            onLocalLogin={async (credentials) => {
+              try {
+                const res = await login(credentials);
+                if (res.mfaRequired) {
+                  addToast('MFA required — continue in classic login.', 'success');
+                  setAuthView('classic-login');
+                }
+              } catch { }
+            }}
+            onAdminLocalLogin={async (credentials) => {
+              try {
+                const res = await login(credentials);
+                if (!res.mfaRequired) {
+                  setAuthView('login');
+                  changeView('principal-dashboard');
+                }
+              } catch { }
+            }}
+            onSwitchToRegister={() => setAuthView('register')}
+            onSwitchToForgotPassword={() => setAuthView('forgot-password')}
+            addToast={addToast}
           />
         );
       case 'login':
@@ -575,6 +595,10 @@ function App() {
           user={user}
           onClose={() => setIsCommandPaletteOpen(false)}
           setActiveView={changeView}
+          onProjectSelect={(p) => {
+            setSelectedProject(p);
+            setActiveView('project-detail');
+          }}
         />
       )}
 

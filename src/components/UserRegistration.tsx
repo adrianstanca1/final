@@ -3,6 +3,7 @@ import { Role, Permission, RolePermissions, CompanyType, RegisterCredentials } f
 import { useAuth } from '../contexts/AuthContext';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
+import { identity } from '../services/identityProvider';
 
 interface UserRegistrationProps {
     onSwitchToLogin: () => void;
@@ -312,6 +313,9 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                 </React.Fragment>
                             ))}
                         </div>
+                    </div>
+                    <div className="mb-4 flex gap-2">
+                        <button type="button" onClick={() => identity.loginWithGoogle(typeof window !== 'undefined' ? window.location.origin : undefined)} className="rounded-md border border-border px-3 py-2 text-sm">Sign up with Google</button>
                     </div>
 
                     <Card>

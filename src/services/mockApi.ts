@@ -677,6 +677,14 @@ export const resetMockApi = () => {
 };
 
 export const api = {
+    getUserAndCompanyByEmail: async (email: string): Promise<{ user: User; company: Company } | null> => {
+        await delay();
+        const user = db.users.find(u => String(u.email).toLowerCase() === String(email).toLowerCase());
+        if (!user) return null;
+        const company = db.companies.find(c => c.id === user.companyId);
+        if (!company) return null;
+        return { user: user as User, company: company as Company };
+    },
     getCompanySettings: async (companyId: string): Promise<CompanySettings> => {
         await delay();
         const company = db.companies.find(c => c.id === companyId);

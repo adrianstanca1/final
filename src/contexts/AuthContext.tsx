@@ -6,6 +6,7 @@ import { api } from '../services/mockApi';
 import { analytics } from '../services/analyticsService';
 import { ValidationService } from '../services/validationService';
 import { getStorage } from '../utils/storage';
+import { getSupabase } from '../services/supabaseClient';
 
 const storage = getStorage();
 
@@ -147,6 +148,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   );
 
   const initAuth = useCallback(async () => {
+    const sb = getSupabase();
+    if (sb) {
+      try {
+        const { data: sessionData } = await sb.auth.getSession();
+        const session = sessionData?.session;
+        const email = session?.user?.email;
+        if (email) {
+          try {
+            const match = await api.getUserAndCompanyByEmail(email);
+            if (match) {
+              setAuthState({
+                isAuthenticated: true,
+                token: 'supabase',
+                refreshToken: 'supabase',
+                user: match.user,
+                company: match.company,
+                loading: false,
+                error: null,
+              });
+              return;
+            }
+          } catch (e) {
+            console.warn('Supabase session present but no local mapping found', e);
+          }
+        }
+      } catch (e) {
+        console.warn('Supabase getSession failed', e);
+      }
+    }
     const token = storage.getItem('token');
     const refreshToken = storage.getItem('refreshToken');
 
@@ -197,6 +227,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   useEffect(() => {
     initAuth();
+    const sb = getSupabase();
+    if (sb) {
+      const { data: sub } = sb.auth.onAuthStateChange(async (_event, session) => {
+        const email = session?.user?.email;
+        if (!email) return;
+        try {
+          const match = await api.getUserAndCompanyByEmail(email);
+          if (match) {
+            setAuthState({
+              isAuthenticated: true,
+              token: 'supabase',
+              refreshToken: 'supabase',
+              user: match.user,
+              company: match.company,
+              loading: false,
+              error: null,
+            });
+          }
+        } catch (e) {
+          console.warn('Supabase auth change mapping failed', e);
+        }
+      });
+      return () => {
+        sub.subscription?.unsubscribe();
+      };
+    }
     return () => {
       if (tokenRefreshTimeout) {
         clearTimeout(tokenRefreshTimeout);
