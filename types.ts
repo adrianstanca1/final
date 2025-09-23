@@ -796,8 +796,8 @@ export interface DashboardSnapshotMetadata {
     generatedAt: string;
     usedFallback: boolean;
     projectCount?: number;
-    fallbackReason?: string;
-    [key: string]: unknown;
+     fallbackReason?: string;
+      [key: string]: unknown;
 }
 
 export interface DashboardSnapshot {

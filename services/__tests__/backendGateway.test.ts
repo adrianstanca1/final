@@ -42,8 +42,9 @@ describe('backendGateway', () => {
         expect(Array.isArray(snapshot.projects)).toBe(true);
         expect(snapshot.metadata.source).toBe('mock');
         expect(snapshot.metadata.usedFallback).toBe(true);
-        expect(snapshot.metadata.fallbackReason).toBe('No backend connection configured.');
-    });
+         expect(snapshot.metadata.fallbackReason).toBe('No backend connection configured.');
+ 
+     });
 
     it('queues interactions when backend is unavailable', async () => {
         const initialState = backendGateway.getState();

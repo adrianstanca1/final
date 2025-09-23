@@ -15,7 +15,7 @@ import {
     ProjectPortfolioSummary,
     OperationalInsights,
     DashboardSnapshotMetadata,
-} from '../types';
+ } from '../types';
 import './ui/storageUsage.css';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -143,8 +143,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
             });
 
             if (controller.signal.aborted) return;
-            setSnapshotMetadata(snapshot.metadata);
-            setProjects(snapshot.projects);
+             setSnapshotMetadata(snapshot.metadata);
+              setProjects(snapshot.projects);
             setAiSelectedProjectId(prev => prev ?? snapshot.projects.find(p => p.status === 'ACTIVE')?.id ?? snapshot.projects[0]?.id ?? null);
             if (controller.signal.aborted) return;
             setTeam(snapshot.team);
@@ -170,8 +170,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                     taskCount: snapshot.tasks.length,
                     source: snapshot.metadata.source,
                     usedFallback: snapshot.metadata.usedFallback,
-                    fallbackReason: snapshot.metadata.fallbackReason,
-                },
+                     fallbackReason: snapshot.metadata.fallbackReason,
+                  },
             });
         } catch (error) {
             if (controller.signal.aborted) return;

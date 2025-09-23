@@ -9,6 +9,71 @@ import { getStorage } from '../utils/storage';
 import { authClient, type AuthenticatedSession } from '../services/authClient';
 import type { RegistrationPayload } from '../types';
 
+type Persistence = 'local' | 'session';
+
+const TOKEN_KEY = 'token';
+const REFRESH_TOKEN_KEY = 'refreshToken';
+const PERSISTENCE_KEY = 'asagents_auth_persistence';
+
+const isBrowser = () => typeof window !== 'undefined';
+
+const getStorage = (persistence: Persistence): Storage | null => {
+    if (!isBrowser()) return null;
+    return persistence === 'local' ? window.localStorage : window.sessionStorage;
+};
+
+const clearStoredTokens = () => {
+    if (!isBrowser()) return;
+    [window.localStorage, window.sessionStorage].forEach(storage => {
+        storage.removeItem(TOKEN_KEY);
+        storage.removeItem(REFRESH_TOKEN_KEY);
+        storage.removeItem(PERSISTENCE_KEY);
+    });
+};
+
+const storeTokens = (token: string, refreshToken: string | null, persistence: Persistence) => {
+    const targetStorage = getStorage(persistence);
+    if (!targetStorage) return;
+
+    targetStorage.setItem(TOKEN_KEY, token);
+    if (refreshToken) {
+        targetStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    }
+    targetStorage.setItem(PERSISTENCE_KEY, persistence);
+
+    const otherStorage = getStorage(persistence === 'local' ? 'session' : 'local');
+    otherStorage?.removeItem(TOKEN_KEY);
+    otherStorage?.removeItem(REFRESH_TOKEN_KEY);
+    otherStorage?.removeItem(PERSISTENCE_KEY);
+};
+
+const readStoredTokens = (): { token: string | null; refreshToken: string | null; persistence: Persistence } => {
+    if (!isBrowser()) {
+        return { token: null, refreshToken: null, persistence: 'local' };
+    }
+
+    const storages: Array<{ storage: Storage; persistence: Persistence }> = [
+        { storage: window.localStorage, persistence: 'local' },
+        { storage: window.sessionStorage, persistence: 'session' },
+    ];
+
+    for (const { storage, persistence } of storages) {
+        const token = storage.getItem(TOKEN_KEY);
+        const refreshToken = storage.getItem(REFRESH_TOKEN_KEY);
+        if (token && refreshToken) {
+            storage.setItem(PERSISTENCE_KEY, persistence);
+            return { token, refreshToken, persistence };
+        }
+    }
+
+    const preference =
+        (window.localStorage.getItem(PERSISTENCE_KEY) as Persistence | null) ??
+        (window.sessionStorage.getItem(PERSISTENCE_KEY) as Persistence | null) ??
+        'local';
+
+    return { token: null, refreshToken: null, persistence: preference };
+};
+
 interface AuthContextType extends AuthState {
     login: (credentials: LoginCredentials) => Promise<{ mfaRequired: boolean; userId?: string }>;
     register: (credentials: RegistrationPayload) => Promise<AuthenticatedSession>;
@@ -43,14 +108,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loading: true,
         error: null,
     });
+    const [pendingPersistence, setPendingPersistence] = useState<Persistence>('local');
 
     const storage = getStorage();
 
 
     const logout = useCallback(() => {
+        clearStoredTokens();
         storage.removeItem('token');
         storage.removeItem('refreshToken');
         if (tokenRefreshTimeout) clearTimeout(tokenRefreshTimeout);
+        setPendingPersistence('local');
         setAuthState({
             isAuthenticated: false,
             token: null,
@@ -66,7 +134,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      * Proactively schedules a token refresh before the current access token expires.
      * This improves UX by preventing the user from being logged out during an active session.
      */
-    const scheduleTokenRefresh = useCallback((token: string) => {
+    const scheduleTokenRefresh = useCallback((token: string, persistence: Persistence) => {
         if (tokenRefreshTimeout) {
             clearTimeout(tokenRefreshTimeout);
         }
@@ -76,6 +144,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const expiresIn = (decoded.exp * 1000) - Date.now() - 60000;
             if (expiresIn > 0) {
                 tokenRefreshTimeout = setTimeout(async () => {
+                    const storage = getStorage(persistence);
+                    if (!storage) {
+                        return;
+                    }
+                    const storedRefreshToken = storage.getItem(REFRESH_TOKEN_KEY);
+                    if (!storedRefreshToken) {
+                        logout();
+                        return;
+                    }
+                    try {
+                        console.log("Proactively refreshing token...");
+                        const { token: newToken } = await authApi.refreshToken(storedRefreshToken);
+                        storeTokens(newToken, storedRefreshToken, persistence);
+                        setAuthState(prev => ({ ...prev, token: newToken }));
+                        scheduleTokenRefresh(newToken, persistence); // Schedule the next refresh
+                    } catch (error) {
+                        console.error("Proactive token refresh failed", error);
+                        logout();
+
                     const storedRefreshToken = storage.getItem('refreshToken');
                     if (storedRefreshToken) {
                         try {
@@ -97,6 +184,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             }
         }
     }, [logout]);
+    
+    const finalizeLogin = useCallback((data: { token: string, refreshToken: string, user: User, company: Company }, persistence: Persistence) => {
+        storeTokens(data.token, data.refreshToken, persistence);
+
 
     const finalizeLogin = useCallback((data: { token: string, refreshToken: string, user: User, company: Company }) => {
         storage.setItem('token', data.token);
@@ -110,7 +201,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             loading: false,
             error: null,
         });
-        scheduleTokenRefresh(data.token);
+        setPendingPersistence(persistence);
+        scheduleTokenRefresh(data.token, persistence);
     }, [scheduleTokenRefresh]);
 
     /**
@@ -119,6 +211,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      * If the access token is expired, it reactively tries to use the refresh token.
      */
     const initAuth = useCallback(async () => {
+        const { token, refreshToken, persistence } = readStoredTokens();
+        if (token && refreshToken) {
+            try {
+                // First, try to authenticate with the existing access token.
+                const { user, company } = await authApi.me(token);
+                finalizeLogin({ token, refreshToken, user, company }, persistence);
         const token = storage.getItem('token');
         const refreshToken = storage.getItem('refreshToken');
         if (token && refreshToken) {
@@ -130,6 +228,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 // If authApi.me fails (e.g., token expired), attempt to refresh the token.
                 console.log("Access token invalid, attempting reactive refresh...");
                 try {
+                    const { token: newToken } = await authApi.refreshToken(refreshToken);
+                    const { user, company } = await authApi.me(newToken);
+                    finalizeLogin({ token: newToken, refreshToken, user, company }, persistence);
                     const { token: newToken } = await authClient.refreshToken(refreshToken);
                     const { user, company } = await authClient.me(newToken);
                     finalizeLogin({ token: newToken, refreshToken, user, company });
@@ -152,6 +253,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const login = async (credentials: LoginCredentials): Promise<{ mfaRequired: boolean; userId?: string }> => {
         setAuthState(prev => ({ ...prev, loading: true, error: null }));
+        const desiredPersistence: Persistence = credentials.rememberMe === false ? 'session' : 'local';
+        setPendingPersistence(desiredPersistence);
 
         // Validate credentials
         const validation = ValidationService.validate(credentials, [
@@ -189,6 +292,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 return { mfaRequired: true, userId: response.userId };
             }
 
+            finalizeLogin(response, desiredPersistence);
+
             finalizeLogin(response);
             return { mfaRequired: false };
 
@@ -212,6 +317,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const verifyMfaAndFinalize = async (userId: string, code: string) => {
         setAuthState(prev => ({ ...prev, loading: true, error: null }));
+         try {
+            const response = await authApi.verifyMfa(userId, code);
+            finalizeLogin(response, pendingPersistence);
+
         try {
             const response = await authClient.verifyMfa(userId, code);
             finalizeLogin(response);
@@ -224,9 +333,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const register = async (credentials: RegistrationPayload): Promise<AuthenticatedSession> => {
         setAuthState(prev => ({ ...prev, loading: true, error: null }));
         try {
+            const response = await authApi.register(credentials);
+            finalizeLogin(response, 'local');
+
             const session = await authClient.register(credentials);
             finalizeLogin(session);
             return session;
+ 
         } catch (error: any) {
             setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Registration failed' }));
             throw error;

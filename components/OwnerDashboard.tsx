@@ -1,6 +1,33 @@
-// Fixed OwnerDashboard.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-// ... full component code above remains unchanged ...
+import { Card, CardHeader, CardContent } from './ui/Card';
+import { Button } from './ui/Button';
+import { ViewHeader } from './layout/ViewHeader';
+import {
+  User,
+  Project,
+  FinancialKPIs,
+  MonthlyFinancials,
+  CostBreakdown,
+  Invoice,
+  Expense,
+  SafetyIncident,
+  Timesheet,
+  FinancialForecast,
+  OperationalInsights,
+  View,
+  InvoiceStatus,
+  IncidentStatus,
+  IncidentSeverity,
+  TimesheetStatus,
+  ProjectPortfolioSummary,
+} from '../types';
+import * as api from '../services/mockApi';
+import { 
+  computeProjectPortfolioSummary,
+  getInvoiceFinancials,
+  getDerivedStatus,
+  generateFinancialForecast,
+} from '../utils/businessLogic';
 
 interface OwnerDashboardProps {
   user: User;
@@ -357,17 +384,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         actions={
           setActiveView
             ? (
-<<<<<<< HEAD
-              <Button variant="secondary" onClick={() => setActiveView('financials')}>
-                Open financial workspace
-              </Button>
-            )
-=======
                 <Button variant="secondary" onClick={() => setActiveView('financials')}>
                   Open financial workspace
                 </Button>
               )
->>>>>>> origin/main
             : undefined
         }
         meta={[
@@ -376,7 +396,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             value: formatCurrency(portfolioSummary.pipelineValue, currency),
             helper: `${portfolioSummary.totalProjects} active engagements`,
           },
-<<<<<<< HEAD
           {
             label: 'Risk exposure',
             value: `${portfolioSummary.highRiskProjects} high-risk`,
@@ -399,12 +418,3 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     </div>
   );
 };
-
-export { OwnerDashboard };
-=======
-        ]}
-      />
-    </div>
-  );
-};
->>>>>>> origin/main
