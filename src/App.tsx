@@ -45,6 +45,7 @@ const ChatView = React.lazy(() => import('./components/ChatView').then(m => ({ d
 const ClientsView = React.lazy(() => import('./components/ClientsView').then(m => ({ default: m.ClientsView })));
 const InvoicesView = React.lazy(() => import('./components/InvoicesView').then(m => ({ default: m.InvoicesView })));
 const UserRegistration = React.lazy(() => import('./components/UserRegistration').then(m => ({ default: m.UserRegistration })));
+const TodosView = React.lazy(() => import('./components/TodosView').then(m => ({ default: m.TodosView })));
 
 
 interface Toast {
@@ -405,6 +406,7 @@ function App() {
       case 'chat': return <ChatView user={user} addToast={addToast} initialRecipient={initialChatRecipient} />;
       case 'clients': return <ClientsView user={user} addToast={addToast} />;
       case 'invoices': return <InvoicesView user={user} addToast={addToast} />;
+      case 'todos': return <TodosView user={user} addToast={addToast} />;
       default:
         return (
           <Dashboard

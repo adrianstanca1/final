@@ -133,6 +133,10 @@ export const viewMetadata: Record<View, ViewMetadata> = {
     title: 'Invoices',
     description: 'Billing pipeline, receivables and payment status.',
   },
+  todos: {
+    title: 'Todos',
+    description: 'Lightweight Supabase-backed list for connectivity checks.',
+  },
 };
 
 export const viewAccessRules: Partial<Record<View, ViewAccessRule>> = {

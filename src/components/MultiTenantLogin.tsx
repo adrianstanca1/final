@@ -13,7 +13,8 @@ export const MultiTenantLogin: React.FC<{ onSwitchToRegister: () => void; onSwit
         const handleGoogle = async () => {
             setLoading(true);
             try {
-                await identity.loginWithGoogle();
+                const redirectTo = typeof window !== 'undefined' ? window.location.origin : undefined;
+                await identity.loginWithGoogle(redirectTo);
                 addToast?.('Redirecting to Google…', 'success');
             } catch (e: any) {
                 addToast?.(e?.message || 'Google login failed', 'error');

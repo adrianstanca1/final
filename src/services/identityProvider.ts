@@ -9,10 +9,11 @@ const getProvider = (): IdentityProvider => (getSupabase() ? 'supabase' : 'local
 export const identity = {
   provider: getProvider,
 
-  loginWithGoogle: async (): Promise<void> => {
+  loginWithGoogle: async (redirectTo?: string): Promise<void> => {
     const sb = getSupabase();
     if (!sb) throw new Error('Google login not configured');
-    const { error } = await sb.auth.signInWithOAuth({ provider: 'google' });
+    const target = redirectTo || (typeof window !== 'undefined' ? window.location.origin : undefined);
+    const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: target ? { redirectTo: target } : undefined });
     if (error) throw error;
   },
 

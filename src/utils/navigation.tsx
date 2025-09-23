@@ -194,6 +194,13 @@ const navigationSchema: NavigationSectionConfig[] = [
           hasPermission(user, Permission.VIEW_ALL_PROJECTS) ||
           hasPermission(user, Permission.VIEW_ASSIGNED_PROJECTS),
       },
+      {
+        id: 'todos',
+        label: 'Todos (Supabase)',
+        view: 'todos',
+        icon: icons.tasks,
+        description: 'Quick connectivity check to Supabase-backed todos list.',
+      },
     ],
   },
   {
