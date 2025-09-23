@@ -26,6 +26,8 @@ import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
 import { generateProjectHealthSummary, ProjectHealthSummaryResult } from '../services/ai';
 import { useDashboardSnapshot } from '../hooks/useDashboardSnapshot';
 import { useBackendConnection } from '../hooks/useBackendConnection';
+import InviteQRPanel from './InviteQRPanel';
+import { Role } from '../types';
 
 interface DashboardProps {
     user: User;
@@ -563,6 +565,16 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
 
                 </Card>
             </section>
+
+            {user.role === Role.PROJECT_MANAGER && (
+                <InviteQRPanel
+                    user={user}
+                    addToast={addToast}
+                    targetRoles={[Role.FOREMAN, Role.OPERATIVE]}
+                    title="Invite crew via QR"
+                    description="Generate a QR invite for Foremen or Operatives."
+                />
+            )}
 
             <section className="grid gap-6 xl:grid-cols-[2fr,1fr]">
                 <Card className="space-y-4 p-6">

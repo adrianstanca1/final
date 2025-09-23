@@ -3,6 +3,8 @@
 
 // Fixed OwnerDashboard.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import InviteQRPanel from './InviteQRPanel';
+import { Role } from '../types';
 // ... full component code above remains unchanged ...
 
 interface OwnerDashboardProps {
@@ -387,6 +389,13 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             helper: `${portfolioSummary.totalProjects} active engagements`,
           },
         ]}
+      />
+      <InviteQRPanel
+        user={user}
+        addToast={addToast}
+        targetRoles={[Role.ADMIN, Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE, Role.CLIENT]}
+        title="Invite your team via QR"
+        description="Owners can generate QR invites for Admins, PMs, Foremen, and Operatives."
       />
     </div>
   );

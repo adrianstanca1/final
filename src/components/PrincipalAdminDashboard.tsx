@@ -5,6 +5,7 @@ import { Card } from './ui/Card';
 import { BackendStatus } from './BackendStatus';
 import { Button } from './ui/Button';
 import { InviteCompanyModal } from './InviteCompanyModal';
+import CompanyInviteQRPanel from './CompanyInviteQRPanel';
 
 interface PrincipalAdminDashboardProps {
   user: User;
@@ -176,6 +177,8 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
           <Button onClick={() => setIsInviteModalOpen(true)}>Invite New Company</Button>
         </div>
       </div>
+
+      <CompanyInviteQRPanel user={user} addToast={addToast} />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard
