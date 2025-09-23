@@ -309,7 +309,7 @@ const navigationSchema: NavigationSectionConfig[] = [
         label: 'AI Procurement',
         view: 'procurement-ai',
         icon: icons.ai,
-        description: 'AI-powered tender analysis and proposal generation (Platform Admins & Owners only).',
+        description: 'AI-powered tender analysis and proposal generation.',
         roles: [Role.PRINCIPAL_ADMIN, Role.OWNER],
       },
       {

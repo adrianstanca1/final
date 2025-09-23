@@ -12,7 +12,7 @@ interface ProcurementDashboardProps {
 
 export const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ user }) => {
     const [activeView, setActiveView] = useState<'analysis' | 'analytics'>('analysis');
-    
+
     // Restrict access to Platform Admins and Company Owners only
     if (user.role !== Role.PRINCIPAL_ADMIN && user.role !== Role.OWNER) {
         return (
@@ -61,7 +61,7 @@ export const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ user
                         <h1 className="text-3xl font-bold text-gray-900">
                             🤖 AI Procurement Analysis
                         </h1>
-                        
+
                         {/* View Toggle */}
                         <div className="flex items-center bg-gray-100 rounded-lg p-1">
                             <Button
@@ -82,7 +82,7 @@ export const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ user
                             </Button>
                         </div>
                     </div>
-                    
+
                     <div className="text-right">
                         <div className="text-sm font-medium text-gray-700">
                             {user.role === Role.PRINCIPAL_ADMIN ? '👑 Platform Admin' : '👤 Company Owner'}
@@ -92,11 +92,11 @@ export const ProcurementDashboard: React.FC<ProcurementDashboardProps> = ({ user
                         </div>
                     </div>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                     <div>
                         <p className="text-gray-600">
-                            {activeView === 'analysis' 
+                            {activeView === 'analysis'
                                 ? 'Analyze tender opportunities with AI-powered insights and generate winning proposals'
                                 : 'Advanced analytics dashboard with predictive models and market intelligence'
                             }
