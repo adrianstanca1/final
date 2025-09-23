@@ -25,6 +25,239 @@ export const TenderMonitoringDashboard: React.FC<TenderMonitoringDashboardProps>
     const [sources, setSources] = useState<TenderSource[]>([]);
     const [alerts, setAlerts] = useState<MonitoringAlert[]>([]);
     const [filters, setFilters] = useState<RelevanceFilter[]>([]);
+    const [monitoring, setMonitoring] = useState(false);
+    const [showAddSource, setShowAddSource] = useState(false);
+    const [showAddFilter, setShowAddFilter] = useState(false);
+    
+    const [newSource, setNewSource] = useState<Partial<TenderSource>>({
+        name: '',
+        url: '',
+        type: 'government',
+        region: '',
+        enabled: true
+    });
+    
+    const [newFilter, setNewFilter] = useState<Partial<RelevanceFilter>>({
+        keywords: [],
+        minValue: 0,
+        maxValue: 1000000,
+        categories: [],
+        regions: [],
+        deadlineBuffer: 30,
+        enabled: true
+    });
+
+    useEffect(() => {
+        loadData();
+    }, []);
+
+    const loadData = async () => {
+        try {
+            const [sourcesData, alertsData, filtersData] = await Promise.all([
+                tenderMonitoringService.getSources(),
+                tenderMonitoringService.getAlerts(),
+                tenderMonitoringService.getFilters()
+            ]);
+            setSources(sourcesData);
+            setAlerts(alertsData);
+            setFilters(filtersData);
+            
+            const wasMonitoring = localStorage.getItem('tender_monitoring_active') === 'true';
+            if (wasMonitoring) {
+                setMonitoring(true);
+                tenderMonitoringService.startMonitoring(filtersData);
+            }
+        } catch (error) {
+            console.error('Failed to load monitoring data:', error);
+        }
+    };
+
+    const handleStartMonitoring = async () => {
+        try {
+            setMonitoring(true);
+            localStorage.setItem('tender_monitoring_active', 'true');
+            tenderMonitoringService.startMonitoring(filters);
+            
+            const discoveredTenders = await tenderMonitoringService.scanAllSources();
+            discoveredTenders.forEach(tender => {
+                if (onTenderDiscovered) {
+                    onTenderDiscovered(tender);
+                }
+            });
+            
+            await loadData();
+        } catch (error) {
+            console.error('Failed to start monitoring:', error);
+            setMonitoring(false);
+        }
+    };
+
+    const handleStopMonitoring = () => {
+        setMonitoring(false);
+        localStorage.setItem('tender_monitoring_active', 'false');
+        tenderMonitoringService.stopMonitoring();
+    };
+
+    const handleAddSource = async () => {
+        try {
+            if (!newSource.name || !newSource.url) return;
+            
+            const source = await tenderMonitoringService.addSource(newSource as TenderSource);
+            setSources(prev => [...prev, source]);
+            setNewSource({
+                name: '',
+                url: '',
+                type: 'government',
+                region: '',
+                enabled: true
+            });
+            setShowAddSource(false);
+        } catch (error) {
+            console.error('Failed to add source:', error);
+        }
+    };
+
+    const getPriorityColor = (priority: string) => {
+        switch (priority) {
+            case 'high': return 'red';
+            case 'medium': return 'yellow';
+            case 'low': return 'green';
+            default: return 'gray';
+        }
+    };
+
+    return (
+        <div className="space-y-6">
+            {/* Header */}
+            <div className="flex justify-between items-center">
+                <div>
+                    <h2 className="text-2xl font-bold">Tender Monitoring</h2>
+                    <p className="text-gray-600">
+                        Monitor tender sources and get real-time alerts
+                    </p>
+                </div>
+                <div className="flex gap-2">
+                    <Button
+                        onClick={monitoring ? handleStopMonitoring : handleStartMonitoring}
+                        className={monitoring ? 'bg-red-600' : 'bg-green-600'}
+                    >
+                        {monitoring ? 'Stop Monitoring' : 'Start Monitoring'}
+                    </Button>
+                    <Button onClick={loadData} variant="outline">
+                        Refresh
+                    </Button>
+                </div>
+            </div>
+
+            {/* Status Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card className="p-4">
+                    <div className="text-2xl font-bold text-blue-600">{sources.length}</div>
+                    <div className="text-sm text-gray-600">Active Sources</div>
+                </Card>
+                <Card className="p-4">
+                    <div className="text-2xl font-bold text-green-600">
+                        {sources.filter(s => s.enabled).length}
+                    </div>
+                    <div className="text-sm text-gray-600">Enabled Sources</div>
+                </Card>
+                <Card className="p-4">
+                    <div className="text-2xl font-bold text-orange-600">{alerts.length}</div>
+                    <div className="text-sm text-gray-600">Recent Alerts</div>
+                </Card>
+                <Card className="p-4">
+                    <div className="text-2xl font-bold text-purple-600">{filters.length}</div>
+                    <div className="text-sm text-gray-600">Active Filters</div>
+                </Card>
+            </div>
+
+            {/* Sources Management */}
+            <Card className="p-6">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold">Tender Sources</h3>
+                    <Button onClick={() => setShowAddSource(true)}>
+                        Add Source
+                    </Button>
+                </div>
+                
+                <div className="space-y-3">
+                    {sources.map(source => (
+                        <div key={source.id} className="flex items-center justify-between p-3 border rounded-lg">
+                            <div className="flex items-center gap-3">
+                                <Badge color={source.enabled ? 'green' : 'gray'}>
+                                    {source.enabled ? 'Active' : 'Disabled'}
+                                </Badge>
+                                <div>
+                                    <div className="font-medium">{source.name}</div>
+                                    <div className="text-sm text-gray-600">{source.url}</div>
+                                    <div className="text-xs text-gray-500">
+                                        {source.type} • {source.region}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </Card>
+
+            {/* Recent Alerts */}
+            <Card className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Recent Alerts</h3>
+                <div className="space-y-3">
+                    {alerts.slice(0, 10).map(alert => (
+                        <div key={alert.id} className="flex items-start justify-between p-3 border rounded-lg">
+                            <div className="flex items-start gap-3">
+                                <Badge color={getPriorityColor(alert.priority)}>
+                                    {alert.priority}
+                                </Badge>
+                                <div>
+                                    <div className="font-medium">{alert.title}</div>
+                                    <div className="text-sm text-gray-600">{alert.message}</div>
+                                    <div className="text-xs text-gray-500">
+                                        {new Date(alert.timestamp).toLocaleString()}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </Card>
+
+            {/* Add Source Modal */}
+            <Modal
+                isOpen={showAddSource}
+                onClose={() => setShowAddSource(false)}
+                title="Add Tender Source"
+            >
+                <div className="space-y-4">
+                    <div>
+                        <label className="block text-sm font-medium mb-1">Source Name</label>
+                        <Input
+                            value={newSource.name || ''}
+                            onChange={(e) => setNewSource({ ...newSource, name: e.target.value })}
+                            placeholder="Government Contracts Portal"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1">URL</label>
+                        <Input
+                            value={newSource.url || ''}
+                            onChange={(e) => setNewSource({ ...newSource, url: e.target.value })}
+                            placeholder="https://contracts.gov/api/tenders"
+                        />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-4">
+                        <Button variant="outline" onClick={() => setShowAddSource(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleAddSource}>
+                            Add Source
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
+        </div>
+    );
 
     const [isMonitoring, setIsMonitoring] = useState(false); const [filters, setFilters] = useState<RelevanceFilter[]>([]);
 
