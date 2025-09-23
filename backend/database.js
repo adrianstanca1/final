@@ -14,6 +14,8 @@ const resolveDatabaseFile = () => {
   return path.join(__dirname, 'data', 'app.db');
 };
 
+export const PLATFORM_COMPANY_ID = 'platform-root';
+
 const databaseFile = resolveDatabaseFile();
 const databaseDirectory = path.dirname(databaseFile);
 
@@ -33,6 +35,13 @@ const getDb = async () => {
   return dbPromise;
 };
 
+const ensureColumn = async (db, tableName, columnName, columnDefinition) => {
+  const existingColumns = await db.all(`PRAGMA table_info(${tableName})`);
+  if (!existingColumns.some((column) => column.name === columnName)) {
+    await db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnDefinition}`);
+  }
+};
+
 export const initialiseSchema = async () => {
   const db = await getDb();
 
@@ -43,6 +52,9 @@ export const initialiseSchema = async () => {
       type TEXT,
       email TEXT,
       phone TEXT,
+      industry TEXT,
+      status TEXT DEFAULT 'ACTIVE',
+      subscription_plan TEXT DEFAULT 'PROFESSIONAL',
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now'))
     );
@@ -154,6 +166,14 @@ export const initialiseSchema = async () => {
       FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
     );
   `);
+
+  await ensureColumn(db, 'users', 'username', 'username TEXT');
+  await ensureColumn(db, 'users', 'auth_provider', "auth_provider TEXT DEFAULT 'local'");
+  await ensureColumn(db, 'users', 'is_platform_owner', 'is_platform_owner INTEGER DEFAULT 0');
+  await ensureColumn(db, 'companies', 'industry', 'industry TEXT');
+  await ensureColumn(db, 'companies', 'status', "status TEXT DEFAULT 'ACTIVE'");
+  await ensureColumn(db, 'companies', 'subscription_plan', "subscription_plan TEXT DEFAULT 'PROFESSIONAL'");
+  await db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username)');
 };
 
 export const getDatabase = getDb;

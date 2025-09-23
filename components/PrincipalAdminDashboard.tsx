@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { User, Company, SystemHealth, UsageMetric } from '../types';
+import { formatDistanceToNow } from 'date-fns';
+import { User, TenantSummary, SystemHealth, PlatformMetricsResponse } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -25,6 +26,16 @@ const KpiCard: React.FC<{ title: string; value: string | number; icon: React.Rea
     </div>
   </Card>
 );
+
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency: 'GBP',
+    maximumFractionDigits: value >= 1_000_000 ? 0 : 1,
+  }).format(value || 0);
+
+const formatNumber = (value: number) =>
+  new Intl.NumberFormat('en-GB', { maximumFractionDigits: 0 }).format(value || 0);
 
 const SystemHealthIndicator: React.FC<{ health: SystemHealth }> = ({ health }) => {
   const statusStyles = {
@@ -83,9 +94,11 @@ const SystemHealthIndicator: React.FC<{ health: SystemHealth }> = ({ health }) =
 };
 
 export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = ({ user, addToast }) => {
-  const [companies, setCompanies] = useState<Company[]>([]);
-  const [totalUsers, setTotalUsers] = useState(0);
-  const [metrics, setMetrics] = useState<UsageMetric[]>([]);
+  const [tenantDirectory, setTenantDirectory] = useState<TenantSummary[]>([]);
+  const [directorySource, setDirectorySource] = useState<'backend' | 'mock'>('mock');
+  const [platformMetrics, setPlatformMetrics] = useState<PlatformMetricsResponse | null>(null);
+  const [directoryGeneratedAt, setDirectoryGeneratedAt] = useState<string | null>(null);
+  const [metricsGeneratedAt, setMetricsGeneratedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [systemHealth] = useState<SystemHealth>({ status: 'OK', message: 'All systems are operational.' });
@@ -98,27 +111,18 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
 
     setLoading(true);
     try {
-      const [companiesData, metricsData] = await Promise.all([
-        api.getCompanies({ signal: controller.signal }),
-        api.getPlatformUsageMetrics({ signal: controller.signal }),
+      const [directoryResponse, metricsResponse] = await Promise.all([
+        api.getTenantDirectory({ signal: controller.signal }),
+        api.getPlatformMetrics({ signal: controller.signal }),
       ]);
 
       if (controller.signal.aborted) return;
 
-      const usersByCompany = await Promise.all(
-        companiesData.map((company) => api.getUsersByCompany(company.id, { signal: controller.signal }))
-      );
-
-      if (controller.signal.aborted) return;
-      const allUsers = usersByCompany.flat();
-
-      const tenantCompanies = companiesData.filter((company) => company.id !== '0');
-      if (controller.signal.aborted) return;
-      setCompanies(tenantCompanies as Company[]);
-      if (controller.signal.aborted) return;
-      setTotalUsers(allUsers.filter((userRecord) => userRecord.companyId !== '0').length);
-      if (controller.signal.aborted) return;
-      setMetrics(metricsData);
+      setTenantDirectory(directoryResponse.tenants);
+      setDirectorySource(directoryResponse.source);
+      setDirectoryGeneratedAt(directoryResponse.generatedAt);
+      setPlatformMetrics(metricsResponse);
+      setMetricsGeneratedAt(metricsResponse.generatedAt);
     } catch (error) {
       if (controller.signal.aborted) return;
       addToast('Failed to load platform data.', 'error');
@@ -140,8 +144,33 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
     await fetchData();
   };
 
-  const totalStorage = companies.reduce((acc, company) => acc + (company.storageUsageGB || 0), 0);
-  const activeMetric = metrics.find((metric) => metric.name.toLowerCase().includes('active'));
+  const metrics = platformMetrics?.metrics ?? [];
+  const platformOwner = platformMetrics?.platformOwner ?? null;
+  const metricsSource = platformMetrics?.source ?? directorySource;
+  const directoryGeneratedLabel = directoryGeneratedAt
+    ? formatDistanceToNow(new Date(directoryGeneratedAt), { addSuffix: true })
+    : null;
+  const metricsGeneratedLabel = metricsGeneratedAt
+    ? formatDistanceToNow(new Date(metricsGeneratedAt), { addSuffix: true })
+    : null;
+
+  const totalTenants = tenantDirectory.length;
+  const totalUsers = tenantDirectory.reduce((acc, tenant) => acc + tenant.totalUsers, 0);
+  const activeProjects = tenantDirectory.reduce((acc, tenant) => acc + tenant.activeProjects, 0);
+  const overdueInvoices = tenantDirectory.reduce((acc, tenant) => acc + tenant.overdueInvoices, 0);
+  const totalRevenue = tenantDirectory.reduce((acc, tenant) => acc + tenant.totalRevenue, 0);
+  const outstandingBalance = tenantDirectory.reduce((acc, tenant) => acc + tenant.outstandingBalance, 0);
+  const collectedRevenue = tenantDirectory.reduce((acc, tenant) => acc + tenant.collectedRevenue, 0);
+
+  const dataSourceChipClass =
+    directorySource === 'backend'
+      ? 'bg-emerald-100 text-emerald-700 border border-emerald-200'
+      : 'bg-slate-100 text-slate-600 border border-slate-200';
+
+  const metricsSourceChipClass =
+    metricsSource === 'backend'
+      ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+      : 'bg-amber-100 text-amber-700 border border-amber-200';
 
   if (loading) {
     return (
@@ -157,20 +186,42 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
         <InviteCompanyModal onClose={() => setIsInviteModalOpen(false)} onInvite={handleInvite} />
       )}
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-3xl font-bold text-slate-900">Platform Administration</h2>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span
+              className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${dataSourceChipClass}`}
+            >
+              <span className="h-2 w-2 rounded-full bg-current" />
+              {directorySource === 'backend' ? 'Live tenant data' : 'Local sandbox dataset'}
+            </span>
+            <span
+              className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold ${metricsSourceChipClass}`}
+            >
+              <span className="h-2 w-2 rounded-full bg-current" />
+              {metricsSource === 'backend' ? 'Live telemetry' : 'Simulated telemetry'}
+            </span>
+          </div>
+          {directoryGeneratedLabel && (
+            <p className="mt-2 text-xs text-muted-foreground">Last synced {directoryGeneratedLabel}</p>
+          )}
           <p className="text-sm text-slate-600">
             Manage tenant accounts, monitor platform health, and keep an eye on adoption across the ecosystem.
           </p>
         </div>
-        <Button onClick={() => setIsInviteModalOpen(true)}>Invite New Company</Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={fetchData}>
+            Refresh data
+          </Button>
+          <Button onClick={() => setIsInviteModalOpen(true)}>Invite New Company</Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           title="Total Companies"
-          value={companies.length}
+          value={totalTenants}
           icon={
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -186,7 +237,7 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
         />
         <KpiCard
           title="Users Across Tenants"
-          value={totalUsers}
+          value={formatNumber(totalUsers)}
           icon={
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -212,27 +263,36 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
           }
         />
         <KpiCard
-          title="Storage In Use"
-          value={`${totalStorage.toFixed(1)} GB`}
-          icon={
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16v12H4z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 10h8m-8 4h5" />
-            </svg>
-          }
-        />
-        <KpiCard
-          title="Active last 24h"
-          value={activeMetric ? `${activeMetric.value} ${activeMetric.unit}` : '—'}
+          title="Live Invoice Volume"
+          value={formatCurrency(totalRevenue)}
           icon={
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth={1.5}
-                d="M12 6v6l4 2"
+                d="M12 8c1.104 0 2-.672 2-1.5S13.104 5 12 5s-2 .672-2 1.5S10.896 8 12 8z"
               />
-              <circle cx="12" cy="12" r="9" strokeWidth={1.5} />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M5 10h14M5 14h14M5 18h14"
+              />
+            </svg>
+          }
+        />
+        <KpiCard
+          title="Outstanding Balance"
+          value={formatCurrency(outstandingBalance)}
+          icon={
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
             </svg>
           }
         />
@@ -240,57 +300,64 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
 
       <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
         <Card className="overflow-hidden">
-          <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
+          <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="text-lg font-semibold text-slate-900">Tenant roster</h3>
-              <p className="text-sm text-slate-600">Latest snapshot of every company on the platform.</p>
+              <p className="text-sm text-slate-600">Live overview of each organisation and its commercial footprint.</p>
             </div>
-            <Button variant="secondary" size="sm" onClick={() => fetchData()}>
-              Refresh
-            </Button>
+            <div className="text-xs text-muted-foreground sm:text-right">
+              <p>Source: {directorySource === 'backend' ? 'Live database' : 'Local mock data'}</p>
+              {directoryGeneratedLabel && <p>Updated {directoryGeneratedLabel}</p>}
+            </div>
           </div>
           <div className="mt-4 overflow-x-auto">
             <table className="min-w-full divide-y divide-border text-sm">
               <thead className="bg-muted/60 text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3 text-left font-semibold">Company</th>
-                  <th className="px-4 py-3 text-left font-semibold">Type</th>
+                  <th className="px-4 py-3 text-left font-semibold">Industry</th>
                   <th className="px-4 py-3 text-left font-semibold">Plan</th>
                   <th className="px-4 py-3 text-left font-semibold">Status</th>
-                  <th className="px-4 py-3 text-right font-semibold">Storage</th>
+                  <th className="px-4 py-3 text-right font-semibold">Users</th>
+                  <th className="px-4 py-3 text-right font-semibold">Active Projects</th>
+                  <th className="px-4 py-3 text-right font-semibold">Revenue</th>
+                  <th className="px-4 py-3 text-right font-semibold">Outstanding</th>
+                  <th className="px-4 py-3 text-right font-semibold">Overdue</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border bg-card">
-                {companies.map((company) => (
-                  <tr key={company.id} className="hover:bg-muted/50">
+                {tenantDirectory.map((tenant) => (
+                  <tr key={tenant.id} className="hover:bg-muted/50">
                     <td className="px-4 py-3">
-                      <div className="font-semibold text-slate-900">{company.name}</div>
-                      <p className="text-xs text-slate-500">{company.email || 'No contact email'}</p>
+                      <div className="font-semibold text-slate-900">{tenant.name}</div>
+                      <p className="text-xs text-slate-500">{tenant.subscriptionPlan}</p>
                     </td>
                     <td className="px-4 py-3 capitalize text-slate-700">
-                      {company.type?.toLowerCase().replace('_', ' ') || 'Not specified'}
+                      {tenant.industry || '—'}
                     </td>
-                    <td className="px-4 py-3 text-slate-700">{company.subscriptionPlan || 'FREE'}</td>
+                    <td className="px-4 py-3 text-slate-700">{tenant.subscriptionPlan || 'FREE'}</td>
                     <td className="px-4 py-3">
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${
-                          company.status === 'Suspended'
+                          tenant.status?.toLowerCase().includes('suspend')
                             ? 'bg-red-100 text-red-700'
                             : 'bg-emerald-100 text-emerald-700'
                         }`}
                       >
-                        {company.status || 'Active'}
+                        {tenant.status || 'Active'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-700">
-                      {`${(company.storageUsageGB || 0).toFixed(1)} GB`}
-                    </td>
+                    <td className="px-4 py-3 text-right text-slate-700">{formatNumber(tenant.totalUsers)}</td>
+                    <td className="px-4 py-3 text-right text-slate-700">{formatNumber(tenant.activeProjects)}</td>
+                    <td className="px-4 py-3 text-right text-slate-700">{formatCurrency(tenant.totalRevenue)}</td>
+                    <td className="px-4 py-3 text-right text-slate-700">{formatCurrency(tenant.outstandingBalance)}</td>
+                    <td className="px-4 py-3 text-right text-slate-700">{formatNumber(tenant.overdueInvoices)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          {companies.length === 0 && (
+          {tenantDirectory.length === 0 && (
             <div className="py-8 text-center text-sm text-muted-foreground">
               No tenant companies found. Invite your first partner to get started.
             </div>
@@ -309,8 +376,15 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
           </Card>
 
           <Card>
-            <h3 className="text-lg font-semibold text-slate-900">Usage metrics</h3>
-            <p className="text-sm text-slate-600">Key activity signals from the last 24 hours.</p>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Usage metrics</h3>
+                <p className="text-sm text-slate-600">Key activity signals from the last 24 hours.</p>
+              </div>
+              <span className="rounded-full bg-muted px-2 py-1 text-xs font-semibold text-muted-foreground">
+                {metricsGeneratedLabel ? `Updated ${metricsGeneratedLabel}` : '—'}
+              </span>
+            </div>
             <ul className="mt-4 space-y-3 text-sm">
               {metrics.map((metric) => (
                 <li key={metric.name} className="flex items-center justify-between border-b border-dashed border-border pb-2">
@@ -321,6 +395,50 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
               {metrics.length === 0 && <li className="text-sm text-muted-foreground">No usage data available.</li>}
             </ul>
           </Card>
+
+          <Card>
+            <h3 className="text-lg font-semibold text-slate-900">Revenue pulse</h3>
+            <p className="text-sm text-slate-600">Cash position across the tenant network.</p>
+            <dl className="mt-4 space-y-3 text-sm">
+              <div className="flex items-center justify-between">
+                <dt className="text-slate-600">Collected year-to-date</dt>
+                <dd className="font-semibold text-slate-900">{formatCurrency(collectedRevenue)}</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-slate-600">Outstanding receivables</dt>
+                <dd className="font-semibold text-amber-600">{formatCurrency(outstandingBalance)}</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-slate-600">Invoices overdue</dt>
+                <dd className="font-semibold text-red-600">{formatNumber(overdueInvoices)}</dd>
+              </div>
+            </dl>
+          </Card>
+
+          {platformOwner && (
+            <Card>
+              <h3 className="text-lg font-semibold text-slate-900">Platform owner</h3>
+              <p className="text-sm text-slate-600">
+                Superuser account with governance controls across every tenant.
+              </p>
+              <div className="mt-4 space-y-2 rounded-lg border border-dashed border-border p-4 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-600">Username</span>
+                  <span className="font-semibold text-slate-900">{platformOwner.username}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-600">Email</span>
+                  <span className="font-semibold text-slate-900">{platformOwner.email}</span>
+                </div>
+                {platformOwner.name && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-600">Name</span>
+                    <span className="font-semibold text-slate-900">{platformOwner.name}</span>
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
         </div>
       </div>
     </div>

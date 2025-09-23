@@ -2,7 +2,7 @@
 // Supports offline queuing for write operations.
 
 import { initialData } from './mockData';
-import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegisterCredentials, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority, InvoiceInsights, ClientInsights, InvoicePayment } from '../types';
+import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegisterCredentials, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority, InvoiceInsights, ClientInsights, InvoicePayment, TenantDirectoryResponse, PlatformMetricsResponse } from '../types';
 
 const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
 
@@ -37,6 +37,120 @@ const parseDateValue = (value?: string | null): number | null => {
 const getQuarterStartDate = (reference: Date): Date => {
     const quarter = Math.floor(reference.getUTCMonth() / 3);
     return new Date(Date.UTC(reference.getUTCFullYear(), quarter * 3, 1));
+};
+
+const buildTenantDirectoryFromMock = (): TenantDirectoryResponse => {
+    const nowIso = new Date().toISOString();
+    const tenants = (db.companies || [])
+        .filter(company => company.id && company.id !== '0')
+        .map(company => {
+            const companyId = company.id!;
+            const companyProjects = db.projects.filter(project => project.companyId === companyId);
+            const companyInvoices = db.invoices.filter(invoice => invoice.companyId === companyId);
+            const companyUsers = db.users.filter(user => user.companyId === companyId);
+
+            const totalProjects = companyProjects.length;
+            const activeProjects = companyProjects.filter(project => project.status === 'ACTIVE').length;
+            const totalRevenue = companyInvoices.reduce((sum, invoice) => sum + toNumber(invoice.total), 0);
+            const outstandingBalance = companyInvoices.reduce((sum, invoice) => sum + toNumber(invoice.balance), 0);
+            const overdueInvoices = companyInvoices.filter(invoice => invoice.status === 'OVERDUE').length;
+            const collectedRevenue = companyInvoices
+                .filter(invoice => invoice.status === 'PAID')
+                .reduce((sum, invoice) => sum + toNumber(invoice.total), 0);
+
+            return {
+                id: companyId,
+                name: company.name || 'Unknown Company',
+                industry: (company as any).industry || 'General',
+                status: (company as any).status || 'ACTIVE',
+                subscriptionPlan: (company as any).subscriptionPlan || 'PROFESSIONAL',
+                totalUsers: companyUsers.length,
+                totalProjects,
+                activeProjects,
+                totalRevenue,
+                outstandingBalance,
+                overdueInvoices,
+                collectedRevenue,
+                createdAt: (company as any).createdAt || nowIso,
+                updatedAt: (company as any).updatedAt || nowIso,
+            };
+        });
+
+    return { source: 'mock', generatedAt: nowIso, tenants };
+};
+
+const buildPlatformMetricsFromMock = (): PlatformMetricsResponse => {
+    const nowIso = new Date().toISOString();
+    const tenants = buildTenantDirectoryFromMock();
+    const totalInvoiceValue = tenants.tenants.reduce((sum, tenant) => sum + tenant.totalRevenue, 0);
+    const outstandingBalance = tenants.tenants.reduce((sum, tenant) => sum + tenant.outstandingBalance, 0);
+    const totalUsers = tenants.tenants.reduce((sum, tenant) => sum + tenant.totalUsers, 0);
+    const activeProjects = tenants.tenants.reduce((sum, tenant) => sum + tenant.activeProjects, 0);
+
+    return {
+        source: 'mock',
+        generatedAt: nowIso,
+        metrics: [
+            { name: 'Active Tenants', value: tenants.tenants.length, unit: 'companies' },
+            { name: 'Active Projects', value: activeProjects, unit: 'projects' },
+            { name: 'Total Invoice Value', value: totalInvoiceValue, unit: 'GBP' },
+            { name: 'Outstanding Balance', value: outstandingBalance, unit: 'GBP' },
+            { name: 'Verified Users', value: totalUsers, unit: 'users' },
+        ],
+        platformOwner: {
+            username: 'aurora.platform',
+            email: 'root@aurora.build',
+            name: 'Aurora Root',
+        },
+    };
+};
+
+const fetchTenantDirectory = async (options?: RequestOptions): Promise<TenantDirectoryResponse> => {
+    ensureNotAborted(options?.signal);
+
+    if (isBackendEnabled) {
+        try {
+            const response = await backendFetch<TenantDirectoryResponse>(
+                '/platform/tenants',
+                { method: 'GET' },
+                options?.signal,
+            );
+            if (!options?.signal?.aborted && response?.tenants) {
+                return { ...response, source: 'backend' };
+            }
+        } catch (error) {
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                throw error;
+            }
+            console.warn('Falling back to mock tenant directory', error);
+        }
+    }
+
+    return buildTenantDirectoryFromMock();
+};
+
+const fetchPlatformMetrics = async (options?: RequestOptions): Promise<PlatformMetricsResponse> => {
+    ensureNotAborted(options?.signal);
+
+    if (isBackendEnabled) {
+        try {
+            const response = await backendFetch<Omit<PlatformMetricsResponse, 'source'>>(
+                '/platform/metrics',
+                { method: 'GET' },
+                options?.signal,
+            );
+            if (!options?.signal?.aborted && response?.metrics) {
+                return { ...response, source: 'backend' };
+            }
+        } catch (error) {
+            if (error instanceof DOMException && error.name === 'AbortError') {
+                throw error;
+            }
+            console.warn('Falling back to mock platform metrics', error);
+        }
+    }
+
+    return buildPlatformMetricsFromMock();
 };
 
 const getYearStartDate = (reference: Date): Date => new Date(Date.UTC(reference.getUTCFullYear(), 0, 1));
@@ -980,14 +1094,34 @@ export const api = {
     },
     getCompanies: async (options?: RequestOptions): Promise<Company[]> => {
         ensureNotAborted(options?.signal);
+
+        if (isBackendEnabled) {
+            try {
+                const companies = await backendFetch<Company[]>(
+                    '/companies',
+                    { method: 'GET' },
+                    options?.signal,
+                );
+                if (!options?.signal?.aborted) {
+                    db.companies = companies.map(company => ({ ...company }));
+                    saveDb();
+                }
+                return companies;
+            } catch (error) {
+                if (error instanceof DOMException && error.name === 'AbortError') {
+                    throw error;
+                }
+                console.warn('Falling back to local companies cache', error);
+            }
+        }
+
         return db.companies as Company[];
     },
+    getTenantDirectory: fetchTenantDirectory,
+    getPlatformMetrics: fetchPlatformMetrics,
     getPlatformUsageMetrics: async (options?: RequestOptions): Promise<UsageMetric[]> => {
-        ensureNotAborted(options?.signal);
-        return [
-            { name: 'Active Users (24h)', value: db.users.length - 2, unit: 'users' },
-            { name: 'API Calls (24h)', value: 12543, unit: 'calls' },
-        ];
+        const result = await fetchPlatformMetrics(options);
+        return result.metrics;
     },
     updateTimesheetEntry: async (id: string, data: any, userId: string): Promise<Timesheet> => {
         const index = db.timeEntries.findIndex(t => t.id === id);

@@ -45,6 +45,42 @@ export interface Company {
   storageUsageGB: number;
 }
 
+export interface TenantSummary {
+  id: string;
+  name: string;
+  industry: string;
+  status: string;
+  subscriptionPlan: SubscriptionPlan | string;
+  totalUsers: number;
+  totalProjects: number;
+  activeProjects: number;
+  totalRevenue: number;
+  outstandingBalance: number;
+  overdueInvoices: number;
+  collectedRevenue: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TenantDirectoryResponse {
+  source: 'backend' | 'mock';
+  generatedAt: string;
+  tenants: TenantSummary[];
+}
+
+export interface PlatformOwnerSummary {
+  username: string;
+  email: string;
+  name?: string;
+}
+
+export interface PlatformMetricsResponse {
+  source: 'backend' | 'mock';
+  generatedAt: string;
+  metrics: UsageMetric[];
+  platformOwner: PlatformOwnerSummary | null;
+}
+
 export type CompanyType = 'GENERAL_CONTRACTOR' | 'SUBCONTRACTOR' | 'SUPPLIER' | 'CONSULTANT' | 'CLIENT';
 
 export interface CompanySettings {

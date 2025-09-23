@@ -1,5 +1,6 @@
-import { initialiseSchema, getDatabase } from './database.js';
+import { initialiseSchema, getDatabase, PLATFORM_COMPANY_ID } from './database.js';
 import { v4 as uuid } from 'uuid';
+import crypto from 'crypto';
 
 const now = () => new Date().toISOString();
 
@@ -72,32 +73,72 @@ const seed = async () => {
   const companyId = '1';
   const ownerId = uuid();
   const projectManagerId = uuid();
+  const platformOwnerId = uuid();
 
   await db.run(
-    `INSERT INTO companies (id, name, type, email, phone) VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO companies (id, name, type, email, phone, industry, status, subscription_plan)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    PLATFORM_COMPANY_ID,
+    'Aurora Platform Operations',
+    'PLATFORM',
+    'platform@aurora.build',
+    '+44 20 7946 0000',
+    'Technology',
+    'ACTIVE',
+    'ENTERPRISE',
+  );
+
+  await db.run(
+    `INSERT INTO companies (id, name, type, email, phone, industry, status, subscription_plan)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     companyId,
     'ConstructCo',
     'GENERAL_CONTRACTOR',
     'hello@constructco.com',
     '+44 20 7946 0958',
+    'Construction',
+    'ACTIVE',
+    'PROFESSIONAL',
+  );
+
+  const hashPassword = (value) =>
+    crypto.createHash('sha256').update(value).digest('hex');
+
+  await db.run(
+    `INSERT INTO users (id, company_id, name, email, role, username, password_hash, is_platform_owner)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    platformOwnerId,
+    PLATFORM_COMPANY_ID,
+    'Aurora Root',
+    'root@aurora.build',
+    'PRINCIPAL_ADMIN',
+    'aurora.platform',
+    hashPassword('Aurora!2024'),
+    1,
   );
 
   await db.run(
-    `INSERT INTO users (id, company_id, name, email, role) VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO users (id, company_id, name, email, role, username, password_hash)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     ownerId,
     companyId,
     'Samantha Lee',
     'sam@constructco.com',
     'ADMIN',
+    'samantha.lee',
+    hashPassword('Samantha#2024'),
   );
 
   await db.run(
-    `INSERT INTO users (id, company_id, name, email, role) VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO users (id, company_id, name, email, role, username, password_hash)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
     projectManagerId,
     companyId,
     'David Chen',
     'david@constructco.com',
     'PROJECT_MANAGER',
+    'david.chen',
+    hashPassword('David#2024'),
   );
 
   const projects = [

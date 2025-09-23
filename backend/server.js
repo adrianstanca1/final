@@ -1,6 +1,6 @@
 import express from 'express';
 import cors from 'cors';
-import { initialiseSchema, getDatabase } from './database.js';
+import { initialiseSchema, getDatabase, PLATFORM_COMPANY_ID } from './database.js';
 import { z } from 'zod';
 import { v4 as uuid } from 'uuid';
 
@@ -97,6 +97,58 @@ const getQuarterStartIso = (reference = new Date()) => {
 const getYearStartIso = (reference = new Date()) => {
   const start = new Date(Date.UTC(reference.getUTCFullYear(), 0, 1));
   return start.toISOString();
+};
+
+const mapCompanyRow = (row) => ({
+  id: row.id,
+  name: row.name,
+  type: row.type ?? 'GENERAL_CONTRACTOR',
+  email: row.email ?? '',
+  phone: row.phone ?? '',
+  industry: row.industry ?? '',
+  status: row.status ?? 'ACTIVE',
+  subscriptionPlan: row.subscription_plan ?? 'PROFESSIONAL',
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
+
+const defaultUserPreferences = Object.freeze({
+  theme: 'system',
+  language: 'en',
+  notifications: {
+    email: true,
+    push: true,
+    sms: false,
+    taskReminders: true,
+    projectUpdates: true,
+    systemAlerts: true,
+  },
+  dashboard: {
+    defaultView: 'dashboard',
+    pinnedWidgets: [],
+    hiddenWidgets: [],
+  },
+});
+
+const mapUserRow = (row) => {
+  const name = row.name ?? '';
+  const [firstName, ...rest] = name.trim().split(' ');
+  return {
+    id: row.id,
+    firstName: firstName ?? '',
+    lastName: rest.join(' ') || '',
+    email: row.email,
+    role: row.role,
+    companyId: row.company_id,
+    username: row.username ?? undefined,
+    isActive: true,
+    isEmailVerified: true,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    lastLogin: row.updated_at,
+    permissions: [],
+    preferences: defaultUserPreferences,
+  };
 };
 
 const mapClientRow = (row) => ({
@@ -202,12 +254,159 @@ const mapInvoiceRow = async (db, row) => {
   };
 };
 
+const buildTenantSummaries = async (db) => {
+  const companies = await db.all('SELECT * FROM companies ORDER BY created_at ASC');
+  if (!companies.length) {
+    return [];
+  }
+
+  const userCounts = await db.all(
+    'SELECT company_id as companyId, COUNT(*) as count FROM users GROUP BY company_id',
+  );
+  const projectCounts = await db.all(
+    'SELECT company_id as companyId, status, COUNT(*) as count FROM projects GROUP BY company_id, status',
+  );
+  const invoiceSummaries = await db.all(
+    'SELECT company_id as companyId, status, SUM(total) as total, SUM(balance) as balance FROM invoices GROUP BY company_id, status',
+  );
+
+  const userCountMap = new Map(userCounts.map((row) => [row.companyId, Number(row.count)]));
+
+  const projectSummaryMap = new Map();
+  for (const row of projectCounts) {
+    const entry = projectSummaryMap.get(row.companyId) ?? { total: 0, active: 0 };
+    entry.total += Number(row.count ?? 0);
+    if (row.status === 'ACTIVE' || row.status === 'IN_PROGRESS') {
+      entry.active += Number(row.count ?? 0);
+    }
+    projectSummaryMap.set(row.companyId, entry);
+  }
+
+  const invoiceSummaryMap = new Map();
+  for (const row of invoiceSummaries) {
+    const entry =
+      invoiceSummaryMap.get(row.companyId) ??
+      { totalRevenue: 0, outstandingBalance: 0, overdueInvoices: 0, collectedRevenue: 0 };
+    const total = Number(row.total ?? 0);
+    const balance = Number(row.balance ?? 0);
+    entry.totalRevenue += total;
+    entry.outstandingBalance += balance;
+    if (row.status === 'OVERDUE') {
+      entry.overdueInvoices += 1;
+    }
+    if (row.status === 'PAID') {
+      entry.collectedRevenue += total;
+    }
+    invoiceSummaryMap.set(row.companyId, entry);
+  }
+
+  return companies
+    .filter((company) => company.id !== PLATFORM_COMPANY_ID)
+    .map((company) => {
+      const base = mapCompanyRow(company);
+      const projectSummary = projectSummaryMap.get(company.id) ?? { total: 0, active: 0 };
+      const invoiceSummary =
+        invoiceSummaryMap.get(company.id) ??
+        { totalRevenue: 0, outstandingBalance: 0, overdueInvoices: 0, collectedRevenue: 0 };
+
+      return {
+        ...base,
+        totalUsers: userCountMap.get(company.id) ?? 0,
+        totalProjects: projectSummary.total,
+        activeProjects: projectSummary.active,
+        totalRevenue: invoiceSummary.totalRevenue,
+        outstandingBalance: invoiceSummary.outstandingBalance,
+        overdueInvoices: invoiceSummary.overdueInvoices,
+        collectedRevenue: invoiceSummary.collectedRevenue,
+      };
+    });
+};
+
+const calculatePlatformMetrics = async (db) => {
+  const [{ count: companyCount = 0 } = { count: 0 }] = await db.all(
+    'SELECT COUNT(*) as count FROM companies WHERE id != ?',
+    PLATFORM_COMPANY_ID,
+  );
+  const [{ count: projectCount = 0 } = { count: 0 }] = await db.all(
+    "SELECT COUNT(*) as count FROM projects WHERE status IN ('ACTIVE', 'IN_PROGRESS')",
+  );
+  const [{ total = 0, balance = 0 } = { total: 0, balance: 0 }] = await db.all(
+    'SELECT SUM(total) as total, SUM(balance) as balance FROM invoices',
+  );
+  const [{ count: userCount = 0 } = { count: 0 }] = await db.all(
+    'SELECT COUNT(*) as count FROM users WHERE company_id != ?',
+    PLATFORM_COMPANY_ID,
+  );
+  const platformOwner = await db.get(
+    'SELECT username, email, name FROM users WHERE is_platform_owner = 1 ORDER BY created_at ASC LIMIT 1',
+  );
+
+  return {
+    metrics: [
+      { name: 'Active Tenants', value: Number(companyCount), unit: 'companies' },
+      { name: 'Active Projects', value: Number(projectCount), unit: 'projects' },
+      { name: 'Total Invoice Value', value: Number(total), unit: 'GBP' },
+      { name: 'Outstanding Balance', value: Number(balance), unit: 'GBP' },
+      { name: 'Verified Users', value: Number(userCount), unit: 'users' },
+    ],
+    generatedAt: new Date().toISOString(),
+    platformOwner: platformOwner
+      ? {
+          username: platformOwner.username,
+          email: platformOwner.email,
+          name: platformOwner.name,
+        }
+      : null,
+  };
+};
+
 app.get('/health', async (_req, res) => {
   try {
     await initialiseSchema();
     res.json({ status: 'ok', mode: 'database', checkedAt: new Date().toISOString() });
   } catch (error) {
     res.status(500).json(createErrorPayload('Health check failed', { status: 'error', details: error.message }));
+  }
+});
+
+app.get('/companies', async (_req, res) => {
+  try {
+    const db = await getDatabase();
+    const rows = await db.all('SELECT * FROM companies ORDER BY created_at ASC');
+    res.json(rows.map(mapCompanyRow));
+  } catch (error) {
+    res.status(500).json(createErrorPayload('Unable to list companies', { details: error.message }));
+  }
+});
+
+app.get('/platform/tenants', async (_req, res) => {
+  try {
+    const db = await getDatabase();
+    const summaries = await buildTenantSummaries(db);
+    res.json({ source: 'backend', tenants: summaries, generatedAt: new Date().toISOString() });
+  } catch (error) {
+    res.status(500).json(createErrorPayload('Unable to load tenant summaries', { details: error.message }));
+  }
+});
+
+app.get('/platform/metrics', async (_req, res) => {
+  try {
+    const db = await getDatabase();
+    const metrics = await calculatePlatformMetrics(db);
+    res.json(metrics);
+  } catch (error) {
+    res.status(500).json(createErrorPayload('Unable to load platform metrics', { details: error.message }));
+  }
+});
+
+app.get('/companies/:companyId/users', async (req, res) => {
+  const { companyId } = req.params;
+  try {
+    const db = await getDatabase();
+    const rows = await db.all('SELECT * FROM users WHERE company_id = ? ORDER BY name COLLATE NOCASE', companyId);
+    res.json(rows.map(mapUserRow));
+  } catch (error) {
+    res.status(500).json(createErrorPayload('Unable to fetch users', { details: error.message }));
   }
 });
 
