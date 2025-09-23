@@ -11,6 +11,7 @@ import { useCommandPalette } from './hooks/useCommandPalette';
 import { useReminderService } from './hooks/useReminderService';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { useAuth } from './contexts/AuthContext';
+import { NotificationService } from './services/notificationService';
 import { ForgotPassword } from './components/auth/ForgotPassword';
 import { ResetPassword } from './components/auth/ResetPassword';
 import { ViewAccessBoundary } from './components/layout/ViewAccessBoundary';
@@ -120,7 +121,7 @@ function App() {
       }
       setActiveView(view);
     },
-    [setSelectedProject, setActiveView]
+    [] // Remove dependencies to prevent re-creation
   );
 
   const addToast = useCallback((message: string, type: 'success' | 'error' = 'success', notification?: Notification) => {
@@ -145,6 +146,33 @@ function App() {
   const { isCommandPaletteOpen, setIsCommandPaletteOpen } = useCommandPalette();
   useReminderService(user);
 
+  // Initialize notification service when user logs in
+  useEffect(() => {
+    if (user) {
+      const notificationService = NotificationService.getInstance();
+      notificationService.connect(user.id);
+
+      // Subscribe to new notifications - use setToasts directly to avoid circular dependency
+      const unsubscribe = notificationService.subscribe((notification) => {
+        setToasts(currentToasts => [
+          ...currentToasts,
+          {
+            id: Date.now() + Math.random(),
+            message: notification.message,
+            type: 'success',
+            notification
+          }
+        ]);
+        setUnreadNotificationCount(prev => prev + 1);
+      });
+
+      return () => {
+        unsubscribe();
+        notificationService.disconnect();
+      };
+    }
+  }, [user]); // Remove addToast dependency
+
   useEffect(() => {
     if (user && user.companyId) {
       api.getCompanySettings(user.companyId).then(setCompanySettings);
@@ -159,9 +187,12 @@ function App() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      setActiveView(getDefaultViewForUser(user));
+      const next = getDefaultViewForUser(user);
+      if (next !== activeView) {
+        setActiveView(next);
+      }
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, activeView]);
 
 
   const updateBadgeCounts = useCallback(async (user: User) => {
@@ -181,12 +212,19 @@ function App() {
       setUnreadNotificationCount(unreadNotifications.length);
 
       const previousUnreadIds = new Set(previousNotificationsRef.current.filter(n => !n.isRead).map(n => n.id));
-      const newUnreadNotifications = unreadNotifications.filter(n => !previousUnreadIds.has(n.id));
+      const newUnreadNotifications = unreadNotifications.filter(n => !n.id || !previousUnreadIds.has(n.id));
 
+      // Use setToasts directly to avoid circular dependency with addToast
       if (newUnreadNotifications.length > 0) {
-        newUnreadNotifications.forEach(n => {
-          addToast(n.message, 'success', n);
-        });
+        setToasts(currentToasts => [
+          ...currentToasts,
+          ...newUnreadNotifications.map(n => ({
+            id: Date.now() + Math.random(),
+            message: n.message,
+            type: 'success' as const,
+            notification: n
+          }))
+        ]);
       }
 
       previousNotificationsRef.current = fetchedNotifications;
@@ -195,7 +233,7 @@ function App() {
     } catch (error) {
       console.error("Could not update notification counts.", error);
     }
-  }, [addToast]);
+  }, []); // Remove addToast dependency
 
   useEffect(() => {
     if (user) {

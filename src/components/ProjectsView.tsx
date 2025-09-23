@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 
 import {
   User,
@@ -7,6 +7,7 @@ import {
   ProjectStatus,
   ProjectPortfolioSummary,
 } from '../types';
+import { useProjects, useDeleteProject } from '../hooks/useProjects';
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
 import { Card } from './ui/Card';
@@ -247,15 +248,15 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
 
     const searchedProjects = query
       ? baseProjects.filter((project) => {
-          const fields = [
-            project.name,
-            project.location?.address,
-            project.projectType,
-            project.workClassification,
-          ].filter(Boolean) as string[];
+        const fields = [
+          project.name,
+          project.location?.address,
+          project.projectType,
+          project.workClassification,
+        ].filter(Boolean) as string[];
 
-          return fields.some((field) => field.toLowerCase().includes(query));
-        })
+        return fields.some((field) => field.toLowerCase().includes(query));
+      })
       : baseProjects;
 
     const direction = sortDirection === 'asc' ? 1 : -1;
@@ -391,9 +392,8 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
             label: 'At risk',
             value: `${summaryForDisplay.atRiskProjects}`,
             helper: summaryForDisplay.overdueProjects
-              ? `${summaryForDisplay.overdueProjects} overdue deliverable${
-                  summaryForDisplay.overdueProjects === 1 ? '' : 's'
-                }`
+              ? `${summaryForDisplay.overdueProjects} overdue deliverable${summaryForDisplay.overdueProjects === 1 ? '' : 's'
+              }`
               : 'Budget and schedule on track',
             indicator:
               summaryForDisplay.atRiskProjects > 0 || summaryForDisplay.overdueProjects > 0
@@ -425,11 +425,10 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
               <div className="flex items-center justify-between">
                 <dt className="text-muted-foreground">Budget variance</dt>
                 <dd
-                  className={`font-semibold ${
-                    summaryForDisplay.budgetVariance < 0
+                  className={`font-semibold ${summaryForDisplay.budgetVariance < 0
                       ? 'text-rose-500 dark:text-rose-300'
                       : 'text-emerald-600 dark:text-emerald-300'
-                  }`}
+                    }`}
                 >
                   {formatCurrency(summaryForDisplay.budgetVariance)}
                 </dd>
@@ -502,9 +501,8 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
                       <div>
                         <p className="text-sm font-semibold text-foreground">{deadline.name}</p>
                         <p
-                          className={`text-xs ${
-                            deadline.isOverdue ? 'text-rose-500 dark:text-rose-300' : 'text-muted-foreground'
-                          }`}
+                          className={`text-xs ${deadline.isOverdue ? 'text-rose-500 dark:text-rose-300' : 'text-muted-foreground'
+                            }`}
                         >
                           {formatDeadlineLabel(deadline.daysRemaining, deadline.isOverdue)} • {formattedDate}
                         </p>
@@ -582,11 +580,10 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
           <button
             key={filterOption.value}
             onClick={() => setFilter(filterOption.value)}
-            className={`rounded-full px-3 py-1.5 text-sm transition-colors ${
-              filter === filterOption.value
+            className={`rounded-full px-3 py-1.5 text-sm transition-colors ${filter === filterOption.value
                 ? 'bg-primary text-primary-foreground shadow-sm'
                 : 'bg-muted text-muted-foreground hover:bg-muted/80'
-            }`}
+              }`}
             aria-pressed={filter === filterOption.value}
           >
             {filterOption.label}

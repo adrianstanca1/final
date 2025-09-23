@@ -74,11 +74,8 @@ const callGemini = async (
     // Use retry mechanism for API calls
     const result = await withRetry(
       async () => {
-        return await client.models.generateContent({
-          model: MODEL_NAME,
-          contents: prompt,
-          config,
-        });
+        const model = (client as any).getGenerativeModel({ model: MODEL_NAME });
+        return await model.generateContent(prompt);
       },
       {
         maxAttempts: 3,
@@ -655,4 +652,80 @@ Respond in Markdown using bullet points.`;
   }
 
   return buildFallbackFinancialForecast({ ...input, horizonMonths }, snapshot);
+};
+
+export interface CostEstimateInput {
+  description: string;
+  squareFootage: number;
+  quality: 'basic' | 'standard' | 'premium';
+  projectType?: string;
+  location?: string;
+}
+
+export interface CostEstimateResult {
+  totalEstimate: number;
+  breakdown: Array<{
+    category: string;
+    cost: number;
+    details: string;
+  }>;
+  contingency: number;
+  summary: string;
+}
+
+export const generateCostEstimate = async (input: CostEstimateInput): Promise<CostEstimateResult> => {
+  const { description, squareFootage, quality, projectType = 'residential', location = 'UK' } = input;
+
+  // Base cost per square foot for different quality levels
+  const baseCosts = {
+    basic: 120,     // £120 per sq ft
+    standard: 180,  // £180 per sq ft  
+    premium: 280    // £280 per sq ft
+  };
+
+  const baseRate = baseCosts[quality];
+  const total = Math.round(baseRate * squareFootage);
+
+  const breakdown = [
+    { category: 'Materials', cost: Math.round(total * 0.5), details: 'Concrete, steel, timber, finishes, fixtures' },
+    { category: 'Labor', cost: Math.round(total * 0.35), details: 'Skilled and unskilled labor, supervision' },
+    { category: 'Overheads', cost: Math.round(total * 0.1), details: 'Site setup, insurance, preliminaries' },
+    { category: 'Permits & Fees', cost: Math.round(total * 0.05), details: 'Planning, building control, inspections' },
+  ];
+
+  const contingency = Math.round(total * 0.1);
+
+  // Try to get AI-enhanced estimate if API key is available
+  const client = getClient();
+  if (client) {
+    try {
+      const prompt = `Generate a detailed construction cost estimate for:
+Description: ${description}
+Square Footage: ${squareFootage}
+Quality Level: ${quality}
+Project Type: ${projectType}
+Location: ${location}
+
+Please provide insights on cost factors, potential variations, and recommendations. Keep response concise.`;
+
+      const response = await callGemini(prompt, { maxOutputTokens: 512 });
+      if (response && (response as any)?.response?.text) {
+        return {
+          totalEstimate: total,
+          breakdown,
+          contingency,
+          summary: `AI-Enhanced Estimate: ${(response as any).response.text()}`,
+        };
+      }
+    } catch (error) {
+      console.warn('AI cost estimation failed, using fallback', error);
+    }
+  }
+
+  return {
+    totalEstimate: total,
+    breakdown,
+    contingency,
+    summary: `Estimated cost for ${squareFootage.toLocaleString()} sq ft ${quality} ${projectType} project in ${location}. Based on industry averages - adjust for specific requirements and market conditions.`,
+  };
 };
