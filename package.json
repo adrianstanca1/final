@@ -33,12 +33,15 @@
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-leaflet": "4.2.1",
+    "qrcode": "^1.5.3",
     "use-supercluster": "0.4.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.8.0",
     "@types/node": "^22.14.0",
     "jsdom": "^27.0.0",
+    "@types/react": "^18.2.25",
+    "@types/react-dom": "^18.2.12",
     "terser": "^5.44.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0",
