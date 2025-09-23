@@ -15,7 +15,7 @@ View the app in AI Studio: https://ai.studio/apps/drive/1bxBJgk2nuKF5tvtdT-YfJQL
 1. Install dependencies: `npm install`
 2. Copy `.env.example` to `.env.local`
 3. Set `VITE_GEMINI_API_KEY` (and, if required, `GEMINI_API_KEY`) in `.env.local`
-4. (Optional) Add `VITE_API_BASE_URL` to point at a deployed authentication/REST backend. Without it the app runs in secure local demo mode and stores accounts in browser storage.
+4. (Optional) Add `VITE_BACKEND_URL` to point at a deployed authentication/REST backend. Without it the app runs in secure local demo mode and uses mock services.
 5. Start the dev server: `npm run dev`
 
 The application source now lives in `src/`. Import aliases use the `@/` prefix so components can be referenced as `@/components/...`.
@@ -28,7 +28,7 @@ The app reads Gemini credentials with the standard Vite prefix so the key is ava
 cp .env.example .env.local
 ```
 
-Then edit `.env.local` and set `VITE_GEMINI_API_KEY`. Mirror this variable in every deployment environment. When connecting to a remote authentication service set `VITE_API_BASE_URL`. You can enable fallback to the encrypted in-browser mock API by exposing `window.__ASAGENTS_API_BASE_URL__` at runtime or by calling `configureAuthClient({ baseUrl, allowMockFallback: true })` during initialization.
+Then edit `.env.local` and set `VITE_GEMINI_API_KEY`. Mirror this variable in every deployment environment. When connecting to a remote authentication service set `VITE_BACKEND_URL`. You can enable fallback to the encrypted in-browser mock API by exposing `window.__ASAGENTS_API_BASE_URL__` at runtime or by calling `configureAuthClient({ baseUrl, allowMockFallback: true })` during initialization.
 
 ## Deploying to Vercel
 
@@ -40,6 +40,17 @@ This project is ready to be deployed as a static Vite site on Vercel.
 4. The included `vercel.json` ensures single-page application routing works so deep links render correctly without additional configuration.
 
 After the first build completes, visit the generated Vercel URL to confirm the application loads and AI-powered features work with your configured API key.
+
+### Supabase integration
+
+To enable Supabase auth (Google OAuth and email/password), add the following to `.env.local`:
+
+```
+VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon public key>
+```
+
+See the full guide: [docs/supabase-setup.md](docs/supabase-setup.md)
 
 ## Deployment automation
 
