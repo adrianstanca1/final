@@ -162,19 +162,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     } catch (error) {
                         console.error("Proactive token refresh failed", error);
                         logout();
-
-                    const storedRefreshToken = storage.getItem('refreshToken');
-                    if (storedRefreshToken) {
-                        try {
-                            console.log("Proactively refreshing token...");
-                            const { token: newToken } = await authClient.refreshToken(storedRefreshToken);
-                            storage.setItem('token', newToken);
-                            setAuthState(prev => ({ ...prev, token: newToken }));
-                            scheduleTokenRefresh(newToken); // Schedule the next refresh
-                        } catch (error) {
-                            console.error("Proactive token refresh failed", error);
-                            logout();
-                        }
                     }
                 }, expiresIn);
             } else {
@@ -187,11 +174,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     const finalizeLogin = useCallback((data: { token: string, refreshToken: string, user: User, company: Company }, persistence: Persistence) => {
         storeTokens(data.token, data.refreshToken, persistence);
-
-
-    const finalizeLogin = useCallback((data: { token: string, refreshToken: string, user: User, company: Company }) => {
-        storage.setItem('token', data.token);
-        storage.setItem('refreshToken', data.refreshToken);
         setAuthState({
             isAuthenticated: true,
             token: data.token,
@@ -217,13 +199,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 // First, try to authenticate with the existing access token.
                 const { user, company } = await authApi.me(token);
                 finalizeLogin({ token, refreshToken, user, company }, persistence);
-        const token = storage.getItem('token');
-        const refreshToken = storage.getItem('refreshToken');
-        if (token && refreshToken) {
-            try {
-                // First, try to authenticate with the existing access token.
-                const { user, company } = await authClient.me(token);
-                finalizeLogin({ token, refreshToken, user, company });
             } catch (error) {
                 // If authApi.me fails (e.g., token expired), attempt to refresh the token.
                 console.log("Access token invalid, attempting reactive refresh...");
@@ -231,9 +206,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     const { token: newToken } = await authApi.refreshToken(refreshToken);
                     const { user, company } = await authApi.me(newToken);
                     finalizeLogin({ token: newToken, refreshToken, user, company }, persistence);
-                    const { token: newToken } = await authClient.refreshToken(refreshToken);
-                    const { user, company } = await authClient.me(newToken);
-                    finalizeLogin({ token: newToken, refreshToken, user, company });
                 } catch (refreshError) {
                     console.error("Auth init with refresh token failed, logging out.", refreshError);
                     logout();
@@ -317,29 +289,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const verifyMfaAndFinalize = async (userId: string, code: string) => {
         setAuthState(prev => ({ ...prev, loading: true, error: null }));
-         try {
+        try {
             const response = await authApi.verifyMfa(userId, code);
             finalizeLogin(response, pendingPersistence);
-
-        try {
-            const response = await authClient.verifyMfa(userId, code);
-            finalizeLogin(response);
         } catch (error: any) {
             setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'MFA verification failed' }));
             throw error;
         }
-    }
+    };
 
     const register = async (credentials: RegistrationPayload): Promise<AuthenticatedSession> => {
         setAuthState(prev => ({ ...prev, loading: true, error: null }));
         try {
             const response = await authApi.register(credentials);
             finalizeLogin(response, 'local');
-
-            const session = await authClient.register(credentials);
-            finalizeLogin(session);
-            return session;
- 
+            return response;
         } catch (error: any) {
             setAuthState(prev => ({ ...prev, loading: false, error: error.message || 'Registration failed' }));
             throw error;

@@ -62,19 +62,13 @@ const INITIAL_STATE: RegistrationState = {
     termsAccepted: false,
 };
 
-const STEP_SEQUENCE: Array<{ id: RegistrationStep; title: string; description: string }> = [
-    { id: 'account', title: 'Your profile', description: 'Tell us who will own the workspace.' },
-    { id: 'workspace', title: 'Workspace', description: 'Create a company or join an existing tenant.' },
-    { id: 'confirm', title: 'Finish', description: 'Accept terms and review the tenant snapshot.' },
-];
-
 const COMPANY_TYPES: { value: CompanyType; label: string }[] = [
     { value: 'GENERAL_CONTRACTOR', label: 'General contractor' },
     { value: 'SUBCONTRACTOR', label: 'Subcontractor' },
     { value: 'SUPPLIER', label: 'Supplier' },
     { value: 'CONSULTANT', label: 'Consultant' },
     { value: 'CLIENT', label: 'Client / Asset owner' },
- ];
+];
 
 const STEP_SEQUENCE: { id: RegistrationStep; title: string; description: string }[] = [
     { id: 'account', title: 'Account', description: 'Introduce yourself and secure access.' },
@@ -88,21 +82,11 @@ const STEP_FIELDS: Record<RegistrationStep, Array<keyof RegistrationState>> = {
     confirm: ['termsAccepted'],
 };
 
-const COMPANY_TYPES: { value: CompanyType; label: string }[] = [
-    { value: 'GENERAL_CONTRACTOR', label: 'General Contractor' },
-    { value: 'SUBCONTRACTOR', label: 'Subcontractor' },
-    { value: 'SUPPLIER', label: 'Supplier' },
-    { value: 'CONSULTANT', label: 'Consultant' },
-    { value: 'CLIENT', label: 'Client' },
- ];
-
- const ROLE_DETAILS: Record<Role, { label: string; description: string }> = {
+const ROLE_DETAILS: Record<Role, { label: string; description: string }> = {
     [Role.OWNER]: {
         label: 'Owner',
         description: 'Full tenant administration, billing and security authority.',
-     },
- 
-      },
+    },
     [Role.ADMIN]: {
         label: 'Administrator',
         description: 'Manage people, approvals, permissions and commercial workflows.',
@@ -139,53 +123,15 @@ const BENEFITS: string[] = [
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const URL_REGEX = /^https?:\/\/\S+$/i;
 const PASSWORD_MIN_LENGTH = 8;
-        description: 'Full administrative access, billing controls, and user management.',
-     },
-     [Role.ADMIN]: {
-        label: 'Administrator',
-        description: 'Manage people, approvals, permissions and commercial workflows.',
-    },
-    [Role.PROJECT_MANAGER]: {
-        label: 'Project manager',
-        description: 'Coordinate schedules, tasks, stakeholders and reporting.',
-    },
-    [Role.FOREMAN]: {
-        label: 'Foreman',
-        description: 'Lead on-site crews and escalate safety issues instantly.',
-    },
-    [Role.OPERATIVE]: {
-        label: 'Operative',
-        description: 'Log time, update tasks and collaborate with the site team.',
-    },
-    [Role.CLIENT]: {
-        label: 'Client',
-        description: 'Follow milestones, approve changes and review documentation.',
-    },
-    [Role.PRINCIPAL_ADMIN]: {
-        label: 'Platform principal admin',
-        description: 'Reserved for AS Agents core administration team.',
-    },
-};
 
-const BENEFITS: string[] = [
-    'Multitenant oversight lets you spin up dedicated workspaces in minutes.',
-    'AI copilots accelerate bid writing, forecasting and daily progress analysis.',
-    'Field-friendly tools capture safety, timesheets and site evidence offline.',
-    'Granular permissions align office, site and partner access in one hub.',
-];
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const URL_REGEX = /^https?:\/\/\S+$/i;
-const PASSWORD_MIN_LENGTH = 8;
-
- const StepIndicator: React.FC<{ currentStep: RegistrationStep }> = ({ currentStep }) => (
-  const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password }) => {
+const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password }) => {
     const rules = [
         password.length >= 8,
         /[A-Z]/.test(password),
         /[a-z]/.test(password),
         /\d/.test(password),
         /[^A-Za-z0-9]/.test(password),
+    ];
     const score = rules.filter(Boolean).length;
     const width = (score / rules.length) * 100;
     const color = score <= 2 ? 'bg-destructive' : score < 5 ? 'bg-amber-500' : 'bg-emerald-500';
@@ -203,8 +149,8 @@ const PASSWORD_MIN_LENGTH = 8;
     );
 };
 
- const StepIndicator: React.FC<{ currentStep: RegistrationStep }> = ({ currentStep }) => (
-     <ol className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+const StepIndicator: React.FC<{ currentStep: RegistrationStep }> = ({ currentStep }) => (
+    <ol className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {STEP_SEQUENCE.map((step, index) => {
             const isActive = step.id === currentStep;
             const isComplete = STEP_SEQUENCE.findIndex(item => item.id === currentStep) > index;
@@ -264,9 +210,6 @@ const SocialAuthButtons: React.FC<{
     </div>
 );
 
- export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLogin }) => {
- 
-  
 interface SelectionCardProps {
     title: string;
     description: string;
@@ -288,7 +231,7 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
 );
 
 
- export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLogin }) => {
+export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLogin }) => {
      const { register, socialLogin, error: authError, loading: isSubmitting } = useAuth();
 
     const [step, setStep] = useState<RegistrationStep>('account');
