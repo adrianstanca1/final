@@ -2,76 +2,10 @@
 // Supports offline queuing for write operations.
 
 import { initialData } from './mockData';
-<<<<<<< HEAD
-<<<<<<< HEAD
-import { apiCache, cacheKeys } from './cacheService';
-import { ValidationService, securityValidation } from './validationService';
-import { notificationService } from './notificationService';
-import {
-    User,
-    Company,
-    Project,
-    ProjectPortfolioSummary,
-    Task,
-    TimeEntry,
-    SafetyIncident,
-    Equipment,
-    Client,
-    Invoice,
-    Expense,
-    Notification,
-    LoginCredentials,
-    RegisterCredentials,
-    TaskStatus,
-    TaskPriority,
-    TimeEntryStatus,
-    IncidentSeverity,
-    SiteUpdate,
-    ProjectMessage,
-    Weather,
-    InvoiceStatus,
-    Quote,
-    FinancialKPIs,
-    MonthlyFinancials,
-    CostBreakdown,
-    Role,
-    TimesheetStatus,
-    IncidentStatus,
-    AuditLog,
-    ResourceAssignment,
-    Conversation,
-    Message,
-    CompanySettings,
-    ProjectAssignment,
-    ProjectTemplate,
-    ProjectInsight,
-    FinancialForecast,
-    WhiteboardNote,
-    BidPackage,
-    RiskAnalysis,
-    Grant,
-    Timesheet,
-    Todo,
-    InvoiceLineItem,
-    Document,
-    UsageMetric,
-    CompanyType,
-    ExpenseStatus,
-    TodoStatus,
-    TodoPriority,
-    OperationalAlert,
-    OperationalInsights,
-} from '../types';
-import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
-import { getInvoiceFinancials } from '../utils/finance';
-=======
-=======
->>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
 import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegistrationPayload, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority, RolePermissions, Permission } from '../types';
 import { createPasswordRecord, sanitizeUser, upgradeLegacyPassword, verifyPassword } from '../utils/password';
 import { getStorage } from '../utils/storage';
 
->>>>>>> e7ec06c (Log sixth autonomous deployment run)
 const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
 
 type RequestOptions = { signal?: AbortSignal };
@@ -236,29 +170,6 @@ const defaultUserPreferences = (): User['preferences'] => ({
         hiddenWidgets: [],
     },
 });
-<<<<<<< HEAD
-
-const encodeBase64 = (value: string): string => {
-    if (typeof btoa === 'function') {
-        return btoa(value);
-    }
-    if (typeof Buffer !== 'undefined') {
-        return Buffer.from(value, 'binary').toString('base64');
-    }
-    throw new Error('Base64 encoding is not supported in this environment.');
-};
-
-const decodeBase64 = (value: string): string => {
-    if (typeof atob === 'function') {
-        return atob(value);
-    }
-    if (typeof Buffer !== 'undefined') {
-        return Buffer.from(value, 'base64').toString('binary');
-    }
-    throw new Error('Base64 decoding is not supported in this environment.');
-};
-=======
->>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
 
 const createToken = (payload: object, expiresIn: number): string => {
     const header = { alg: 'HS256', typ: 'JWT' };
@@ -288,45 +199,6 @@ const decodeToken = (token: string): any => {
     }
 };
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-const safeNumber = (value: unknown): number => {
-    if (typeof value === 'number' && Number.isFinite(value)) {
-        return value;
-    }
-    if (typeof value === 'string') {
-        const parsed = Number(value.trim());
-        if (Number.isFinite(parsed)) {
-            return parsed;
-        }
-    }
-    return 0;
-};
-
-const parseDate = (value: unknown): Date | null => {
-    if (!value) {
-        return null;
-    }
-    const parsed = value instanceof Date ? value : new Date(String(value));
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
-
-const getMonthKey = (date: Date): string => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-
-const getMonthLabel = (date: Date): string =>
-    date.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
-
-const MILLISECONDS_PER_HOUR = 1000 * 60 * 60;
-const MILLISECONDS_PER_DAY = MILLISECONDS_PER_HOUR * 24;
-
-const hydrateData = <T extends { [key: string]: any }>(key: string, defaultData: T[]): T[] => {
-=======
-const STORAGE_PREFIX = 'asagents_';
-
-const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
-
-const readJson = <T>(key: string, fallback: T): T => {
->>>>>>> e7ec06c (Log sixth autonomous deployment run)
     try {
         const stored = storage.getItem(key);
         if (!stored) {
@@ -339,7 +211,6 @@ const readJson = <T>(key: string, fallback: T): T => {
     }
 };
 
-=======
 const STORAGE_PREFIX = 'asagents_';
 
 const clone = <T>(value: T): T => JSON.parse(JSON.stringify(value));
@@ -357,7 +228,6 @@ const readJson = <T>(key: string, fallback: T): T => {
     }
 };
 
->>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
 const writeJson = (key: string, value: unknown) => {
     storage.setItem(key, JSON.stringify(value));
 };
@@ -386,112 +256,10 @@ type DbCollections = {
     whiteboardNotes: Partial<WhiteboardNote>[];
     documents: Partial<Document>[];
     projectInsights: Partial<ProjectInsight>[];
-<<<<<<< HEAD
-<<<<<<< HEAD
-    financialForecasts: Partial<FinancialForecast>[];
-} = {
-    companies: hydrateData('companies', initialData.companies),
-    users: hydrateData('users', initialData.users),
-    projects: hydrateData('projects', initialData.projects),
-    todos: hydrateData('todos', initialData.todos),
-    timeEntries: hydrateData('timeEntries', initialData.timeEntries),
-    safetyIncidents: hydrateData('safetyIncidents', initialData.safetyIncidents),
-    equipment: hydrateData('equipment', initialData.equipment),
-    clients: hydrateData('clients', initialData.clients),
-    invoices: hydrateData('invoices', initialData.invoices),
-    expenses: hydrateData('expenses', initialData.expenses),
-    siteUpdates: hydrateData('siteUpdates', initialData.siteUpdates),
-    projectMessages: hydrateData('projectMessages', initialData.projectMessages),
-    notifications: hydrateData('notifications', (initialData as any).notifications || []),
-    quotes: hydrateData('quotes', (initialData as any).quotes || []),
-    auditLogs: hydrateData('auditLogs', []),
-    resourceAssignments: hydrateData('resourceAssignments', []),
-    conversations: hydrateData('conversations', []),
-    messages: hydrateData('messages', []),
-    projectAssignments: hydrateData('projectAssignments', []),
-    projectTemplates: hydrateData('projectTemplates', []),
-    whiteboardNotes: hydrateData('whiteboardNotes', []),
-    documents: hydrateData('documents', []),
-    projectInsights: hydrateData('projectInsights', (initialData as any).projectInsights || []),
-    financialForecasts: hydrateData('financialForecasts', (initialData as any).financialForecasts || []),
 };
 
-const findProjectById = (projectId: unknown): Partial<Project> | undefined => {
-    if (projectId == null) {
-        return undefined;
-    }
-    return db.projects.find(project => project.id != null && String(project.id) === String(projectId));
 };
 
-const resolveCompanyIdFromProject = (projectId: unknown): string | null => {
-    const project = findProjectById(projectId);
-    return project?.companyId != null ? String(project.companyId) : null;
-};
-
-const resolveCompanyIdFromUser = (userId: unknown): string | null => {
-    if (userId == null) {
-        return null;
-    }
-    const user = db.users.find(candidate => candidate.id != null && String(candidate.id) === String(userId));
-    return user?.companyId != null ? String(user.companyId) : null;
-};
-
-const resolveCompanyIdForInvoice = (invoice: Partial<Invoice>): string | null => {
-    const directCompany = (invoice as any).companyId;
-    if (directCompany != null) {
-        return String(directCompany);
-    }
-
-    const projectCompany = resolveCompanyIdFromProject(invoice.projectId);
-    if (projectCompany) {
-        return projectCompany;
-    }
-
-    if (invoice.clientId != null) {
-        const client = db.clients.find(candidate => candidate.id != null && String(candidate.id) === String(invoice.clientId));
-        if (client?.companyId != null) {
-            return String(client.companyId);
-        }
-    }
-
-    return null;
-};
-
-const resolveCompanyIdForExpense = (expense: Partial<Expense>): string | null => {
-    const directCompany = (expense as any).companyId;
-    if (directCompany != null) {
-        return String(directCompany);
-    }
-    const projectCompany = resolveCompanyIdFromProject(expense.projectId);
-    if (projectCompany) {
-        return projectCompany;
-    }
-    const userCompany = resolveCompanyIdFromUser(expense.userId);
-    if (userCompany) {
-        return userCompany;
-    }
-    return null;
-};
-
-const getCompanyCurrency = (companyId: string): string => {
-    const company = db.companies.find(entry => entry.id != null && String(entry.id) === String(companyId));
-    const directCurrency = (company as any)?.currency;
-    if (typeof directCurrency === 'string' && directCurrency.trim().length > 0) {
-        return directCurrency;
-    }
-    const settingsCurrency = (company as any)?.settings?.currency;
-    if (typeof settingsCurrency === 'string' && settingsCurrency.trim().length > 0) {
-        return settingsCurrency;
-    }
-    return 'GBP';
-=======
->>>>>>> e7ec06c (Log sixth autonomous deployment run)
-};
-
-=======
-};
-
->>>>>>> origin/codex/create-autonomous-deployment-plan-0zdxcl
 const DEFAULT_COLLECTIONS: Record<keyof DbCollections, any[]> = {
     companies: clone(initialData.companies),
     users: clone(initialData.users),
@@ -1081,15 +849,6 @@ export const api = {
         const project = db.projects.find(p => p.id === projectId);
         return project ? project as Project : null;
     },
-<<<<<<< HEAD
-=======
-    getUsersByCompany: async (companyId: string, options?: RequestOptions): Promise<User[]> => {
-        ensureNotAborted(options?.signal);
-        await delay();
-        ensureNotAborted(options?.signal);
-        return sanitizeUsersForReturn(db.users.filter(u => u.companyId === companyId));
-    },
->>>>>>> e7ec06c (Log sixth autonomous deployment run)
     getEquipmentByCompany: async (companyId: string, options?: RequestOptions): Promise<Equipment[]> => {
         ensureNotAborted(options?.signal);
         await delay();

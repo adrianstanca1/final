@@ -139,44 +139,6 @@ function AppContent() {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [initialChatRecipient, setInitialChatRecipient] = useState<User | null>(null);
 
-<<<<<<< HEAD
-  const navigateToView = useCallback((view: View) => {
-    setSelectedProject(current => (view === 'project-detail' ? current : null));
-    setActiveView(view);
-  }, [setActiveView, setSelectedProject]);
-=======
-  // Initialize services when user logs in
-  useEffect(() => {
-    if (user && isAuthenticated) {
-      // Initialize notification service
-      notificationService.connect(user.id);
-
-      // Subscribe to notifications
-      const unsubscribe = notificationService.subscribe((notification) => {
-        addToast(notification.message, 'success', notification);
-      });
-
-      // Identify user for analytics
-      analytics.identify(user.id, {
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        companyId: user.companyId,
-      });
-
-      // Track login event
-      analytics.track('user_login', {
-        user_role: user.role,
-        company_id: user.companyId,
-      });
-
-      return () => {
-        unsubscribe();
-        notificationService.disconnect();
-      };
-    }
-  }, [user, isAuthenticated]);
->>>>>>> a7fe77a31bbd87b9e4e4b81903e82bb3bf69fcf3
 
   // States for sidebar badge counts
   const [pendingTimesheetCount, setPendingTimesheetCount] = useState(0);
@@ -233,14 +195,9 @@ function AppContent() {
   useReminderService(user);
   
   useEffect(() => {
-<<<<<<< HEAD
-    if (user?.companyId) {
-      api.getCompanySettings(user.companyId).then(setCompanySettings);
-=======
     if (!user?.companyId) {
       setCompanySettings(null);
       return;
->>>>>>> e7ec06c (Log sixth autonomous deployment run)
     }
 
     let isActive = true;
@@ -453,19 +410,6 @@ function AppContent() {
       case 'templates': return <TemplatesView user={user} addToast={addToast} />;
       case 'tools': return <ToolsView user={user} addToast={addToast} setActiveView={navigateToView} />;
       case 'audit-log': return <AuditLogView user={user} addToast={addToast} />;
-<<<<<<< HEAD
-      case 'settings': return <SettingsView user={user} addToast={addToast} settings={companySettings} onSettingsUpdate={(s) => setCompanySettings(prev => ({...prev, ...s}))} />;
-=======
-      case 'settings':
-        return (
-          <SettingsView
-            user={user}
-            addToast={addToast}
-            settings={companySettings}
-            onSettingsUpdate={handleCompanySettingsUpdate}
-          />
-        );
->>>>>>> e7ec06c (Log sixth autonomous deployment run)
       case 'chat': return <ChatView user={user} addToast={addToast} initialRecipient={initialChatRecipient}/>;
       case 'clients': return <ClientsView user={user} addToast={addToast} />;
       case 'invoices': return <InvoicesView user={user} addToast={addToast} />;
