@@ -375,9 +375,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
             if (!form.firstName.trim()) nextErrors.firstName = 'Enter your first name.';
             if (!form.lastName.trim()) nextErrors.lastName = 'Enter your last name.';
             if (!EMAIL_REGEX.test(form.email.trim())) nextErrors.email = 'Provide a valid email address.';
-            if (form.username && form.username.trim().length < 3) {
-                nextErrors.username = 'Username must be at least 3 characters.';
-            }
+            
             if (form.password.length < PASSWORD_MIN_LENGTH) {
                 nextErrors.password = `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`;
             }
