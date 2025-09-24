@@ -103,15 +103,15 @@ function App() {
     loading: tenantLoading,
   } = useTenant();
   const effectiveTenantId = resolvedTenantId ?? authUser?.companyId ?? null;
-  const user = useMemo(() => {
-    if (!authUser) {
-      return null;
-    }
-    if (!effectiveTenantId || authUser.companyId === effectiveTenantId) {
-      return authUser;
-    }
-    return { ...authUser, companyId: effectiveTenantId };
-  }, [authUser, effectiveTenantId]);
+  // Do not override companyId; keep user as the authenticated user
+  const user = useMemo(() => authUser ?? null, [authUser]);
+  // Create a derived user context with effectiveCompanyId
+  const userContext = useMemo(() => {
+    return {
+      user,
+      effectiveCompanyId: effectiveTenantId,
+    };
+  }, [user, effectiveTenantId]);
   const [authView, setAuthView] = useState<'login' | 'register' | 'forgot-password' | 'reset-password'>('login');
   const [resetToken, setResetToken] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<View>('dashboard');
