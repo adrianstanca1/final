@@ -2,7 +2,12 @@
  * Real-time notification service with WebSocket support and offline queuing
  */
 
-import { Notification, NotificationType, User } from '../types';
+import type { Notification, User } from '../types';
+import { NotificationType } from '../types';
+
+
+// Local action type for Web Notification buttons
+export type NotificationAction = { action: string; title: string; icon?: string };
 
 export interface NotificationOptions {
   title: string;
@@ -53,10 +58,10 @@ export class NotificationService {
     }
 
     const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/notifications/${userId}`;
-    
+
     try {
       this.websocket = new WebSocket(wsUrl);
-      
+
       this.websocket.onopen = () => {
         console.log('Notification WebSocket connected');
         this.reconnectAttempts = 0;
@@ -96,7 +101,7 @@ export class NotificationService {
   // Subscription management
   subscribe(callback: (notification: Notification) => void): () => void {
     this.subscriptions.add(callback);
-    
+
     return () => {
       this.subscriptions.delete(callback);
     };
@@ -153,12 +158,10 @@ export class NotificationService {
       notification.onclick = () => {
         window.focus();
         notification.close();
-        
+
         // Handle notification click based on data
-        if (options.data?.url && this.isSafeRedirectUrl(options.data.url)) {
+        if (options.data?.url) {
           window.location.href = options.data.url;
-        } else if (options.data?.url) {
-          console.warn('Blocked unsafe notification redirect URL:', options.data.url);
         }
       };
 
@@ -221,7 +224,6 @@ export class NotificationService {
       type: NotificationType.SAFETY_ALERT,
       title: 'Safety Alert',
       message: `${incidentType} reported at ${location}`,
-      companyId,
       metadata: {
         incidentType,
         location,
@@ -303,21 +305,6 @@ export class NotificationService {
       });
     }
   }
-  /**
-   * Checks that a URL is safe for client-side redirection. Allows only
-   * relative URLs or URLs matching the current origin.
-   */
-  private isSafeRedirectUrl(url: string): boolean {
-    try {
-      const parsed = new URL(url, window.location.origin);
-      // Only allow if the URL is same-origin or relative
-      return parsed.origin === window.location.origin;
-    } catch (e) {
-      // If URL parsing fails, treat as unsafe
-      return false;
-    }
-  }
-
 
   private shouldShowBrowserNotification(notification: Notification): boolean {
     // Don't show if document is visible and user is active
@@ -340,7 +327,7 @@ export class NotificationService {
 
   private queueOfflineNotification(notification: Notification): void {
     this.offlineQueue.push(notification);
-    
+
     // Limit queue size
     if (this.offlineQueue.length > 100) {
       this.offlineQueue.shift();
@@ -367,22 +354,22 @@ export class NotificationService {
     const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
     const rawData = window.atob(base64);
     const outputArray = new Uint8Array(rawData.length);
-    
+
     for (let i = 0; i < rawData.length; ++i) {
       outputArray[i] = rawData.charCodeAt(i);
     }
-    
+
     return outputArray;
   }
 
   private arrayBufferToBase64(buffer: ArrayBuffer): string {
     const bytes = new Uint8Array(buffer);
     let binary = '';
-    
+
     for (let i = 0; i < bytes.byteLength; i++) {
       binary += String.fromCharCode(bytes[i]);
     }
-    
+
     return window.btoa(binary);
   }
 }
