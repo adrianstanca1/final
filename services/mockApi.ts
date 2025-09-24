@@ -247,7 +247,6 @@ type DbCollections = {
     projectInsights: Partial<ProjectInsight>[];
 };
 
-};
 
 const DEFAULT_COLLECTIONS: Record<keyof DbCollections, any[]> = {
     companies: clone(initialData.companies),
