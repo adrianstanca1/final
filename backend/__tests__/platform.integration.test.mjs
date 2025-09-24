@@ -62,6 +62,7 @@ test.after(async () => {
 
 test.beforeEach(async () => {
   await db.exec(`
+    DELETE FROM auth_sessions;
     DELETE FROM invoice_payments;
     DELETE FROM invoice_line_items;
     DELETE FROM invoices;
@@ -180,6 +181,32 @@ test.beforeEach(async () => {
     'tenant-b',
     'Mall Facade Refresh',
     'IN_PROGRESS',
+    now,
+    now,
+  );
+
+  await db.run(
+    `INSERT INTO clients (id, company_id, name, email, contact_person, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?)`,
+    'client-1',
+    'tenant-a',
+    'City Development Ltd',
+    'billing@city.dev',
+    'Ava Harris',
+    now,
+    now,
+    'client-2',
+    'tenant-a',
+    'Northwind Retail',
+    'accounts@northwind.dev',
+    'Luca Romano',
+    now,
+    now,
+    'client-3',
+    'tenant-b',
+    'Skyline Partners',
+    'finance@skyline.dev',
+    'Leah Morgan',
     now,
     now,
   );

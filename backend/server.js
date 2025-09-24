@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import crypto from 'crypto';
 import { initialiseSchema, getDatabase, PLATFORM_COMPANY_ID } from './database.js';
 import { z } from 'zod';
 import { v4 as uuid } from 'uuid';
@@ -76,6 +77,10 @@ const paymentSchema = z.object({
   notes: z.string().optional(),
 });
 
+const switchCompanySchema = z.object({
+  companyId: z.string().min(1),
+});
+
 const ensureInvoiceDatesValid = (issuedAt, dueAt) => {
   if (!issuedAt || !dueAt) {
     return true;
@@ -108,6 +113,8 @@ const mapCompanyRow = (row) => ({
   industry: row.industry ?? '',
   status: row.status ?? 'ACTIVE',
   subscriptionPlan: row.subscription_plan ?? 'PROFESSIONAL',
+  isActive: (row.status ?? 'ACTIVE').toUpperCase() === 'ACTIVE',
+  storageUsageGB: Number.parseFloat(row.storage_usage_gb ?? 0) || 0,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -140,6 +147,7 @@ const mapUserRow = (row) => {
     email: row.email,
     role: row.role,
     companyId: row.company_id,
+    primaryCompanyId: row.company_id,
     username: row.username ?? undefined,
     isActive: true,
     isEmailVerified: true,
@@ -149,6 +157,341 @@ const mapUserRow = (row) => {
     permissions: [],
     preferences: defaultUserPreferences,
   };
+};
+
+const isPlatformOperator = (userRow) => Boolean(userRow?.is_platform_owner) || userRow?.role === 'PRINCIPAL_ADMIN';
+
+const resolveCompanyAccess = async (db, userRow, requestedActiveCompanyId) => {
+  if (!userRow) {
+    const error = new Error('User record not found');
+    error.status = 404;
+    throw error;
+  }
+
+  const platformOperator = isPlatformOperator(userRow);
+  let candidateCompanies;
+
+  if (platformOperator) {
+    candidateCompanies = await db.all('SELECT * FROM companies ORDER BY name COLLATE NOCASE');
+  } else {
+    const company = await db.get('SELECT * FROM companies WHERE id = ?', userRow.company_id);
+    if (!company) {
+      const error = new Error('Company not found for user');
+      error.status = 400;
+      throw error;
+    }
+    candidateCompanies = [company];
+  }
+
+  if (!candidateCompanies || candidateCompanies.length === 0) {
+    const error = new Error('No companies available for session');
+    error.status = 400;
+    throw error;
+  }
+
+  const requestedId = requestedActiveCompanyId ?? userRow.company_id ?? candidateCompanies[0].id;
+  const activeCandidate = candidateCompanies.find((company) => company.id === requestedId)
+    ?? candidateCompanies.find((company) => company.id === userRow.company_id)
+    ?? candidateCompanies[0];
+
+  const entries = candidateCompanies.map((company) => ({
+    id: company.id,
+    name: company.name,
+    status: company.status ?? 'ACTIVE',
+    subscriptionPlan: company.subscription_plan ?? 'PROFESSIONAL',
+    membershipRole: platformOperator ? 'PLATFORM_ADMIN' : userRow.role,
+    membershipType:
+      company.id === userRow.company_id
+        ? 'primary'
+        : company.id === PLATFORM_COMPANY_ID
+        ? 'platform'
+        : 'delegated',
+    isPlatform: company.id === PLATFORM_COMPANY_ID,
+    isPrimary: company.id === userRow.company_id,
+  }));
+
+  return {
+    entries,
+    activeCompanyRow: activeCandidate,
+    activeCompanyId: activeCandidate.id,
+  };
+};
+
+const buildSessionState = async (db, userRow, activeCompanyId) => {
+  const access = await resolveCompanyAccess(db, userRow, activeCompanyId);
+  const userPayload = mapUserRow(userRow);
+  if (access.activeCompanyId && access.activeCompanyId !== userRow.company_id) {
+    userPayload.companyId = access.activeCompanyId;
+  }
+
+  return {
+    user: userPayload,
+    company: mapCompanyRow(access.activeCompanyRow),
+    availableCompanies: access.entries,
+    activeCompanyId: access.activeCompanyId,
+  };
+};
+
+const USER_ROLES = [
+  'OWNER',
+  'ADMIN',
+  'PROJECT_MANAGER',
+  'FOREMAN',
+  'OPERATIVE',
+  'CLIENT',
+  'PRINCIPAL_ADMIN',
+];
+
+const COMPANY_TYPES = [
+  'GENERAL_CONTRACTOR',
+  'SUBCONTRACTOR',
+  'SUPPLIER',
+  'CONSULTANT',
+  'CLIENT',
+];
+
+const SOCIAL_PROVIDERS = ['google', 'facebook'];
+
+const SESSION_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+const normaliseEmail = (email) => email.trim().toLowerCase();
+const buildFullName = (firstName, lastName) => [firstName, lastName].filter(Boolean).join(' ').trim();
+
+const hashPassword = (value) => crypto.createHash('sha256').update(value).digest('hex');
+const verifyPassword = (value, hash) => {
+  if (!hash) {
+    return false;
+  }
+  return hashPassword(value) === hash;
+};
+
+const usernameFromNames = (firstName, lastName) => {
+  const raw = [firstName, lastName].filter(Boolean).join('.').toLowerCase();
+  const cleaned = raw.replace(/[^a-z0-9.]/g, '');
+  return cleaned || `user.${Math.random().toString(36).slice(2, 8)}`;
+};
+
+const ensureUniqueUsername = async (db, desiredBase) => {
+  const base = desiredBase && desiredBase.length > 0 ? desiredBase : 'user';
+  let candidate = base;
+  let suffix = 1;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const existing = await db.get('SELECT 1 FROM users WHERE username = ?', candidate);
+    if (!existing) {
+      return candidate;
+    }
+    candidate = `${base}.${suffix}`;
+    suffix += 1;
+  }
+};
+
+const fetchUserWithCompany = async (db, userId, companyIdOverride) => {
+  const user = await db.get('SELECT * FROM users WHERE id = ?', userId);
+  if (!user) {
+    const error = new Error('User not found');
+    error.status = 404;
+    throw error;
+  }
+
+  const primaryCompany = await db.get('SELECT * FROM companies WHERE id = ?', user.company_id);
+  if (!primaryCompany) {
+    const error = new Error('Company not found for user');
+    error.status = 400;
+    throw error;
+  }
+
+  let company = primaryCompany;
+  if (companyIdOverride && companyIdOverride !== primaryCompany.id) {
+    const override = await db.get('SELECT * FROM companies WHERE id = ?', companyIdOverride);
+    if (!override) {
+      const error = new Error('Company not found for session context');
+      error.status = 404;
+      throw error;
+    }
+    company = override;
+  }
+
+  return { user, company, primaryCompany };
+};
+
+const createAuthSession = async (db, userId, provider = 'local', activeCompanyId) => {
+  const id = uuid();
+  const token = crypto.randomBytes(48).toString('hex');
+  const refreshToken = crypto.randomBytes(64).toString('hex');
+  const now = Date.now();
+  const expiresAt = new Date(now + SESSION_TTL_MS).toISOString();
+  const refreshExpiresAt = new Date(now + REFRESH_TTL_MS).toISOString();
+  const resolvedActiveCompany = activeCompanyId ?? null;
+
+  await db.run(
+    `INSERT INTO auth_sessions (id, user_id, token, refresh_token, provider, expires_at, refresh_expires_at, active_company_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+    id,
+    userId,
+    token,
+    refreshToken,
+    provider,
+    expiresAt,
+    refreshExpiresAt,
+    resolvedActiveCompany,
+  );
+
+  return { id, token, refreshToken, expiresAt, refreshExpiresAt, activeCompanyId: resolvedActiveCompany };
+};
+
+const issueAuthSuccess = async (db, userId, provider = 'local', activeCompanyId) => {
+  const userRecord = await db.get('SELECT * FROM users WHERE id = ?', userId);
+  if (!userRecord) {
+    const error = new Error('User not found');
+    error.status = 404;
+    throw error;
+  }
+
+  const session = await createAuthSession(db, userId, provider, activeCompanyId ?? userRecord.company_id);
+  const state = await buildSessionState(db, userRecord, session.activeCompanyId ?? userRecord.company_id);
+
+  return {
+    token: session.token,
+    refreshToken: session.refreshToken,
+    expiresAt: session.expiresAt,
+    refreshExpiresAt: session.refreshExpiresAt,
+    provider,
+    ...state,
+  };
+};
+
+const ensureCompanyForRegistration = async (db, payload) => {
+  const selection = payload.companySelection ?? 'create';
+  const nowIso = new Date().toISOString();
+
+  if (selection === 'create') {
+    const name = (payload.companyName ?? `${payload.firstName ?? 'New'} ${payload.lastName ?? 'Team'} Builders`).trim();
+    const companyId = uuid();
+
+    await db.run(
+      `INSERT INTO companies (id, name, type, email, phone, industry, status, subscription_plan, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'ACTIVE', 'PROFESSIONAL', ?, ?)`,
+      companyId,
+      name,
+      payload.companyType && COMPANY_TYPES.includes(payload.companyType) ? payload.companyType : 'GENERAL_CONTRACTOR',
+      payload.companyEmail ?? payload.email,
+      payload.companyPhone ?? '',
+      payload.companyIndustry ?? 'General',
+      nowIso,
+      nowIso,
+    );
+
+    const company = await db.get('SELECT * FROM companies WHERE id = ?', companyId);
+    return { companyId, company };
+  }
+
+  if (selection === 'join') {
+    let companyId = payload.companyId;
+    if (!companyId && payload.inviteToken === 'JOIN-CONSTRUCTCO') {
+      const constructCo = await db.get('SELECT id FROM companies WHERE id = ?', '1');
+      if (constructCo) {
+        companyId = constructCo.id;
+      }
+    }
+
+    if (!companyId) {
+      const error = new Error('A valid company reference or invite token is required.');
+      error.status = 400;
+      throw error;
+    }
+
+    const company = await db.get('SELECT * FROM companies WHERE id = ?', companyId);
+    if (!company) {
+      const error = new Error('Company not found for the provided reference.');
+      error.status = 404;
+      throw error;
+    }
+
+    return { companyId, company };
+  }
+
+  return ensureCompanyForRegistration(db, { ...payload, companySelection: 'create' });
+};
+
+const createUserRecord = async (
+  db,
+  { firstName, lastName, email, password, companyId, role, provider = 'local', phone, isPlatformOwner = false },
+) => {
+  const id = uuid();
+  const nowIso = new Date().toISOString();
+  const usernameBase = usernameFromNames(firstName, lastName);
+  const username = await ensureUniqueUsername(db, usernameBase);
+
+  await db.run(
+    `INSERT INTO users (id, company_id, name, email, role, username, password_hash, auth_provider, is_platform_owner, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    id,
+    companyId,
+    buildFullName(firstName, lastName),
+    normaliseEmail(email),
+    USER_ROLES.includes(role) ? role : 'OPERATIVE',
+    username,
+    password ? hashPassword(password) : null,
+    provider,
+    isPlatformOwner ? 1 : 0,
+    nowIso,
+    nowIso,
+  );
+
+  return id;
+};
+
+const updateUserAuthMetadata = async (db, userId, provider) => {
+  await db.run(
+    `UPDATE users SET updated_at = datetime('now'), auth_provider = ? WHERE id = ?`,
+    provider,
+    userId,
+  );
+};
+
+const requireSession = async (req) => {
+  const header = req.headers.authorization ?? req.get('authorization');
+  if (!header) {
+    const error = new Error('Missing authorization header.');
+    error.status = 401;
+    throw error;
+  }
+
+  const match = header.match(/Bearer\s+(.+)/i);
+  if (!match) {
+    const error = new Error('Malformed authorization header.');
+    error.status = 401;
+    throw error;
+  }
+
+  const token = match[1].trim();
+  if (!token) {
+    const error = new Error('Missing session token.');
+    error.status = 401;
+    throw error;
+  }
+
+  const db = await getDatabase();
+  const session = await db.get('SELECT * FROM auth_sessions WHERE token = ?', token);
+  if (!session) {
+    const error = new Error('Invalid or expired session.');
+    error.status = 401;
+    throw error;
+  }
+
+  if (new Date(session.expires_at).getTime() <= Date.now()) {
+    await db.run('DELETE FROM auth_sessions WHERE id = ?', session.id);
+    const error = new Error('Session has expired.');
+    error.status = 401;
+    throw error;
+  }
+
+  await db.run('UPDATE auth_sessions SET updated_at = datetime(\'now\') WHERE id = ?', session.id);
+
+  return { db, session };
 };
 
 const mapClientRow = (row) => ({
@@ -322,6 +665,45 @@ const buildTenantSummaries = async (db) => {
     });
 };
 
+const companySelectionSchema = z.enum(['create', 'join']);
+const roleSchema = z.enum(USER_ROLES);
+const companyTypeSchema = z.enum(COMPANY_TYPES);
+const socialProviderSchema = z.enum(SOCIAL_PROVIDERS);
+
+const registrationSchema = z.object({
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  email: z.string().email(),
+  password: z.string().min(8),
+  phone: z.string().optional(),
+  companySelection: companySelectionSchema.optional(),
+  companyName: z.string().optional(),
+  companyType: companyTypeSchema.optional(),
+  companyEmail: z.string().email().optional(),
+  companyPhone: z.string().optional(),
+  companyWebsite: z.string().optional(),
+  companyIndustry: z.string().optional(),
+  inviteToken: z.string().optional(),
+  companyId: z.string().optional(),
+  role: roleSchema.optional(),
+});
+
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
+const socialAuthSchema = registrationSchema
+  .omit({ password: true })
+  .extend({
+    provider: socialProviderSchema,
+    token: z.string().min(6),
+  });
+
+const refreshSchema = z.object({
+  refreshToken: z.string().min(10),
+});
+
 const calculatePlatformMetrics = async (db) => {
   const [{ count: companyCount = 0 } = { count: 0 }] = await db.all(
     'SELECT COUNT(*) as count FROM companies WHERE id != ?',
@@ -342,6 +724,7 @@ const calculatePlatformMetrics = async (db) => {
   );
 
   return {
+    source: 'backend',
     metrics: [
       { name: 'Active Tenants', value: Number(companyCount), unit: 'companies' },
       { name: 'Active Projects', value: Number(projectCount), unit: 'projects' },
@@ -359,6 +742,277 @@ const calculatePlatformMetrics = async (db) => {
       : null,
   };
 };
+
+app.post('/auth/register', async (req, res) => {
+  const parseResult = registrationSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res
+      .status(400)
+      .json(createErrorPayload('Invalid registration payload', { issues: parseResult.error.flatten() }));
+  }
+
+  const payload = parseResult.data;
+
+  try {
+    const db = await getDatabase();
+    const email = normaliseEmail(payload.email);
+    const existing = await db.get('SELECT id FROM users WHERE email = ?', email);
+    if (existing) {
+      return res.status(409).json(createErrorPayload('An account with this email already exists.'));
+    }
+
+    const selection = payload.companySelection ?? 'create';
+    const { companyId } = await ensureCompanyForRegistration(db, { ...payload, email });
+    const role = payload.role && USER_ROLES.includes(payload.role)
+      ? payload.role
+      : selection === 'create'
+      ? 'OWNER'
+      : 'OPERATIVE';
+
+    const userId = await createUserRecord(db, {
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      email,
+      password: payload.password,
+      companyId,
+      role,
+      provider: 'local',
+      phone: payload.phone,
+    });
+
+    await updateUserAuthMetadata(db, userId, 'local');
+    const response = await issueAuthSuccess(db, userId, 'local', companyId);
+    res.status(201).json(response);
+  } catch (error) {
+    const status = typeof error.status === 'number' ? error.status : 500;
+    const message = status === 500 ? 'Unable to complete registration' : error.message;
+    res.status(status).json(createErrorPayload(message, status === 500 ? { details: error.message } : undefined));
+  }
+});
+
+app.post('/auth/login', async (req, res) => {
+  const parseResult = loginSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json(createErrorPayload('Invalid login payload', { issues: parseResult.error.flatten() }));
+  }
+
+  const { email, password } = parseResult.data;
+
+  try {
+    const db = await getDatabase();
+    const user = await db.get('SELECT * FROM users WHERE email = ?', normaliseEmail(email));
+    if (!user) {
+      return res.status(401).json(createErrorPayload('Invalid credentials'));
+    }
+
+    if (user.auth_provider && user.auth_provider !== 'local' && !user.password_hash) {
+      return res
+        .status(409)
+        .json(
+          createErrorPayload('This account is linked to a social provider. Please continue with your social login.'),
+        );
+    }
+
+    if (!verifyPassword(password, user.password_hash)) {
+      return res.status(401).json(createErrorPayload('Invalid credentials'));
+    }
+
+    await updateUserAuthMetadata(db, user.id, 'local');
+    const response = await issueAuthSuccess(db, user.id, 'local', user.company_id);
+    res.json(response);
+  } catch (error) {
+    res.status(500).json(createErrorPayload('Unable to sign in', { details: error.message }));
+  }
+});
+
+app.post('/auth/social', async (req, res) => {
+  const parseResult = socialAuthSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json(createErrorPayload('Invalid social login payload', { issues: parseResult.error.flatten() }));
+  }
+
+  const payload = parseResult.data;
+  const email = normaliseEmail(payload.email);
+  const provider = payload.provider;
+
+  try {
+    const db = await getDatabase();
+    const existing = await db.get('SELECT * FROM users WHERE email = ?', email);
+    let userId;
+    let statusCode = 200;
+    let activeCompanyId;
+
+    if (existing) {
+      userId = existing.id;
+      activeCompanyId = existing.company_id;
+      await updateUserAuthMetadata(db, userId, provider);
+    } else {
+      const firstName = payload.firstName ?? email.split('@')[0];
+      const lastName = payload.lastName ?? 'User';
+      const selection = payload.companySelection ?? 'create';
+      const { companyId } = await ensureCompanyForRegistration(db, {
+        ...payload,
+        email,
+        firstName,
+        lastName,
+        companySelection: selection,
+      });
+
+      const role = payload.role && USER_ROLES.includes(payload.role)
+        ? payload.role
+        : selection === 'create'
+        ? 'OWNER'
+        : 'OPERATIVE';
+
+      userId = await createUserRecord(db, {
+        firstName,
+        lastName,
+        email,
+        password: payload.token,
+        companyId,
+        role,
+        provider,
+        phone: payload.phone,
+      });
+      activeCompanyId = companyId;
+      statusCode = 201;
+    }
+
+    const response = await issueAuthSuccess(db, userId, provider, activeCompanyId);
+    res.status(statusCode).json(response);
+  } catch (error) {
+    const status = typeof error.status === 'number' ? error.status : 500;
+    const message = status === 500 ? 'Unable to process social login' : error.message;
+    res.status(status).json(createErrorPayload(message, status === 500 ? { details: error.message } : undefined));
+  }
+});
+
+app.get('/auth/me', async (req, res) => {
+  try {
+    const { db, session } = await requireSession(req);
+    const userRecord = await db.get('SELECT * FROM users WHERE id = ?', session.user_id);
+    if (!userRecord) {
+      return res.status(404).json(createErrorPayload('User not found'));
+    }
+
+    const state = await buildSessionState(db, userRecord, session.active_company_id ?? userRecord.company_id);
+    res.json({
+      ...state,
+      provider: session.provider,
+      expiresAt: session.expires_at,
+    });
+  } catch (error) {
+    const status = typeof error.status === 'number' ? error.status : 500;
+    const message = status === 500 ? 'Unable to verify session' : error.message;
+    res.status(status).json(createErrorPayload(message, status === 500 ? { details: error.message } : undefined));
+  }
+});
+
+app.get('/auth/tenants', async (req, res) => {
+  try {
+    const { db, session } = await requireSession(req);
+    const userRecord = await db.get('SELECT * FROM users WHERE id = ?', session.user_id);
+    if (!userRecord) {
+      return res.status(404).json(createErrorPayload('User not found'));
+    }
+
+    const access = await resolveCompanyAccess(db, userRecord, session.active_company_id ?? userRecord.company_id);
+    res.json({
+      activeCompanyId: access.activeCompanyId,
+      companies: access.entries,
+    });
+  } catch (error) {
+    const status = typeof error.status === 'number' ? error.status : 500;
+    const message = status === 500 ? 'Unable to load tenant list' : error.message;
+    res.status(status).json(createErrorPayload(message, status === 500 ? { details: error.message } : undefined));
+  }
+});
+
+app.post('/auth/switch-company', async (req, res) => {
+  const parseResult = switchCompanySchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res
+      .status(400)
+      .json(createErrorPayload('Invalid company switch payload', { issues: parseResult.error.flatten() }));
+  }
+
+  try {
+    const { db, session } = await requireSession(req);
+    const userRecord = await db.get('SELECT * FROM users WHERE id = ?', session.user_id);
+    if (!userRecord) {
+      return res.status(404).json(createErrorPayload('User not found'));
+    }
+
+    const desiredCompanyId = parseResult.data.companyId;
+    const access = await resolveCompanyAccess(db, userRecord, session.active_company_id ?? userRecord.company_id);
+    const allowed = access.entries.some((entry) => entry.id === desiredCompanyId);
+
+    if (!allowed) {
+      return res.status(403).json(createErrorPayload('You do not have access to this tenant'));
+    }
+
+    await db.run(
+      `UPDATE auth_sessions SET active_company_id = ?, updated_at = datetime('now') WHERE id = ?`,
+      desiredCompanyId,
+      session.id,
+    );
+
+    const state = await buildSessionState(db, userRecord, desiredCompanyId);
+    res.json(state);
+  } catch (error) {
+    const status = typeof error.status === 'number' ? error.status : 500;
+    const message = status === 500 ? 'Unable to switch tenant' : error.message;
+    res.status(status).json(createErrorPayload(message, status === 500 ? { details: error.message } : undefined));
+  }
+});
+
+app.post('/auth/refresh', async (req, res) => {
+  const parseResult = refreshSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res
+      .status(400)
+      .json(createErrorPayload('Invalid refresh payload', { issues: parseResult.error.flatten() }));
+  }
+
+  try {
+    const db = await getDatabase();
+    const session = await db.get('SELECT * FROM auth_sessions WHERE refresh_token = ?', parseResult.data.refreshToken);
+    if (!session) {
+      return res.status(401).json(createErrorPayload('Invalid refresh token'));
+    }
+
+    if (new Date(session.refresh_expires_at).getTime() <= Date.now()) {
+      await db.run('DELETE FROM auth_sessions WHERE id = ?', session.id);
+      return res.status(401).json(createErrorPayload('Refresh token expired'));
+    }
+
+    const token = crypto.randomBytes(48).toString('hex');
+    const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
+
+    await db.run(
+      `UPDATE auth_sessions SET token = ?, expires_at = ?, updated_at = datetime('now') WHERE id = ?`,
+      token,
+      expiresAt,
+      session.id,
+    );
+
+    res.json({ token, expiresAt });
+  } catch (error) {
+    res.status(500).json(createErrorPayload('Unable to refresh session', { details: error.message }));
+  }
+});
+
+app.post('/auth/logout', async (req, res) => {
+  try {
+    const { db, session } = await requireSession(req);
+    await db.run('DELETE FROM auth_sessions WHERE id = ?', session.id);
+    res.status(204).send();
+  } catch (error) {
+    const status = typeof error.status === 'number' ? error.status : 500;
+    const message = status === 500 ? 'Unable to log out' : error.message;
+    res.status(status).json(createErrorPayload(message, status === 500 ? { details: error.message } : undefined));
+  }
+});
 
 app.get('/health', async (_req, res) => {
   try {

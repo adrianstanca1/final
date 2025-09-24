@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Role, Permission, RolePermissions, CompanyType, RegisterCredentials } from '../types';
+import { Role, Permission, RolePermissions, CompanyType, RegisterCredentials, SocialProvider } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -17,6 +17,8 @@ const STEPS: { id: Step; name: string }[] = [
     { id: 'verify', name: 'Verification' },
     { id: 'terms', name: 'Finish' },
 ];
+
+const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
 const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password = '' }) => {
     const getStrength = () => {
@@ -96,16 +98,75 @@ const CreateCompanyModal: React.FC<{
 };
 
 export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLogin }) => {
-    const { register, error: authError, loading: isLoading } = useAuth();
+    const { register, socialLogin, error: authError, loading: isLoading } = useAuth();
     const [step, setStep] = useState<Step>('personal');
     const [formData, setFormData] = useState<Partial<RegisterCredentials & { companyName?: string; companyType?: CompanyType; companyEmail?: string; companyPhone?: string; companyWebsite?: string; companySelection?: 'create' | 'join', role?: Role, verificationCode?: string, termsAccepted?: boolean }>>({});
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [generalError, setGeneralError] = useState<string | null>(null);
     const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
+    const [activeSocialProvider, setActiveSocialProvider] = useState<SocialProvider | null>(null);
+    const [socialForm, setSocialForm] = useState({ email: '', firstName: '', lastName: '', companyName: '' });
+    const [socialError, setSocialError] = useState<string | null>(null);
+    const [socialSubmitting, setSocialSubmitting] = useState(false);
+    const providerLabels: Record<SocialProvider, string> = {
+        google: 'Google',
+        facebook: 'Facebook',
+    };
 
     useEffect(() => {
         setGeneralError(authError);
     }, [authError]);
+
+    const openSocialSignIn = (provider: SocialProvider) => {
+        setActiveSocialProvider(provider);
+        setSocialForm({ email: '', firstName: '', lastName: '', companyName: '' });
+        setSocialError(null);
+    };
+
+    const closeSocialSignIn = () => {
+        if (socialSubmitting) return;
+        setActiveSocialProvider(null);
+        setSocialError(null);
+    };
+
+    const handleSocialValueChange = (field: 'email' | 'firstName' | 'lastName' | 'companyName', value: string) => {
+        setSocialForm(prev => ({ ...prev, [field]: value }));
+        if (socialError) {
+            setSocialError(null);
+        }
+    };
+
+    const handleSocialContinue = async (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!activeSocialProvider) return;
+
+        if (!isValidEmail(socialForm.email)) {
+            setSocialError('Please provide a valid work email.');
+            return;
+        }
+        if (!socialForm.firstName.trim() || !socialForm.lastName.trim()) {
+            setSocialError('Please provide your first and last name.');
+            return;
+        }
+
+        try {
+            setSocialSubmitting(true);
+            await socialLogin(activeSocialProvider, {
+                provider: activeSocialProvider,
+                email: socialForm.email.trim(),
+                firstName: socialForm.firstName.trim(),
+                lastName: socialForm.lastName.trim(),
+                companyName: socialForm.companyName.trim() || `${socialForm.firstName.trim()} Collaborative`,
+                companySelection: 'create',
+                token: `${activeSocialProvider}-${Date.now()}`,
+            });
+            setActiveSocialProvider(null);
+        } catch (error: any) {
+            setSocialError(error?.message || 'Unable to continue with social sign-up.');
+        } finally {
+            setSocialSubmitting(false);
+        }
+    };
 
     const validateStep = (currentStep: Step): boolean => {
         const newErrors: Record<string, string> = {};
@@ -298,6 +359,45 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                         <h2 className="text-muted-foreground">Create your account</h2>
                     </div>
 
+                    <Card className="mb-8">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <h3 className="text-lg font-semibold text-foreground">Accelerate your onboarding</h3>
+                                <p className="text-sm text-muted-foreground">Connect a verified identity to spin up a workspace with platform defaults.</p>
+                            </div>
+                        </div>
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                className="w-full border border-border bg-background text-foreground hover:bg-accent"
+                                onClick={() => openSocialSignIn('google')}
+                                disabled={isLoading || socialSubmitting}
+                            >
+                                <span className="flex items-center justify-center gap-2">
+                                    <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-5 w-5 text-[#4285F4]">
+                                        <path fill="currentColor" d="M21.35 11.1h-9.17v2.96h5.44c-.24 1.42-1.64 4.17-5.44 4.17-3.27 0-5.94-2.71-5.94-6.05 0-3.34 2.67-6.05 5.94-6.05 1.86 0 3.11.79 3.82 1.48l2.61-2.52C17.22 3.71 15.1 2.7 12.62 2.7 7.8 2.7 3.99 6.47 3.99 11.18c0 4.71 3.81 8.48 8.63 8.48 4.99 0 8.29-3.5 8.29-8.43 0-.57-.06-1-.14-1.46Z" />
+                                    </svg>
+                                    Continue with Google
+                                </span>
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                className="w-full border border-border bg-background text-foreground hover:bg-accent"
+                                onClick={() => openSocialSignIn('facebook')}
+                                disabled={isLoading || socialSubmitting}
+                            >
+                                <span className="flex items-center justify-center gap-2">
+                                    <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="h-5 w-5 text-[#1877F2]">
+                                        <path fill="currentColor" d="M22 12.07C22 6.53 17.52 2 12 2S2 6.53 2 12.07c0 5.02 3.66 9.18 8.44 9.93v-7.03H7.9v-2.9h2.54V9.41c0-2.52 1.49-3.91 3.77-3.91 1.09 0 2.23.2 2.23.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56v1.87h2.78l-.44 2.9h-2.34V22c4.78-.75 8.44-4.91 8.44-9.93Z" />
+                                    </svg>
+                                    Continue with Facebook
+                                </span>
+                            </Button>
+                        </div>
+                    </Card>
+
                     <div className="mb-8 px-4">
                         <div className="flex items-center">
                             {STEPS.map((s, index) => (
@@ -339,6 +439,79 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                     </p>
                 </div>
             </div>
+            {activeSocialProvider && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4" onClick={closeSocialSignIn}>
+                    <Card className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 className="text-lg font-semibold text-foreground">Finish with {providerLabels[activeSocialProvider]}</h3>
+                                <p className="text-sm text-muted-foreground">We will provision a workspace and admin profile using your trusted identity.</p>
+                            </div>
+                            <button onClick={closeSocialSignIn} className="text-muted-foreground hover:text-foreground" aria-label="Close social registration dialog">×</button>
+                        </div>
+                        {socialError && (
+                            <div className="mb-3 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-sm text-destructive">
+                                {socialError}
+                            </div>
+                        )}
+                        <form onSubmit={handleSocialContinue} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-muted-foreground" htmlFor="reg-social-email">Work email</label>
+                                <input
+                                    id="reg-social-email"
+                                    type="email"
+                                    value={socialForm.email}
+                                    onChange={e => handleSocialValueChange('email', e.target.value)}
+                                    className="mt-1 w-full rounded-md border border-border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                                    placeholder="you@company.com"
+                                    required
+                                />
+                            </div>
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                                <div>
+                                    <label className="block text-sm font-medium text-muted-foreground" htmlFor="reg-social-first">First name</label>
+                                    <input
+                                        id="reg-social-first"
+                                        type="text"
+                                        value={socialForm.firstName}
+                                        onChange={e => handleSocialValueChange('firstName', e.target.value)}
+                                        className="mt-1 w-full rounded-md border border-border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-muted-foreground" htmlFor="reg-social-last">Last name</label>
+                                    <input
+                                        id="reg-social-last"
+                                        type="text"
+                                        value={socialForm.lastName}
+                                        onChange={e => handleSocialValueChange('lastName', e.target.value)}
+                                        className="mt-1 w-full rounded-md border border-border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-muted-foreground" htmlFor="reg-social-company">Workspace name</label>
+                                <input
+                                    id="reg-social-company"
+                                    type="text"
+                                    value={socialForm.companyName}
+                                    onChange={e => handleSocialValueChange('companyName', e.target.value)}
+                                    className="mt-1 w-full rounded-md border border-border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary"
+                                    placeholder="e.g. Skyline Delivery Team"
+                                />
+                            </div>
+                            <div className="flex items-center justify-end gap-2 pt-2">
+                                <Button type="button" variant="secondary" onClick={closeSocialSignIn} disabled={socialSubmitting}>Cancel</Button>
+                                <Button type="submit" isLoading={socialSubmitting} className="bg-primary text-primary-foreground hover:bg-primary/90">
+                                    Continue with {providerLabels[activeSocialProvider]}
+                                </Button>
+                            </div>
+                        </form>
+                    </Card>
+                </div>
+            )}
         </>
     );
 };

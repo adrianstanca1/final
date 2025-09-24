@@ -73,6 +73,7 @@ test.after(async () => {
 
 test.beforeEach(async () => {
   await db.exec(`
+    DELETE FROM auth_sessions;
     DELETE FROM invoice_payments;
     DELETE FROM invoice_line_items;
     DELETE FROM invoices;

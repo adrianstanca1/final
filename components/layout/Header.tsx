@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
-import { User, Notification } from '../../types';
+import { User, Notification, Company, CompanyAccessSummary } from '../../types';
 import { Avatar } from '../ui/Avatar';
 import { NotificationDropdown } from './NotificationDropdown';
+import { TenantSwitcher } from './TenantSwitcher';
 
 interface HeaderProps {
   user: User;
+  company: Company | null;
+  companies: CompanyAccessSummary[];
+  activeCompanyId: string | null;
   onLogout: () => void;
   onSearchClick: () => void;
   onCommandPaletteClick: () => void;
@@ -12,15 +16,43 @@ interface HeaderProps {
   notifications: Notification[];
   onNotificationClick: (notification: Notification) => void;
   onMarkAllNotificationsAsRead: () => void;
+  onSwitchCompany: (companyId: string) => Promise<void>;
+  onRefreshTenants: () => Promise<void>;
 }
 
-export const Header: React.FC<HeaderProps> = ({ user, onLogout, onSearchClick, onCommandPaletteClick, unreadNotificationCount, notifications, onNotificationClick, onMarkAllNotificationsAsRead }) => {
+export const Header: React.FC<HeaderProps> = ({
+    user,
+    company,
+    companies,
+    activeCompanyId,
+    onLogout,
+    onSearchClick,
+    onCommandPaletteClick,
+    unreadNotificationCount,
+    notifications,
+    onNotificationClick,
+    onMarkAllNotificationsAsRead,
+    onSwitchCompany,
+    onRefreshTenants,
+}) => {
     const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
     const [isNotificationMenuOpen, setIsNotificationMenuOpen] = useState(false);
     const userName = `${user.firstName} ${user.lastName}`;
+    const showTenantSwitcher = !!company || companies.length > 0;
 
     return (
-        <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-lg border-b border-border h-16 flex-shrink-0 flex items-center justify-end px-6 gap-4">
+        <header className="sticky top-0 z-30 flex h-16 flex-shrink-0 items-center justify-between border-b border-border bg-background/80 px-6 backdrop-blur-lg">
+            <div className="flex flex-1 items-center gap-4">
+                {showTenantSwitcher && (
+                    <TenantSwitcher
+                        company={company}
+                        companies={companies}
+                        activeCompanyId={activeCompanyId}
+                        onSwitch={onSwitchCompany}
+                        onRefresh={onRefreshTenants}
+                    />
+                )}
+            </div>
             <button onClick={onSearchClick} className="p-2 rounded-full hover:bg-accent text-muted-foreground">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             </button>

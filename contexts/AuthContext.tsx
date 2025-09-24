@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, useCallback, ReactNode } from 'react';
-import { User, Company, LoginCredentials, RegisterCredentials, AuthState, Permission } from '../types';
+import { User, Company, LoginCredentials, RegisterCredentials, AuthState, Permission, SocialProvider, SocialAuthRequest, AuthSuccessPayload, CompanyAccessSummary, SwitchCompanyResponse, TenantDirectoryContext } from '../types';
 import { authApi } from '../services/mockApi';
 import { hasPermission as checkPermission } from '../services/auth';
 import { api } from '../services/mockApi';
@@ -7,12 +7,15 @@ import { api } from '../services/mockApi';
 interface AuthContextType extends AuthState {
     login: (credentials: LoginCredentials) => Promise<{ mfaRequired: boolean; userId?: string }>;
     register: (credentials: Partial<RegisterCredentials>) => Promise<void>;
+    socialLogin: (provider: SocialProvider, profile: SocialAuthRequest) => Promise<void>;
     logout: () => void;
     hasPermission: (permission: Permission) => boolean;
     verifyMfaAndFinalize: (userId: string, code: string) => Promise<void>;
     updateUserProfile: (updates: Partial<User>) => Promise<void>;
     requestPasswordReset: (email: string) => Promise<void>;
     resetPassword: (token: string, newPassword: string) => Promise<void>;
+    refreshTenants: () => Promise<void>;
+    switchCompany: (companyId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,6 +37,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         refreshToken: null,
         user: null,
         company: null,
+        availableCompanies: [],
+        activeCompanyId: null,
         loading: true,
         error: null,
     });
@@ -48,6 +53,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             refreshToken: null,
             user: null,
             company: null,
+            availableCompanies: [],
+            activeCompanyId: null,
             loading: false,
             error: null,
         });
@@ -89,15 +96,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     }, [logout]);
     
-    const finalizeLogin = useCallback((data: { token: string, refreshToken: string, user: User, company: Company }) => {
+    const finalizeLogin = useCallback((data: AuthSuccessPayload) => {
         localStorage.setItem('token', data.token);
         localStorage.setItem('refreshToken', data.refreshToken);
+        const activeCompanyId = data.activeCompanyId ?? data.company?.id ?? data.user?.companyId ?? null;
+        const availableCompanies: CompanyAccessSummary[] = data.availableCompanies ?? (data.company ? [{
+            id: data.company.id,
+            name: data.company.name,
+            status: String((data.company as any).status ?? 'ACTIVE'),
+            subscriptionPlan: data.company.subscriptionPlan ?? 'PROFESSIONAL',
+            membershipRole: data.user.role,
+            membershipType: 'primary',
+            isPlatform: false,
+            isPrimary: true,
+        }] : []);
+        const normalizedUser: User = {
+            ...data.user,
+            companyId: activeCompanyId ?? data.user.companyId,
+            primaryCompanyId: data.user.primaryCompanyId ?? data.user.companyId,
+        };
         setAuthState({
             isAuthenticated: true,
             token: data.token,
             refreshToken: data.refreshToken,
-            user: data.user,
+            user: normalizedUser,
             company: data.company,
+            availableCompanies,
+            activeCompanyId,
             loading: false,
             error: null,
         });
@@ -115,15 +140,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (token && refreshToken) {
             try {
                 // First, try to authenticate with the existing access token.
-                const { user, company } = await authApi.me(token);
-                finalizeLogin({ token, refreshToken, user, company });
+            const session = await authApi.me(token);
+            finalizeLogin({
+                token,
+                refreshToken,
+                user: session.user,
+                company: session.company,
+                availableCompanies: session.availableCompanies,
+                activeCompanyId: session.activeCompanyId,
+            });
             } catch (error) {
                 // If authApi.me fails (e.g., token expired), attempt to refresh the token.
                 console.log("Access token invalid, attempting reactive refresh...");
                 try {
                     const { token: newToken } = await authApi.refreshToken(refreshToken);
-                    const { user, company } = await authApi.me(newToken);
-                    finalizeLogin({ token: newToken, refreshToken, user, company });
+                    const session = await authApi.me(newToken);
+                    finalizeLogin({
+                        token: newToken,
+                        refreshToken,
+                        user: session.user,
+                        company: session.company,
+                        availableCompanies: session.availableCompanies,
+                        activeCompanyId: session.activeCompanyId,
+                    });
                 } catch (refreshError) {
                     console.error("Auth init with refresh token failed, logging out.", refreshError);
                     logout();
@@ -149,7 +188,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 setAuthState(prev => ({ ...prev, loading: false }));
                 return { mfaRequired: true, userId: response.userId };
             }
-            
+
             finalizeLogin(response);
             return { mfaRequired: false };
 
@@ -217,16 +256,65 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
     };
     
+    const socialLogin = async (provider: SocialProvider, profile: SocialAuthRequest) => {
+        setAuthState(prev => ({ ...prev, loading: true, error: null }));
+        try {
+            const response = await authApi.socialLogin(provider, profile);
+            finalizeLogin(response);
+        } catch (error: any) {
+            setAuthState(prev => ({ ...prev, loading: false, error: error?.message || 'Social login failed' }));
+            throw error;
+        }
+    };
+
+    const refreshTenants = useCallback(async () => {
+        try {
+            const tenants: TenantDirectoryContext = await authApi.listTenants();
+            setAuthState(prev => ({
+                ...prev,
+                availableCompanies: tenants.companies,
+                activeCompanyId: tenants.activeCompanyId,
+            }));
+        } catch (error) {
+            console.error('Failed to refresh tenant directory', error);
+        }
+    }, []);
+
+    const switchCompany = useCallback(async (companyId: string) => {
+        setAuthState(prev => ({ ...prev, error: null }));
+        try {
+            const response: SwitchCompanyResponse = await authApi.switchCompany(companyId);
+            const normalizedUser: User = {
+                ...response.user,
+                companyId: response.activeCompanyId,
+                primaryCompanyId: response.user.primaryCompanyId ?? response.user.companyId,
+            };
+            setAuthState(prev => ({
+                ...prev,
+                user: normalizedUser,
+                company: response.company,
+                availableCompanies: response.availableCompanies,
+                activeCompanyId: response.activeCompanyId,
+            }));
+        } catch (error: any) {
+            setAuthState(prev => ({ ...prev, error: error?.message || 'Unable to switch company' }));
+            throw error;
+        }
+    }, []);
+
     const value = {
         ...authState,
         login,
         register,
+        socialLogin,
         logout,
         hasPermission,
         verifyMfaAndFinalize,
         updateUserProfile,
         requestPasswordReset,
         resetPassword,
+        refreshTenants,
+        switchCompany,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -5,6 +5,8 @@ export interface AuthState {
   refreshToken: string | null;
   user: User | null;
   company: Company | null;
+  availableCompanies: CompanyAccessSummary[];
+  activeCompanyId: string | null;
   loading: boolean;
   error: string | null;
 }
@@ -24,6 +26,37 @@ export interface RegisterCredentials {
   phone?: string;
   companyId?: string;
   inviteToken?: string;
+  companySelection?: 'create' | 'join';
+  companyName?: string;
+  companyType?: CompanyType;
+  companyEmail?: string;
+  companyPhone?: string;
+  companyWebsite?: string;
+  companyIndustry?: string;
+  role?: Role;
+  termsAccepted?: boolean;
+}
+
+export type SocialProvider = 'google' | 'facebook';
+
+export interface AuthSuccessPayload {
+  token: string;
+  refreshToken: string;
+  expiresAt?: string;
+  refreshExpiresAt?: string;
+  provider?: string;
+  user: User;
+  company: Company;
+  availableCompanies?: CompanyAccessSummary[];
+  activeCompanyId?: string;
+}
+
+export interface SocialAuthRequest extends Partial<RegisterCredentials> {
+  provider: SocialProvider;
+  token: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
 }
 
 export interface Company {
@@ -43,6 +76,17 @@ export interface Company {
   // FIX: Added missing properties to Company type
   status?: 'Active' | 'Suspended';
   storageUsageGB: number;
+}
+
+export interface CompanyAccessSummary {
+  id: string;
+  name: string;
+  status: string;
+  subscriptionPlan: SubscriptionPlan | string;
+  membershipRole: Role | 'PLATFORM_ADMIN';
+  membershipType: 'primary' | 'platform' | 'delegated';
+  isPlatform: boolean;
+  isPrimary: boolean;
 }
 
 export interface TenantSummary {
@@ -135,6 +179,7 @@ export interface User {
   role: Role; // FIX: Changed from UserRole to Role enum
   permissions: Permission[];
   companyId: string;
+  primaryCompanyId?: string;
   departmentId?: string;
   position?: string;
   isActive: boolean;
@@ -146,6 +191,28 @@ export interface User {
   // FIX: Added missing properties to User type
   skills?: string[];
   availability?: AvailabilityStatus;
+  authProvider?: SocialProvider | 'local';
+}
+
+export interface SwitchCompanyResponse {
+  user: User;
+  company: Company;
+  availableCompanies: CompanyAccessSummary[];
+  activeCompanyId: string;
+}
+
+export interface TenantDirectoryContext {
+  activeCompanyId: string;
+  companies: CompanyAccessSummary[];
+}
+
+export interface SessionSnapshot {
+  user: User;
+  company: Company;
+  availableCompanies: CompanyAccessSummary[];
+  activeCompanyId: string;
+  provider?: string;
+  expiresAt?: string;
 }
 
 export interface UserPreferences {

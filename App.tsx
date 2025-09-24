@@ -92,7 +92,7 @@ const ToastMessage: React.FC<{ toast: Toast; onDismiss: (id: number) => void }> 
 
 
 function App() {
-  const { isAuthenticated, user, loading, logout } = useAuth();
+  const { isAuthenticated, user, company, availableCompanies, activeCompanyId, loading, logout, switchCompany, refreshTenants } = useAuth();
   const [authView, setAuthView] = useState<'login' | 'register' | 'forgot-password' | 'reset-password'>('login');
   const [resetToken, setResetToken] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<View>('dashboard');
@@ -335,6 +335,9 @@ function App() {
       <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
         <Header
           user={user}
+          company={company}
+          companies={availableCompanies}
+          activeCompanyId={activeCompanyId}
           onLogout={handleLogout}
           onSearchClick={() => setIsSearchModalOpen(true)}
           onCommandPaletteClick={() => setIsCommandPaletteOpen(true)}
@@ -346,6 +349,8 @@ function App() {
             await api.markAllNotificationsAsRead(user.id);
             updateBadgeCounts(user);
           }}
+          onSwitchCompany={switchCompany}
+          onRefreshTenants={refreshTenants}
         />
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
           <ErrorBoundary>

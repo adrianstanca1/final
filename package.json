@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "npm run test:backend && vitest run",
-    "test:backend": "node --test backend/__tests__/clients.integration.test.mjs",
+    "test:backend": "node --test backend/__tests__/*.integration.test.mjs",
     "dev:server": "node backend/server.js",
     "db:seed": "node backend/seed.js"
   },

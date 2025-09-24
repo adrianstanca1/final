@@ -2,7 +2,7 @@
 // Supports offline queuing for write operations.
 
 import { initialData } from './mockData';
-import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegisterCredentials, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority, InvoiceInsights, ClientInsights, InvoicePayment, TenantDirectoryResponse, PlatformMetricsResponse } from '../types';
+import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegisterCredentials, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority, InvoiceInsights, ClientInsights, InvoicePayment, TenantDirectoryResponse, PlatformMetricsResponse, AuthSuccessPayload, SocialProvider, SocialAuthRequest, CompanyAccessSummary, SwitchCompanyResponse, TenantDirectoryContext, SessionSnapshot } from '../types';
 
 const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
 
@@ -12,6 +12,59 @@ const ensureNotAborted = (signal?: AbortSignal) => {
     if (signal?.aborted) {
         throw new DOMException('Aborted', 'AbortError');
     }
+};
+
+const userActiveCompany = new Map<string, string>();
+
+const buildCompanyAccessSummaries = (user: User, activeCompanyId: string): CompanyAccessSummary[] => {
+    const isPlatformAdmin = user.role === Role.PRINCIPAL_ADMIN;
+    const primaryCompanyId = user.primaryCompanyId || user.companyId;
+    const companyRecords = isPlatformAdmin ? db.companies : db.companies.filter(company => company.id === primaryCompanyId);
+    const uniqueCompanies = new Map<string, Company>();
+
+    for (const record of companyRecords) {
+        if (record?.id) {
+            uniqueCompanies.set(record.id, record as Company);
+        }
+    }
+
+    const ensureCompanyPresent = (companyId?: string) => {
+        if (!companyId) return;
+        if (!uniqueCompanies.has(companyId)) {
+            const match = db.companies.find(company => company.id === companyId);
+            if (match?.id) {
+                uniqueCompanies.set(match.id, match as Company);
+            }
+        }
+    };
+
+    ensureCompanyPresent(primaryCompanyId);
+    ensureCompanyPresent(activeCompanyId);
+
+    return Array.from(uniqueCompanies.values()).map((company) => {
+        const id = company.id!;
+        const membershipType: CompanyAccessSummary['membershipType'] = id === primaryCompanyId
+            ? 'primary'
+            : isPlatformAdmin && id === 'platform-root'
+                ? 'platform'
+                : 'delegated';
+
+        return {
+            id,
+            name: company.name || 'Untitled Company',
+            status: (company as any).status || 'ACTIVE',
+            subscriptionPlan: (company as any).subscriptionPlan || 'PROFESSIONAL',
+            membershipRole: isPlatformAdmin ? 'PLATFORM_ADMIN' : user.role,
+            membershipType,
+            isPlatform: id === 'platform-root',
+            isPrimary: id === primaryCompanyId,
+        };
+    });
+};
+
+const resolveActiveCompanyId = (user: User, fallback?: string): string => {
+    const stored = userActiveCompany.get(user.id);
+    return stored ?? fallback ?? user.companyId;
 };
 
 type PartialInvoiceRecord = Partial<Invoice> & { companyId?: string; company_id?: string };
@@ -643,24 +696,77 @@ const addAuditLog = (actorId: string, action: string, target?: { type: string, i
     db.auditLogs.push(newLog);
 };
 
+const ensureMockUsername = (user: Partial<User>) => {
+    if (user.username) {
+        return;
+    }
+    const base = `${(user.firstName || 'user').toLowerCase()}.${(user.lastName || 'member').toLowerCase()}`.replace(/[^a-z0-9.]/g, '');
+    const candidate = base && base !== '.' ? base : `user.${Math.random().toString(36).slice(2, 6)}`;
+    user.username = candidate;
+};
+
+const toBackendRegisterPayload = (credentials: Partial<RegisterCredentials>) => ({
+    firstName: credentials.firstName,
+    lastName: credentials.lastName,
+    email: credentials.email,
+    password: credentials.password,
+    phone: credentials.phone,
+    companySelection: credentials.companySelection,
+    companyName: credentials.companyName,
+    companyType: credentials.companyType,
+    companyEmail: credentials.companyEmail,
+    companyPhone: credentials.companyPhone,
+    companyWebsite: credentials.companyWebsite,
+    companyIndustry: credentials.companyIndustry,
+    inviteToken: credentials.inviteToken,
+    companyId: credentials.companyId,
+    role: credentials.role,
+});
+
+const toBackendSocialPayload = (provider: SocialProvider, profile: SocialAuthRequest) => ({
+    provider,
+    token: profile.token,
+    email: profile.email,
+    firstName: profile.firstName,
+    lastName: profile.lastName,
+    phone: profile.phone,
+    companySelection: profile.companySelection,
+    companyName: profile.companyName,
+    companyType: profile.companyType,
+    companyEmail: profile.companyEmail,
+    companyPhone: profile.companyPhone,
+    companyWebsite: profile.companyWebsite,
+    companyIndustry: profile.companyIndustry,
+    inviteToken: profile.inviteToken,
+    companyId: profile.companyId,
+    role: profile.role,
+});
+
 export const authApi = {
-    register: async (credentials: Partial<RegisterCredentials & { companyName?: string; companyType?: CompanyType; companyEmail?: string; companyPhone?: string; companyWebsite?: string; companySelection?: 'create' | 'join', role?: Role }>): Promise<any> => {
-        await delay();
-        if (db.users.some(u => u.email === credentials.email)) {
-            throw new Error("An account with this email already exists.");
+    register: async (credentials: Partial<RegisterCredentials>): Promise<AuthSuccessPayload> => {
+        if (isBackendEnabled) {
+            return backendFetch<AuthSuccessPayload>('/auth/register', {
+                method: 'POST',
+                body: JSON.stringify(toBackendRegisterPayload(credentials)),
+            });
         }
 
+        await delay();
+        if (db.users.some(u => u.email === credentials.email)) {
+            throw new Error('An account with this email already exists.');
+        }
+
+        const now = new Date().toISOString();
         let companyId: string;
         let userRole = credentials.role || Role.OPERATIVE;
 
-        if (credentials.companySelection === 'create') {
+        if (credentials.companySelection === 'create' || !credentials.companySelection) {
             const newCompany: Partial<Company> = {
                 id: String(Date.now()),
-                name: credentials.companyName,
+                name: credentials.companyName || `${credentials.firstName || 'New'} Constructors`,
                 type: credentials.companyType || 'GENERAL_CONTRACTOR',
-                email: credentials.companyEmail,
+                email: credentials.companyEmail || credentials.email,
                 phone: credentials.companyPhone,
-                website: credentials.companyWebsite,
                 status: 'Active',
                 subscriptionPlan: 'FREE',
                 storageUsageGB: 0,
@@ -670,11 +776,11 @@ export const authApi = {
             userRole = Role.OWNER;
         } else if (credentials.companySelection === 'join') {
             if (credentials.inviteToken !== 'JOIN-CONSTRUCTCO') {
-                 throw new Error("Invalid invite token.");
+                throw new Error('Invalid invite token.');
             }
             companyId = '1';
         } else {
-            throw new Error("Invalid company selection.");
+            throw new Error('Invalid company selection.');
         }
 
         const newUser: Partial<User> = {
@@ -687,72 +793,269 @@ export const authApi = {
             role: userRole,
             companyId,
             isActive: true,
-            isEmailVerified: true, // Mocking verification for simplicity
-            createdAt: new Date().toISOString(),
+            isEmailVerified: true,
+            createdAt: now,
+            updatedAt: now,
+            authProvider: 'local' as any,
         };
+        ensureMockUsername(newUser);
         db.users.push(newUser);
         saveDb();
 
-        const user = db.users.find(u => u.id === newUser.id) as User;
-        const company = db.companies.find(c => c.id === companyId) as Company;
-
-        const token = createToken({ userId: user.id, companyId: company.id, role: user.role }, MOCK_ACCESS_TOKEN_LIFESPAN);
-        const refreshToken = createToken({ userId: user.id }, MOCK_REFRESH_TOKEN_LIFESPAN);
-        
-        return { success: true, token, refreshToken, user, company };
+        return authApi.finalizeLogin(newUser.id as string, 'local');
     },
     login: async (credentials: LoginCredentials): Promise<any> => {
+        if (isBackendEnabled) {
+            return backendFetch<AuthSuccessPayload>('/auth/login', {
+                method: 'POST',
+                body: JSON.stringify({ email: credentials.email, password: credentials.password }),
+            });
+        }
+
         await delay(200);
         const user = db.users.find(u => u.email === credentials.email && u.password === credentials.password);
         if (!user) {
-            throw new Error("Invalid email or password.");
+            throw new Error('Invalid email or password.');
         }
         if (user.mfaEnabled) {
             return { success: true, mfaRequired: true, userId: user.id };
         }
-        return authApi.finalizeLogin(user.id as string);
+        return authApi.finalizeLogin(user.id as string, (user as any).authProvider || 'local');
+    },
+    socialLogin: async (provider: SocialProvider, profile: SocialAuthRequest): Promise<AuthSuccessPayload> => {
+        const payload: SocialAuthRequest = {
+            provider,
+            token: profile.token || `${provider}-${Date.now()}`,
+            email: profile.email,
+            firstName: profile.firstName,
+            lastName: profile.lastName,
+            phone: profile.phone,
+            companySelection: profile.companySelection,
+            companyName: profile.companyName,
+            companyType: profile.companyType,
+            companyEmail: profile.companyEmail,
+            companyPhone: profile.companyPhone,
+            companyWebsite: profile.companyWebsite,
+            companyIndustry: profile.companyIndustry,
+            inviteToken: profile.inviteToken,
+            companyId: profile.companyId,
+            role: profile.role,
+        };
+
+        if (!payload.email) {
+            throw new Error('An email address is required to continue.');
+        }
+
+        if (isBackendEnabled) {
+            return backendFetch<AuthSuccessPayload>('/auth/social', {
+                method: 'POST',
+                body: JSON.stringify(toBackendSocialPayload(provider, payload)),
+            });
+        }
+
+        await delay(150);
+
+        const existing = db.users.find(u => u.email === payload.email);
+        if (existing) {
+            (existing as any).authProvider = provider;
+            existing.password = existing.password || payload.token;
+            ensureMockUsername(existing);
+            saveDb();
+            return authApi.finalizeLogin(existing.id as string, provider);
+        }
+
+        let companyId: string;
+        if (payload.companySelection === 'join' && payload.companyId) {
+            companyId = payload.companyId;
+        } else if (payload.companySelection === 'join' && payload.inviteToken === 'JOIN-CONSTRUCTCO') {
+            companyId = '1';
+        } else {
+            companyId = String(Date.now());
+            db.companies.push({
+                id: companyId,
+                name: payload.companyName || `${payload.firstName || 'Social'} Works`,
+                type: payload.companyType || 'CONSULTANT',
+                email: payload.companyEmail || payload.email,
+                phone: payload.companyPhone,
+                status: 'Active',
+                subscriptionPlan: 'STARTER',
+            } as Partial<Company>);
+        }
+
+        const now = new Date().toISOString();
+        const newUser: Partial<User> = {
+            id: String(Date.now() + Math.random()),
+            firstName: payload.firstName || 'Social',
+            lastName: payload.lastName || 'User',
+            email: payload.email,
+            password: payload.token,
+            role: payload.role || (payload.companySelection === 'join' ? Role.OPERATIVE : Role.OWNER),
+            companyId,
+            isActive: true,
+            isEmailVerified: true,
+            createdAt: now,
+            updatedAt: now,
+            authProvider: provider as any,
+        };
+        ensureMockUsername(newUser);
+        db.users.push(newUser);
+        saveDb();
+
+        return authApi.finalizeLogin(newUser.id as string, provider);
     },
     verifyMfa: async (userId: string, code: string): Promise<any> => {
         await delay(200);
         if (code !== '123456') {
-            throw new Error("Invalid MFA code.");
+            throw new Error('Invalid MFA code.');
         }
         return authApi.finalizeLogin(userId);
     },
-    finalizeLogin: async (userId: string): Promise<any> => {
+    finalizeLogin: async (userId: string, provider: SocialProvider | 'local' = 'local'): Promise<AuthSuccessPayload> => {
         await delay();
-        const user = db.users.find(u => u.id === userId) as User;
-        if (!user) throw new Error("User not found during finalization.");
-        const company = db.companies.find(c => c.id === user.companyId) as Company;
-        if (!company) throw new Error("Company not found for user.");
+        const userRecord = db.users.find(u => u.id === userId) as User;
+        if (!userRecord) throw new Error('User not found during finalization.');
+        const companyRecord = db.companies.find(c => c.id === userRecord.companyId) as Company;
+        if (!companyRecord) throw new Error('Company not found for user.');
 
-        const token = createToken({ userId: user.id, companyId: company.id, role: user.role }, MOCK_ACCESS_TOKEN_LIFESPAN);
-        const refreshToken = createToken({ userId: user.id }, MOCK_REFRESH_TOKEN_LIFESPAN);
-        
-        return { success: true, token, refreshToken, user, company };
+        ensureMockUsername(userRecord);
+        const issuedAt = Date.now();
+        const token = createToken({ userId: userRecord.id, companyId: companyRecord.id, role: userRecord.role }, MOCK_ACCESS_TOKEN_LIFESPAN);
+        const refreshToken = createToken({ userId: userRecord.id }, MOCK_REFRESH_TOKEN_LIFESPAN);
+        const activeCompanyId = companyRecord.id!;
+        userActiveCompany.set(userRecord.id, activeCompanyId);
+        const userPayload: User = {
+            ...userRecord,
+            companyId: activeCompanyId,
+            primaryCompanyId: userRecord.primaryCompanyId ?? userRecord.companyId ?? activeCompanyId,
+        };
+        const availableCompanies = buildCompanyAccessSummaries(userPayload, activeCompanyId);
+
+        return {
+            token,
+            refreshToken,
+            expiresAt: new Date(issuedAt + MOCK_ACCESS_TOKEN_LIFESPAN).toISOString(),
+            refreshExpiresAt: new Date(issuedAt + MOCK_REFRESH_TOKEN_LIFESPAN).toISOString(),
+            provider,
+            user: userPayload,
+            company: companyRecord as Company,
+            availableCompanies,
+            activeCompanyId,
+        };
     },
     refreshToken: async (refreshToken: string): Promise<{ token: string }> => {
+        if (isBackendEnabled) {
+            const response = await backendFetch<{ token: string }>('/auth/refresh', {
+                method: 'POST',
+                body: JSON.stringify({ refreshToken }),
+            });
+            return { token: response.token };
+        }
+
         await delay();
         const decoded = decodeToken(refreshToken);
-        if (!decoded) throw new Error("Invalid refresh token");
-        const user = db.users.find(u => u.id === decoded.userId);
-        if (!user) throw new Error("User not found for refresh token");
-        const token = createToken({ userId: user.id, companyId: user.companyId, role: user.role }, MOCK_ACCESS_TOKEN_LIFESPAN);
+        if (!decoded) throw new Error('Invalid refresh token');
+        const user = db.users.find(u => u.id === decoded.userId) as User;
+        if (!user) throw new Error('User not found for refresh token');
+        const activeCompanyId = resolveActiveCompanyId(user);
+        const token = createToken({ userId: user.id, companyId: activeCompanyId, role: user.role }, MOCK_ACCESS_TOKEN_LIFESPAN);
         return { token };
     },
-    /**
-     * Gets user and company info from a token.
-     * This function validates the token, including its expiration.
-     * The client (`AuthContext`) is responsible for catching an expiry error and using the refresh token.
-     */
-    me: async (token: string): Promise<{ user: User, company: Company }> => {
+    me: async (token: string): Promise<SessionSnapshot> => {
+        if (isBackendEnabled) {
+            return backendFetch<SessionSnapshot>('/auth/me', {
+                method: 'GET',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+        }
+
         await delay();
         const decoded = decodeToken(token);
-        if (!decoded) throw new Error("Invalid or expired token");
-        const user = db.users.find(u => u.id === decoded.userId) as User;
-        const company = db.companies.find(c => c.id === decoded.companyId) as Company;
-        if (!user || !company) throw new Error("User or company not found");
-        return { user, company };
+        if (!decoded) throw new Error('Invalid or expired token');
+        const userRecord = db.users.find(u => u.id === decoded.userId) as User;
+        if (!userRecord) throw new Error('User not found');
+        const activeCompanyId = resolveActiveCompanyId(userRecord, decoded.companyId);
+        const activeCompany = db.companies.find(c => c.id === activeCompanyId) as Company;
+        if (!activeCompany) throw new Error('Company not found for session');
+        const userPayload: User = {
+            ...userRecord,
+            companyId: activeCompanyId,
+            primaryCompanyId: userRecord.primaryCompanyId ?? userRecord.companyId ?? activeCompanyId,
+        };
+        const availableCompanies = buildCompanyAccessSummaries(userPayload, activeCompanyId);
+        return {
+            user: userPayload,
+            company: activeCompany as Company,
+            availableCompanies,
+            activeCompanyId,
+            provider: (userRecord as any).authProvider || 'local',
+        };
+    },
+    listTenants: async (): Promise<TenantDirectoryContext> => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            throw new Error('Not authenticated');
+        }
+
+        if (isBackendEnabled) {
+            return backendFetch<TenantDirectoryContext>('/auth/tenants', {
+                method: 'GET',
+                headers: { Authorization: `Bearer ${token}` },
+            });
+        }
+
+        await delay();
+        const decoded = decodeToken(token);
+        if (!decoded) throw new Error('Invalid or expired token');
+        const userRecord = db.users.find(u => u.id === decoded.userId) as User;
+        if (!userRecord) throw new Error('User not found');
+        const activeCompanyId = resolveActiveCompanyId(userRecord, decoded.companyId);
+        const userPayload: User = {
+            ...userRecord,
+            companyId: activeCompanyId,
+            primaryCompanyId: userRecord.primaryCompanyId ?? userRecord.companyId ?? activeCompanyId,
+        };
+        return {
+            activeCompanyId,
+            companies: buildCompanyAccessSummaries(userPayload, activeCompanyId),
+        };
+    },
+    switchCompany: async (companyId: string): Promise<SwitchCompanyResponse> => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            throw new Error('Not authenticated');
+        }
+
+        if (isBackendEnabled) {
+            return backendFetch<SwitchCompanyResponse>('/auth/switch-company', {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ companyId }),
+            });
+        }
+
+        await delay();
+        const decoded = decodeToken(token);
+        if (!decoded) throw new Error('Invalid or expired token');
+        const userRecord = db.users.find(u => u.id === decoded.userId) as User;
+        if (!userRecord) throw new Error('User not found');
+        const targetCompany = db.companies.find(c => c.id === companyId) as Company;
+        if (!targetCompany) throw new Error('Company not found');
+
+        userActiveCompany.set(userRecord.id, companyId);
+        const userPayload: User = {
+            ...userRecord,
+            companyId,
+            primaryCompanyId: userRecord.primaryCompanyId ?? userRecord.companyId ?? companyId,
+        };
+        const availableCompanies = buildCompanyAccessSummaries(userPayload, companyId);
+        return {
+            user: userPayload,
+            company: targetCompany as Company,
+            availableCompanies,
+            activeCompanyId: companyId,
+        };
     },
     requestPasswordReset: async (email: string): Promise<{ success: boolean }> => {
         await delay(300);

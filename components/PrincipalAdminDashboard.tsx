@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { User, TenantSummary, SystemHealth, PlatformMetricsResponse } from '../types';
+import { User, TenantSummary, SystemHealth, PlatformMetricsResponse, CompanyAccessSummary } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { InviteCompanyModal } from './InviteCompanyModal';
+import { useAuth } from '../contexts/AuthContext';
 
 interface PrincipalAdminDashboardProps {
   user: User;
@@ -103,6 +104,9 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
   const [systemHealth] = useState<SystemHealth>({ status: 'OK', message: 'All systems are operational.' });
   const abortControllerRef = useRef<AbortController | null>(null);
+  const { availableCompanies, activeCompanyId, company: activeCompany, switchCompany, refreshTenants } = useAuth();
+  const [switchingTenantId, setSwitchingTenantId] = useState<string | null>(null);
+  const [refreshingTenants, setRefreshingTenants] = useState(false);
 
   const fetchData = useCallback(async () => {
     const controller = new AbortController();
@@ -161,6 +165,80 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
   const totalRevenue = tenantDirectory.reduce((acc, tenant) => acc + tenant.totalRevenue, 0);
   const outstandingBalance = tenantDirectory.reduce((acc, tenant) => acc + tenant.outstandingBalance, 0);
   const collectedRevenue = tenantDirectory.reduce((acc, tenant) => acc + tenant.collectedRevenue, 0);
+
+  const activeAccessSummary = useMemo(
+    () => availableCompanies.find((summary) => summary.id === activeCompanyId) ?? null,
+    [availableCompanies, activeCompanyId],
+  );
+
+  const membershipBreakdown = useMemo(
+    () =>
+      availableCompanies.reduce(
+        (totals, summary) => {
+          totals[summary.membershipType] = (totals[summary.membershipType] ?? 0) + 1;
+          return totals;
+        },
+        { primary: 0, delegated: 0, platform: 0 } as Record<CompanyAccessSummary['membershipType'], number>,
+      ),
+    [availableCompanies],
+  );
+
+  const membershipLabel = (summary: CompanyAccessSummary) => {
+    switch (summary.membershipType) {
+      case 'platform':
+        return 'Platform Control';
+      case 'delegated':
+        return 'Delegated Access';
+      default:
+        return 'Primary Workspace';
+    }
+  };
+
+  const membershipBadgeClass = (summary: CompanyAccessSummary) => {
+    switch (summary.membershipType) {
+      case 'platform':
+        return 'bg-indigo-100 text-indigo-700';
+      case 'delegated':
+        return 'bg-sky-100 text-sky-700';
+      default:
+        return 'bg-emerald-100 text-emerald-700';
+    }
+  };
+
+  const statusBadgeClass = (summary: CompanyAccessSummary) =>
+    summary.status?.toLowerCase().includes('suspend')
+      ? 'bg-red-100 text-red-700'
+      : 'bg-slate-200 text-slate-700';
+
+  const handleCompanySwitch = async (summary: CompanyAccessSummary) => {
+    if (summary.id === activeCompanyId) {
+      return;
+    }
+
+    setSwitchingTenantId(summary.id);
+    try {
+      await switchCompany(summary.id);
+      addToast(`Switched to ${summary.name}.`, 'success');
+    } catch (error) {
+      console.error('Failed to switch tenant', error);
+      addToast('Unable to switch to the selected company.', 'error');
+    } finally {
+      setSwitchingTenantId(null);
+    }
+  };
+
+  const handleRefreshTenants = async () => {
+    setRefreshingTenants(true);
+    try {
+      await refreshTenants();
+      addToast('Tenant directory refreshed.', 'success');
+    } catch (error) {
+      console.error('Failed to refresh tenant directory', error);
+      addToast('Could not refresh tenant list.', 'error');
+    } finally {
+      setRefreshingTenants(false);
+    }
+  };
 
   const dataSourceChipClass =
     directorySource === 'backend'
@@ -365,6 +443,114 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
         </Card>
 
         <div className="space-y-6">
+          <Card>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Tenant access control</h3>
+                <p className="text-sm text-slate-600">
+                  Review which workspaces are available to this administrator and jump into any tenant in one click.
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRefreshTenants}
+                isLoading={refreshingTenants}
+                className="whitespace-nowrap"
+              >
+                Refresh access
+              </Button>
+            </div>
+
+            <div className="mt-4 rounded-lg border border-dashed border-border p-4 text-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Active workspace</p>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-base font-semibold text-slate-900">
+                    {activeAccessSummary?.name ?? activeCompany?.name ?? 'Unknown tenant'}
+                  </p>
+                  {activeAccessSummary && (
+                    <span
+                      className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${membershipBadgeClass(
+                        activeAccessSummary,
+                      )}`}
+                    >
+                      {membershipLabel(activeAccessSummary)}
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-col items-end gap-1 text-xs text-muted-foreground">
+                  <span>{user.email}</span>
+                  <span>{user.role.replace(/_/g, ' ')}</span>
+                </div>
+              </div>
+            </div>
+
+            {availableCompanies.length > 0 ? (
+              <>
+                <ul className="mt-4 space-y-2">
+                  {availableCompanies.map((summary) => (
+                    <li
+                      key={summary.id}
+                      className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 px-3 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div>
+                        <p className="font-semibold text-slate-900">{summary.name}</p>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <span
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${membershipBadgeClass(
+                              summary,
+                            )}`}
+                          >
+                            {membershipLabel(summary)}
+                          </span>
+                          <span>{summary.subscriptionPlan}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${statusBadgeClass(
+                            summary,
+                          )}`}
+                        >
+                          {summary.status}
+                        </span>
+                        <Button
+                          variant={summary.id === activeCompanyId ? 'secondary' : 'primary'}
+                          size="sm"
+                          disabled={summary.id === activeCompanyId}
+                          onClick={() => handleCompanySwitch(summary)}
+                          isLoading={switchingTenantId === summary.id}
+                        >
+                          {summary.id === activeCompanyId ? 'Active' : 'Switch'}
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="mt-4 grid grid-cols-1 gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+                  <div className="rounded-lg border border-border/60 bg-card px-3 py-2 text-center">
+                    <p className="text-2xl font-semibold text-slate-900">{membershipBreakdown.platform}</p>
+                    <p>Platform</p>
+                  </div>
+                  <div className="rounded-lg border border-border/60 bg-card px-3 py-2 text-center">
+                    <p className="text-2xl font-semibold text-slate-900">{membershipBreakdown.primary}</p>
+                    <p>Primary</p>
+                  </div>
+                  <div className="rounded-lg border border-border/60 bg-card px-3 py-2 text-center">
+                    <p className="text-2xl font-semibold text-slate-900">{membershipBreakdown.delegated}</p>
+                    <p>Delegated</p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <p className="mt-4 text-sm text-muted-foreground">
+                Access to additional tenants will appear here once invitations have been accepted.
+              </p>
+            )}
+          </Card>
+
           <Card>
             <h3 className="text-lg font-semibold text-slate-900">Platform health</h3>
             <p className="text-sm text-slate-600">
