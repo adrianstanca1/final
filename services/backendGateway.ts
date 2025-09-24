@@ -120,17 +120,13 @@ class BackendGateway {
             }
         }
 
-         const canUseBackend = this.connectionInfo.mode === 'backend' && !!this.connectionInfo.baseUrl;
+        const canUseBackend = this.connectionInfo.mode === 'backend' && !!this.connectionInfo.baseUrl;
         let snapshot: DashboardSnapshot | null = null;
         let usedBackend = false;
         let fallbackReason: string | undefined;
 
         if (canUseBackend && this.state.online) {
-         let snapshot: DashboardSnapshot | null = null;
-        let usedBackend = false;
-
-        if (this.connectionInfo.mode === 'backend' && this.connectionInfo.baseUrl && this.state.online) {
-             try {
+            try {
                 const query = new URLSearchParams({ companyId, userId }).toString();
                 const remote = await this.fetchFromBackend<Partial<DashboardSnapshot>>(
                     `/app/dashboard/snapshot?${query}`,
@@ -166,7 +162,7 @@ class BackendGateway {
                     throw error;
                 }
                 console.warn('[backendGateway] backend snapshot fetch failed, using local data instead.', error);
-                 if (error instanceof Error && error.message) {
+                if (error instanceof Error && error.message) {
                     fallbackReason = `Backend request failed: ${error.message}`.slice(0, 200);
                 } else {
                     fallbackReason = 'Backend request failed due to an unknown error.';
@@ -176,8 +172,7 @@ class BackendGateway {
             fallbackReason = 'No backend connection configured.';
         } else if (!this.state.online) {
             fallbackReason = 'Offline: using locally cached data.';
-             }
-         }
+        }
 
         if (!snapshot) {
             snapshot = await this.buildLocalSnapshot({ userId, companyId, signal });
@@ -190,10 +185,10 @@ class BackendGateway {
             generatedAt: existingMetadata.generatedAt ?? new Date().toISOString(),
             source: usedBackend ? 'backend' : 'mock',
             usedFallback: usedBackend ? existingMetadata.usedFallback ?? false : true,
-             fallbackReason: usedBackend
+            fallbackReason: usedBackend
                 ? existingMetadata.fallbackReason
-                : (fallbackReason ?? existingMetadata.fallbackReason),
-          };
+                : fallbackReason ?? existingMetadata.fallbackReason,
+        };
 
         apiCache.set(cacheKey, snapshot, DASHBOARD_CACHE_TTL);
         this.setState({ lastSync: snapshot.metadata.generatedAt });

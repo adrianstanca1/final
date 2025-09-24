@@ -27,6 +27,7 @@ import { format, eachDayOfInterval, isWithinInterval } from 'date-fns';
 import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
 import { generateProjectHealthSummary, ProjectHealthSummaryResult } from '../services/ai';
 import { backendGateway } from '../services/backendGateway';
+import { BackendConnectionBanner } from './backend/BackendConnectionBanner';
 
 interface DashboardProps {
     user: User;
@@ -343,15 +344,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
 
     return (
         <div className="space-y-6">
-            {snapshotMetadata?.usedFallback && (
-                <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
-                    <p className="text-sm font-semibold">Showing cached workspace data</p>
-                    <p className="text-xs">
-                        {snapshotMetadata.fallbackReason ??
-                            'We could not reach the live backend, so this view reflects the latest cached information.'}
-                    </p>
-                </div>
-            )}
+            <BackendConnectionBanner metadata={snapshotMetadata} />
             <ViewHeader
                 title={`Welcome back, ${user.firstName}!`}
                 description="Your live delivery and commercial snapshot."
