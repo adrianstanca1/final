@@ -199,6 +199,17 @@ const decodeToken = (token: string): any => {
     }
 };
 
+    try {
+        const stored = storage.getItem(key);
+        if (!stored) {
+            return fallback;
+        }
+        return JSON.parse(stored) as T;
+    } catch (error) {
+        console.error(`Failed to read ${key} from storage`, error);
+        return fallback;
+    }
+};
 
 const STORAGE_PREFIX = 'asagents_';
 

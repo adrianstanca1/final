@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { User, Project, Task, Equipment, SafetyIncident, Permission } from '../types';
+import { Card } from './ui/Card';
+import { Button } from './ui/Button';
 // FIX: Corrected API import from mockApi
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
