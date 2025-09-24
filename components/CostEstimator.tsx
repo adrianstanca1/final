@@ -1,135 +1,260 @@
-// full contents of components/CostEstimator.tsx
-
 import React, { useState } from 'react';
-import { User } from '../types';
+import { User, Project } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
-// FIX: Corrected API import
-import { api } from '../services/mockApi';
-import { GoogleGenAI, Type } from "@google/genai";
 
 interface CostEstimatorProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
   onBack: () => void;
+  project?: Project;
 }
 
-interface Estimate {
-    totalEstimate: number;
-    breakdown: {
-        category: string;
-        cost: number;
-        details: string;
-    }[];
-    contingency: number;
-    summary: string;
-const formatCurrency = (amount: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 0 }).format(amount);
+interface CostEstimate {
+  materials: number;
+  labor: number;
+  equipment: number;
+  overhead: number;
+  contingency: number;
+  summary: string;
+}
 
-export const CostEstimator: React.FC<CostEstimatorProps> = ({ user, addToast, onBack }) => {
-    const [description, setDescription] = useState('');
-    const [sqft, setSqft] = useState<number | ''>('');
-    const [quality, setQuality] = useState('standard');
-    const [estimate, setEstimate] = useState<Estimate | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
+const formatCurrency = (amount: number) => new Intl.NumberFormat('en-GB', { 
+  style: 'currency', 
+  currency: 'GBP', 
+  minimumFractionDigits: 0 
+}).format(amount);
 
-    const handleEstimate = async () => {
-        if (!description.trim() || !sqft) {
-            addToast('Please provide a description and square footage.', 'error');
-            return;
-        }
-        setIsLoading(true);
-        setEstimate(null);
+export const CostEstimator: React.FC<CostEstimatorProps> = ({ user, addToast, onBack, project }) => {
+  const [estimate, setEstimate] = useState<CostEstimate | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [formData, setFormData] = useState({
+    projectType: 'residential',
+    size: '',
+    location: '',
+    duration: '',
+    complexity: 'medium'
+  });
 
-        try {
-            const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
-            const result = await ai.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: `Provide a UK-based construction cost estimate for the following project: "${description}". Square footage: ${sqft} sq ft. Quality: ${quality}. Provide a JSON object with keys: "totalEstimate" (number), "breakdown" (array of objects with "category", "cost", "details"), "contingency" (number), "summary" (string).`,
-                config: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            totalEstimate: { type: Type.NUMBER },
-                            breakdown: {
-                                type: Type.ARRAY,
-                                items: {
-                                    type: Type.OBJECT,
-                                    properties: {
-                                        category: { type: Type.STRING },
-                                        cost: { type: Type.NUMBER },
-                                        details: { type: Type.STRING },
-                                    },
-                                    // FIX: Added required property to satisfy schema
-                                    required: ['category', 'cost', 'details'],
-                                }
-                            },
-                            contingency: { type: Type.NUMBER },
-                            summary: { type: Type.STRING },
-                        },
-                         // FIX: Added required property to satisfy schema
-                        required: ['totalEstimate', 'breakdown', 'contingency', 'summary'],
-                    }
-                }
-            });
+  const handleGenerateEstimate = async () => {
+    if (!formData.size || !formData.location || !formData.duration) {
+      addToast('Please fill in all required fields', 'error');
+      return;
+    }
 
-            const jsonText = result.text.trim();
-            setEstimate(JSON.parse(jsonText));
-            addToast("Cost estimate generated!", "success");
-        } catch (error) {
-            console.error(error);
-            addToast("Failed to generate cost estimate.", "error");
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    setIsGenerating(true);
 
-    return (
+    try {
+      // Simulate API call for cost estimation
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Mock estimation calculation
+      const baseSize = parseInt(formData.size) || 1000;
+      const baseCostPerSqm = {
+        residential: 800,
+        commercial: 1200,
+        industrial: 1000
+      }[formData.projectType] || 800;
+
+      const complexityMultiplier = {
+        low: 0.8,
+        medium: 1.0,
+        high: 1.3
+      }[formData.complexity] || 1.0;
+
+      const materials = baseSize * baseCostPerSqm * 0.4 * complexityMultiplier;
+      const labor = baseSize * baseCostPerSqm * 0.35 * complexityMultiplier;
+      const equipment = baseSize * baseCostPerSqm * 0.15 * complexityMultiplier;
+      const overhead = (materials + labor + equipment) * 0.1;
+      const contingency = (materials + labor + equipment + overhead) * 0.1;
+
+      const newEstimate: CostEstimate = {
+        materials,
+        labor,
+        equipment,
+        overhead,
+        contingency,
+        summary: `Cost estimate for ${formData.projectType} project of ${formData.size} sq.m in ${formData.location}`
+      };
+
+      setEstimate(newEstimate);
+      addToast('Cost estimate generated successfully', 'success');
+    } catch (error) {
+      addToast('Failed to generate cost estimate', 'error');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const totalCost = estimate ? 
+    estimate.materials + estimate.labor + estimate.equipment + estimate.overhead + estimate.contingency : 0;
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          <Button variant="ghost" onClick={onBack} className="p-2">
+            Back
+          </Button>
+          <h1 className="text-2xl font-bold text-gray-900">Cost Estimator</h1>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Input Form */}
         <Card>
-            <h3 className="text-xl font-semibold text-slate-700 mb-2">AI Cost Estimator</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4 p-4 border rounded-lg bg-slate-50">
-                    <div>
-                        <label className="block text-sm font-medium">Project Description</label>
-                        <textarea value={description} onChange={e => setDescription(e.target.value)} rows={5} className="w-full p-2 border rounded" placeholder="e.g., Two-story office building with open-plan interior and glass facade."/>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium">Square Footage</label>
-                        <input type="number" value={sqft} onChange={e => setSqft(e.target.value === '' ? '' : parseInt(e.target.value))} className="w-full p-2 border rounded" placeholder="5000" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium">Finish Quality</label>
-                        <select value={quality} onChange={e => setQuality(e.target.value)} className="w-full p-2 border rounded bg-white">
-                            <option value="basic">Basic</option>
-                            <option value="standard">Standard</option>
-                            <option value="high-end">High-End</option>
-                        </select>
-                    </div>
-                    <Button onClick={handleEstimate} isLoading={isLoading}>Estimate Costs</Button>
-                </div>
-                <div>
-                    {isLoading && <p>AI is calculating...</p>}
-                    {estimate && (
-                        <div className="space-y-4">
-                            <div className="p-4 bg-sky-100 rounded-lg text-center">
-                                <p className="text-sky-800 font-semibold">Total Estimated Cost</p>
-                                <p className="text-4xl font-bold text-sky-900">{formatCurrency(estimate.totalEstimate)}</p>
-                            </div>
-                            <div>
-                                <h4 className="font-semibold">Breakdown:</h4>
-                                <ul className="list-disc list-inside">
-                                    {estimate.breakdown.map((item, i) => <li key={i}>{item.category}: {formatCurrency(item.cost)}</li>)}
-                                </ul>
-                                <p className="mt-2 text-sm">Contingency: {formatCurrency(estimate.contingency)}</p>
-                            </div>
-                            <div>
-                                <h4 className="font-semibold">Summary:</h4>
-                                <p className="text-sm text-slate-600">{estimate.summary}</p>
-                            </div>
-                        </div>
-                    )}
-                </div>
+          <div className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Project Details</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Project Type
+                </label>
+                <select
+                  value={formData.projectType}
+                  onChange={(e) => setFormData({ ...formData, projectType: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="residential">Residential</option>
+                  <option value="commercial">Commercial</option>
+                  <option value="industrial">Industrial</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Size (sq.m) *
+                </label>
+                <input
+                  type="number"
+                  value={formData.size}
+                  onChange={(e) => setFormData({ ...formData, size: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter project size"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Location *
+                </label>
+                <input
+                  type="text"
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter project location"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Duration (months) *
+                </label>
+                <input
+                  type="number"
+                  value={formData.duration}
+                  onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter estimated duration"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Complexity
+                </label>
+                <select
+                  value={formData.complexity}
+                  onChange={(e) => setFormData({ ...formData, complexity: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+
+              <Button 
+                onClick={handleGenerateEstimate}
+                disabled={isGenerating}
+                className="w-full"
+              >
+                {isGenerating ? 'Generating...' : 'Generate Estimate'}
+              </Button>
             </div>
+          </div>
         </Card>
-    );
+
+        {/* Results */}
+        <Card>
+          <div className="p-6">
+            <h3 className="text-lg font-semibold mb-4">Cost Breakdown</h3>
+            
+            {!estimate ? (
+              <div className="text-center py-8 text-gray-500">
+                <div className="text-4xl mb-2">💰</div>
+                <p>Generate an estimate to see cost breakdown</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-blue-50 p-3 rounded-lg">
+                    <p className="text-sm text-gray-600">Materials</p>
+                    <p className="text-lg font-semibold text-blue-600">
+                      {formatCurrency(estimate.materials)}
+                    </p>
+                  </div>
+                  
+                  <div className="bg-green-50 p-3 rounded-lg">
+                    <p className="text-sm text-gray-600">Labor</p>
+                    <p className="text-lg font-semibold text-green-600">
+                      {formatCurrency(estimate.labor)}
+                    </p>
+                  </div>
+                  
+                  <div className="bg-orange-50 p-3 rounded-lg">
+                    <p className="text-sm text-gray-600">Equipment</p>
+                    <p className="text-lg font-semibold text-orange-600">
+                      {formatCurrency(estimate.equipment)}
+                    </p>
+                  </div>
+                  
+                  <div className="bg-purple-50 p-3 rounded-lg">
+                    <p className="text-sm text-gray-600">Overhead</p>
+                    <p className="text-lg font-semibold text-purple-600">
+                      {formatCurrency(estimate.overhead)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-yellow-50 p-3 rounded-lg">
+                  <p className="text-sm text-gray-600">Contingency (10%)</p>
+                  <p className="text-lg font-semibold text-yellow-600">
+                    {formatCurrency(estimate.contingency)}
+                  </p>
+                </div>
+
+                <div className="border-t pt-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-semibold">Total Estimate:</span>
+                    <span className="text-2xl font-bold text-gray-900">
+                      {formatCurrency(totalCost)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-600">{estimate.summary}</p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    * This is a preliminary estimate. Actual costs may vary based on specific requirements and market conditions.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
 };

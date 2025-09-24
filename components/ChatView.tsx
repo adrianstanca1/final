@@ -40,7 +40,7 @@ const NewChatModal: React.FC<{
             </Card>
         </div>
     );
-export const ChatView: React.FC<ChatViewProps> = ({ user, addToast, initialRecipient }) => {
+};export const ChatView: React.FC<ChatViewProps> = ({ user, addToast, initialRecipient }) => {
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);

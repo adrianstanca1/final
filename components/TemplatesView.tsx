@@ -84,7 +84,7 @@ const CreateTemplateModal: React.FC<{
         </div>
     );
 
-export const TemplatesView: React.FC<TemplatesViewProps> = ({ user, addToast }) => {
+};export const TemplatesView: React.FC<TemplatesViewProps> = ({ user, addToast }) => {
     const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);

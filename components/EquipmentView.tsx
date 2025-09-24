@@ -137,7 +137,7 @@ const EquipmentModal: React.FC<{
         </div>
     );
 
-export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) => {
+};export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) => {
     const [equipment, setEquipment] = useState<Equipment[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [assignments, setAssignments] = useState<ResourceAssignment[]>([]);
