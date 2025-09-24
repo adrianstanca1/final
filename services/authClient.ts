@@ -1,5 +1,6 @@
 import { authApi } from './mockApi';
 import type { LoginCredentials, RegistrationPayload, User, Company, Role, CompanyType, SocialProvider } from '../types';
+import { getEnvironment, refreshEnvironment } from '../config/environment';
 
 export type AuthenticatedSession = {
     success: true;
@@ -48,38 +49,12 @@ const sanitizeBaseUrl = (value?: string | null): string | null => {
     return trimmed.replace(/\/+$/, '');
 };
 
-const detectBaseUrl = (): string | null => {
-    // Ensure tests default to mock mode unless explicitly configured
-    if (typeof process !== 'undefined' && ((process as any).env?.VITEST || (process as any).env?.VITEST_WORKER_ID)) {
-        return null;
-    }
-    // Gate potential Supabase integration behind a flag; if enabled but not configured, keep mock for now.
-    const useSupabase = (
-        (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_USE_SUPABASE === 'true') ||
-        (typeof process !== 'undefined' && typeof process.env?.VITE_USE_SUPABASE === 'string' && process.env.VITE_USE_SUPABASE === 'true')
-    );
-    if (useSupabase) {
-        if (typeof console !== 'undefined') {
-            console.warn('[authClient] VITE_USE_SUPABASE=true but no Supabase client is configured; staying in mock mode.');
-        }
-        return null;
-    }
-    if (typeof window !== 'undefined' && typeof (window as any).__ASAGENTS_API_BASE_URL__ === 'string') {
-        return sanitizeBaseUrl((window as any).__ASAGENTS_API_BASE_URL__);
-    }
-    if (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL) {
-        return sanitizeBaseUrl((import.meta as any).env.VITE_API_BASE_URL);
-    }
-    if (typeof process !== 'undefined' && typeof process.env?.VITE_API_BASE_URL === 'string') {
-        return sanitizeBaseUrl(process.env.VITE_API_BASE_URL);
-    }
-    return null;
-};
-
-const initialBaseUrl = detectBaseUrl();
-const initialAllowMockFallback = !initialBaseUrl;
-let runtimeBaseUrl = initialBaseUrl;
-let allowMockFallback = initialAllowMockFallback;
+const initialEnvironment = getEnvironment();
+let defaultBaseUrl = initialEnvironment.apiBaseUrl;
+let defaultAllowMockFallback =
+    initialEnvironment.featureFlags.allowMockFallback ?? !defaultBaseUrl;
+let runtimeBaseUrl = defaultBaseUrl;
+let allowMockFallback = defaultAllowMockFallback;
 
 type AuthClientListener = () => void;
 const subscribers = new Set<AuthClientListener>();
@@ -196,9 +171,13 @@ export const configureAuthClient = (options: { baseUrl?: string | null; allowMoc
 };
 
 export const resetAuthClient = () => {
-    const hasChanged = runtimeBaseUrl !== initialBaseUrl || allowMockFallback !== initialAllowMockFallback;
-    runtimeBaseUrl = initialBaseUrl;
-    allowMockFallback = initialAllowMockFallback;
+    const refreshed = refreshEnvironment();
+    defaultBaseUrl = refreshed.apiBaseUrl;
+    defaultAllowMockFallback = refreshed.featureFlags.allowMockFallback ?? !defaultBaseUrl;
+
+    const hasChanged = runtimeBaseUrl !== defaultBaseUrl || allowMockFallback !== defaultAllowMockFallback;
+    runtimeBaseUrl = defaultBaseUrl;
+    allowMockFallback = defaultAllowMockFallback;
     if (hasChanged) {
         notifySubscribers();
     }

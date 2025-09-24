@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { useAuth } from '../contexts/AuthContext';
-import { authClient, InvitePreview } from '../services/authClient';
-import { CompanyType, RegistrationPayload, Role, SocialProvider } from '../types';
+import { authClient, type InvitePreview } from '../services/authClient';
+import { CompanyType, type RegistrationPayload, Role, type SocialProvider } from '../types';
 import { AuthEnvironmentNotice } from './auth/AuthEnvironmentNotice';
 import {
     clearRegistrationDraft,
@@ -45,10 +45,8 @@ const INITIAL_STATE: RegistrationState = {
     lastName: '',
     email: '',
     username: '',
-     phone: '',
-  
-     phone: '',
-     password: '',
+    phone: '',
+    password: '',
     confirmPassword: '',
     companySelection: '',
     companyName: '',
@@ -63,46 +61,24 @@ const INITIAL_STATE: RegistrationState = {
 };
 
 const STEP_SEQUENCE: Array<{ id: RegistrationStep; title: string; description: string }> = [
-    { id: 'account', title: 'Your profile', description: 'Tell us who will own the workspace.' },
-    { id: 'workspace', title: 'Workspace', description: 'Create a company or join an existing tenant.' },
-    { id: 'confirm', title: 'Finish', description: 'Accept terms and review the tenant snapshot.' },
-];
-
-const COMPANY_TYPES: { value: CompanyType; label: string }[] = [
-    { value: 'GENERAL_CONTRACTOR', label: 'General contractor' },
-    { value: 'SUBCONTRACTOR', label: 'Subcontractor' },
-    { value: 'SUPPLIER', label: 'Supplier' },
-    { value: 'CONSULTANT', label: 'Consultant' },
-    { value: 'CLIENT', label: 'Client / Asset owner' },
- ];
-
-const STEP_SEQUENCE: { id: RegistrationStep; title: string; description: string }[] = [
     { id: 'account', title: 'Account', description: 'Introduce yourself and secure access.' },
     { id: 'workspace', title: 'Workspace', description: 'Create a company or join an existing team.' },
     { id: 'confirm', title: 'Confirm', description: 'Review details and accept the terms.' },
 ];
 
-const STEP_FIELDS: Record<RegistrationStep, Array<keyof RegistrationState>> = {
-    account: ['firstName', 'lastName', 'email', 'phone', 'password', 'confirmPassword'],
-    workspace: ['companySelection', 'companyName', 'companyType', 'companyEmail', 'companyPhone', 'companyWebsite', 'inviteToken', 'role'],
-    confirm: ['termsAccepted'],
-};
-
-const COMPANY_TYPES: { value: CompanyType; label: string }[] = [
-    { value: 'GENERAL_CONTRACTOR', label: 'General Contractor' },
+const COMPANY_TYPES: Array<{ value: CompanyType; label: string }> = [
+    { value: 'GENERAL_CONTRACTOR', label: 'General contractor' },
     { value: 'SUBCONTRACTOR', label: 'Subcontractor' },
     { value: 'SUPPLIER', label: 'Supplier' },
     { value: 'CONSULTANT', label: 'Consultant' },
-    { value: 'CLIENT', label: 'Client' },
- ];
+    { value: 'CLIENT', label: 'Client / Asset owner' },
+];
 
- const ROLE_DETAILS: Record<Role, { label: string; description: string }> = {
+const ROLE_DETAILS: Record<Role, { label: string; description: string }> = {
     [Role.OWNER]: {
         label: 'Owner',
         description: 'Full tenant administration, billing and security authority.',
-     },
- 
-      },
+    },
     [Role.ADMIN]: {
         label: 'Administrator',
         description: 'Manage people, approvals, permissions and commercial workflows.',
@@ -139,53 +115,15 @@ const BENEFITS: string[] = [
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const URL_REGEX = /^https?:\/\/\S+$/i;
 const PASSWORD_MIN_LENGTH = 8;
-        description: 'Full administrative access, billing controls, and user management.',
-     },
-     [Role.ADMIN]: {
-        label: 'Administrator',
-        description: 'Manage people, approvals, permissions and commercial workflows.',
-    },
-    [Role.PROJECT_MANAGER]: {
-        label: 'Project manager',
-        description: 'Coordinate schedules, tasks, stakeholders and reporting.',
-    },
-    [Role.FOREMAN]: {
-        label: 'Foreman',
-        description: 'Lead on-site crews and escalate safety issues instantly.',
-    },
-    [Role.OPERATIVE]: {
-        label: 'Operative',
-        description: 'Log time, update tasks and collaborate with the site team.',
-    },
-    [Role.CLIENT]: {
-        label: 'Client',
-        description: 'Follow milestones, approve changes and review documentation.',
-    },
-    [Role.PRINCIPAL_ADMIN]: {
-        label: 'Platform principal admin',
-        description: 'Reserved for AS Agents core administration team.',
-    },
-};
 
-const BENEFITS: string[] = [
-    'Multitenant oversight lets you spin up dedicated workspaces in minutes.',
-    'AI copilots accelerate bid writing, forecasting and daily progress analysis.',
-    'Field-friendly tools capture safety, timesheets and site evidence offline.',
-    'Granular permissions align office, site and partner access in one hub.',
-];
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const URL_REGEX = /^https?:\/\/\S+$/i;
-const PASSWORD_MIN_LENGTH = 8;
-
- const StepIndicator: React.FC<{ currentStep: RegistrationStep }> = ({ currentStep }) => (
-  const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password }) => {
+const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password }) => {
     const rules = [
-        password.length >= 8,
+        password.length >= PASSWORD_MIN_LENGTH,
         /[A-Z]/.test(password),
         /[a-z]/.test(password),
         /\d/.test(password),
         /[^A-Za-z0-9]/.test(password),
+    ];
     const score = rules.filter(Boolean).length;
     const width = (score / rules.length) * 100;
     const color = score <= 2 ? 'bg-destructive' : score < 5 ? 'bg-amber-500' : 'bg-emerald-500';
@@ -193,7 +131,7 @@ const PASSWORD_MIN_LENGTH = 8;
 
     return (
         <div className="space-y-1">
-            <div className="w-full h-1.5 rounded-full bg-muted">
+            <div className="h-1.5 w-full rounded-full bg-muted">
                 <div className={`h-1.5 rounded-full transition-all duration-300 ${color}`} style={{ width: `${width}%` }} />
             </div>
             <p className="text-xs text-muted-foreground">
@@ -203,8 +141,8 @@ const PASSWORD_MIN_LENGTH = 8;
     );
 };
 
- const StepIndicator: React.FC<{ currentStep: RegistrationStep }> = ({ currentStep }) => (
-     <ol className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+const StepIndicator: React.FC<{ currentStep: RegistrationStep }> = ({ currentStep }) => (
+    <ol className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {STEP_SEQUENCE.map((step, index) => {
             const isActive = step.id === currentStep;
             const isComplete = STEP_SEQUENCE.findIndex(item => item.id === currentStep) > index;
@@ -228,15 +166,15 @@ const PASSWORD_MIN_LENGTH = 8;
     </ol>
 );
 
-const SocialAuthButtons: React.FC<{
-    onSocial: (provider: SocialProvider) => void;
-    loading: boolean;
-}> = ({ onSocial, loading }) => (
+const SocialAuthButtons: React.FC<{ onSocial: (provider: SocialProvider) => void; loading: boolean }> = ({
+    onSocial,
+    loading,
+}) => (
     <div className="space-y-3">
         <Button
             type="button"
             variant="secondary"
-            className="w-full flex items-center justify-center gap-2"
+            className="flex w-full items-center justify-center gap-2"
             onClick={() => onSocial('google')}
             isLoading={loading}
         >
@@ -244,7 +182,7 @@ const SocialAuthButtons: React.FC<{
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.09-1.92 3.28-4.74 3.28-8.09z" />
                 <path fill="#34A853" d="M12 24c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.25 1.05-3.71 1.05-2.85 0-5.26-1.92-6.13-4.49H2.18v2.82C3.99 21.53 7.68 24 12 24z" />
                 <path fill="#FBBC05" d="M5.87 15.13c-.22-.66-.35-1.36-.35-2.13s.13-1.47.35-2.13V8.05H2.18A11.99 11.99 0 000 12.99c0 1.9.45 3.69 1.18 4.94l4.69-2.8z" />
-                <path fill="#EA4335" d="M12 4.75c1.62 0 3.07.56 4.21 1.64l3.16-3.16C17.46 1.16 14.97 0 12 0 7.68 0 3.99 2.47 2.18 6.05l3.69 2.82C6.74 6.67 9.15 4.75 12 4.75z" />
+                <path fill="#EA4335" d="M12 4.75c1.62 0 3.07.56 4.21 1.64l3.16-3.16C17.46 1.16 14.97 0 12 0 7.68 0 3.99 2.47 2.08 6.05l3.69 2.82C6.74 6.67 9.15 4.75 12 4.75z" />
                 <path fill="none" d="M0 0h24v24H0z" />
             </svg>
             Continue with Google
@@ -252,7 +190,7 @@ const SocialAuthButtons: React.FC<{
         <Button
             type="button"
             variant="secondary"
-            className="w-full flex items-center justify-center gap-2"
+            className="flex w-full items-center justify-center gap-2"
             onClick={() => onSocial('facebook')}
             isLoading={loading}
         >
@@ -264,32 +202,8 @@ const SocialAuthButtons: React.FC<{
     </div>
 );
 
- export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLogin }) => {
- 
-  
-interface SelectionCardProps {
-    title: string;
-    description: string;
-    isSelected: boolean;
-    onSelect: () => void;
-}
-
-const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSelected, onSelect }) => (
-    <button
-        type="button"
-        onClick={onSelect}
-        className={`rounded-lg border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-primary sm:p-5 ${
-            isSelected ? 'border-primary bg-primary/5 text-foreground shadow-sm' : 'border-border hover:border-primary'
-        }`}
-    >
-        <p className="text-sm font-semibold">{title}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
-    </button>
-);
-
-
- export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLogin }) => {
-     const { register, socialLogin, error: authError, loading: isSubmitting } = useAuth();
+export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLogin }) => {
+    const { register, socialLogin, error: authError, loading: isSubmitting } = useAuth();
 
     const [step, setStep] = useState<RegistrationStep>('account');
     const [form, setForm] = useState<RegistrationState>(INITIAL_STATE);
@@ -315,18 +229,17 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
                 firstName: draft.firstName,
                 lastName: draft.lastName,
                 email: draft.email,
-                username: draft.username ?? prev.username,
                 phone: draft.phone,
                 companySelection: draft.companySelection,
                 companyName: draft.companyName,
-                companyType: draft.companyType ?? '',
+                companyType: draft.companyType,
                 companyEmail: draft.companyEmail,
                 companyPhone: draft.companyPhone,
                 companyWebsite: draft.companyWebsite,
                 inviteToken: draft.inviteToken,
-                role: (draft.role as Role) ?? '',
-                updatesOptIn: draft.updatesOptIn ?? prev.updatesOptIn,
-                termsAccepted: draft.termsAccepted ?? prev.termsAccepted,
+                role: draft.role,
+                updatesOptIn: draft.updatesOptIn,
+                termsAccepted: draft.termsAccepted,
             }));
             setDraftRestored(registrationDraftHasContent(draft));
         }
@@ -334,13 +247,14 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
     }, []);
 
     useEffect(() => {
-        if (!initialized) return;
+        if (!initialized) {
+            return;
+        }
         saveRegistrationDraft({
             step,
             firstName: form.firstName,
             lastName: form.lastName,
             email: form.email,
-            username: form.username,
             phone: form.phone,
             companySelection: form.companySelection,
             companyName: form.companyName,
@@ -371,13 +285,17 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
     const updateField = <K extends keyof RegistrationState>(field: K, value: RegistrationState[K]) => {
         setForm(prev => ({ ...prev, [field]: value }));
         setErrors(prev => {
-            if (!prev[field]) return prev;
+            if (!prev[field]) {
+                return prev;
+            }
             const next = { ...prev };
             delete next[field];
             return next;
         });
         setGeneralError(null);
-        if (draftRestored) setDraftRestored(false);
+        if (draftRestored) {
+            setDraftRestored(false);
+        }
         if (field === 'email') {
             setEmailStatus('idle');
         }
@@ -397,7 +315,10 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
             const { available } = await authClient.checkEmailAvailability(trimmed);
             setEmailStatus(available ? 'available' : 'unavailable');
             if (!available) {
-                setErrors(prev => ({ ...prev, email: 'An account with this email already exists. Try signing in instead.' }));
+                setErrors(prev => ({
+                    ...prev,
+                    email: 'An account with this email already exists. Try signing in instead.',
+                }));
             }
         } catch (error: any) {
             setEmailStatus('idle');
@@ -431,14 +352,21 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
 
     useEffect(() => {
         if (form.companySelection === 'create') {
-            updateField('role', Role.OWNER);
-            updateField('inviteToken', '');
+            setForm(prev => ({ ...prev, role: Role.OWNER, inviteToken: '' }));
+            setErrors(prev => {
+                const next = { ...prev };
+                delete next.role;
+                delete next.inviteToken;
+                return next;
+            });
             setInvitePreview(null);
             setInviteError(null);
         } else if (form.companySelection === 'join') {
-            updateField('role', form.role && form.role !== Role.OWNER ? form.role : '');
+            setForm(prev => ({
+                ...prev,
+                role: prev.role && prev.role !== Role.OWNER ? prev.role : '',
+            }));
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [form.companySelection]);
 
     const validateStep = (currentStep: RegistrationStep): boolean => {
@@ -447,19 +375,11 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
             if (!form.firstName.trim()) nextErrors.firstName = 'Enter your first name.';
             if (!form.lastName.trim()) nextErrors.lastName = 'Enter your last name.';
             if (!EMAIL_REGEX.test(form.email.trim())) nextErrors.email = 'Provide a valid email address.';
-            if (form.username && form.username.trim().length < 3) nextErrors.username = 'Username must be at least 3 characters.';
+            if (form.username && form.username.trim().length < 3) {
+                nextErrors.username = 'Username must be at least 3 characters.';
+            }
             if (form.password.length < PASSWORD_MIN_LENGTH) {
                 nextErrors.password = `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`;
-             }
-            if (form.confirmPassword !== form.password) {
-                nextErrors.confirmPassword = 'Passwords do not match.';
-            }
-        }
-        if (currentStep === 'workspace') {
-            if (!form.companySelection) {
-                nextErrors.companySelection = 'Select whether you are creating or joining a workspace.';
-            }
- 
             }
             if (form.confirmPassword !== form.password) {
                 nextErrors.confirmPassword = 'Passwords do not match.';
@@ -469,7 +389,7 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
             if (!form.companySelection) {
                 nextErrors.companySelection = 'Select whether you are creating or joining a workspace.';
             }
-             if (form.companySelection === 'create') {
+            if (form.companySelection === 'create') {
                 if (!form.companyName.trim()) nextErrors.companyName = 'Provide the company or workspace name.';
                 if (!form.companyType) nextErrors.companyType = 'Select a company type.';
                 if (form.companyEmail && !EMAIL_REGEX.test(form.companyEmail.trim())) {
@@ -480,7 +400,9 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
                 }
             }
             if (form.companySelection === 'join') {
-                if (!form.inviteToken.trim()) nextErrors.inviteToken = 'Invite token is required to join an existing tenant.';
+                if (!form.inviteToken.trim()) {
+                    nextErrors.inviteToken = 'Invite token is required to join an existing tenant.';
+                }
                 if (allowedRoles.length > 0 && !form.role) {
                     nextErrors.role = 'Choose the role granted by your invite.';
                 }
@@ -499,8 +421,10 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
         return true;
     };
 
-    const goToNextStep = async () => {
-        if (!validateStep(step)) return;
+    const goToNextStep = () => {
+        if (!validateStep(step)) {
+            return;
+        }
         if (step === 'account') {
             setStep('workspace');
         } else if (step === 'workspace') {
@@ -518,7 +442,9 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
 
     const handleSubmit = async (event: React.FormEvent) => {
         event.preventDefault();
-        if (!validateStep('confirm')) return;
+        if (!validateStep('confirm')) {
+            return;
+        }
         setGeneralError(null);
         try {
             const payload: RegistrationPayload = {
@@ -669,6 +595,7 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
                                     <p className="text-xs text-muted-foreground">
                                         Use at least {PASSWORD_MIN_LENGTH} characters with numbers and symbols.
                                     </p>
+                                    <PasswordStrengthMeter password={form.password} />
                                     {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
                                 </label>
                                 <label className="space-y-1 text-sm">
@@ -681,7 +608,9 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
                                             errors.confirmPassword ? 'border-destructive' : 'border-border'
                                         }`}
                                     />
-                                    {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword}</p>}
+                                    {errors.confirmPassword && (
+                                        <p className="text-xs text-destructive">{errors.confirmPassword}</p>
+                                    )}
                                 </label>
                             </div>
                         )}
@@ -735,7 +664,9 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
                                                     errors.companyName ? 'border-destructive' : 'border-border'
                                                 }`}
                                             />
-                                            {errors.companyName && <p className="text-xs text-destructive">{errors.companyName}</p>}
+                                            {errors.companyName && (
+                                                <p className="text-xs text-destructive">{errors.companyName}</p>
+                                            )}
                                         </label>
                                         <label className="space-y-1 text-sm">
                                             <span className="font-medium text-foreground">Company type</span>
@@ -753,7 +684,9 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
                                                     </option>
                                                 ))}
                                             </select>
-                                            {errors.companyType && <p className="text-xs text-destructive">{errors.companyType}</p>}
+                                            {errors.companyType && (
+                                                <p className="text-xs text-destructive">{errors.companyType}</p>
+                                            )}
                                         </label>
                                         <label className="space-y-1 text-sm">
                                             <span className="font-medium text-foreground">Company email (optional)</span>
@@ -765,7 +698,9 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
                                                     errors.companyEmail ? 'border-destructive' : 'border-border'
                                                 }`}
                                             />
-                                            {errors.companyEmail && <p className="text-xs text-destructive">{errors.companyEmail}</p>}
+                                            {errors.companyEmail && (
+                                                <p className="text-xs text-destructive">{errors.companyEmail}</p>
+                                            )}
                                         </label>
                                         <label className="space-y-1 text-sm">
                                             <span className="font-medium text-foreground">Company phone (optional)</span>
@@ -856,11 +791,9 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
                                         onChange={event => updateField('updatesOptIn', event.target.checked)}
                                         className="mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary"
                                     />
-                                    <span>
-                                        Send me platform roadmap and tenant enablement tips.
-                                    </span>
+                                    <span>Send me platform roadmap and tenant enablement tips.</span>
                                 </label>
-                             </div>
+                            </div>
                         )}
                         {step === 'confirm' && (
                             <div className="space-y-6">
@@ -869,7 +802,9 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
                                     <dl className="mt-3 grid gap-3 text-xs text-muted-foreground sm:grid-cols-2">
                                         <div>
                                             <dt className="font-semibold text-foreground">Owner</dt>
-                                            <dd>{form.firstName} {form.lastName}</dd>
+                                            <dd>
+                                                {form.firstName} {form.lastName}
+                                            </dd>
                                         </div>
                                         <div>
                                             <dt className="font-semibold text-foreground">Email</dt>
@@ -882,7 +817,9 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
                                         {form.companySelection === 'create' && (
                                             <div>
                                                 <dt className="font-semibold text-foreground">Company</dt>
-                                                <dd>{form.companyName} ({form.companyType || 'Type pending'})</dd>
+                                                <dd>
+                                                    {form.companyName} ({form.companyType || 'Type pending'})
+                                                </dd>
                                             </div>
                                         )}
                                         {form.companySelection === 'join' && invitePreview && (
@@ -908,13 +845,20 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
                                     />
                                     <span>
                                         I agree to the{' '}
-                                        <a href="https://asagents.co.uk/terms" className="text-primary underline" target="_blank" rel="noreferrer">
+                                        <a
+                                            href="https://asagents.co.uk/terms"
+                                            className="text-primary underline"
+                                            target="_blank"
+                                            rel="noreferrer"
+                                        >
                                             AS Agents Terms, Security & Data Processing policies
                                         </a>
                                         .
                                     </span>
                                 </label>
-                                {errors.termsAccepted && <p className="text-xs text-destructive">{errors.termsAccepted}</p>}
+                                {errors.termsAccepted && (
+                                    <p className="text-xs text-destructive">{errors.termsAccepted}</p>
+                                )}
                             </div>
                         )}
                         <div className="flex flex-col-reverse items-start gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
@@ -935,140 +879,7 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
                                     </Button>
                                 )}
                             </div>
-                              </div>
-                        )}
-                        {step === 'confirm' && (
-                            <div className="space-y-6">
-                                <Card className="border border-dashed border-border bg-muted/40 p-4">
-                                    <h3 className="text-sm font-semibold text-foreground">Tenant summary</h3>
-                                    <dl className="mt-3 grid gap-3 text-xs text-muted-foreground sm:grid-cols-2">
-                                        <div>
-                                            <dt className="font-semibold text-foreground">Owner</dt>
-                                            <dd>{form.firstName} {form.lastName}</dd>
-                                        </div>
-                                        <div>
-                                            <dt className="font-semibold text-foreground">Email</dt>
-                                            <dd>{form.email}</dd>
-                                        </div>
-                                        <div>
-                                            <dt className="font-semibold text-foreground">Workspace mode</dt>
-                                            <dd>{form.companySelection === 'create' ? 'Creating new tenant' : 'Joining existing tenant'}</dd>
-                                        </div>
-                                        {form.companySelection === 'create' && (
-                                            <div>
-                                                <dt className="font-semibold text-foreground">Company</dt>
-                                                <dd>{form.companyName} ({form.companyType || 'Type pending'})</dd>
-                                            </div>
-                                        )}
-                                        {form.companySelection === 'join' && invitePreview && (
-                                            <div>
-                                                <dt className="font-semibold text-foreground">Joining</dt>
-                                                <dd>{invitePreview.companyName}</dd>
-                                            </div>
-                                        )}
-                                        <div>
-                                            <dt className="font-semibold text-foreground">Role</dt>
-                                            <dd>{ROLE_DETAILS[(form.role || Role.OWNER) as Role]?.label ?? 'Owner'}</dd>
-                                        </div>
-                                    </dl>
-                                </Card>
-                                <label className="flex items-start gap-3 text-sm text-muted-foreground">
-                                    <input
-                                        type="checkbox"
-                                        checked={form.termsAccepted}
-                                        onChange={event => updateField('termsAccepted', event.target.checked)}
-                                        className={`mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary ${
-                                            errors.termsAccepted ? 'border-destructive' : ''
-                                        }`}
-                                    />
-                                    <span>
-                                        I agree to the{' '}
-                                        <a href="https://asagents.co.uk/terms" className="text-primary underline" target="_blank" rel="noreferrer">
-                                            AS Agents Terms, Security & Data Processing policies
-                                        </a>
-                                        .
-                                    </span>
-                                </label>
-                                {errors.termsAccepted && <p className="text-xs text-destructive">{errors.termsAccepted}</p>}
-                            </div>
-                        )}
- 
-                            </div>
-                        )}
-                        {step === 'confirm' && (
-                            <div className="space-y-6">
-                                <Card className="border border-dashed border-border bg-muted/40 p-4">
-                                    <h3 className="text-sm font-semibold text-foreground">Tenant summary</h3>
-                                    <dl className="mt-3 grid gap-3 text-xs text-muted-foreground sm:grid-cols-2">
-                                        <div>
-                                            <dt className="font-semibold text-foreground">Owner</dt>
-                                            <dd>{form.firstName} {form.lastName}</dd>
-                                        </div>
-                                        <div>
-                                            <dt className="font-semibold text-foreground">Email</dt>
-                                            <dd>{form.email}</dd>
-                                        </div>
-                                        <div>
-                                            <dt className="font-semibold text-foreground">Workspace mode</dt>
-                                            <dd>{form.companySelection === 'create' ? 'Creating new tenant' : 'Joining existing tenant'}</dd>
-                                        </div>
-                                        {form.companySelection === 'create' && (
-                                            <div>
-                                                <dt className="font-semibold text-foreground">Company</dt>
-                                                <dd>{form.companyName} ({form.companyType || 'Type pending'})</dd>
-                                            </div>
-                                        )}
-                                        {form.companySelection === 'join' && invitePreview && (
-                                            <div>
-                                                <dt className="font-semibold text-foreground">Joining</dt>
-                                                <dd>{invitePreview.companyName}</dd>
-                                            </div>
-                                        )}
-                                        <div>
-                                            <dt className="font-semibold text-foreground">Role</dt>
-                                            <dd>{ROLE_DETAILS[(form.role || Role.OWNER) as Role]?.label ?? 'Owner'}</dd>
-                                        </div>
-                                    </dl>
-                                </Card>
-                                <label className="flex items-start gap-3 text-sm text-muted-foreground">
-                                    <input
-                                        type="checkbox"
-                                        checked={form.termsAccepted}
-                                        onChange={event => updateField('termsAccepted', event.target.checked)}
-                                        className={`mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary ${
-                                            errors.termsAccepted ? 'border-destructive' : ''
-                                        }`}
-                                    />
-                                    <span>
-                                        I agree to the{' '}
-                                        <a href="https://asagents.co.uk/terms" className="text-primary underline" target="_blank" rel="noreferrer">
-                                            AS Agents Terms, Security & Data Processing policies
-                                        </a>
-                                        .
-                                    </span>
-                                </label>
-                                {errors.termsAccepted && <p className="text-xs text-destructive">{errors.termsAccepted}</p>}
-                            </div>
-                        )}
-                         <div className="flex flex-col-reverse items-start gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="flex gap-3">
-                                {step !== 'account' && (
-                                    <Button type="button" variant="ghost" onClick={goToPreviousStep}>
-                                        Back
-                                    </Button>
-                                )}
-                                {step !== 'confirm' && (
-                                    <Button type="button" onClick={goToNextStep}>
-                                        Continue
-                                    </Button>
-                                )}
-                                {step === 'confirm' && (
-                                    <Button type="submit" isLoading={isSubmitting}>
-                                        Launch workspace
-                                    </Button>
-                                )}
-                            </div>
-                             <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-muted-foreground">
                                 Need help? Contact{' '}
                                 <a className="text-primary underline" href="mailto:platform@asagents.co.uk">
                                     platform@asagents.co.uk
@@ -1123,9 +934,4 @@ const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, isSel
         </div>
     );
 };
-    
 
-
-*/
- 
- 

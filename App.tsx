@@ -8,6 +8,7 @@ import { ToolsView } from './components/ToolsView';
 import { FinancialsViewLite } from './components/FinancialsViewLite';
 import { Dashboard } from './components/Dashboard';
 import { PrincipalAdminDashboard } from './components/PrincipalAdminDashboard';
+import { SettingsView } from './components/SettingsView';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import type { View } from './types';
 import { Role, type Company } from './types';
@@ -227,7 +228,12 @@ const AppInner: React.FC = () => {
             {activeView === 'financials' && (
               <FinancialsViewLite user={user} addToast={addToast} />
             )}
-            {activeView !== 'tools' && activeView !== 'financials' && activeView !== 'dashboard' && activeView !== 'principal-dashboard' && (
+            {activeView === 'settings' && <SettingsView />}
+            {activeView !== 'tools' &&
+              activeView !== 'financials' &&
+              activeView !== 'dashboard' &&
+              activeView !== 'principal-dashboard' &&
+              activeView !== 'settings' && (
               <Card className="p-6">
                 <h2 className="text-xl font-semibold text-foreground">Coming soon</h2>
                 <p className="text-sm text-muted-foreground mt-1">The "{activeView}" view will be restored next.</p>
