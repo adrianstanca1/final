@@ -99,11 +99,11 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (user && !evaluateViewAccess(currentView, user).hasAccess) {
+    if (user && !evaluateViewAccess(user, currentView).hasAccess) {
       const defaultView = getDefaultViewForUser(user);
       setCurrentView(defaultView);
     }
-  }, [user, currentView]);
+  }, [user]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
