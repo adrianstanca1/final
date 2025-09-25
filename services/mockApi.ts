@@ -1,16 +1,16 @@
 // A mock API that persists data using a browser-like storage adapter.
 // Supports offline queuing for write operations.
 
-import { initialData } from './mockData';
-import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, AppNotification, LoginCredentials, RegistrationPayload, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority, RolePermissions, FinancialForecast } from '../types';
-import { createPasswordRecord, sanitizeUser, upgradeLegacyPassword, verifyPassword } from '../utils/password';
-import { getStorage } from '../utils/storage';
-import { apiCache } from './cacheService';
-import { ValidationService } from './validationService';
-import { safeString, safeNumber } from '../utils/string';
-import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
-import { getInvoiceFinancials } from '../utils/finance';
-import { getSafetyMetrics, getFinancialMetrics } from '../utils/metrics';
+import { initialData } from './mockData.js';
+import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, AppNotification, LoginCredentials, RegistrationPayload, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority, RolePermissions, FinancialForecast } from '../types.js';
+import { createPasswordRecord, sanitizeUser, upgradeLegacyPassword, verifyPassword } from '../utils/password.js';
+import { getStorage } from '../utils/storage.js';
+import { apiCache } from './cacheService.js';
+import { ValidationService } from './validationService.js';
+import { safeString, safeNumber } from '../utils/string.js';
+import { computeProjectPortfolioSummary } from '../utils/projectPortfolio.js';
+import { getInvoiceFinancials } from '../utils/finance.js';
+import { getSafetyMetrics, getFinancialMetrics } from '../utils/metrics.js';
 
 // Create instances
 // Use apiCache directly from cacheService
@@ -505,18 +505,7 @@ const getCompanyCurrency = (companyId: string): string => {
     return 'GBP';
 };
 
-const safeNumber = (value: unknown): number => {
-    if (typeof value === 'number' && Number.isFinite(value)) {
-        return value;
-    }
-    if (typeof value === 'string') {
-        const parsed = Number(value.trim());
-        if (Number.isFinite(parsed)) {
-            return parsed;
-        }
-    }
-    return 0;
-};
+// Removed conflicting safeNumber function - using imported version
 
 const parseDate = (value: unknown): Date | null => {
     if (!value) {
@@ -713,57 +702,6 @@ const getTaskMetrics = (todos: any[], dates: ReturnType<typeof getDateRanges>) =
     ).length;
     
     return { tasksDueSoon, overdueTasks, tasksInProgress };
-};
-
-const getSafetyMetrics = (incidents: SafetyIncident[], dates: ReturnType<typeof getDateRanges>) => {
-    const openIncidents = incidents.filter(incident => {
-        const status = normalizeIncidentStatus(incident.status);
-        return status !== IncidentStatus.RESOLVED;
-    });
-
-    const highSeverity = openIncidents.filter(incident => {
-        const severity = normalizeIncidentSeverity(incident.severity);
-        return severity === IncidentSeverity.HIGH || severity === IncidentSeverity.CRITICAL;
-    }).length;
-
-    const lastIncidentDate = incidents.reduce<Date | null>((latest, incident) => {
-        const date = parseDate(incident.incidentDate ?? incident.timestamp ?? incident.createdAt);
-        if (!date) {
-            return latest;
-        }
-        if (!latest || date.getTime() > latest.getTime()) {
-            return date;
-        }
-        return latest;
-    }, null);
-
-    const daysSinceLastIncident = lastIncidentDate
-        ? Math.max(0, Math.floor((dates.nowTime - lastIncidentDate.getTime()) / MILLISECONDS_PER_DAY))
-        : null;
-        
-    return { openIncidents, highSeverity, daysSinceLastIncident };
-};
-
-const getFinancialMetrics = (expenses: Expense[], invoices: Invoice[], dates: ReturnType<typeof getDateRanges>) => {
-    const approvedExpensesThisMonth = expenses.reduce((sum, expense) => {
-        if (!isApprovedExpense(expense.status)) {
-            return sum;
-        }
-        // Access properties safely without type assertions
-        const expenseAny = expense as Record<string, any>;
-        const expenseDate = parseDate(expense.date ?? expenseAny.submittedAt ?? expenseAny.createdAt);
-        if (!expenseDate || expenseDate < dates.startOfMonth) {
-            return sum;
-        }
-        return sum + safeNumber(expense.amount);
-    }, 0);
-
-    const outstandingReceivables = invoices.reduce((sum, invoice) => {
-        const financials = getInvoiceFinancials(invoice);
-        return sum + financials.balance;
-    }, 0);
-    
-    return { approvedExpensesThisMonth, outstandingReceivables };
 };
 
 const upgradeLegacyUsers = () => {

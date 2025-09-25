@@ -1,5 +1,5 @@
-import { supabase, SupabaseUser } from './supabase';
-import { User, Role, Permission, RolePermissions } from '../types';
+import { supabase, SupabaseUser } from './supabase.js';
+import { User, Role, Permission, RolePermissions } from '../types.js';
 
 // Define authentication service interface
 export interface AuthResponse {

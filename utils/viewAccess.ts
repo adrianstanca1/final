@@ -1,5 +1,5 @@
-import { Permission, Role, User, View } from '../types';
-import { hasPermission } from '../services/auth';
+import { Permission, Role, User, View } from '../types.js';
+import { hasPermission } from '../services/auth.js';
 
 export interface ViewMetadata {
   title: string;

@@ -1,10 +1,10 @@
-import { api } from './mockApi';
-import { analytics } from './analyticsService';
-import { apiCache } from './cacheService';
-import { getStorage } from '../utils/storage';
-import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
-import { ApiError } from './apiErrorHandler';
-import { getAuthConnectionInfo, subscribeToAuthClientChanges } from './authClient';
+import { api } from './mockApi.js';
+import { analytics } from './analyticsService.js';
+import { apiCache } from './cacheService.js';
+import { getStorage } from '../utils/storage.js';
+import { computeProjectPortfolioSummary } from '../utils/projectPortfolio.js';
+import { ApiError } from './apiErrorHandler.js';
+import { getAuthConnectionInfo, subscribeToAuthClientChanges } from './authClient.js';
 import type {
     BackendConnectionState,
     BackendInteractionEvent,
@@ -18,8 +18,8 @@ import type {
     Expense,
     OperationalInsights,
     ResourceAssignment,
-} from '../types';
-import { Role } from '../types';
+} from '../types.js';
+import { Role } from '../types.js';
 
 type SnapshotParams = {
     userId: string;
@@ -55,11 +55,12 @@ class BackendGateway {
 
     private connectionInfo = getAuthConnectionInfo();
     private state: BackendConnectionState = {
-        mode: this.connectionInfo.mode,
-        baseUrl: this.connectionInfo.baseUrl,
+        mode: this.connectionInfo.mode || 'mock',
+        baseUrl: this.connectionInfo.baseUrl || null,
         online: typeof navigator === 'undefined' ? true : navigator.onLine,
         pendingMutations: 0,
         lastSync: null,
+        lastSyncTime: null,
     };
     private readonly listeners = new Set<(state: BackendConnectionState) => void>();
     private readonly storage = getStorage();
@@ -143,6 +144,9 @@ class BackendGateway {
                     };
 
                     snapshot = {
+                        timestamp: new Date().toISOString(),
+                        metrics: {},
+                        widgets: [],
                         projects: remote.projects as Project[],
                         team: (remote.team ?? []) as User[],
                         equipment: (remote.equipment ?? []) as Equipment[],
@@ -180,14 +184,13 @@ class BackendGateway {
 
         const existingMetadata = snapshot.metadata ?? {};
         snapshot.metadata = {
-            ...existingMetadata,
-            projectCount: existingMetadata.projectCount ?? snapshot.projects.length,
-            generatedAt: existingMetadata.generatedAt ?? new Date().toISOString(),
             source: usedBackend ? 'backend' : 'mock',
+            generatedAt: existingMetadata.generatedAt ?? new Date().toISOString(),
             usedFallback: usedBackend ? existingMetadata.usedFallback ?? false : true,
             fallbackReason: usedBackend
                 ? existingMetadata.fallbackReason
                 : fallbackReason ?? existingMetadata.fallbackReason,
+            projectCount: existingMetadata.projectCount ?? snapshot.projects.length,
         };
 
         apiCache.set(cacheKey, snapshot, DASHBOARD_CACHE_TTL);
@@ -340,6 +343,9 @@ class BackendGateway {
         });
 
         const snapshot: DashboardSnapshot = {
+            timestamp: new Date().toISOString(),
+            metrics: {},
+            widgets: [],
             projects,
             team: filteredTeam,
             equipment: filteredEquipment,

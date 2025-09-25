@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { getDerivedStatus, getInvoiceFinancials } from './finance';
-import { Invoice, InvoiceLineItem, InvoiceStatus, InvoicePayment } from '../types';
+import { getDerivedStatus, getInvoiceFinancials } from './finance.js';
+import { Invoice, InvoiceLineItem, InvoiceStatus, InvoicePayment } from '../types.js';
 
 const createLineItem = (overrides: Partial<InvoiceLineItem>): InvoiceLineItem => ({
   id: overrides.id ?? 'item-1',

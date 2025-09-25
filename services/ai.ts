@@ -8,16 +8,17 @@ import {
   User,
   TodoStatus,
   IncidentSeverity,
+  IncidentStatus,
   FinancialKPIs,
   MonthlyFinancials,
   CostBreakdown,
   Invoice,
   InvoiceStatus,
   ExpenseStatus,
-} from '../types';
-import { apiCache } from './cacheService';
-import { wrapError, withRetry } from '../utils/errorHandling';
-import { getEnvironment } from '../config/environment';
+} from '../types.js';
+import { apiCache } from './cacheService.js';
+import { wrapError, withRetry } from '../utils/errorHandling.js';
+import { getEnvironment } from '../config/environment.js';
 
 const MODEL_NAME = 'gemini-2.0-flash-001';
 let cachedClient: GoogleGenAI | null = null;
@@ -82,8 +83,9 @@ const callGemini = async (
       },
       {
         maxAttempts: 3,
-        delay: 1000,
-        backoff: 'exponential',
+        baseDelay: 1000,
+        maxDelay: 10000,
+        backoffFactor: 2,
       }
     );
 
@@ -98,6 +100,7 @@ const callGemini = async (
       operation: 'callGemini',
       component: 'ai-service',
       metadata: { prompt: prompt.slice(0, 100), config: overrides },
+      timestamp: new Date().toISOString(),
     });
     console.error('Gemini request failed', wrappedError);
     return null;
@@ -145,7 +148,7 @@ const buildTaskSummary = (tasks: Todo[]) => {
 };
 
 const buildIncidentSummary = (incidents: SafetyIncident[] = []) => {
-  const openIncidents = incidents.filter(i => i.status !== 'RESOLVED');
+  const openIncidents = incidents.filter(i => i.status !== IncidentStatus.RESOLVED);
   const highSeverity = openIncidents.filter(i => i.severity === IncidentSeverity.HIGH).length;
   return {
     total: incidents.length,

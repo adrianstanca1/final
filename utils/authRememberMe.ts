@@ -1,4 +1,4 @@
-import { getStorage } from './storage';
+import { getStorage } from './storage.js';
 
 const REMEMBERED_EMAIL_KEY = 'asagents_remembered_email';
 

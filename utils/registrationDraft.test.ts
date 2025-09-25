@@ -6,9 +6,9 @@ import {
     registrationDraftHasContent,
     EMPTY_REGISTRATION_DRAFT,
     REGISTRATION_DRAFT_TTL_MS,
-} from './registrationDraft';
-import { resetInMemoryStorage } from './storage';
-import { Role } from '../types';
+} from './registrationDraft.js';
+import { resetInMemoryStorage } from './storage.js';
+import { Role } from '../types.js';
 
 describe('registrationDraft storage helpers', () => {
     beforeEach(() => {

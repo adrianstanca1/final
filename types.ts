@@ -108,32 +108,51 @@ export interface Address {
 // Enhanced User interface for RBAC
 export interface User {
   id: string;
-  firstName: string;
-  lastName: string;
-  name?: string; // Computed from firstName + lastName
+  name: string;
   email: string;
+  role: Role;
+  companyId: string;
+  isActive: boolean;
+  permissions?: string[];
+  createdAt: string;
+  updatedAt: string;
+  avatar?: string;
+  lastLoginAt?: string;
+  profile?: UserProfile;
+  // Added missing properties
+  status?: 'active' | 'inactive' | 'pending';
+  currentProjectId?: string;
+  // User personal information
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  // Authentication properties
   password?: string;
   passwordHash?: string;
   passwordSalt?: string;
   mfaEnabled?: boolean;
-  phone?: string;
-  avatar?: string;
-  role: Role; // FIX: Changed from UserRole to Role enum
-  permissions: Permission[];
-  companyId: string;
-  departmentId?: string;
-  position?: string;
-  isActive: boolean;
-  isEmailVerified: boolean;
-  lastLogin?: string;
-  createdAt: string;
-  updatedAt: string;
-  preferences: UserPreferences;
-  // FIX: Added missing properties to User type
-  skills?: string[];
+  // Availability and skills
   availability?: AvailabilityStatus;
+  skills?: string[];
   certifications?: string[];
-  company?: string; // For backward compatibility
+  preferences?: UserPreferences;
+  // Work information
+  company?: string; // Company name for display
+}
+
+export interface UserProfile {
+  bio?: string;
+  location?: string;
+  website?: string;
+  socialMedia?: {
+    linkedin?: string;
+    twitter?: string;
+  };
+  emergencyContact?: {
+    name: string;
+    phone: string;
+    relationship: string;
+  };
 }
 
 export interface UserPreferences {
@@ -322,15 +341,16 @@ export enum TimesheetStatus {
   DRAFT = 'DRAFT',
 }
 export enum IncidentSeverity {
-  LOW = 'LOW',
-  MEDIUM = 'MEDIUM',
-  HIGH = 'HIGH',
-  CRITICAL = 'CRITICAL',
+  LOW = 'low',
+  MEDIUM = 'medium', 
+  HIGH = 'high',
+  CRITICAL = 'critical',
 }
 export enum IncidentStatus {
-  REPORTED = 'REPORTED',
-  UNDER_INVESTIGATION = 'UNDER_INVESTIGATION',
-  RESOLVED = 'RESOLVED',
+  REPORTED = 'reported',
+  INVESTIGATING = 'investigating',
+  RESOLVED = 'resolved',
+  CLOSED = 'closed',
 }
 export enum EquipmentStatus {
   AVAILABLE = 'AVAILABLE',
@@ -578,21 +598,18 @@ export interface SafetyIncident {
   title: string;
   description: string;
   severity: IncidentSeverity;
-  projectId: string;
-  reportedBy: string;
-  incidentDate: string;
-  location: string;
-  witnessIds?: string[];
-  actionsTaken?: string;
-  images?: string[];
   status: IncidentStatus;
-  resolvedBy?: string;
+  reportedBy: string;
+  reportedAt: string;
+  location?: string;
+  projectId?: string;
+  companyId?: string; // Added missing property
+  assignedTo?: string;
   resolvedAt?: string;
-  createdAt: string;
-  updatedAt: string;
-  // FIX: Added missing properties
-  timestamp: string;
-  reportedById: string;
+  resolution?: string;
+  attachments?: string[];
+  metadata?: Record<string, any>;
+  incidentDate?: string; // Added missing property referenced in errors
 }
 
 export interface AppNotification {
@@ -644,6 +661,8 @@ export interface Client {
   contactPhone: string;
   billingAddress: string;
   paymentTerms: string;
+  status: 'active' | 'inactive';
+  company: string;
 }
 
 // === FOREMAN DASHBOARD ENHANCEMENTS ===
@@ -820,6 +839,8 @@ export interface AuditLog {
         name: string;
     };
     timestamp: string;
+    userId?: string; // Added for compatibility
+    details?: string; // Added for compatibility
 }
 
 export interface Conversation {
@@ -945,6 +966,9 @@ export interface DashboardSnapshot {
   portfolioSummary: ProjectPortfolioSummary;
 }
 
+// Alias for DashboardSnapshotMetadata
+export type DashboardSnapshotMetadata = DashboardSnapshot['metadata'];
+
 export interface NotificationAction {
   id: string;
   label: string;
@@ -970,6 +994,10 @@ export interface SafetyMetrics {
   resolutionRate: number;
   averageResolutionTime: number;
   incidentTrend: 'increasing' | 'decreasing' | 'stable';
+  // Additional properties used in mockApi.ts
+  openIncidents: SafetyIncident[];
+  highSeverity: number;
+  daysSinceLastIncident: number | null;
 }
 
 export interface FinancialMetrics {
@@ -980,4 +1008,7 @@ export interface FinancialMetrics {
   outstandingInvoices: number;
   overdueInvoices: number;
   averagePaymentTime: number;
+  // Additional properties used in mockApi.ts
+  approvedExpensesThisMonth: number;
+  outstandingReceivables: number;
 }

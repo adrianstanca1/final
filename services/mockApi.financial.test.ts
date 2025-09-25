@@ -21,7 +21,7 @@ const createMockLocalStorage = (): Storage => {
 const importApi = async () => {
   vi.resetModules();
   (globalThis as any).localStorage = createMockLocalStorage();
-  const module = await import('./mockApi');
+  const module = await import('./mockApi.js');
   return module.api;
 };
 

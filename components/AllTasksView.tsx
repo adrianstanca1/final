@@ -150,7 +150,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
 
   if (loading) return <Card>Loading tasks...</Card>;
 
-  const pendingTasks = todos.filter(t => t.status === TodoStatus.PENDING);
+  const pendingTasks = todos.filter(t => t.status === TodoStatus.TODO);
   const inProgressTasks = todos.filter(t => t.status === TodoStatus.IN_PROGRESS);
   const completedTasks = todos.filter(t => t.status === TodoStatus.DONE);
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Role, Project, ProjectStatus } from '../types';
+import { View, Role, Project, ProjectStatus } from '../types.js';
 
 type Tone = 'neutral' | 'info' | 'warning' | 'success';
 

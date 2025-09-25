@@ -2,7 +2,7 @@
  * Real-time notification service with WebSocket support and offline queuing
  */
 
-import { AppNotification, NotificationType } from '../types';
+import { AppNotification, NotificationType } from '../types.js';
 
 export interface NotificationOptions {
   title: string;

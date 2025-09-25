@@ -1,0 +1,35 @@
+{
+    "extends": "./tsconfig.base.json",
+    "compilerOptions": {
+        "lib": [
+            "ES2022",
+            "DOM",
+            "DOM.Iterable"
+        ],
+        "types": [
+            "node",
+            "vitest",
+            "vite/client"
+        ],
+        "moduleResolution": "bundler",
+        "outDir": "./dist/frontend",
+        "noEmit": false
+    },
+    "include": [
+        "components/**/*",
+        "contexts/**/*",
+        "hooks/**/*",
+        "utils/**/*",
+        "services/**/*",
+        "*.tsx",
+        "*.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist",
+        "dist-services",
+        "api/**/*",
+        "**/*.test.ts",
+        "**/*.test.tsx"
+    ]
+}

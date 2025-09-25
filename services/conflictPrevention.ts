@@ -7,7 +7,7 @@ import { EventEmitter } from 'events';
 import { createHash } from 'crypto';
 import { readFileSync, writeFileSync, existsSync, watchFile, unwatchFile } from 'fs';
 import { join } from 'path';
-import { getStorage } from '../utils/storage';
+import { getStorage } from '../utils/storage.js';
 
 export interface FileState {
   path: string;

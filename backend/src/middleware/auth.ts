@@ -137,3 +137,6 @@ export const requirePermission = (...permissions: string[]) => {
     next();
   };
 };
+
+// Alias for backward compatibility
+export const authenticateToken = authMiddleware;

@@ -3,7 +3,7 @@ import multer from 'multer';
 import { z } from 'zod';
 import path from 'path';
 import fs from 'fs/promises';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
 import { validateRequest } from '../middleware/validation';
 import { db } from '../database/connection';
 import { wrapError } from '../utils/errorHandling';

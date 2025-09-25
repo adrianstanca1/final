@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeProjectPortfolioSummary } from './projectPortfolio';
+import { computeProjectPortfolioSummary } from './projectPortfolio.js';
 
 const dayInMs = 24 * 60 * 60 * 1000;
 

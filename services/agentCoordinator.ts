@@ -4,7 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
-import { getStorage } from '../utils/storage';
+import { getStorage } from '../utils/storage.js';
 
 export interface Agent {
   id: string;

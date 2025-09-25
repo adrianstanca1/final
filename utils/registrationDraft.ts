@@ -1,5 +1,5 @@
-import { CompanyType, Role } from '../types';
-import { getStorage } from './storage';
+import { CompanyType, Role } from '../types.js';
+import { getStorage } from './storage.js';
 
 export type RegistrationStep = 'account' | 'workspace' | 'confirm';
 

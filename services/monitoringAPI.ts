@@ -6,8 +6,8 @@
 import express from 'express';
 import { WebSocketServer } from 'ws';
 import { createServer } from 'http';
-import { agentCoordinator } from './agentCoordinator';
-import { conflictPrevention } from './conflictPrevention';
+import { agentCoordinator } from './agentCoordinator.js';
+import { conflictPrevention } from './conflictPrevention.js';
 import { performance } from 'perf_hooks';
 
 interface MonitoringMetrics {

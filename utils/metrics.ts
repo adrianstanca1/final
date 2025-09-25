@@ -1,4 +1,4 @@
-import { Expense, FinancialMetrics, Invoice, InvoiceStatus, SafetyIncident, SafetyMetrics, IncidentStatus, IncidentSeverity } from '../types';
+import { Expense, FinancialMetrics, Invoice, InvoiceStatus, SafetyIncident, SafetyMetrics, IncidentStatus, IncidentSeverity } from '../types.js';
 
 /**
  * Calculate safety metrics from safety incident data
@@ -67,7 +67,13 @@ export const getSafetyMetrics = (
     severityBreakdown,
     resolutionRate,
     averageResolutionTime,
-    incidentTrend
+    incidentTrend,
+    // Additional properties expected by mockApi.ts
+    openIncidents: filteredIncidents.filter(i => i.status !== IncidentStatus.RESOLVED),
+    highSeverity: filteredIncidents.filter(i => i.severity === IncidentSeverity.HIGH || i.severity === IncidentSeverity.CRITICAL).length,
+    daysSinceLastIncident: filteredIncidents.length > 0 ? 
+      Math.floor((Date.now() - Math.max(...filteredIncidents.map(i => new Date(i.incidentDate || i.reportedAt).getTime()))) / (1000 * 60 * 60 * 24)) 
+      : null
   };
 };
 
@@ -144,6 +150,9 @@ export const getFinancialMetrics = (
     margin,
     outstandingInvoices,
     overdueInvoices,
-    averagePaymentTime
+    averagePaymentTime,
+    // Additional properties expected by mockApi.ts
+    approvedExpensesThisMonth: expenses.filter(e => e.status === 'approved' || e.status === 'paid').reduce((sum, e) => sum + (e.amount || 0), 0),
+    outstandingReceivables: invoices.filter(inv => (inv as any).status !== 'paid').reduce((sum, inv) => sum + ((inv as any).amount || 0), 0)
   };
 };

@@ -6,9 +6,9 @@ import {
     getAuthConnectionInfo,
     resetAuthClient,
     subscribeToAuthClientChanges,
-} from '../authClient';
-import { resetMockApi } from '../mockApi';
-import { resetInMemoryStorage } from '../../utils/storage';
+} from '../authClient.js';
+import { resetMockApi } from '../mockApi.js';
+import { resetInMemoryStorage } from '../../utils/storage.js';
 
 if (!globalThis.crypto) {
     Object.defineProperty(globalThis, 'crypto', {

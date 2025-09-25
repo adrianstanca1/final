@@ -24,8 +24,8 @@ vi.mock('../authClient', () => {
     };
 });
 
-import { backendGateway } from '../backendGateway';
-import { apiCache } from '../cacheService';
+import { backendGateway } from '../backendGateway.js';
+import { apiCache } from '../cacheService.js';
 
 describe('backendGateway', () => {
     beforeEach(() => {

@@ -1,0 +1,59 @@
+{
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "ESNext",
+        "moduleResolution": "bundler",
+        "lib": [
+            "ES2022",
+            "DOM",
+            "DOM.Iterable"
+        ],
+        "jsx": "react-jsx",
+        "skipLibCheck": true,
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "forceConsistentCasingInFileNames": true,
+        "baseUrl": ".",
+        "paths": {
+            "@/*": [
+                "./*"
+            ],
+            "@api/*": [
+                "./api/*"
+            ],
+            "@components/*": [
+                "./components/*"
+            ],
+            "@contexts/*": [
+                "./contexts/*"
+            ],
+            "@hooks/*": [
+                "./hooks/*"
+            ],
+            "@services/*": [
+                "./services/*"
+            ],
+            "@utils/*": [
+                "./utils/*"
+            ],
+            "@config/*": [
+                "./config/*"
+            ],
+            "@types": [
+                "./types"
+            ]
+        },
+        "isolatedModules": true,
+        "allowJs": true,
+        "experimentalDecorators": true,
+        "useDefineForClassFields": false,
+        "strictNullChecks": false,
+        "noImplicitAny": false,
+        "noImplicitReturns": false
+    },
+    "exclude": [
+        "node_modules",
+        "dist",
+        "dist-services"
+    ]
+}

@@ -16,8 +16,9 @@ export const TimesheetStatusBadge: React.FC<{ status: TimesheetStatus }> = ({ st
 export const IncidentStatusBadge: React.FC<{ status: IncidentStatus }> = ({ status }) => {
     const statusMap = {
         [IncidentStatus.REPORTED]: { label: 'Reported', color: 'blue', indicator: 'blue' },
-        [IncidentStatus.UNDER_INVESTIGATION]: { label: 'Investigating', color: 'yellow', indicator: 'yellow' },
+        [IncidentStatus.INVESTIGATING]: { label: 'Investigating', color: 'yellow', indicator: 'yellow' },
         [IncidentStatus.RESOLVED]: { label: 'Resolved', color: 'green', indicator: 'green' },
+        [IncidentStatus.CLOSED]: { label: 'Closed', color: 'gray', indicator: 'gray' },
     };
     const { label, color, indicator } = statusMap[status] || { label: 'Unknown', color: 'gray', indicator: 'gray' };
     return <Tag label={label} color={color as any} statusIndicator={indicator as any} />;

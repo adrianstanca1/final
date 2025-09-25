@@ -42,7 +42,7 @@ import {
   SiteUpdate,
   ProjectMessage,
   Todo,
-} from '../types';
+} from '../types.js';
 
 export const initialData = {
     companies: [

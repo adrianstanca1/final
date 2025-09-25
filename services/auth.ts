@@ -1,6 +1,6 @@
 // Enhanced authentication and authorization service
-import { User, Permission, RolePermissions, Role } from '../types';
-import { securityValidation } from './validationService';
+import { User, Permission, RolePermissions, Role } from '../types.js';
+import { securityValidation } from './validationService.js';
 
 export interface SecurityContext {
   user: User;

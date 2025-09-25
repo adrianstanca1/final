@@ -1,4 +1,4 @@
-import { Project, ProjectPortfolioSummary, ProjectStatus, UpcomingProjectDeadline } from '../types';
+import { Project, ProjectPortfolioSummary, ProjectStatus, UpcomingProjectDeadline } from '../types.js';
 
 export const PROJECT_STATUS_ORDER: ReadonlyArray<ProjectStatus> = [
   'PLANNING',

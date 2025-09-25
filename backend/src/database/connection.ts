@@ -108,3 +108,4 @@ class Database {
 }
 
 export const database = new Database();
+export const db = database.client; // Export alias for compatibility

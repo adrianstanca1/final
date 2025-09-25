@@ -1,4 +1,4 @@
-import { User } from '../types';
+import { User } from '../types.js';
 
 const getCrypto = (): Crypto => {
     if (typeof globalThis.crypto !== 'undefined') {

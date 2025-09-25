@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 
-export { formatCurrency } from './finance';
+export { formatCurrency } from './finance.js';
 
 /**
  * Format a date string into a readable format

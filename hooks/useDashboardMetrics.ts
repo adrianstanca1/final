@@ -8,6 +8,7 @@ import {
   OperationalInsights,
   ProjectPortfolioSummary,
   IncidentStatus,
+  IncidentSeverity,
   ExpenseStatus,
   TodoStatus
 } from '../types';
@@ -76,7 +77,7 @@ export const useDashboardMetrics = ({
   );
 
   const highSeverityIncidents = useMemo(
-    () => openIncidents.filter(incident => incident.severity === 'HIGH' || incident.severity === 'CRITICAL'),
+    () => openIncidents.filter(incident => incident.severity === IncidentSeverity.HIGH || incident.severity === IncidentSeverity.CRITICAL),
     [openIncidents]
   );
 

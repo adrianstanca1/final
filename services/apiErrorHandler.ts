@@ -1,4 +1,4 @@
-import { AppError, wrapError, withRetry, DEFAULT_RETRY_CONFIGS } from '../utils/errorHandling';
+import { AppError, wrapError, withRetry, DEFAULT_RETRY_CONFIGS } from '../utils/errorHandling.js';
 
 export interface ApiErrorResponse {
   message: string;

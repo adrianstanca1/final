@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { webcrypto } from 'node:crypto';
-import { api, authApi, resetMockApi } from '../mockApi';
-import { resetInMemoryStorage } from '../../utils/storage';
+import { api, authApi, resetMockApi } from '../mockApi.js';
+import { resetInMemoryStorage } from '../../utils/storage.js';
 
 if (!globalThis.crypto) {
     Object.defineProperty(globalThis, 'crypto', {

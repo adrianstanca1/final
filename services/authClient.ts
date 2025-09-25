@@ -7,6 +7,8 @@ export interface AuthConnectionInfo {
   message?: string;
   mode?: 'mock' | 'backend';
   baseUrl?: string | null;
+  baseHost?: string; // Added missing property
+  allowMockFallback?: boolean; // Added missing property
 }
 
 // Mock implementation that returns no connection info

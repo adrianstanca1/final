@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { getAuthConnectionInfo, resetAuthClient } from './authClient';
+import { getAuthConnectionInfo, resetAuthClient } from './authClient.js';
 
 describe('Supabase gating (VITE_USE_SUPABASE)', () => {
   const original = process.env.VITE_USE_SUPABASE;

@@ -1,4 +1,4 @@
-import { Invoice, InvoiceStatus } from '../types';
+import { Invoice, InvoiceStatus } from '../types.js';
 
 export const formatCurrency = (amount: number, currency: string = 'GBP') => {
     return new Intl.NumberFormat('en-GB', {

@@ -1,6 +1,6 @@
 import React from 'react';
-import { User, View, Permission, Role } from '../types';
-import { hasPermission } from '../services/auth';
+import { User, View, Permission, Role } from '../types.js';
+import { hasPermission } from '../services/auth.js';
 
 export interface NavigationBadgeCounts {
   pendingTimesheetCount: number;

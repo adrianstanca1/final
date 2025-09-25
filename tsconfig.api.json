@@ -1,0 +1,30 @@
+{
+    "extends": "./tsconfig.base.json",
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "outDir": "dist/api",
+        "declaration": false,
+        "sourceMap": true,
+        "noEmit": false,
+        "types": [
+            "node"
+        ]
+    },
+    "include": [
+        "api/**/*",
+        "utils/**/*",
+        "types.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist-services",
+        "dist-frontend",
+        "components/**/*",
+        "contexts/**/*",
+        "hooks/**/*",
+        "services/**/*",
+        "**/*.test.ts"
+    ]
+}
