@@ -578,7 +578,9 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
       )}
 
       <ViewHeader
-        view="invoices"
+        title="Invoices"
+        description="Manage client invoices"
+        isOnline={true}
         actions={
           <Button
             variant="secondary"

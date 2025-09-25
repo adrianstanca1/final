@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Todo, User } from '../types';
+import { Todo, User, TodoPriority } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 
@@ -115,8 +115,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
                           <div className="flex items-center space-x-2">
                             <span
-                              className={`px-2 py-1 rounded text-xs ${task.priority === 'high' ? 'bg-red-100 text-red-700' :
-                                task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                              className={`px-2 py-1 rounded text-xs ${task.priority === TodoPriority.HIGH ? 'bg-red-100 text-red-700' :
+                                task.priority === TodoPriority.MEDIUM ? 'bg-yellow-100 text-yellow-700' :
                                   'bg-gray-100 text-gray-700'
                                 }`}
                             >

@@ -30,11 +30,10 @@ const NavItem: React.FC<NavItemProps> = ({ view, label, icon, activeView, setAct
   <button
     type="button"
     onClick={() => setActiveView(view)}
-    className={`w-full flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
-      activeView === view
+    className={`w-full flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${activeView === view
         ? 'bg-primary text-primary-foreground font-semibold shadow'
         : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-    }`}
+      }`}
   >
     <div className="flex items-center gap-3">
       {icon}
@@ -260,7 +259,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <div className="mt-6 space-y-3 rounded-lg border border-border bg-background/60 p-3 text-xs text-muted-foreground">
         <p>
-          @{user.username || user.email.split('@')[0]} • {Role[user.role].toLowerCase().replace(/_/g, ' ')}
+          @{user.email.split('@')[0]} • {Role[user.role].toLowerCase().replace(/_/g, ' ')}
         </p>
         <button
           type="button"

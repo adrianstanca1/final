@@ -37,13 +37,13 @@ export const ViewAccessBoundary: React.FC<ViewAccessBoundaryProps> = ({
 
   // Check required permissions (all must be satisfied)
   const hasAllRequiredPermissions = requiredPermissions.every(permission =>
-    hasPermission(permission, user)
+    hasPermission(user, permission)
   );
 
   // Check "any" permissions (at least one group must be fully satisfied)
-  const hasAnyRequiredPermissions = anyRequiredPermissions.length === 0 || 
+  const hasAnyRequiredPermissions = anyRequiredPermissions.length === 0 ||
     anyRequiredPermissions.some(permissionGroup =>
-      permissionGroup.every(permission => hasPermission(permission, user))
+      permissionGroup.every(permission => hasPermission(user, permission))
     );
 
   if (hasAllRequiredPermissions && hasAnyRequiredPermissions) {

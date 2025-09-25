@@ -554,7 +554,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                 <h4 className="font-semibold mb-2">Role Permissions</h4>
                                 <ul className="list-disc pl-5 text-sm">
                                     {Array.from(selectedRolePermissions).map((permission, index) => (
-                                        <li key={index}>{permission.replace(/_/g, ' ').toLowerCase()}</li>
+                                        <li key={index}>{(permission as string).replace(/_/g, ' ').toLowerCase()}</li>
                                     ))}
                                 </ul>
                             </div>
@@ -623,16 +623,16 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                         >
                                             <div
                                                 className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${index === currentStepIndex ? 'bg-primary text-primary-foreground' :
-                                                        index < currentStepIndex ? 'bg-green-500 text-primary-foreground' :
-                                                            'bg-muted text-muted-foreground'
+                                                    index < currentStepIndex ? 'bg-green-500 text-primary-foreground' :
+                                                        'bg-muted text-muted-foreground'
                                                     }`}
                                                 aria-hidden="true"
                                             >
                                                 {index < currentStepIndex ? '✓' : index + 1}
                                             </div>
                                             <p className={`text-xs mt-1 text-center ${index === currentStepIndex ? 'font-semibold text-primary' :
-                                                    index < currentStepIndex ? 'font-medium' :
-                                                        'text-muted-foreground'
+                                                index < currentStepIndex ? 'font-medium' :
+                                                    'text-muted-foreground'
                                                 }`}>
                                                 <span className="sr-only">Step {index + 1}: </span>
                                                 {s.name}
@@ -673,15 +673,15 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                 )}
                             </div>
                             <div className="flex items-center gap-4">
-                                <Button type="button" variant="link" onClick={onSwitchToLogin} disabled={isLoading}>
+                                <Button type="button" variant="outline" onClick={onSwitchToLogin} disabled={isLoading}>
                                     Have an account? Log in
                                 </Button>
                                 {currentStepIndex < STEPS.length - 1 ? (
-                                    <Button type="button" variant="default" onClick={handleNext} disabled={isLoading}>
+                                    <Button type="button" variant="primary" onClick={handleNext} disabled={isLoading}>
                                         Next
                                     </Button>
                                 ) : (
-                                    <Button type="button" variant="default" onClick={handleSubmit} disabled={isLoading}>
+                                    <Button type="button" variant="primary" onClick={handleSubmit} disabled={isLoading}>
                                         {isLoading ? 'Creating...' : 'Create Account'}
                                     </Button>
                                 )}

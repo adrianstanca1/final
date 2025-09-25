@@ -1,31 +1,31 @@
 import React from 'react';
-import { User, Notification } from '../../types';
+import { User, AppNotification } from '../../types';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 
 interface NotificationDropdownProps {
   user: User;
-  notifications: Notification[];
+  notifications: AppNotification[];
   onClose: () => void;
   addToast: (message: string, type: 'success' | 'error') => void;
-  onNotificationClick?: (notification: Notification) => void;
+  onNotificationClick?: (notification: AppNotification) => void;
   onMarkAllAsRead?: () => void;
 }
 
-export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ 
-  user: _user, 
-  notifications, 
-  onClose, 
-  addToast, 
-  onNotificationClick, 
-  onMarkAllAsRead 
+export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
+  user: _user,
+  notifications,
+  onClose,
+  addToast,
+  onNotificationClick,
+  onMarkAllAsRead
 }) => {
   const [isMarkingAll, setIsMarkingAll] = React.useState(false);
   const hasUnread = notifications.some(n => !(n.isRead ?? n.read));
 
   const handleMarkAllAsRead = async () => {
     if (!onMarkAllAsRead) return;
-    
+
     setIsMarkingAll(true);
     try {
       await onMarkAllAsRead();
@@ -37,7 +37,7 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
     }
   };
 
-  const handleNotificationClick = (notification: Notification) => {
+  const handleNotificationClick = (notification: AppNotification) => {
     if (onNotificationClick) {
       onNotificationClick(notification);
     }
@@ -82,9 +82,8 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                 <div
                   key={notification.id}
                   onClick={() => handleNotificationClick(notification)}
-                  className={`p-3 rounded-lg cursor-pointer transition-colors ${
-                    isUnread ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 hover:bg-gray-100'
-                  } border`}
+                  className={`p-3 rounded-lg cursor-pointer transition-colors ${isUnread ? 'bg-blue-50 border-blue-200' : 'bg-gray-50 hover:bg-gray-100'
+                    } border`}
                 >
                   <div className="flex items-start space-x-3">
                     {isUnread && (
