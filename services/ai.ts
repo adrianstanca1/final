@@ -29,6 +29,15 @@ const DEFAULT_GENERATION_CONFIG = {
   maxOutputTokens: 768,
 };
 
+const hashString = (value: string): string => {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(index);
+    hash |= 0;
+  }
+  return Math.abs(hash).toString(36);
+};
+
 export type AdvisorTurn = {
   role: 'user' | 'assistant';
   text: string;
@@ -85,7 +94,7 @@ const callGemini = async (
   }
 
   // Check cache first
-  const cacheKey = `ai:${btoa(prompt).slice(0, 50)}:${JSON.stringify(overrides)}`;
+  const cacheKey = `ai:${hashString(prompt)}:${prompt.length}:${JSON.stringify(overrides)}`;
   const cached = apiCache.get<GenerateContentResponse>(cacheKey);
   if (cached) {
     return cached;
