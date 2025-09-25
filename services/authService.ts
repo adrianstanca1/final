@@ -22,8 +22,8 @@ const mapSupabaseUser = (supabaseUser: SupabaseUser): User => {
     company: userMetadata.company || null,
     avatar: userMetadata.avatar || null,
     permissions: userMetadata.permissions || [],
-    createdAt: supabaseUser?.created_at ? new Date(supabaseUser.created_at) : new Date(),
-    updatedAt: supabaseUser?.updated_at ? new Date(supabaseUser.updated_at) : new Date(),
+    createdAt: supabaseUser?.created_at ? new Date(supabaseUser.created_at).toISOString() : new Date().toISOString(),
+    updatedAt: supabaseUser?.updated_at ? new Date(supabaseUser.updated_at).toISOString() : new Date().toISOString(),
     status: userMetadata.status || 'active',
     preferences: userMetadata.preferences || {},
     skills: userMetadata.skills || [],
@@ -109,7 +109,7 @@ export const authService = {
       if (error) throw error;
       
       // For OAuth, we return limited data as the user will be redirected
-      return { user: null, error: null, session: data.session };
+      return { user: null, error: null, session: null };
     } catch (error: any) {
       return { user: null, error: error.message || 'Failed to sign in with Google' };
     }
