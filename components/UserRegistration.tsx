@@ -939,4 +939,3 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
         </div>
     );
 };
-
