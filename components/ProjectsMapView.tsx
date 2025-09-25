@@ -58,6 +58,7 @@ export const ProjectsMapView: React.FC<ProjectsMapViewProps> = ({ user, addToast
             .filter(p => p.location && p.location.lat && p.location.lng)
             .map(p => ({
                 id: p.id,
+                title: p.name,
                 lat: p.location.lat,
                 lng: p.location.lng,
                 radius: p.geofenceRadius,

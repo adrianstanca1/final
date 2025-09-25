@@ -20,6 +20,13 @@ interface ViewHeaderProps {
   stats?: ViewHeaderStat[];
   isOnline: boolean;
   className?: string;
+  actions?: React.ReactNode;
+  meta?: Array<{
+    label: string;
+    value: string;
+    helper?: string;
+    indicator?: string;
+  }>;
 }
 
 const pillToneClasses: Record<Required<ContextPill>['tone'], string> = {
@@ -50,6 +57,8 @@ export const ViewHeader: React.FC<ViewHeaderProps> = ({
   stats,
   isOnline,
   className = '',
+  actions,
+  meta,
 }) => {
   return (
     <section className={`mb-6 rounded-[--radius] border border-border/60 bg-card/70 shadow-sm backdrop-blur ${className}`.trim()} aria-labelledby="view-heading">
@@ -74,9 +83,23 @@ export const ViewHeader: React.FC<ViewHeaderProps> = ({
                 )}
               </div>
               {description && <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{description}</p>}
+              {/* Meta information */}
+              {meta && (
+                <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
+                  {meta.map((item, index) => (
+                    <div key={`${item.label}-${index}`} className="flex items-center gap-1">
+                      <span className="font-medium">{item.label}:</span>
+                      <span>{item.value}</span>
+                      {item.indicator && <span className={`ml-1 h-2 w-2 rounded-full ${item.indicator}`} />}
+                      {item.helper && <span className="opacity-60">({item.helper})</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
+            {actions && <div className="flex items-center gap-2">{actions}</div>}
             <span
               className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
                 isOnline

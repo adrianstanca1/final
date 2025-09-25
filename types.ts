@@ -24,6 +24,12 @@ export interface RegisterCredentials {
   phone?: string;
   companyId?: string;
   inviteToken?: string;
+  role?: Role;
+  companyName?: string;
+  companyType?: CompanyType;
+  companyEmail?: string;
+  companyPhone?: string;
+  companyWebsite?: string;
 }
 
 export type RegistrationPayload = Partial<RegisterCredentials & {
@@ -104,6 +110,7 @@ export interface User {
   id: string;
   firstName: string;
   lastName: string;
+  name?: string; // Computed from firstName + lastName
   email: string;
   password?: string;
   passwordHash?: string;
@@ -125,6 +132,8 @@ export interface User {
   // FIX: Added missing properties to User type
   skills?: string[];
   availability?: AvailabilityStatus;
+  certifications?: string[];
+  company?: string; // For backward compatibility
 }
 
 export interface UserPreferences {
@@ -344,6 +353,7 @@ export enum AvailabilityStatus {
 
 export interface Location {
     address: string;
+    city?: string;
     lat: number;
     lng: number;
 }
@@ -869,3 +879,37 @@ export const RolePermissions: Record<Role, Set<Permission>> = {
     [Role.CLIENT]: new Set([Permission.VIEW_ASSIGNED_PROJECTS, Permission.VIEW_DOCUMENTS]),
     [Role.PRINCIPAL_ADMIN]: new Set(Object.values(Permission)),
 };
+
+// === BACKEND CONNECTION TYPES ===
+export interface BackendConnectionState {
+  online: boolean;
+  mode: 'mock' | 'backend';
+  baseUrl: string | null;
+  lastSyncTime: string | null;
+}
+
+export interface BackendInteractionEvent {
+  timestamp: string;
+  type: 'request' | 'response' | 'error';
+  endpoint: string;
+  method: string;
+  status?: number;
+  error?: string;
+}
+
+export interface DashboardSnapshot {
+  timestamp: string;
+  metrics: Record<string, any>;
+  widgets: Array<{
+    id: string;
+    type: string;
+    data: any;
+  }>;
+}
+
+export interface NotificationAction {
+  id: string;
+  label: string;
+  action: string;
+  type: 'primary' | 'secondary' | 'danger';
+}

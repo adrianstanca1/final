@@ -122,7 +122,7 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
                             {unassignedUsers.map(user => (
                                 <div key={user.id} className="flex items-center justify-between p-3 border rounded-lg">
                                     <div className="flex items-center space-x-3">
-                                        <Avatar user={user} />
+                                        <Avatar name={user.name || `${user.firstName} ${user.lastName}`.trim()} className="w-10 h-10" />
                                         <div>
                                             <div className="font-medium text-gray-900">{user.name}</div>
                                             <div className="text-sm text-gray-500">{user.role}</div>
@@ -169,7 +169,7 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
                                             {projectUsers.map(user => (
                                                 <div key={user.id} className="flex items-center justify-between pl-4">
                                                     <div className="flex items-center space-x-3">
-                                                        <Avatar user={user} size="sm" />
+                                                        <Avatar name={user.name || `${user.firstName} ${user.lastName}`.trim()} className="w-6 h-6 text-xs" />
                                                         <div>
                                                             <div className="font-medium text-sm text-gray-900">{user.name}</div>
                                                             <div className="text-xs text-gray-500">{user.role}</div>

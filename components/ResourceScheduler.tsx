@@ -241,7 +241,7 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
                         {users.slice(0, 5).map(user => (
                             <div key={user.id} className="grid grid-cols-8 gap-2 mb-2">
                                 <div className="p-3 border rounded flex items-center space-x-3">
-                                    <Avatar user={user} size="sm" />
+                                    <Avatar name={user.name || `${user.firstName} ${user.lastName}`.trim()} className="w-6 h-6 text-xs" />
                                     <div>
                                         <div className="font-medium text-sm">{user.name}</div>
                                         <div className="text-xs text-gray-500">{user.role}</div>

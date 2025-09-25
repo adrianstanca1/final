@@ -80,16 +80,10 @@ export const MyDayView: React.FC<MyDayViewProps> = ({ user, addToast }) => {
         }
     };
 
-    const handleTaskSelectionChange = (taskId: string | number) => {
-        setSelectedTaskIds(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(taskId)) {
-                newSet.delete(taskId);
-            } else {
-                newSet.add(taskId);
-            }
-            return newSet;
-        });
+    const handleTaskSelectionChange = (taskIds: string[]) => {
+        // Convert array back to Set for internal state management
+        const newSet = new Set(taskIds);
+        setSelectedTaskIds(newSet);
     };
 
     const handleAIPrioritization = async () => {
@@ -158,7 +152,7 @@ export const MyDayView: React.FC<MyDayViewProps> = ({ user, addToast }) => {
                     personnel={personnel}
                     onTaskStatusChange={handleTaskStatusChange}
                     onTaskSelectionChange={handleTaskSelectionChange}
-                    selectedTaskIds={selectedTaskIds}
+                    selectedTaskIds={Array.from(selectedTaskIds).map(String)}
                 />
             </div>
         </div>

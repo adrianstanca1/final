@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Project, Task, TodoStatus } from '../types';
+import { User, Project, Task, TodoStatus, TodoPriority, ProjectStatus } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 
@@ -20,32 +20,35 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId,
         setLoading(true);
         // Mock API calls - replace with actual API
         const mockProject: Project = {
-          id: projectId,
-          name: 'Sample Project',
-          description: 'Project description',
-          status: 'ACTIVE',
-          startDate: new Date().toISOString(),
-          endDate: new Date().toISOString(),
-          budget: 100000,
-          companyId: user.companyId,
-          clientId: 'client1',
-          managerId: user.id,
-          location: {
-            address: 'Sample Address',
-            lat: 40.7128,
-            lng: -74.0060
-          },
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-
-        const mockTasks: Task[] = [
+            id: 'project-1',
+            name: 'Sample Construction Project',
+            description: 'This is a mock project for demonstration purposes',
+            status: 'ACTIVE' as ProjectStatus,
+            startDate: '2024-01-01',
+            endDate: '2024-12-31',
+            budget: 1000000,
+            spent: 250000,
+            progress: 25,
+            actualCost: 275000,
+            companyId: 'company-1',
+            clientId: 'client-1',
+            managerId: 'manager-1',
+            projectType: 'COMMERCIAL',
+            workClassification: 'NEW_CONSTRUCTION',
+            location: {
+                address: '123 Construction St, Building City, BC 12345',
+                lat: 49.2827,
+                lng: -123.1207
+            },
+            createdAt: '2024-01-01T00:00:00Z',
+            updatedAt: '2024-01-01T00:00:00Z'
+        };        const mockTasks: Task[] = [
           {
             id: '1',
             title: 'Foundation Work',
             description: 'Complete foundation setup',
             status: TodoStatus.IN_PROGRESS,
-            priority: 'HIGH',
+            priority: TodoPriority.HIGH,
             assignedTo: user.id,
             projectId: projectId,
             dueDate: new Date().toISOString(),
@@ -122,15 +125,15 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId,
     <div className="space-y-6">
       {/* Project Header */}
       <Card>
-        <Card.Header>
+        <div className="border-b border-gray-200 pb-4 mb-4">
           <div className="flex justify-between items-start">
-            <Card.Title className="text-2xl">{project.name}</Card.Title>
+            <h2 className="text-2xl font-semibold">{project.name}</h2>
             <span className={`px-3 py-1 rounded-full text-sm ${getStatusColor(project.status)}`}>
               {project.status}
             </span>
           </div>
-        </Card.Header>
-        <Card.Content>
+        </div>
+        <div>
           <p className="text-gray-700 mb-4">{project.description}</p>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -140,38 +143,38 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId,
               <span className="font-medium">Location:</span> {project.location?.address || 'N/A'}
             </div>
           </div>
-        </Card.Content>
+        </div>
       </Card>
 
       {/* Tasks Section */}
       <Card>
-        <Card.Header>
+        <div className="border-b border-gray-200 pb-4 mb-4">
           <div className="flex justify-between items-center">
-            <Card.Title>Tasks</Card.Title>
+            <h3 className="text-xl font-semibold">Tasks</h3>
             <div className="flex space-x-2">
               <Button
-                variant={filter === 'all' ? 'default' : 'outline'}
+                variant={filter === 'all' ? 'primary' : 'outline'}
                 size="sm"
                 onClick={() => setFilter('all')}
               >
                 All
               </Button>
               <Button
-                variant={filter === TodoStatus.TODO ? 'default' : 'outline'}
+                variant={filter === TodoStatus.TODO ? 'primary' : 'outline'}
                 size="sm"
                 onClick={() => setFilter(TodoStatus.TODO)}
               >
                 To Do
               </Button>
               <Button
-                variant={filter === TodoStatus.IN_PROGRESS ? 'default' : 'outline'}
+                variant={filter === TodoStatus.IN_PROGRESS ? 'primary' : 'outline'}
                 size="sm"
                 onClick={() => setFilter(TodoStatus.IN_PROGRESS)}
               >
                 In Progress
               </Button>
               <Button
-                variant={filter === TodoStatus.DONE ? 'default' : 'outline'}
+                variant={filter === TodoStatus.DONE ? 'primary' : 'outline'}
                 size="sm"
                 onClick={() => setFilter(TodoStatus.DONE)}
               >
@@ -179,8 +182,8 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId,
               </Button>
             </div>
           </div>
-        </Card.Header>
-        <Card.Content>
+        </div>
+        <div>
           {filteredTasks.length === 0 ? (
             <p className="text-gray-500 text-center py-8">No tasks found</p>
           ) : (
@@ -198,7 +201,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ projectId,
               ))}
             </div>
           )}
-        </Card.Content>
+        </div>
       </Card>
     </div>
   );
