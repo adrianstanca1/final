@@ -64,6 +64,7 @@ import {
     OperationalAlert,
     OperationalInsights,
     RolePermissions,
+    SocialProvider,
 } from '../types';
 import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
 import { getInvoiceFinancials } from '../utils/finance';
@@ -502,6 +503,35 @@ const createDb = (): DbCollections => ({
 
 let db: DbCollections = createDb();
 
+const usernameIsTaken = (candidate: string): boolean =>
+    db.users.some(user => user.username?.toLowerCase() === candidate.toLowerCase());
+
+const normalizeUsername = (value: string): string =>
+    value.trim().toLowerCase().replace(/[^a-z0-9._-]+/g, '');
+
+const generateUsername = (parts: Array<string | undefined>): string => {
+    const base = parts
+        .map(part => (part ? normalizeUsername(part) : ''))
+        .filter(Boolean)
+        .join('.')
+        .replace(/\.\.+/g, '.');
+    const fallback = base || `tenant${Date.now().toString(36)}`;
+    let candidate = fallback;
+    let suffix = 1;
+    while (usernameIsTaken(candidate)) {
+        candidate = `${fallback}${suffix++}`;
+    }
+    return candidate;
+};
+
+const resolveUsername = (preferred: string | undefined, fallbackParts: Array<string | undefined>): string => {
+    const normalizedPreferred = preferred ? normalizeUsername(preferred) : '';
+    if (normalizedPreferred && !usernameIsTaken(normalizedPreferred)) {
+        return normalizedPreferred;
+    }
+    return generateUsername(fallbackParts);
+};
+
 const saveDb = () => {
     (Object.keys(db) as Array<keyof DbCollections>).forEach(key => {
         storage.setItem(`${STORAGE_PREFIX}${String(key)}`, JSON.stringify(db[key]));
@@ -631,7 +661,7 @@ export const authApi = {
             };
             db.companies.push(companyRecord);
 
-            inviteTokenDirectory.set(`JOIN-${companyId}`, {
+            inviteTokenDirectory.set(normalizeInviteToken(`JOIN-${companyId}`), {
                 companyId,
                 allowedRoles: [Role.ADMIN, Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE],
                 suggestedRole: Role.ADMIN,
@@ -665,11 +695,21 @@ export const authApi = {
         const passwordRecord = await createPasswordRecord(password);
 
         const createdAt = new Date().toISOString();
+        const fallbackParts = [
+            firstName,
+            lastName,
+            companyRecord?.name,
+            credentials.companyName,
+            normalizedEmail.split('@')[0],
+        ];
+        const username = resolveUsername(credentials.username, fallbackParts);
+
         const newUser: Partial<User> = {
             id: String(Date.now() + Math.random()),
             firstName,
             lastName,
             email: normalizedEmail,
+            username,
             passwordHash: passwordRecord.hash,
             passwordSalt: passwordRecord.salt,
             phone,
@@ -707,6 +747,83 @@ export const authApi = {
         const refreshToken = createToken({ userId: user.id }, MOCK_REFRESH_TOKEN_LIFESPAN);
 
         return { success: true, token, refreshToken, user: sanitizeUserForReturn(user), company };
+    },
+    socialLogin: async ({ provider, email, name }: { provider: SocialProvider; email?: string; name?: string }): Promise<any> => {
+        await delay(180);
+        const providerLabel = provider === 'facebook' ? 'Facebook' : 'Google';
+        const normalizedEmail = normalizeEmail(
+            email ?? `${provider}.${Date.now().toString(36)}@${provider}.asagents.app`
+        );
+        let user = findUserByEmail(normalizedEmail);
+
+        if (!user) {
+            const now = new Date().toISOString();
+            const companyId = `social-${Date.now().toString(36)}`;
+            const [rawFirstName, ...rawRest] = (name ?? '').trim().split(/\s+/).filter(Boolean);
+            const firstName = rawFirstName || providerLabel;
+            const lastName = rawRest.join(' ') || 'Owner';
+            const companyName = name?.trim()
+                ? `${name.trim()}'s Workspace`
+                : `${providerLabel} Partner Workspace`;
+
+            const companyRecord: Partial<Company> = {
+                id: companyId,
+                name: companyName,
+                type: 'GENERAL_CONTRACTOR',
+                email: normalizedEmail,
+                phone: '',
+                website: '',
+                status: 'Active',
+                subscriptionPlan: 'STARTER',
+                storageUsageGB: 1.5,
+                settings: defaultCompanySettings(),
+                address: {
+                    street: '',
+                    city: '',
+                    state: '',
+                    zipCode: '',
+                    country: 'United Kingdom',
+                },
+                createdAt: now,
+                updatedAt: now,
+            };
+            db.companies.push(companyRecord);
+
+            inviteTokenDirectory.set(normalizeInviteToken(`JOIN-${companyId}`), {
+                companyId,
+                allowedRoles: [Role.ADMIN, Role.PROJECT_MANAGER, Role.FOREMAN, Role.OPERATIVE],
+                suggestedRole: Role.ADMIN,
+            });
+
+            const username = resolveUsername(undefined, [provider, firstName, 'owner']);
+
+            const newUser: Partial<User> = {
+                id: String(Date.now() + Math.random()),
+                firstName,
+                lastName,
+                email: normalizedEmail,
+                username,
+                role: Role.OWNER,
+                permissions: Array.from(RolePermissions[Role.OWNER]),
+                companyId,
+                isActive: true,
+                isEmailVerified: true,
+                mfaEnabled: false,
+                createdAt: now,
+                updatedAt: now,
+                preferences: defaultUserPreferences(),
+            };
+
+            db.users.push(newUser);
+            addAuditLog(newUser.id!, 'SOCIAL_SIGNUP', { type: 'Company', id: companyId, name: companyName });
+            saveDb();
+            user = newUser as Partial<User>;
+        } else if (!user.username) {
+            user.username = resolveUsername(undefined, [provider, user.firstName, user.lastName, user.email?.split('@')[0]]);
+            saveDb();
+        }
+
+        return authApi.finalizeLogin(user.id as string);
     },
     checkEmailAvailability: async (email: string): Promise<{ available: boolean }> => {
         await delay(120);

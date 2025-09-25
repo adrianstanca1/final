@@ -27,6 +27,7 @@ export interface RegisterCredentials {
 }
 
 export type RegistrationPayload = Partial<RegisterCredentials & {
+  username?: string;
   companyName?: string;
   companyType?: CompanyType;
   companyEmail?: string;
@@ -38,6 +39,8 @@ export type RegistrationPayload = Partial<RegisterCredentials & {
   updatesOptIn?: boolean;
   termsAccepted?: boolean;
 }>;
+
+export type SocialProvider = 'google' | 'facebook';
 
 export interface Company {
   id: string;
@@ -105,6 +108,7 @@ export interface User {
   firstName: string;
   lastName: string;
   email: string;
+  username?: string;
   password?: string;
   passwordHash?: string;
   passwordSalt?: string;
@@ -792,7 +796,8 @@ export interface DashboardSnapshotMetadata {
     generatedAt: string;
     usedFallback: boolean;
     projectCount?: number;
-    [key: string]: unknown;
+     fallbackReason?: string;
+      [key: string]: unknown;
 }
 
 export interface DashboardSnapshot {

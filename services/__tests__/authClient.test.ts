@@ -85,6 +85,20 @@ describe('authClient', () => {
         expect(fetchSpy).toHaveBeenCalled();
     });
 
+    it('supports social login via the mock fallback when backend is unavailable', async () => {
+        const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('connect ECONNREFUSED'));
+        configureAuthClient({ baseUrl: 'https://api.example.test', allowMockFallback: true });
+
+        const session = await authClient.socialLogin('google', {
+            email: 'social@loginflow.test',
+            name: 'Jamie Social',
+        });
+
+        expect(session.user.email).toBe('social@loginflow.test');
+        expect(session.user.role).toBeDefined();
+        expect(fetchSpy).toHaveBeenCalled();
+    });
+
     it('notifies subscribers when connection details change', () => {
         const listener = vi.fn();
         const unsubscribe = subscribeToAuthClientChanges(listener);
