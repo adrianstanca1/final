@@ -71,5 +71,4 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ invoice, balance, onClose, 
     </div>
   );
 };
-
 export default PaymentModal;
