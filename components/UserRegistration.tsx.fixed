@@ -29,7 +29,7 @@ const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password =
         if (/[^A-Za-z0-9]/.test(password)) score++;
         return score;
     };
-
+    
     const strength = getStrength();
     // Map the strength score to one of our predefined percentages
     const widthMap: Record<number, string> = {
@@ -40,9 +40,9 @@ const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password =
         4: "80%",
         5: "100%"
     };
-
+    
     const width = widthMap[strength];
-
+    
     let color: string;
     if (strength < 3) {
         color = 'bg-destructive';
@@ -67,7 +67,7 @@ const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password =
                 role="progressbar"
                 aria-labelledby="password-strength-label"
             >
-                <div
+                <div 
                     className={`progress-bar-fill ${color}`}
                     data-width={width}
                 />
@@ -90,7 +90,7 @@ const CreateCompanyModal: React.FC<{
 
     // Use React's useEffect for keyboard handling and focus management
     const nameInputId = "company-name";
-
+    
     // Handle keyboard trap and focus management
     React.useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -99,20 +99,20 @@ const CreateCompanyModal: React.FC<{
                 onClose();
                 return;
             }
-
+            
             // Trap focus within modal
             if (e.key === 'Tab') {
                 // Get all focusable elements in modal
                 const modal = document.querySelector('[role="dialog"]');
                 if (!modal) return;
-
+                
                 const focusableElements = modal.querySelectorAll(
                     'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
                 );
-
+                
                 const firstElement = focusableElements[0] as HTMLElement;
                 const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
-
+                
                 // If shift+tab on first element, move to last
                 if (e.shiftKey && document.activeElement === firstElement) {
                     e.preventDefault();
@@ -125,15 +125,15 @@ const CreateCompanyModal: React.FC<{
                 }
             }
         };
-
+        
         document.addEventListener('keydown', handleKeyDown);
-
+        
         // Set initial focus on company name field
         const nameInput = document.getElementById(nameInputId);
         if (nameInput) {
             setTimeout(() => nameInput.focus(), 50);
         }
-
+        
         return () => {
             document.removeEventListener('keydown', handleKeyDown);
         };
@@ -168,7 +168,7 @@ const CreateCompanyModal: React.FC<{
     };
 
     return (
-        <div
+        <div 
             role="dialog"
             aria-modal="true"
             aria-labelledby="company-modal-title"
@@ -183,52 +183,52 @@ const CreateCompanyModal: React.FC<{
             <Card className="w-full max-w-lg relative">
                 <h3 id="company-modal-title" className="text-lg font-bold mb-4">Create Your Company</h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <InputField
+                    <InputField 
                         id="company-name"
-                        label="Company Name"
-                        name="name"
-                        value={name}
-                        onChange={(name, val) => setName(val)}
+                        label="Company Name" 
+                        name="name" 
+                        value={name} 
+                        onChange={(name, val) => setName(val)} 
                         error={errors.name}
-                        required
+                        required 
                     />
-                    <SelectField
+                    <SelectField 
                         id="company-type"
-                        label="Company Type"
-                        name="type"
-                        value={type}
-                        onChange={handleTypeChange}
-                        error={errors.type}
+                        label="Company Type" 
+                        name="type" 
+                        value={type} 
+                        onChange={handleTypeChange} 
+                        error={errors.type} 
                         options={companyTypeOptions}
-                        required
+                        required 
                     />
-                    <InputField
+                    <InputField 
                         id="company-email"
-                        label="Company Email"
-                        name="email"
-                        type="email"
-                        value={email}
-                        onChange={(name, val) => setEmail(val)}
+                        label="Company Email" 
+                        name="email" 
+                        type="email" 
+                        value={email} 
+                        onChange={(name, val) => setEmail(val)} 
                         error={errors.email}
-                        required
+                        required 
                     />
-                    <InputField
+                    <InputField 
                         id="company-phone"
-                        label="Company Phone"
-                        name="phone"
-                        type="tel"
-                        value={phone}
-                        onChange={(name, val) => setPhone(val)}
+                        label="Company Phone" 
+                        name="phone" 
+                        type="tel" 
+                        value={phone} 
+                        onChange={(name, val) => setPhone(val)} 
                         error={errors.phone}
-                        required
+                        required 
                     />
-                    <InputField
+                    <InputField 
                         id="company-website"
-                        label="Company Website (Optional)"
-                        name="website"
-                        type="url"
-                        value={website}
-                        onChange={(name, val) => setWebsite(val)}
+                        label="Company Website (Optional)" 
+                        name="website" 
+                        type="url" 
+                        value={website} 
+                        onChange={(name, val) => setWebsite(val)} 
                     />
                     <div className="flex justify-end gap-2 pt-4 border-t">
                         <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
@@ -323,22 +323,22 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
         const currentIndex = STEPS.findIndex(s => s.id === currentStep);
         return currentIndex < STEPS.length - 1 ? STEPS[currentIndex + 1].id : null;
     };
-
+    
     const getPreviousStep = (currentStep: RegistrationStep): RegistrationStep | null => {
         const currentIndex = STEPS.findIndex(s => s.id === currentStep);
         return currentIndex > 0 ? STEPS[currentIndex - 1].id : null;
     };
-
+    
     // Create refs for step-specific first focusable elements
     const stepHeadingRef = React.useRef<HTMLHeadingElement>(null);
-
+    
     // Set focus when step changes
     React.useEffect(() => {
         // Short delay to allow the DOM to update
         const focusTimer = setTimeout(() => {
             // First try to focus on the first input element in the form
             const firstInput = document.querySelector(`[data-step="${step}"] input, [data-step="${step}"] select, [data-step="${step}"] button`);
-
+            
             if (firstInput instanceof HTMLElement) {
                 firstInput.focus();
             } else if (stepHeadingRef.current) {
@@ -346,10 +346,10 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                 stepHeadingRef.current.focus();
             }
         }, 50);
-
+        
         return () => clearTimeout(focusTimer);
     }, [step]);
-
+    
     // Handle keyboard shortcuts for navigation
     React.useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
@@ -358,14 +358,14 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                 e.preventDefault();
                 handleNext();
             }
-
+            
             // Allow Alt+ArrowLeft to move to previous step
             if (e.altKey && e.key === 'ArrowLeft') {
                 e.preventDefault();
                 handleBack();
             }
         };
-
+        
         document.addEventListener('keydown', handleKeyDown);
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [step]);
@@ -375,7 +375,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
             const nextStep = getNextStep(step);
             if (nextStep) {
                 setStep(nextStep);
-
+                
                 // Announce step change to screen readers
                 const stepInfo = STEPS.find(s => s.id === nextStep);
                 if (stepInfo) {
@@ -390,7 +390,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
         const previousStep = getPreviousStep(step);
         if (previousStep) {
             setStep(previousStep);
-
+            
             // Announce step change to screen readers
             const stepInfo = STEPS.find(s => s.id === previousStep);
             if (stepInfo) {
@@ -412,19 +412,19 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
 
     const handleCompanySave = (companyData: CompanyData) => {
         const { name, type, email, phone, website } = companyData;
-
-        setFormData(prev => ({
-            ...prev,
-            companyName: name,
-            companyType: type,
-            companyEmail: email,
-            companyPhone: phone,
-            companyWebsite: website,
-            companySelection: 'create'
+        
+        setFormData(prev => ({ 
+            ...prev, 
+            companyName: name, 
+            companyType: type, 
+            companyEmail: email, 
+            companyPhone: phone, 
+            companyWebsite: website, 
+            companySelection: 'create' 
         }));
-
+        
         setIsCompanyModalOpen(false);
-
+        
         // Clear relevant company field errors
         clearErrors(['companyName', 'companyType', 'companyEmail', 'companyPhone']);
     };
@@ -434,7 +434,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
         if (field === 'companySelection' && value === 'create') {
             setIsCompanyModalOpen(true);
         }
-
+        
         // Special password handling for form validation
         if (field === 'password') {
             // If password changes and there was a confirmPassword error, we should clear it
@@ -442,13 +442,13 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                 clearErrors(['confirmPassword']);
             }
         }
-
+        
         // Update form data
-        setFormData(prev => ({
-            ...prev,
-            [field]: value
+        setFormData(prev => ({ 
+            ...prev, 
+            [field]: value 
         } as RegistrationFormData));
-
+        
         // Clear error for the changed field
         if (errors[field as string]) {
             clearErrors([field]);
@@ -457,7 +457,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
 
     const handleSubmit = async () => {
         if (!validateStep('terms')) return;
-
+        
         try {
             await register({
                 firstName: formData.firstName || '',
@@ -535,7 +535,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
             );
             case 'role': {
                 const selectedRolePermissions = formData.role ? RolePermissions[formData.role] : new Set();
-
+                
                 return (
                     <div data-step="role">
                         <h3 ref={stepHeadingRef} tabIndex={-1} className="text-xl font-semibold mb-4">Select Your Role</h3>
@@ -548,7 +548,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                             </div>
                             {errors.role && <p className="text-xs text-destructive mt-1" role="alert">{errors.role}</p>}
                         </fieldset>
-
+                        
                         {formData.role && (
                             <div className="mt-4 bg-muted p-4 rounded-md">
                                 <h4 className="font-semibold mb-2">Role Permissions</h4>
@@ -590,7 +590,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
             default: return null;
         }
     };
-
+    
     const currentStepIndex = STEPS.findIndex(s => s.id === step);
 
     return (
@@ -617,29 +617,31 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                             <ol className="flex items-center justify-between">
                                 {STEPS.map((s, index) => (
                                     <React.Fragment key={s.id}>
-                                        <li
+                                        <li 
                                             className="flex flex-col items-center"
                                             aria-current={index === currentStepIndex ? "step" : undefined}
                                         >
-                                            <div
-                                                className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${index === currentStepIndex ? 'bg-primary text-primary-foreground' :
-                                                        index < currentStepIndex ? 'bg-green-500 text-primary-foreground' :
-                                                            'bg-muted text-muted-foreground'
-                                                    }`}
+                                            <div 
+                                                className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                                                    index === currentStepIndex ? 'bg-primary text-primary-foreground' : 
+                                                    index < currentStepIndex ? 'bg-green-500 text-primary-foreground' : 
+                                                    'bg-muted text-muted-foreground'
+                                                }`}
                                                 aria-hidden="true"
                                             >
                                                 {index < currentStepIndex ? '✓' : index + 1}
                                             </div>
-                                            <p className={`text-xs mt-1 text-center ${index === currentStepIndex ? 'font-semibold text-primary' :
-                                                    index < currentStepIndex ? 'font-medium' :
-                                                        'text-muted-foreground'
-                                                }`}>
+                                            <p className={`text-xs mt-1 text-center ${
+                                                index === currentStepIndex ? 'font-semibold text-primary' : 
+                                                index < currentStepIndex ? 'font-medium' : 
+                                                'text-muted-foreground'
+                                            }`}>
                                                 <span className="sr-only">Step {index + 1}: </span>
                                                 {s.name}
                                             </p>
                                         </li>
                                         {index < STEPS.length - 1 && (
-                                            <div
+                                            <div 
                                                 className={`flex-grow h-0.5 transition-colors ${index < currentStepIndex ? 'bg-primary' : 'bg-muted'}`}
                                                 aria-hidden="true"
                                             />
@@ -652,8 +654,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
 
                     <Card>
                         {generalError && (
-                            <div
-                                className="mb-4 p-3 bg-destructive/10 text-destructive text-sm rounded-md"
+                            <div 
+                                className="mb-4 p-3 bg-destructive/10 text-destructive text-sm rounded-md" 
                                 role="alert"
                                 aria-live="assertive"
                             >

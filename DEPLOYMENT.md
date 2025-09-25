@@ -124,20 +124,9 @@ Set these environment variables for production:
 
 ```bash
 # Required
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 6ddbe19 (Update DEPLOYMENT.md)
+GEMINI_API_KEY=your_gemini_api_key_here
 VITE_GEMINI_API_KEY=your_gemini_api_key_here
 VITE_VAPID_PUBLIC_KEY=your_vapid_public_key_here
-=======
-GEMINI_API_KEY=your_gemini_api_key_here
-<<<<<<< HEAD
-VAPID_PUBLIC_KEY=your_vapid_public_key_here
->>>>>>> e1a10b5 (feat: complete service adoption and deployment preparation)
-=======
-VITE_VAPID_PUBLIC_KEY=your_vapid_public_key_here
->>>>>>> 0d7cad0 (Update DEPLOYMENT.md)
 
 # Optional
 ANALYTICS_TRACKING_ID=your_analytics_id

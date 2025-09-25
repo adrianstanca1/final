@@ -244,7 +244,6 @@ export const deployConfig = {
         PORT: '3000',
       },
     },
-<<<<<<< HEAD
 
     surge: {
       domain: process.env.SURGE_DOMAIN || 'construction-app-final.surge.sh',
@@ -273,8 +272,6 @@ export const deployConfig = {
         '**/*.svg': '1y',
       },
     },
-=======
->>>>>>> a7fe77a (feat: complete service adoption and deployment preparation)
   },
 
   // CI/CD configuration
