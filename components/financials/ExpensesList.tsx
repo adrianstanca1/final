@@ -4,7 +4,7 @@ import { Button } from '../ui/Button';
 import { api } from '../../services/mockApi';
 import type { Expense, Project, User } from '../../types';
 import { formatCurrency } from '../../utils/finance';
-import { ExpenseModal } from '../ExpenseModal';
+import ExpenseModal from '../ExpenseModal';
 
 interface Props {
   user: User;

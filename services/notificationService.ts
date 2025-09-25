@@ -2,7 +2,7 @@
  * Real-time notification service with WebSocket support and offline queuing
  */
 
-import { Notification as AppNotification, NotificationType } from '../types';
+import { AppNotification, NotificationType } from '../types';
 
 export interface NotificationOptions {
   title: string;
@@ -13,6 +13,13 @@ export interface NotificationOptions {
   requireInteraction?: boolean;
   actions?: NotificationAction[];
   data?: any;
+}
+
+export interface NotificationAction {
+  id: string;
+  label: string;
+  action: string;
+  type: 'primary' | 'secondary' | 'danger';
 }
 
 export interface NotificationSubscription {

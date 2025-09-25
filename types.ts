@@ -198,6 +198,11 @@ export enum Permission {
   SEND_DIRECT_MESSAGE = 'SEND_DIRECT_MESSAGE',
   ACCESS_ALL_TOOLS = 'ACCESS_ALL_TOOLS',
   SUBMIT_EXPENSE = 'SUBMIT_EXPENSE',
+  // Added missing permission values used in the codebase
+  EDIT_USER = 'EDIT_USER',
+  MANAGE_USERS = 'MANAGE_USERS',
+  VIEW_PROJECT = 'VIEW_PROJECT',
+  EDIT_PROJECTS = 'EDIT_PROJECTS',
 }
 
 export type ResourceType = 
@@ -886,6 +891,9 @@ export interface BackendConnectionState {
   mode: 'mock' | 'backend';
   baseUrl: string | null;
   lastSyncTime: string | null;
+  // Added missing properties used in backendGateway.ts
+  pendingMutations: number;
+  lastSync: string | null;
 }
 
 export interface BackendInteractionEvent {
@@ -895,6 +903,19 @@ export interface BackendInteractionEvent {
   method: string;
   status?: number;
   error?: string;
+  // Added missing properties
+  id?: string;
+  createdAt?: string;
+}
+
+export interface QueuedInteraction extends BackendInteractionEvent {
+  createdAt: string;
+  metadata?: Record<string, any>;
+  userId?: string;
+  companyId?: string;
+  context?: Record<string, any>;
+  attempts?: number;
+  lastError?: string;
 }
 
 export interface DashboardSnapshot {
@@ -905,6 +926,23 @@ export interface DashboardSnapshot {
     type: string;
     data: any;
   }>;
+  // Added missing properties
+  projects: Project[];
+  team: User[];
+  equipment: Equipment[];
+  tasks: Todo[];
+  activityLog: AuditLog[];
+  operationalInsights: OperationalInsights | null;
+  incidents: SafetyIncident[];
+  expenses: Expense[];
+  metadata: {
+    source: string;
+    generatedAt: string;
+    usedFallback: boolean;
+    fallbackReason?: string;
+    projectCount: number;
+  };
+  portfolioSummary: ProjectPortfolioSummary;
 }
 
 export interface NotificationAction {
@@ -912,4 +950,34 @@ export interface NotificationAction {
   label: string;
   action: string;
   type: 'primary' | 'secondary' | 'danger';
+}
+
+export interface FinancialForecast {
+  id: string;
+  companyId: string;
+  summary: string;
+  horizonMonths: number;
+  createdAt: string;
+  createdBy: string;
+  model?: string;
+  metadata?: Record<string, unknown>;
+}
+
+// Safety and financial metrics calculation interfaces
+export interface SafetyMetrics {
+  incidentCount: number;
+  severityBreakdown: Record<IncidentSeverity, number>;
+  resolutionRate: number;
+  averageResolutionTime: number;
+  incidentTrend: 'increasing' | 'decreasing' | 'stable';
+}
+
+export interface FinancialMetrics {
+  totalExpenses: number;
+  totalRevenue: number;
+  profit: number;
+  margin: number;
+  outstandingInvoices: number;
+  overdueInvoices: number;
+  averagePaymentTime: number;
 }

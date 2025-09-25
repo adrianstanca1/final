@@ -2,11 +2,15 @@
 // Supports offline queuing for write operations.
 
 import { initialData } from './mockData';
-import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegistrationPayload, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority, RolePermissions } from '../types';
+import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, AppNotification, LoginCredentials, RegistrationPayload, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority, RolePermissions, FinancialForecast } from '../types';
 import { createPasswordRecord, sanitizeUser, upgradeLegacyPassword, verifyPassword } from '../utils/password';
 import { getStorage } from '../utils/storage';
 import { apiCache } from './cacheService';
 import { ValidationService } from './validationService';
+import { safeString, safeNumber } from '../utils/string';
+import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
+import { getInvoiceFinancials } from '../utils/finance';
+import { getSafetyMetrics, getFinancialMetrics } from '../utils/metrics';
 
 // Create instances
 // Use apiCache directly from cacheService
@@ -315,7 +319,7 @@ type DbCollections = {
     expenses: Partial<Expense>[];
     siteUpdates: Partial<SiteUpdate>[];
     projectMessages: Partial<ProjectMessage>[];
-    notifications: Partial<Notification>[];
+    notifications: Partial<AppNotification>[];
     quotes: Partial<Quote>[];
     auditLogs: Partial<AuditLog>[];
     resourceAssignments: Partial<ResourceAssignment>[];
@@ -326,6 +330,7 @@ type DbCollections = {
     whiteboardNotes: Partial<WhiteboardNote>[];
     documents: Partial<Document>[];
     projectInsights: Partial<ProjectInsight>[];
+    financialForecasts: Partial<FinancialForecast>[];
 };
 
 
@@ -353,6 +358,7 @@ const DEFAULT_COLLECTIONS: Record<keyof DbCollections, any[]> = {
     whiteboardNotes: [],
     documents: [],
     projectInsights: clone(initialData.projectInsights || []),
+    financialForecasts: [],
 };
 
 const readCollection = <K extends keyof DbCollections>(key: K): DbCollections[K] => {
@@ -394,6 +400,7 @@ const createDb = (): DbCollections => ({
     whiteboardNotes: readCollection('whiteboardNotes'),
     documents: readCollection('documents'),
     projectInsights: readCollection('projectInsights'),
+    financialForecasts: readCollection('financialForecasts'),
 });
 
 let db: DbCollections = createDb();

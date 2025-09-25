@@ -19,7 +19,7 @@ import {
   ProjectTemplate,
   ProjectInsight,
   FinancialForecast,
-  Notification,
+  AppNotification,
   AuditLog,
   Conversation,
   Message,

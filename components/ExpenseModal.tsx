@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { User } from '../types';
+import { Expense, Project, User } from '../types';
 
 const CUSTOM_CATEGORY_VALUE = '__custom__';
 
-interface ExpenseModalProps {
+export interface ExpenseModalProps {
   user: User;
   onClose: () => void;
   onSuccess: () => void;
   addToast: (message: string, type: 'success' | 'error') => void;
+  expenseToEdit?: Expense | null;
+  projects?: Project[];
 }
 
 const ExpenseModal: React.FC<ExpenseModalProps> = ({ user, onClose, onSuccess, addToast }) => {

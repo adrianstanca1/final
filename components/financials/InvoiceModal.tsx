@@ -318,5 +318,6 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
             </Card>
         </div>
     );
-    export default InvoiceModal;
 };
+
+export default InvoiceModal;
