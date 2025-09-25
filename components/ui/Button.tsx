@@ -7,6 +7,8 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   size?: 'sm' | 'md' | 'lg';
   className?: string;
   isLoading?: boolean;
+}
+
 const Spinner: React.FC<{ size: 'sm' | 'md' | 'lg' }> = ({ size }) => {
     const spinnerSizeClasses = {
         sm: 'h-4 w-4',
