@@ -7,6 +7,7 @@ import {
   Document,
   User,
   TodoStatus,
+  TodoPriority,
   IncidentSeverity,
   FinancialKPIs,
   MonthlyFinancials,
@@ -27,6 +28,28 @@ const DEFAULT_GENERATION_CONFIG = {
   temperature: 0.35,
   maxOutputTokens: 768,
 };
+
+export type AdvisorTurn = {
+  role: 'user' | 'assistant';
+  text: string;
+};
+
+export interface AdvisorPromptInput {
+  userName?: string;
+  companyName?: string;
+  projects: Project[];
+  tasks: Todo[];
+  history: AdvisorTurn[];
+  query: string;
+  intent?: 'intro' | 'general';
+}
+
+export interface AdvisorPromptResult {
+  reply: string;
+  model?: string;
+  isFallback: boolean;
+  metadata: Record<string, unknown>;
+}
 
 const getClient = (): GoogleGenAI | null => {
   const { geminiApiKey } = getEnvironment();
@@ -123,6 +146,256 @@ const formatSignedPercentage = (value: number) => {
   const rounded = Number(value.toFixed(1));
   const prefix = rounded > 0 ? '+' : '';
   return `${prefix}${rounded}%`;
+};
+
+type PortfolioStats = {
+  totalProjects: number;
+  activeProjects: number;
+  completedProjects: number;
+  onHoldProjects: number;
+  overBudgetCount: number;
+  overBudgetProjectNames: string[];
+  averageProgress: number;
+  totalTasks: number;
+  completedTasks: number;
+  inProgressTasks: number;
+  todoTasks: number;
+  highPriorityOpen: number;
+};
+
+const computePortfolioStats = (projects: Project[], tasks: Todo[]): PortfolioStats => {
+  const totalProjects = projects.length;
+  const activeProjects = projects.filter(project => project.status === 'ACTIVE').length;
+  const completedProjects = projects.filter(project => project.status === 'COMPLETED').length;
+  const onHoldProjects = projects.filter(project => project.status === 'ON_HOLD').length;
+  const overBudgetProjects = projects.filter(project => project.actualCost > project.budget);
+  const averageProgress =
+    totalProjects > 0
+      ? projects.reduce((sum, project) => sum + (Number.isFinite(project.progress) ? project.progress : 0), 0) /
+        totalProjects
+      : 0;
+
+  const totalTasks = tasks.length;
+  const completedTasks = tasks.filter(task => task.status === TodoStatus.DONE).length;
+  const inProgressTasks = tasks.filter(task => task.status === TodoStatus.IN_PROGRESS).length;
+  const todoTasks = totalTasks - completedTasks - inProgressTasks;
+  const highPriorityOpen = tasks.filter(
+    task => task.priority === TodoPriority.HIGH && task.status !== TodoStatus.DONE,
+  ).length;
+
+  return {
+    totalProjects,
+    activeProjects,
+    completedProjects,
+    onHoldProjects,
+    overBudgetCount: overBudgetProjects.length,
+    overBudgetProjectNames: overBudgetProjects.slice(0, 4).map(project => project.name),
+    averageProgress,
+    totalTasks,
+    completedTasks,
+    inProgressTasks,
+    todoTasks,
+    highPriorityOpen,
+  };
+};
+
+const formatDueDate = (value?: string) => {
+  if (!value) {
+    return 'unscheduled';
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+};
+
+const summariseProjectsForAdvisor = (projects: Project[], stats: PortfolioStats): string => {
+  if (!stats.totalProjects) {
+    return 'No active projects in scope.';
+  }
+
+  const progressLine = `Average progress ${Math.round(stats.averageProgress)}% with ${stats.overBudgetCount} project${
+    stats.overBudgetCount === 1 ? '' : 's'
+  } over budget.`;
+
+  const highlights = [...projects]
+    .sort((a, b) => (a.progress ?? 0) - (b.progress ?? 0))
+    .slice(0, Math.min(3, projects.length))
+    .map(project => {
+      const progress = Number.isFinite(project.progress) ? Math.round(project.progress) : 0;
+      return `- ${project.name}: status ${project.status}, progress ${progress}%, spend ${formatCurrency(
+        project.actualCost,
+      )} of ${formatCurrency(project.budget)}.`;
+    });
+
+  const lines = [
+    `Portfolio: ${stats.totalProjects} project${stats.totalProjects === 1 ? '' : 's'} (${stats.activeProjects} active, ${stats.completedProjects} completed, ${stats.onHoldProjects} on hold).`,
+    progressLine,
+  ];
+
+  if (highlights.length) {
+    lines.push('Key project signals:', ...highlights);
+  }
+
+  return lines.join('\n');
+};
+
+const summariseTasksForAdvisor = (tasks: Todo[], stats: PortfolioStats): string => {
+  if (!stats.totalTasks) {
+    return 'No active tasks captured.';
+  }
+
+  const lines = [
+    `Tasks: ${stats.totalTasks} total (${stats.completedTasks} done, ${stats.inProgressTasks} in progress, ${stats.todoTasks} queued).`,
+  ];
+
+  if (stats.highPriorityOpen > 0) {
+    lines.push(`${stats.highPriorityOpen} high-priority task${stats.highPriorityOpen === 1 ? '' : 's'} awaiting attention.`);
+  }
+
+  const highPriorityTasks = tasks
+    .filter(task => task.priority === TodoPriority.HIGH && task.status !== TodoStatus.DONE)
+    .slice(0, 4)
+    .map(task => {
+      const progressValue =
+        typeof task.progress === 'number'
+          ? Math.round(task.progress)
+          : task.status === TodoStatus.DONE
+            ? 100
+            : undefined;
+      const progressLabel = progressValue != null ? `, progress ${progressValue}%` : '';
+      return `- ${task.title || task.text} (${task.status}${progressLabel}) due ${formatDueDate(task.dueDate)}`;
+    });
+
+  if (highPriorityTasks.length) {
+    lines.push('High-priority focus:', ...highPriorityTasks);
+  }
+
+  return lines.join('\n');
+};
+
+const MAX_HISTORY_TURNS = 6;
+
+const formatConversationHistory = (history: AdvisorTurn[]): string => {
+  if (!history.length) {
+    return 'No prior conversation.';
+  }
+
+  const recent = history.slice(-MAX_HISTORY_TURNS);
+  return recent
+    .map(turn => `${turn.role === 'user' ? 'User' : 'Advisor'}: ${turn.text.trim()}`)
+    .join('\n');
+};
+
+const buildAdvisorPrompt = (input: AdvisorPromptInput, stats: PortfolioStats): string => {
+  const projectsSummary = summariseProjectsForAdvisor(input.projects, stats);
+  const tasksSummary = summariseTasksForAdvisor(input.tasks, stats);
+  const conversation = formatConversationHistory(input.history);
+  const trimmedQuery = input.query.trim();
+  const userDescriptor = input.userName ? `The user is ${input.userName}.` : 'The user manages the construction portfolio.';
+  const companyDescriptor = input.companyName ? `They are working with ${input.companyName}.` : '';
+  const requestDescriptor =
+    input.intent === 'intro'
+      ? 'Provide a brief greeting (max 3 sentences) that references one relevant data point and invite the user to ask how you can help.'
+      : 'Respond with at most 4 concise sentences or bullet points. Prioritise actionable recommendations tied to the data. Avoid repeating the full context.';
+
+  return `You are Ash, an expert construction operations co-pilot embedded in a project management platform.
+${userDescriptor} ${companyDescriptor}
+
+Portfolio context:
+${projectsSummary}
+
+Task context:
+${tasksSummary}
+
+Conversation so far:
+${conversation}
+
+Latest ${input.intent === 'intro' ? 'system instruction' : 'user request'}:
+${trimmedQuery}
+
+${requestDescriptor}
+If information is missing, acknowledge it and recommend next steps rather than fabricating details.`;
+};
+
+const buildAdvisorFallback = (
+  input: AdvisorPromptInput,
+  stats: PortfolioStats,
+  reason: string,
+): AdvisorPromptResult => {
+  const greetingName = input.userName ? ` ${input.userName}` : '';
+  const projectLine = stats.totalProjects
+    ? `${stats.totalProjects} project${stats.totalProjects === 1 ? '' : 's'} in scope (${stats.activeProjects} active, ${stats.completedProjects} completed, ${stats.onHoldProjects} on hold) with average progress ${Math.round(stats.averageProgress)}%.`
+    : 'No active projects are currently linked to this workspace.';
+  const taskLine = stats.totalTasks
+    ? `${stats.totalTasks} tasks tracked (${stats.completedTasks} done, ${stats.inProgressTasks} in progress, ${stats.todoTasks} queued) and ${stats.highPriorityOpen} high-priority item${stats.highPriorityOpen === 1 ? '' : 's'} still open.`
+    : 'No outstanding tasks are recorded yet.';
+  const budgetLine = stats.overBudgetCount
+    ? `Watch budgets on ${stats.overBudgetProjectNames.join(', ')}; spending has exceeded plan.`
+    : 'Budgets are currently tracking within plan.';
+
+  const introPrefix =
+    input.intent === 'intro'
+      ? `Hi${greetingName}! I cannot reach the Gemini service right now, so I am sharing a quick portfolio pulse instead.`
+      : 'The Gemini service is temporarily unavailable; here is the latest snapshot from local data:';
+
+  const reply = [introPrefix, `Projects: ${projectLine}`, `Tasks: ${taskLine}`, budgetLine, 'Try again shortly once connectivity is restored for deeper analysis.'].join(
+    '\n\n',
+  );
+
+  return {
+    reply,
+    isFallback: true,
+    metadata: {
+      reason,
+      intent: input.intent ?? 'general',
+      isFallback: true,
+      ...stats,
+    },
+  };
+};
+
+export const generateAdvisorResponse = async (
+  input: AdvisorPromptInput,
+): Promise<AdvisorPromptResult> => {
+  const trimmedQuery = input.query.trim();
+  const stats = computePortfolioStats(input.projects, input.tasks);
+
+  if (!trimmedQuery) {
+    return buildAdvisorFallback(input, stats, 'empty-query');
+  }
+
+  const prompt = buildAdvisorPrompt(input, stats);
+  const overrides = input.intent === 'intro'
+    ? { maxOutputTokens: 512, temperature: 0.25 }
+    : { maxOutputTokens: 640, temperature: 0.35 };
+
+  const response = await callGemini(prompt, overrides);
+
+  const text = response?.text?.trim();
+  if (text) {
+    const metadata: Record<string, unknown> = {
+      intent: input.intent ?? 'general',
+      isFallback: false,
+      model: response?.modelVersion ?? MODEL_NAME,
+      ...stats,
+    };
+
+    if (response?.usageMetadata) {
+      metadata.usage = response.usageMetadata;
+    }
+
+    return {
+      reply: text,
+      model: response?.modelVersion ?? MODEL_NAME,
+      isFallback: false,
+      metadata,
+    };
+  }
+
+  const reason = response ? 'empty-response' : 'llm-unavailable';
+  return buildAdvisorFallback(input, stats, reason);
 };
 
 const inferHealthStatus = (progress: number, budgetUtilisation: number, openIncidents: number) => {
