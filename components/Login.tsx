@@ -28,10 +28,8 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
         if (localPreference === 'local') return true;
         const sessionPreference = window.sessionStorage.getItem('asagents_auth_persistence');
         if (sessionPreference === 'session') return false;
-        return true;
+        return initialRememberedEmail !== '';
     });
-
-    const [rememberMe, setRememberMe] = useState(initialRememberedEmail !== '');
     const [showPassword, setShowPassword] = useState(false);
     
     const [error, setError] = useState<string | null>(null);
