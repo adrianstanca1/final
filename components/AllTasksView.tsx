@@ -152,29 +152,29 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
 
   const pendingTasks = todos.filter(t => t.status === TodoStatus.PENDING);
   const inProgressTasks = todos.filter(t => t.status === TodoStatus.IN_PROGRESS);
-  const completedTasks = todos.filter(t => t.status === TodoStatus.COMPLETED);
+  const completedTasks = todos.filter(t => t.status === TodoStatus.DONE);
 
   return (
     <div className="space-y-6">
       <ViewHeader
-        view="all-tasks"
         title="All Tasks"
         description="Manage all project tasks"
+        isOnline={!!isOnline}
         actions={<Button>Add Task</Button>}
         meta={[
           {
             label: 'Total tasks',
-            value: tasks.length.toString(),
+            value: taskSummary.total.toString(),
             helper: 'All tasks across projects'
           },
           {
             label: 'In progress',
-            value: inProgressTasks.length.toString(),
+            value: taskSummary.inProgress.toString(),
             helper: 'Actively being worked'
           },
           {
             label: 'Completed',
-            value: completedTasks.length.toString(),
+            value: taskSummary.completed.toString(),
             helper: 'Finished tasks'
           }
         ]}
@@ -194,7 +194,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => handleTaskStatusChange(task.id, 'in_progress')}
+                      onClick={() => handleTaskStatusChange(task.id, TodoStatus.IN_PROGRESS)}
                     >
                       Start
                     </Button>
@@ -218,7 +218,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => handleTaskStatusChange(task.id, 'completed')}
+                      onClick={() => handleTaskStatusChange(task.id, TodoStatus.DONE)}
                     >
                       Complete
                     </Button>
