@@ -1,0 +1,16 @@
+/* UserRegistration component styles */
+
+.progress-bar {
+    width: 100%;
+    background-color: hsl(var(--muted));
+    border-radius: 0.375rem;
+    height: 0.375rem;
+    margin-top: 0.25rem;
+}
+
+.progress-bar-fill {
+    height: 0.375rem;
+    border-radius: 0.375rem;
+    transition: all 0.3s ease;
+    width: var(--progress-width, 0%);
+}

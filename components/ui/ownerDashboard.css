@@ -1,0 +1,95 @@
+/* Styles for owner dashboard components */
+.chart-bar {
+    width: 100%;
+    border-radius: 0.25rem 0.25rem 0 0;
+    transition: height 0.3s ease-in-out;
+}
+
+/* Using height-X classes instead of inline styles */
+.height-10 {
+    height: 10%;
+}
+
+.height-20 {
+    height: 20%;
+}
+
+.height-30 {
+    height: 30%;
+}
+
+.height-40 {
+    height: 40%;
+}
+
+.height-50 {
+    height: 50%;
+}
+
+.height-60 {
+    height: 60%;
+}
+
+.height-70 {
+    height: 70%;
+}
+
+.height-80 {
+    height: 80%;
+}
+
+.height-90 {
+    height: 90%;
+}
+
+.height-100 {
+    height: 100%;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background-color: hsl(var(--primary));
+    transition: width 0.3s ease-in-out;
+    border-radius: 0.25rem;
+}
+
+/* Width classes for progress bar */
+.width-10 {
+    width: 10%;
+}
+
+.width-20 {
+    width: 20%;
+}
+
+.width-30 {
+    width: 30%;
+}
+
+.width-40 {
+    width: 40%;
+}
+
+.width-50 {
+    width: 50%;
+}
+
+.width-60 {
+    width: 60%;
+}
+
+.width-70 {
+    width: 70%;
+}
+
+.width-80 {
+    width: 80%;
+}
+
+.width-90 {
+    width: 90%;
+}
+
+.width-100 {
+    width: 100%;
+}

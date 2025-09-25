@@ -1,37 +1,23 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
     User,
     View,
     Project,
-    Todo,
-    Equipment,
-    AuditLog,
-    Role,
-    TodoStatus,
     AvailabilityStatus,
-    SafetyIncident,
-    Expense,
-    IncidentStatus,
-    ExpenseStatus,
-    ProjectPortfolioSummary,
-    OperationalInsights,
-
 } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
-// FIX: Corrected API import from mockApi
-import { api } from '../services/mockApi';
 import { useOfflineSync } from '../hooks/useOfflineSync';
+import { useDashboardData } from '../hooks/useDashboardData';
+import { useDashboardMetrics } from '../hooks/useDashboardMetrics';
+import { useProjectAI } from '../hooks/useProjectAI';
 import './dashboard.css';
 
 import { Avatar } from './ui/Avatar';
 import { EquipmentStatusBadge } from './ui/StatusBadge';
 import { Tag } from './ui/Tag';
 import { ViewHeader } from './layout/ViewHeader';
-// FIX: Removed `startOfWeek` from import and added a local implementation to resolve the module export error.
-import { format, eachDayOfInterval, isWithinInterval } from 'date-fns';
-import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
-import { generateProjectHealthSummary, ProjectHealthSummaryResult } from '../services/ai';
+import { generateProjectHealthSummary } from '../services/ai';
 
 interface DashboardProps {
     user: User;
@@ -63,7 +49,7 @@ const BarChart: React.FC<{ data: { label: string, value: number }[], barColor: s
                     <div className="bar-chart-value">{item.value}</div>
                     <div
                         className={`${barColor} bar-chart-bar`}
-                        style={{ '--height': `${(item.value / maxValue) * 90}%` } as React.CSSProperties}
+                        style={{ height: `${(item.value / maxValue) * 90}%` }}
                         title={`${item.label}: ${item.value}`}
                     ></div>
                     <span className="bar-chart-label">{item.label}</span>
@@ -113,244 +99,57 @@ const startOfWeek = (date: Date, options?: { weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 
 };
 
 export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveView, onSelectProject }) => {
-    const [loading, setLoading] = useState(true);
-    const [projects, setProjects] = useState<Project[]>([]);
-    const [team, setTeam] = useState<User[]>([]);
-    const [equipment, setEquipment] = useState<Equipment[]>([]);
-    const [tasks, setTasks] = useState<Todo[]>([]);
-    const [activityLog, setActivityLog] = useState<AuditLog[]>([]);
-    const [incidents, setIncidents] = useState<SafetyIncident[]>([]);
-    const [expenses, setExpenses] = useState<Expense[]>([]);
-    const [operationalInsights, setOperationalInsights] = useState<OperationalInsights | null>(null);
     const { isOnline } = useOfflineSync(addToast);
 
-    const [aiSelectedProjectId, setAiSelectedProjectId] = useState<string | null>(null);
-    const [aiSummary, setAiSummary] = useState<ProjectHealthSummaryResult | null>(null);
-    const [aiSummaryProjectId, setAiSummaryProjectId] = useState<string | null>(null);
-    const [isGeneratingAiSummary, setIsGeneratingAiSummary] = useState(false);
-    const [aiError, setAiError] = useState<string | null>(null);
-    const abortControllerRef = useRef<AbortController | null>(null);
+    // Use custom hooks to reduce complexity
+    const {
+        projects,
+        team,
+        equipment,
+        tasks,
+        activityLog,
+        incidents,
+        expenses,
+        operationalInsights,
+        loading
+    } = useDashboardData({ user, addToast });
 
-    const fetchData = useCallback(async () => {
-        const controller = new AbortController();
-        abortControllerRef.current?.abort();
-        abortControllerRef.current = controller;
+    const metrics = useDashboardMetrics({
+        projects,
+        tasks,
+        team,
+        incidents,
+        expenses,
+        operationalInsights
+    });
 
-        setLoading(true);
-        try {
-            if (!user.companyId) return;
-            const [projData, usersData, equipData, assignmentsData, logsData, insightsData] = await Promise.all([
-                api.getProjectsByManager(user.id, { signal: controller.signal }),
-                api.getUsersByCompany(user.companyId, { signal: controller.signal }),
-                api.getEquipmentByCompany(user.companyId, { signal: controller.signal }),
-                api.getResourceAssignments(user.companyId, { signal: controller.signal }),
-                api.getAuditLogsByCompany(user.companyId, { signal: controller.signal }),
-                api.getOperationalInsights(user.companyId, { signal: controller.signal }),
-            ]);
+    const ai = useProjectAI({
+        projects,
+        tasks: tasks,
+        incidents: incidents,
+        expenses: expenses,
+        addToast
+    });
 
-            if (controller.signal.aborted) return;
-            setProjects(projData);
-            setAiSelectedProjectId(prev => prev ?? projData.find(p => p.status === 'ACTIVE')?.id ?? projData[0]?.id ?? null);
-            if (controller.signal.aborted) return;
-            setTeam(usersData.filter(u => u.role !== Role.PRINCIPAL_ADMIN));
+    // Create userMap for activity log
+    const userMap = new Map(team.map(u => [u.id, u]));
 
-            // FIX: Use uppercase 'ACTIVE' for ProjectStatus enum comparison.
-            const activeProjectIds = new Set(projData.filter(p => p.status === 'ACTIVE').map(p => p.id));
-            const tasksData = await api.getTodosByProjectIds(Array.from(activeProjectIds) as string[], { signal: controller.signal });
-            if (controller.signal.aborted) return;
-            setTasks(tasksData);
-
-            const assignedEquipmentIds = new Set(assignmentsData
-                .filter(a => a.resourceType === 'equipment' && activeProjectIds.has(a.projectId))
-                .map(a => a.resourceId));
-            if (controller.signal.aborted) return;
-            setEquipment(equipData.filter(e => assignedEquipmentIds.has(e.id)));
-
-            if (controller.signal.aborted) return;
-            setActivityLog(logsData.filter(l => l.action.includes('task')).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
-
-            if (controller.signal.aborted) return;
-            setOperationalInsights(insightsData);
-
-
-            const [incidentsData, expensesData] = await Promise.all([
-                api.getSafetyIncidentsByCompany(user.companyId, { signal: controller.signal }),
-                api.getExpensesByCompany(user.companyId, { signal: controller.signal }),
-            ]);
-
-            if (controller.signal.aborted) return;
-            setIncidents(incidentsData);
-            if (controller.signal.aborted) return;
-            setExpenses(expensesData);
-
-        } catch (error) {
-            if (controller.signal.aborted) return;
-            console.error('Dashboard data load failed:', error);
-            addToast("Failed to load dashboard data.", 'error');
-        } finally {
-            const isAborted = controller.signal.aborted;
-            if (!isAborted) {
-                setLoading(false);
+    // Set initial AI selected project
+    useEffect(() => {
+        if (!ai.aiSelectedProjectId && projects.length > 0) {
+            const activeProject = projects.find(p => p.status === 'ACTIVE');
+            const firstProject = activeProject || projects[0];
+            if (firstProject) {
+                ai.setAiSelectedProjectId(firstProject.id);
             }
         }
-    }, [user, addToast]);
+    }, [projects, ai.aiSelectedProjectId, ai.setAiSelectedProjectId]);
 
-    useEffect(() => {
-        fetchData();
-        return () => {
-            abortControllerRef.current?.abort();
-        };
-    }, [fetchData]);
+    // Data loading is now handled by custom hooks
 
-    const userMap = useMemo(() => new Map(team.map(u => [u.id, u])), [team]);
+    // All calculations now handled by useDashboardMetrics hook
 
-    const portfolioSummary: ProjectPortfolioSummary = useMemo(
-        () => computeProjectPortfolioSummary(projects),
-        [projects],
-    );
-
-    const activeProjects = useMemo(() => projects.filter(p => p.status === 'ACTIVE'), [projects]);
-
-    const atRiskProjects = useMemo(() => {
-        return activeProjects
-            .map(project => {
-                const budget = project.budget ?? 0;
-                const actual = project.actualCost ?? project.spent ?? 0;
-                const progress = project.progress ?? 0;
-                const overdue = portfolioSummary.upcomingDeadlines.some(deadline => deadline.id === project.id && deadline.isOverdue);
-                const score =
-                    (budget > 0 ? actual / budget : 1) +
-                    (project.status === 'ON_HOLD' ? 1 : 0) +
-                    (progress < 50 ? 0.5 : 0) +
-                    (overdue ? 0.75 : 0);
-                return { project, budget, actual, progress, overdue, score };
-            })
-            .sort((a, b) => b.score - a.score)
-            .slice(0, 4);
-    }, [activeProjects, portfolioSummary.upcomingDeadlines]);
-
-    const openIncidents = useMemo(
-        () => incidents.filter(incident => incident.status !== IncidentStatus.RESOLVED),
-        [incidents],
-    );
-
-    const fallbackHighSeverityIncidents = useMemo(
-        () => openIncidents.filter(incident => incident.severity === 'HIGH' || incident.severity === 'CRITICAL'),
-        [openIncidents],
-    );
-
-    const fallbackApprovedExpenseTotal = useMemo(
-        () => expenses
-            .filter(expense => expense.status === ExpenseStatus.APPROVED || expense.status === ExpenseStatus.PAID)
-            .reduce((sum, expense) => sum + (expense.amount ?? 0), 0),
-        [expenses],
-    );
-    const highSeverityIncidents = useMemo(
-        () => openIncidents.filter(incident => incident.severity === 'HIGH' || incident.severity === 'CRITICAL'),
-        [openIncidents],
-    );
-
-    const approvedExpenses = useMemo(
-        () => expenses.filter(expense => expense.status === ExpenseStatus.APPROVED || expense.status === ExpenseStatus.PAID),
-        [expenses],
-    );
-
-    const approvedExpenseTotal = useMemo(
-        () => approvedExpenses.reduce((sum, expense) => sum + (expense.amount ?? 0), 0),
-        [approvedExpenses],
-    );
-
-    const weeklyTaskData = useMemo(() => {
-        const now = new Date();
-        const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-        const weekInterval = { start: weekStart, end: now };
-        const daysOfWeek = eachDayOfInterval(weekInterval);
-
-        return daysOfWeek.map(day => ({
-            label: format(day, 'E'),
-            value: tasks.filter(t => t.completedAt && isWithinInterval(new Date(t.completedAt), { start: day, end: new Date(day).setHours(23, 59, 59, 999) })).length
-        }));
-    }, [tasks]);
-
-    const availabilityBreakdown = useMemo(() => {
-        return team.reduce<Record<string, number>>((acc, member) => {
-            const key = member.availability ?? 'Unknown';
-            acc[key] = (acc[key] ?? 0) + 1;
-            return acc;
-        }, {});
-    }, [team]);
-
-    const upcomingDeadlines = portfolioSummary.upcomingDeadlines;
-
-    const tasksInProgress = useMemo(
-        () => tasks.filter(task => task.status !== TodoStatus.DONE).length,
-        [tasks],
-    );
-
-    const insight = operationalInsights;
-    const operationalCurrency = insight?.financial.currency ?? 'GBP';
-    const complianceRate = clampPercentage(insight?.workforce.complianceRate ?? 0);
-    const openIncidentsCount = insight?.safety.openIncidents ?? openIncidents.length;
-    const highSeverityCount = insight?.safety.highSeverity ?? fallbackHighSeverityIncidents.length;
-    const pendingApprovals = insight?.workforce.pendingApprovals ?? 0;
-    const approvedExpenseThisMonth = insight?.financial.approvedExpensesThisMonth ?? fallbackApprovedExpenseTotal;
-    const burnPerProject = insight?.financial.burnRatePerActiveProject ?? 0;
-    const overtimeHours = insight?.workforce.overtimeHours ?? 0;
-    const averageHours = insight?.workforce.averageHours ?? 0;
-    const tasksDueSoon = insight?.schedule.tasksDueSoon ?? 0;
-    const overdueTasks = insight?.schedule.overdueTasks ?? 0;
-    const scheduleInProgress = insight?.schedule.tasksInProgress ?? tasksInProgress;
-    const operationalAlerts = insight?.alerts ?? [];
-
-    // KPI data object for dashboard metrics
-    const kpiData = useMemo(() => ({
-        activeProjectsCount: activeProjects.length,
-        atRisk: atRiskProjects.length,
-        openIncidents: openIncidentsCount,
-        budgetUtilization: Math.round((approvedExpenseThisMonth / Math.max(1000000, 1)) * 100), // Use a default budget
-        teamSize: team.length
-    }), [activeProjects.length, atRiskProjects.length, openIncidentsCount, approvedExpenseThisMonth, team.length]);
-
-    const handleGenerateProjectBrief = useCallback(async () => {
-        if (!aiSelectedProjectId) {
-            setAiError('Select a project to analyse.');
-            return;
-        }
-
-        const project = projects.find(p => p.id === aiSelectedProjectId);
-        if (!project) {
-            setAiError('The selected project is no longer available.');
-            return;
-        }
-
-        setIsGeneratingAiSummary(true);
-        setAiError(null);
-
-        try {
-            const projectTasks = tasks.filter(task => task.projectId === project.id);
-
-
-            const projectIncidents = openIncidents.filter(incident => incident.projectId === project.id);
-            const projectExpenses = approvedExpenses.filter(expense => expense.projectId === project.id);
-
-
-            const summary = await generateProjectHealthSummary({
-                project,
-                tasks: projectTasks,
-                incidents: projectIncidents,
-                expenses: projectExpenses,
-            });
-
-            setAiSummary(summary);
-            setAiSummaryProjectId(project.id);
-        } catch (error) {
-            console.error('Failed to generate project health summary', error);
-            setAiError('Unable to generate the AI brief right now.');
-            addToast('Gemini could not analyse that project at the moment.', 'error');
-        } finally {
-            setIsGeneratingAiSummary(false);
-        }
-    }, [aiSelectedProjectId, projects, tasks, openIncidents, expenses, addToast]);
+    ai.handleGenerateProjectBrief();
 
     if (loading) return <Card>Loading project manager dashboard…</Card>;
 
@@ -364,27 +163,33 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                 meta={[
                     {
                         label: 'Active projects',
-                        value: kpiData.activeProjectsCount.toString(),
-                        helper: `${portfolioSummary.completedProjects} completed`,
-                        indicator: kpiData.activeProjectsCount > 0 ? 'positive' : 'neutral',
+                        value: metrics.kpiData.activeProjectsCount.toString(),
+                        helper: `${metrics.portfolioSummary.completedProjects} completed`,
+                        indicator: metrics.kpiData.activeProjectsCount > 0 ? 'positive' : 'neutral',
                     },
                     {
                         label: 'At-risk',
-                        value: `${kpiData.atRisk}`,
-                        helper: atRiskProjects.length > 0 ? 'See priority list below' : 'All projects steady',
-                        indicator: kpiData.atRisk > 0 ? 'warning' : 'positive',
+                        value: `${metrics.kpiData.atRisk}`,
+                        helper: metrics.atRiskProjects.length > 0 ? 'See priority list below' : 'All projects steady',
+                        indicator: metrics.kpiData.atRisk > 0 ? 'warning' : 'positive',
                     },
                     {
                         label: 'Open incidents',
-                        value: `${kpiData.openIncidents}`,
-                        helper: highSeverityIncidents.length > 0 ? `${highSeverityIncidents.length} high severity` : 'No critical alerts',
-                        indicator: kpiData.openIncidents > 0 ? 'warning' : 'positive',
+                        value: `${metrics.kpiData.openIncidents}`,
+                        helper: metrics.operationalMetrics.highSeverityCount > 0 ? `${metrics.operationalMetrics.highSeverityCount} high severity` : 'No critical alerts',
+                        indicator: metrics.kpiData.openIncidents > 0 ? 'warning' : 'positive',
+                    },
+                    {
+                        label: 'Team',
+                        value: metrics.kpiData.teamSize.toString(),
+                        helper: 'Across org',
+                        indicator: 'positive',
                     },
                     {
                         label: 'Budget utilisation',
-                        value: `${kpiData.budgetUtilization}%`,
+                        value: `${metrics.kpiData.budgetUtilization}%`,
                         helper: 'Across active projects',
-                        indicator: Number(kpiData.budgetUtilization) > 90 ? 'warning' : 'positive',
+                        indicator: Number(metrics.kpiData.budgetUtilization) > 90 ? 'warning' : 'positive',
                     },
                 ]}
             />
@@ -392,25 +197,25 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
             <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
                 <KpiCard
                     title="Active projects"
-                    value={kpiData.activeProjectsCount.toString()}
-                    subtext={`${portfolioSummary.totalProjects} in portfolio`}
+                    value={metrics.kpiData.activeProjectsCount.toString()}
+                    subtext={`${metrics.portfolioSummary.totalProjects} in portfolio`}
                     icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>}
                 />
                 <KpiCard
                     title="Team size"
-                    value={kpiData.teamSize.toString()}
+                    value={metrics.kpiData.teamSize.toString()}
                     subtext="Across your organisation"
                     icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656-.126-1.283-.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
                 />
                 <KpiCard
                     title="Budget utilisation"
-                    value={`${kpiData.budgetUtilization}%`}
+                    value={`${metrics.kpiData.budgetUtilization}%`}
                     subtext="Across active projects"
                     icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>}
                 />
                 <KpiCard
                     title="Approved spend"
-                    value={formatCurrency(approvedExpenseTotal)}
+                    value={formatCurrency(metrics.operationalMetrics.approvedExpenseThisMonth)}
                     subtext="Approved or paid expenses"
                     icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M9 6h6m-3-2v2m0 12v2m7-5a9 9 0 11-14 0" /></svg>}
                 />
@@ -425,11 +230,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                         </div>
                         <Button variant="ghost" size="sm" onClick={() => setActiveView('projects')}>View all</Button>
                     </div>
-                    {atRiskProjects.length === 0 ? (
+                    {metrics.atRiskProjects.length === 0 ? (
                         <p className="text-sm text-muted-foreground">All monitored projects are currently stable.</p>
                     ) : (
                         <div className="space-y-4">
-                            {atRiskProjects.map(({ project, budget, actual, progress, overdue }) => (
+                            {metrics.atRiskProjects.map(({ project, budget, actual, progress, overdue }) => (
                                 <div key={project.id} className="space-y-2 rounded-lg border border-border/60 p-3">
                                     <div className="flex items-center justify-between">
                                         <div>
@@ -470,11 +275,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                 </Card>
                 <Card className="space-y-4 p-6">
                     <h2 className="text-lg font-semibold text-foreground">Upcoming deadlines</h2>
-                    {upcomingDeadlines.length === 0 ? (
+                    {metrics.portfolioSummary.upcomingDeadlines.length === 0 ? (
                         <p className="text-sm text-muted-foreground">No due dates in the next few weeks.</p>
                     ) : (
                         <ul className="space-y-3 text-sm">
-                            {upcomingDeadlines.map(deadline => (
+                            {metrics.portfolioSummary.upcomingDeadlines.map(deadline => (
                                 <li key={deadline.id} className="flex items-center justify-between">
                                     <div>
                                         <p className="font-semibold text-foreground">{deadline.name}</p>
@@ -497,42 +302,42 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Open incidents</span>
                             <span className="font-semibold text-foreground">
-                                {openIncidentsCount}
-                                {highSeverityCount > 0 && (
-                                    <span className="text-xs font-medium text-destructive"> • {highSeverityCount} high</span>
+                                {metrics.operationalMetrics.openIncidentsCount}
+                                {metrics.operationalMetrics.highSeverityCount > 0 && (
+                                    <span className="text-xs font-medium text-destructive"> • {metrics.operationalMetrics.highSeverityCount} high</span>
                                 )}
                             </span>
                         </div>
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Tasks due next 7 days</span>
-                            <span className={`font-semibold ${tasksDueSoon > 5 ? 'text-amber-600' : 'text-foreground'}`}>{tasksDueSoon}</span>
+                            <span className={`font-semibold ${metrics.operationalMetrics.tasksDueSoon > 5 ? 'text-amber-600' : 'text-foreground'}`}>{metrics.operationalMetrics.tasksDueSoon}</span>
                         </div>
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Overdue tasks</span>
-                            <span className={`font-semibold ${overdueTasks > 0 ? 'text-destructive' : 'text-foreground'}`}>{overdueTasks}</span>
+                            <span className={`font-semibold ${metrics.operationalMetrics.overdueTasks > 0 ? 'text-destructive' : 'text-foreground'}`}>{metrics.operationalMetrics.overdueTasks}</span>
                         </div>
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Active tasks</span>
-                            <span className="font-semibold text-foreground">{scheduleInProgress}</span>
+                            <span className="font-semibold text-foreground">{metrics.operationalMetrics.scheduleInProgress}</span>
                         </div>
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Pending approvals</span>
-                            <span className="font-semibold text-foreground">{pendingApprovals}</span>
+                            <span className="font-semibold text-foreground">{metrics.operationalMetrics.pendingApprovals}</span>
                         </div>
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Avg hours / shift</span>
-                            <span className="font-semibold text-foreground">{averageHours.toFixed(1)}h</span>
+                            <span className="font-semibold text-foreground">{metrics.operationalMetrics.averageHours.toFixed(1)}h</span>
                         </div>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                        Burn per active project {formatCurrency(burnPerProject, operationalCurrency)}
-                        {overtimeHours > 0 ? ` • ${overtimeHours.toFixed(1)} overtime hrs` : ''}
+                        Burn per active project {formatCurrency(metrics.operationalMetrics.burnPerProject, metrics.operationalMetrics.operationalCurrency)}
+                        {metrics.operationalMetrics.overtimeHours > 0 ? ` • ${metrics.operationalMetrics.overtimeHours.toFixed(1)} overtime hrs` : ''}
                     </p>
-                    {operationalAlerts.length > 0 && (
+                    {metrics.operationalMetrics.operationalAlerts.length > 0 && (
                         <div className="space-y-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
                             <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Alerts</p>
                             <ul className="space-y-1 text-sm text-muted-foreground">
-                                {operationalAlerts.slice(0, 3).map(alert => (
+                                {metrics.operationalMetrics.operationalAlerts.slice(0, 3).map(alert => (
                                     <li key={alert.id} className="flex items-start gap-2">
                                         <span
                                             className={`mt-1 h-2 w-2 rounded-full ${(() => {
@@ -553,19 +358,19 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Open incidents</span>
-                            <span className="font-semibold text-foreground">{openIncidents.length}</span>
+                            <span className="font-semibold text-foreground">{metrics.operationalMetrics.openIncidentsCount}</span>
                         </div>
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">High severity</span>
-                            <span className="font-semibold text-destructive">{highSeverityIncidents.length}</span>
+                            <span className="font-semibold text-destructive">{metrics.operationalMetrics.highSeverityCount}</span>
                         </div>
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Active tasks</span>
-                            <span className="font-semibold text-foreground">{tasksInProgress}</span>
+                            <span className="font-semibold text-foreground">{metrics.operationalMetrics.scheduleInProgress}</span>
                         </div>
                         <div className="flex items-center justify-between">
                             <span className="text-muted-foreground">Approved spend</span>
-                            <span className="font-semibold text-foreground">{formatCurrency(approvedExpenseTotal)}</span>
+                            <span className="font-semibold text-foreground">{formatCurrency(metrics.operationalMetrics.approvedExpenseThisMonth)}</span>
                         </div>
                     </div>
 
@@ -578,35 +383,35 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                         <h2 className="text-lg font-semibold text-foreground">AI project briefing</h2>
                         <p className="text-sm text-muted-foreground">Generate a Gemini-powered health summary for any live job.</p>
                     </div>
-                    {activeProjects.length === 0 ? (
+                    {metrics.activeProjects.length === 0 ? (
                         <p className="text-sm text-muted-foreground">Add an active project to run an AI briefing.</p>
                     ) : (
                         <div className="flex flex-wrap items-center gap-3">
                             <select
                                 aria-label="Select project for analysis"
-                                value={aiSelectedProjectId ?? ''}
-                                onChange={event => setAiSelectedProjectId(event.target.value || null)}
+                                value={ai.aiSelectedProjectId ?? ''}
+                                onChange={event => ai.setAiSelectedProjectId(event.target.value || null)}
                                 className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                                disabled={isGeneratingAiSummary}
+                                disabled={ai.isGeneratingAiSummary}
                             >
-                                {activeProjects.map(project => (
+                                {metrics.activeProjects.map(project => (
                                     <option key={project.id} value={project.id}>
                                         {project.name}
                                     </option>
                                 ))}
                             </select>
-                            <Button onClick={handleGenerateProjectBrief} isLoading={isGeneratingAiSummary} disabled={isGeneratingAiSummary || !aiSelectedProjectId}>
-                                {aiSummary && aiSummaryProjectId === aiSelectedProjectId ? 'Refresh brief' : 'Generate brief'}
+                            <Button onClick={ai.handleGenerateProjectBrief} isLoading={ai.isGeneratingAiSummary} disabled={ai.isGeneratingAiSummary || !ai.aiSelectedProjectId}>
+                                {ai.aiSummary && ai.aiSummaryProjectId === ai.aiSelectedProjectId ? 'Refresh brief' : 'Generate brief'}
                             </Button>
                         </div>
                     )}
-                    {aiError && <p className="text-sm text-destructive">{aiError}</p>}
-                    {aiSummary && aiSummaryProjectId === aiSelectedProjectId ? (
+                    {ai.aiError && <p className="text-sm text-destructive">{ai.aiError}</p>}
+                    {ai.aiSummary && ai.aiSummaryProjectId === ai.aiSelectedProjectId ? (
                         <div className="space-y-3">
-                            <div className="space-y-1">{renderMarkdownSummary(aiSummary.summary)}</div>
+                            <div className="space-y-1">{renderMarkdownSummary(ai.aiSummary.summary)}</div>
                             <p className="text-xs text-muted-foreground">
-                                {aiSummary.isFallback ? 'Offline insight' : 'AI insight'}
-                                {aiSummary.model ? ` • ${aiSummary.model}` : ''}
+                                {ai.aiSummary.isFallback ? 'Offline insight' : 'AI insight'}
+                                {ai.aiSummary.model ? ` • ${ai.aiSummary.model}` : ''}
                             </p>
                         </div>
                     ) : (
@@ -622,11 +427,11 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                         <Button variant="ghost" size="sm" onClick={() => setActiveView('users')}>Manage team</Button>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                        {complianceRate}% timesheets approved • {pendingApprovals} pending
+                        {metrics.operationalMetrics.complianceRate}% timesheets approved • {metrics.operationalMetrics.pendingApprovals} pending
                     </p>
 
                     <div className="space-y-3 text-sm">
-                        {Object.entries(availabilityBreakdown).map(([status, count]) => (
+                        {Object.entries(metrics.availabilityBreakdown).map(([status, count]) => (
                             <div key={status} className="flex items-center justify-between">
                                 <span className="text-muted-foreground">{status}</span>
                                 <span className="font-semibold text-foreground">{count}</span>
@@ -639,7 +444,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
             <section className="grid gap-6 lg:grid-cols-2">
                 <Card className="p-6">
                     <h2 className="text-lg font-semibold text-foreground">Tasks completed this week</h2>
-                    <BarChart data={weeklyTaskData} barColor="bg-primary" />
+                    <BarChart data={metrics.weeklyTaskData} barColor="bg-primary" />
                 </Card>
                 <Card className="space-y-4 p-6">
                     <h2 className="text-lg font-semibold text-foreground">People on deck</h2>

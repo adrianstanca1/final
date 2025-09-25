@@ -243,14 +243,13 @@ const UserModal: React.FC<{
 
 
     return (
-        <div
+        <dialog
+            open
             className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
             onClick={onClose}
         >
             <form
                 onSubmit={handleSubmit}
-                role="dialog"
-                aria-modal="true"
                 aria-label={isAddMode ? 'Add team member' : 'Edit team member'}
                 className="w-full max-w-4xl"
                 onClick={e => e.stopPropagation()}
@@ -287,7 +286,7 @@ const UserModal: React.FC<{
                     </div>
                 </Card>
             </form>
-        </div>
+        </dialog>
     );
 };
 

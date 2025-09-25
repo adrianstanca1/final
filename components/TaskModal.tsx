@@ -72,12 +72,11 @@ export const TaskModal: React.FC<{
     };
 
     return (
-        <div
+        <dialog
+            open
             className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
             onClick={onClose}
             onKeyDown={(e) => e.key === 'Escape' && onClose()}
-            role="dialog"
-            aria-modal="true"
             tabIndex={0}
         >
             <Card className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
@@ -129,6 +128,6 @@ export const TaskModal: React.FC<{
                     </div>
                 </form>
             </Card>
-        </div>
+        </dialog>
     );
 };

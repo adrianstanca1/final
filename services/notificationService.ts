@@ -2,7 +2,7 @@
  * Real-time notification service with WebSocket support and offline queuing
  */
 
-import { Notification, NotificationType, User } from '../types';
+import { Notification as AppNotification, NotificationType } from '../types';
 
 export interface NotificationOptions {
   title: string;
@@ -28,20 +28,21 @@ export class NotificationService {
   private static instance: NotificationService;
   private websocket: WebSocket | null = null;
   private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private reconnectDelay = 1000;
-  private subscriptions = new Set<(notification: Notification) => void>();
-  private offlineQueue: Notification[] = [];
+  private readonly maxReconnectAttempts = 5;
+  private readonly reconnectDelay = 1000;
+  private readonly subscriptions = new Set<(notification: AppNotification) => void>();
+  private offlineQueue: AppNotification[] = [];
   private isOnline = navigator.onLine;
 
   private constructor() {
     this.setupEventListeners();
-    this.requestPermission();
   }
 
   static getInstance(): NotificationService {
     if (!NotificationService.instance) {
       NotificationService.instance = new NotificationService();
+      // Initialize permission after instance is created
+      setTimeout(() => NotificationService.instance.requestPermission(), 0);
     }
     return NotificationService.instance;
   }
@@ -65,7 +66,7 @@ export class NotificationService {
 
       this.websocket.onmessage = (event) => {
         try {
-          const notification: Notification = JSON.parse(event.data);
+          const notification: AppNotification = JSON.parse(event.data);
           this.handleIncomingNotification(notification);
         } catch (error) {
           console.error('Failed to parse notification:', error);
@@ -94,7 +95,7 @@ export class NotificationService {
   }
 
   // Subscription management
-  subscribe(callback: (notification: Notification) => void): () => void {
+  subscribe(callback: (notification: AppNotification) => void): () => void {
     this.subscriptions.add(callback);
     
     return () => {
@@ -104,7 +105,7 @@ export class NotificationService {
 
   // Send notification
   async sendNotification(notification: Partial<Notification>): Promise<void> {
-    const fullNotification: Notification = {
+    const fullNotification: AppNotification = {
       id: this.generateId(),
       timestamp: new Date().toISOString(),
       read: false,
@@ -187,8 +188,8 @@ export class NotificationService {
         userId: '', // Will be set by caller
         endpoint: subscription.endpoint,
         keys: {
-          p256dh: this.arrayBufferToBase64(subscription.getKey('p256dh')!),
-          auth: this.arrayBufferToBase64(subscription.getKey('auth')!),
+          p256dh: this.arrayBufferToBase64(subscription.getKey('p256dh')),
+          auth: this.arrayBufferToBase64(subscription.getKey('auth')),
         },
       };
 
@@ -282,7 +283,7 @@ export class NotificationService {
     }, delay);
   }
 
-  private handleIncomingNotification(notification: Notification): void {
+  private handleIncomingNotification(notification: AppNotification): void {
     // Notify all subscribers
     this.subscriptions.forEach(callback => {
       try {
@@ -302,7 +303,7 @@ export class NotificationService {
     }
   }
 
-  private shouldShowBrowserNotification(notification: Notification): boolean {
+  private shouldShowBrowserNotification(notification: AppNotification): boolean {
     // Don't show if document is visible and user is active
     if (!document.hidden) {
       return false;
@@ -321,7 +322,7 @@ export class NotificationService {
     return false;
   }
 
-  private queueOfflineNotification(notification: Notification): void {
+  private queueOfflineNotification(notification: AppNotification): void {
     this.offlineQueue.push(notification);
     
     // Limit queue size
@@ -342,7 +343,7 @@ export class NotificationService {
   }
 
   private generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   }
 
   private urlBase64ToUint8Array(base64String: string): Uint8Array {

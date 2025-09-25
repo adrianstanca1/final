@@ -1,5 +1,5 @@
 // Fixed OwnerDashboard.tsx
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   User,
   Project,
@@ -10,24 +10,27 @@ import {
   Expense,
   SafetyIncident,
   Timesheet,
-  ProjectPortfolioSummary,
   View,
   FinancialForecast,
-  InvoiceStatus,
-  TimesheetStatus,
-  IncidentStatus,
-  IncidentSeverity,
   OperationalInsights,
+  InvoiceStatus,
 } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Tag } from './ui/Tag';
+import './ownerDashboard.css';
 import { ViewHeader } from './layout/ViewHeader';
-import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
 import { getDerivedStatus, getInvoiceFinancials } from '../utils/finance';
 import { generateFinancialForecast } from '../services/ai';
 import { useOfflineSync } from '../hooks/useOfflineSync';
+import {
+  usePortfolioCalculations,
+  useFinancialCalculations,
+  useSafetyCalculations,
+  useWorkforceCalculations,
+  useChartCalculations
+} from '../hooks/useOwnerDashboardCalculations';
 
 interface OwnerDashboardProps {
   user: User;
@@ -102,9 +105,9 @@ const MiniBarChart: React.FC<{
           <div className="text-xs font-semibold text-muted-foreground">{item.label}</div>
           <div className="flex h-32 w-full items-end overflow-hidden rounded bg-muted/60">
             <div
-              className={`${color} w-full rounded-t transition-all`}
+              className={`${color} chart-bar`}
               style={{
-                height: `${Math.max(6, (item.value / max) * 100)}%`
+                '--bar-height': `${Math.max(6, (item.value / max) * 100)}%`
               } as React.CSSProperties}
               title={`${item.label}: ${item.value.toLocaleString()}`}
             />
@@ -132,9 +135,9 @@ const CostBreakdownList: React.FC<{ data: CostBreakdown[]; currency: string }> =
             </div>
             <div className="h-2 w-full overflow-hidden rounded bg-muted">
               <div
-                className="h-full rounded bg-primary/80"
+                className="progress-bar-fill"
                 style={{
-                  width: `${share}%`
+                  '--progress-width': `${share}%`
                 } as React.CSSProperties}
               />
             </div>
@@ -245,89 +248,32 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     return () => abortControllerRef.current?.abort();
   }, [fetchData]);
 
-  const portfolioSummary: ProjectPortfolioSummary = useMemo(
-    () => computeProjectPortfolioSummary(data.projects),
-    [data.projects]
-  );
+  const {
+    portfolioSummary,
+    atRiskProjects
+  } = usePortfolioCalculations(data);
 
-  const atRiskProjects = useMemo(() => {
-    return data.projects
-      .map((project) => {
-        const budget = project.budget ?? 0;
-        const actual = project.actualCost ?? project.spent ?? 0;
-        const progress = project.progress ?? 0;
-        const isOverBudget = budget > 0 ? actual / budget > 1.05 : false;
-        const riskScore =
-          (isOverBudget ? 1.2 : 1) *
-          (project.status === 'ON_HOLD' ? 1.3 : 1) *
-          (project.status === 'CANCELLED' ? 0 : 1) *
-          (progress < 40 ? 1.2 : 1) *
-          (portfolioSummary.upcomingDeadlines.some((d) => d.id === project.id && d.isOverdue) ? 1.3 : 1);
-        return { project, budget, actual, progress, riskScore };
-      })
-      .filter((entry) => entry.project.status !== 'COMPLETED' && entry.project.status !== 'CANCELLED')
-      .sort((a, b) => b.riskScore - a.riskScore)
-      .slice(0, 4);
-  }, [data.projects, portfolioSummary.upcomingDeadlines]);
+  const {
+    outstandingReceivables,
+    overdueReceivables,
+    invoicePipeline,
+    approvedExpenseTotal,
+    fallbackApprovedExpenseTotal
+  } = useFinancialCalculations(data.invoices, data.expenses);
 
-  const { outstandingReceivables, overdueReceivables, invoicePipeline } = useMemo(() => {
-    return data.invoices.reduce(
-      (acc, invoice) => {
-        const { balance, total } = getInvoiceFinancials(invoice);
-        acc.outstandingReceivables += balance;
-        acc.invoicePipeline += total;
-        const derivedStatus = getDerivedStatus(invoice);
-        if (derivedStatus === InvoiceStatus.OVERDUE) acc.overdueReceivables += balance;
-        return acc;
-      },
-      { outstandingReceivables: 0, overdueReceivables: 0, invoicePipeline: 0 }
-    );
-  }, [data.invoices]);
+  const {
+    openIncidents,
+    fallbackHighSeverityIncidents
+  } = useSafetyCalculations(data.incidents);
 
-  const fallbackApprovedExpenseTotal = useMemo(
-    () =>
-      data.expenses
-        .filter((expense) => expense.status === 'APPROVED' || expense.status === 'PAID')
-        .reduce((sum, expense) => sum + (expense.amount || 0), 0),
-    [data.expenses]
-  );
+  const {
+    complianceRate
+  } = useWorkforceCalculations(data.timesheets);
 
-  const approvedExpenses = useMemo(
-    () => data.expenses.filter((expense) => expense.status === 'APPROVED' || expense.status === 'PAID'),
-    [data.expenses]
-  );
-
-  const approvedExpenseTotal = useMemo(
-    () => approvedExpenses.reduce((sum, expense) => sum + (expense.amount || 0), 0),
-    [approvedExpenses]
-  );
-
-  const openIncidents = useMemo(
-    () => data.incidents.filter((incident) => incident.status !== IncidentStatus.RESOLVED),
-    [data.incidents]
-  );
-
-  const fallbackHighSeverityIncidents = useMemo(
-    () => openIncidents.filter((i) => i.severity === IncidentSeverity.HIGH || i.severity === IncidentSeverity.CRITICAL),
-    [openIncidents]
-  );
-
-  const complianceRate = useMemo(() => {
-    const submitted = data.timesheets.filter((ts) => ts.status !== TimesheetStatus.DRAFT);
-    if (!submitted.length) return 0;
-    const approved = submitted.filter((ts) => ts.status === TimesheetStatus.APPROVED).length;
-    return clampPercentage((approved / submitted.length) * 100);
-  }, [data.timesheets]);
-
-  const revenueTrend = useMemo(
-    () => data.monthly.slice(-6).map((entry) => ({ label: entry.month, value: entry.revenue })),
-    [data.monthly]
-  );
-
-  const profitTrend = useMemo(
-    () => data.monthly.slice(-6).map((entry) => ({ label: entry.month, value: entry.profit })),
-    [data.monthly]
-  );
+  const {
+    revenueTrend,
+    profitTrend
+  } = useChartCalculations(data.monthly);
 
   const operationalInsights = data.operationalInsights;
   const financialCurrency = operationalInsights?.financial.currency ?? currency;

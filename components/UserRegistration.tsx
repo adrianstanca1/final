@@ -3,6 +3,7 @@ import { Role, RolePermissions, CompanyType, RegisterCredentials } from '../type
 import { useAuth } from '../contexts/AuthContext';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
+import './userRegistration.css';
 
 interface UserRegistrationProps {
     onSwitchToLogin: () => void;
@@ -41,9 +42,9 @@ const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password =
     }
 
     return (
-        <div className="w-full bg-muted rounded-full h-1.5 mt-1">
-            <div className={`h-1.5 rounded-full transition-all duration-300 ${color}`}
-                style={{ '--progress-width': `${width}%`, width: 'var(--progress-width)' } as React.CSSProperties}
+        <div className="progress-bar">
+            <div className={`progress-bar-fill ${color}`}
+                style={{ '--progress-width': `${width}%` } as React.CSSProperties}
             ></div>
         </div>
     );
@@ -90,7 +91,7 @@ const CreateCompanyModal: React.FC<{
     };
 
     return (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+        <dialog open className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
             <button
                 className="absolute inset-0 bg-transparent border-0 cursor-default"
                 onClick={onClose}
@@ -110,7 +111,7 @@ const CreateCompanyModal: React.FC<{
                     </div>
                 </form>
             </Card>
-        </div>
+        </dialog>
     );
 };
 
@@ -148,34 +149,68 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
         setGeneralError(authError);
     }, [authError]);
 
+    // Individual validation functions to reduce complexity
+    const validatePersonalStep = (formData: Partial<RegisterCredentials & { companyName?: string; companyType?: CompanyType; companyEmail?: string; companyPhone?: string; companyWebsite?: string; companySelection?: 'create' | 'join', role?: Role, verificationCode?: string, termsAccepted?: boolean }>): Record<string, string> => {
+        const errors: Record<string, string> = {};
+        if (!formData.firstName || formData.firstName.length < 2) errors.firstName = "First name is required.";
+        if (!formData.lastName || formData.lastName.length < 2) errors.lastName = "Last name is required.";
+        if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) errors.email = "A valid email is required.";
+        if (!formData.password || formData.password.length < 8) errors.password = "Password must be at least 8 characters.";
+        if (formData.password !== formData.confirmPassword) errors.confirmPassword = "Passwords do not match.";
+        return errors;
+    };
+
+    const validateCompanyStep = (formData: Partial<RegisterCredentials & { companyName?: string; companyType?: CompanyType; companyEmail?: string; companyPhone?: string; companyWebsite?: string; companySelection?: 'create' | 'join', role?: Role, verificationCode?: string, termsAccepted?: boolean }>): Record<string, string> => {
+        const errors: Record<string, string> = {};
+        if (!formData.companySelection) {
+            errors.companySelection = "Please choose an option.";
+        } else if (formData.companySelection === 'create' && (!formData.companyName || !formData.companyType)) {
+            errors.companyName = "Company details are required. Please create or edit your company.";
+        } else if (formData.companySelection === 'join' && !formData.inviteToken) {
+            errors.inviteToken = "An invite token is required.";
+        }
+        return errors;
+    };
+
+    const validateRoleStep = (formData: Partial<RegisterCredentials & { companyName?: string; companyType?: CompanyType; companyEmail?: string; companyPhone?: string; companyWebsite?: string; companySelection?: 'create' | 'join', role?: Role, verificationCode?: string, termsAccepted?: boolean }>): Record<string, string> => {
+        const errors: Record<string, string> = {};
+        if (!formData.role) errors.role = "Please select a role.";
+        return errors;
+    };
+
+    const validateVerifyStep = (formData: Partial<RegisterCredentials & { companyName?: string; companyType?: CompanyType; companyEmail?: string; companyPhone?: string; companyWebsite?: string; companySelection?: 'create' | 'join', role?: Role, verificationCode?: string, termsAccepted?: boolean }>): Record<string, string> => {
+        const errors: Record<string, string> = {};
+        if (formData.verificationCode !== '123456') errors.verificationCode = "Enter the mock code: 123456.";
+        return errors;
+    };
+
+    const validateTermsStep = (formData: Partial<RegisterCredentials & { companyName?: string; companyType?: CompanyType; companyEmail?: string; companyPhone?: string; companyWebsite?: string; companySelection?: 'create' | 'join', role?: Role, verificationCode?: string, termsAccepted?: boolean }>): Record<string, string> => {
+        const errors: Record<string, string> = {};
+        if (!formData.termsAccepted) errors.termsAccepted = "You must accept the terms.";
+        return errors;
+    };
+
     const validateStep = (currentStep: Step): boolean => {
-        const newErrors: Record<string, string> = {};
+        let newErrors: Record<string, string> = {};
+
         switch (currentStep) {
             case 'personal':
-                if (!formData.firstName || formData.firstName.length < 2) newErrors.firstName = "First name is required.";
-                if (!formData.lastName || formData.lastName.length < 2) newErrors.lastName = "Last name is required.";
-                if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) newErrors.email = "A valid email is required.";
-                if (!formData.password || formData.password.length < 8) newErrors.password = "Password must be at least 8 characters.";
-                if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = "Passwords do not match.";
+                newErrors = validatePersonalStep(formData);
                 break;
             case 'company':
-                if (!formData.companySelection) newErrors.companySelection = "Please choose an option.";
-                else if (formData.companySelection === 'create' && (!formData.companyName || !formData.companyType)) {
-                    newErrors.companyName = "Company details are required. Please create or edit your company.";
-                } else if (formData.companySelection === 'join' && !formData.inviteToken) {
-                    newErrors.inviteToken = "An invite token is required.";
-                }
+                newErrors = validateCompanyStep(formData);
                 break;
             case 'role':
-                if (!formData.role) newErrors.role = "Please select a role.";
+                newErrors = validateRoleStep(formData);
                 break;
             case 'verify':
-                if (formData.verificationCode !== '123456') newErrors.verificationCode = "Enter the mock code: 123456.";
+                newErrors = validateVerifyStep(formData);
                 break;
             case 'terms':
-                if (!formData.termsAccepted) newErrors.termsAccepted = "You must accept the terms.";
+                newErrors = validateTermsStep(formData);
                 break;
         }
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };

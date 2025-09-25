@@ -39,6 +39,56 @@ const decodeBase64 = (value: string): string => {
 
 const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
 
+// Helper function for type-safe enum normalization
+const normalizeToEnum = <T extends string>(value: unknown, enumObj: Record<string, T>): T | null => {
+    if (value === null || value === undefined) return null;
+    
+    let strValue: string;
+    if (typeof value === 'string') {
+        strValue = value.toUpperCase();
+    } else if (typeof value === 'number') {
+        strValue = String(value).toUpperCase();
+    } else {
+        return null;
+    }
+    
+    const enumValues = Object.values(enumObj);
+    return enumValues.includes(strValue as T) ? strValue as T : null;
+};
+
+// Helper for string normalization when not working with enums
+const normalizeStringValue = (value: unknown): string | null => {
+    if (value === null || value === undefined) return null;
+    if (typeof value === 'string') return value.toUpperCase();
+    if (typeof value === 'number') return String(value).toUpperCase();
+    return null;
+};
+
+// Type-safe versions for specific enums
+const normalizeTodoStatus = (value: unknown): TodoStatus | null => {
+    return normalizeToEnum(value, TodoStatus);
+};
+
+const normalizeTimesheetStatus = (value: unknown): TimesheetStatus | null => {
+    return normalizeToEnum(value, TimesheetStatus);
+};
+
+const normalizeIncidentStatus = (value: unknown): IncidentStatus | null => {
+    return normalizeToEnum(value, IncidentStatus);
+};
+
+const normalizeIncidentSeverity = (value: unknown): IncidentSeverity | null => {
+    return normalizeToEnum(value, IncidentSeverity);
+};
+
+const isApprovedExpense = (value: unknown): boolean => {
+    const status = normalizeToEnum(value, ExpenseStatus);
+    return status === ExpenseStatus.APPROVED || status === ExpenseStatus.PAID;
+};
+
+// Helper functions for type-safe enum handling
+
+
 type RequestOptions = { signal?: AbortSignal };
 type ProjectSummaryOptions = RequestOptions & { projectIds?: string[] };
 
@@ -362,6 +412,352 @@ const findUserByEmail = (email: string) => {
 const sanitizeUserForReturn = (user: Partial<User>): User => sanitizeUser(user) as User;
 
 const sanitizeUsersForReturn = (users: Partial<User>[]): User[] => users.map(u => sanitizeUserForReturn(u));
+
+const findProjectById = (projectId: unknown): Partial<Project> | undefined => {
+    if (projectId == null) {
+        return undefined;
+    }
+    return db.projects.find(project => project.id != null && safeString(project.id) === safeString(projectId));
+};
+
+const resolveCompanyIdFromProject = (projectId: unknown): string | null => {
+    const project = findProjectById(projectId);
+    return project?.companyId != null ? String(project.companyId) : null;
+};
+
+const resolveCompanyIdFromUser = (userId: unknown): string | null => {
+    if (userId == null) {
+        return null;
+    }
+    const user = db.users.find(candidate => candidate.id != null && safeString(candidate.id) === safeString(userId));
+    return user?.companyId != null ? String(user.companyId) : null;
+};
+
+const resolveCompanyIdForInvoice = (invoice: Partial<Invoice>): string | null => {
+    // Access properties safely without type assertions
+    const invoiceAny = invoice as Record<string, any>;
+    const directCompany = invoiceAny.companyId;
+    if (directCompany != null) {
+        return safeString(directCompany);
+    }
+
+    const projectCompany = resolveCompanyIdFromProject(invoice.projectId);
+    if (projectCompany) {
+        return projectCompany;
+    }
+
+    if (invoice.clientId != null) {
+        const client = db.clients.find(candidate => candidate.id != null && safeString(candidate.id) === safeString(invoice.clientId));
+        if (client?.companyId != null) {
+            return safeString(client.companyId);
+        }
+    }
+
+    return null;
+};
+
+const resolveCompanyIdForExpense = (expense: Partial<Expense>): string | null => {
+    // Access properties safely without type assertions
+    const expenseAny = expense as Record<string, any>;
+    const directCompany = expenseAny.companyId;
+    if (directCompany != null) {
+        return safeString(directCompany);
+    }
+
+    const projectCompany = resolveCompanyIdFromProject(expenseAny.projectId);
+    if (projectCompany) {
+        return projectCompany;
+    }
+
+    const userId = expenseAny.userId;
+    if (userId != null) {
+        return resolveCompanyIdFromUser(userId);
+    }
+
+    return null;
+};
+
+const getCompanyCurrency = (companyId: string): string => {
+    const company = db.companies.find(entry => entry.id != null && String(entry.id) === String(companyId));
+    // Access properties safely without type assertions
+    if (!company) {
+        return 'GBP';
+    }
+    
+    const companyAny = company as Record<string, any>;
+    const directCurrency = companyAny.currency;
+    if (typeof directCurrency === 'string' && directCurrency.trim().length > 0) {
+        return directCurrency;
+    }
+    
+    const settings = companyAny.settings;
+    const settingsCurrency = settings?.currency;
+    if (typeof settingsCurrency === 'string' && settingsCurrency.trim().length > 0) {
+        return settingsCurrency;
+    }
+    return 'GBP';
+};
+
+const safeNumber = (value: unknown): number => {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+        return value;
+    }
+    if (typeof value === 'string') {
+        const parsed = Number(value.trim());
+        if (Number.isFinite(parsed)) {
+            return parsed;
+        }
+    }
+    return 0;
+};
+
+const parseDate = (value: unknown): Date | null => {
+    if (!value) {
+        return null;
+    }
+    const parsed = value instanceof Date ? value : new Date(safeString(value));
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const getMonthKey = (date: Date): string => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+const getMonthLabel = (date: Date): string =>
+    date.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
+
+const MILLISECONDS_PER_HOUR = 1000 * 60 * 60;
+const MILLISECONDS_PER_DAY = MILLISECONDS_PER_HOUR * 24;
+
+// Helper functions for date operations
+const getDateRanges = () => {
+    const now = new Date();
+    const isoNow = now.toISOString();
+    const nowTime = now.getTime();
+
+    // Start of month
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    // Week range
+    const weekStart = new Date(now);
+    weekStart.setHours(0, 0, 0, 0);
+    const weekday = weekStart.getDay();
+    const isoWeekday = weekday === 0 ? 6 : weekday - 1;
+    weekStart.setDate(weekStart.getDate() - isoWeekday);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 7);
+
+    return {
+        now,
+        isoNow,
+        nowTime,
+        startOfMonth,
+        weekStart,
+        weekEnd
+    };
+};
+
+// Helper function for timesheet hours calculation
+const getTimesheetHours = (entry: Partial<Timesheet>): number => {
+    // Access properties safely without type assertions
+    const entryAny = entry as Record<string, any>;
+    const start = parseDate(entry.startTime ?? entryAny.clockIn);
+    const end = parseDate(entry.endTime ?? entryAny.clockOut);
+    if (start && end) {
+        return Math.max(0, (end.getTime() - start.getTime()) / MILLISECONDS_PER_HOUR);
+    }
+    const recorded = safeNumber(entryAny.duration ?? entry.duration);
+    if (recorded <= 0) {
+        return 0;
+    }
+    if (recorded > 48) {
+        return recorded / 60;
+    }
+    return recorded;
+};
+
+// Helper functions for operational insights
+const getRelevantCompanyData = (companyId: string) => {
+    const projects = db.projects.filter(project => project.companyId === companyId);
+    const projectIds = new Set<string>();
+    for (const project of projects) {
+        if (project.id != null) {
+            projectIds.add(String(project.id));
+        }
+    }
+
+    const companyUsers = db.users.filter(user => user.companyId === companyId);
+    const userIds = new Set<string>();
+    for (const user of companyUsers) {
+        if (user.id != null) {
+            userIds.add(String(user.id));
+        }
+    }
+    
+    return { projects, projectIds, companyUsers, userIds };
+};
+
+const getCompanyTodos = (projectIds: Set<string>, userIds: Set<string>) => {
+    return db.todos.filter(todo => {
+        // Access properties safely without unnecessary type assertions
+        const todoAny = todo as Record<string, any>;
+        const projectId = todoAny.projectId;
+        if (projectId != null && projectIds.has(safeString(projectId))) {
+            return true;
+        }
+        const assignee = todoAny.assignedTo ?? todoAny.assigneeId;
+        return assignee != null && userIds.has(safeString(assignee));
+    });
+};
+
+const getCompanyTimesheets = (companyId: string) => {
+    return db.timeEntries.filter(entry => {
+        const projectCompany = resolveCompanyIdFromProject(entry.projectId);
+        if (projectCompany === companyId) {
+            return true;
+        }
+        const userCompany = resolveCompanyIdFromUser(entry.userId);
+        return userCompany === companyId;
+    });
+};
+
+const getTimesheetMetrics = (timesheets: any[], dates: ReturnType<typeof getDateRanges>) => {
+    const submittedTimesheets = timesheets.filter(entry => {
+        const status = normalizeTimesheetStatus(entry.status);
+        return status !== null && status !== TimesheetStatus.DRAFT;
+    });
+
+    const approvedTimesheets = submittedTimesheets.filter(
+        entry => normalizeTimesheetStatus(entry.status) === TimesheetStatus.APPROVED
+    );
+
+    const pendingApprovals = submittedTimesheets.filter(
+        entry => normalizeTimesheetStatus(entry.status) === TimesheetStatus.PENDING
+    ).length;
+
+    const activeTimesheets = timesheets.filter(entry => {
+        const status = normalizeTimesheetStatus(entry.status);
+        if (status !== TimesheetStatus.PENDING) {
+            return false;
+        }
+        const hasEnded = entry.endTime != null || entry.clockOut != null;
+        return !hasEnded;
+    }).length;
+
+    const complianceRate = submittedTimesheets.length
+        ? (approvedTimesheets.length / submittedTimesheets.length) * 100
+        : 0;
+
+    const hoursLogged = submittedTimesheets
+        .map(entry => getTimesheetHours(entry))
+        .filter(hours => hours > 0);
+    const totalHoursLogged = hoursLogged.reduce((sum, hours) => sum + hours, 0);
+    const averageHours = hoursLogged.length ? totalHoursLogged / hoursLogged.length : 0;
+    const overtimeHours = hoursLogged.reduce((sum, hours) => sum + Math.max(0, hours - 8), 0);
+
+    const approvedThisWeek = approvedTimesheets.filter(entry => {
+        const completionDate = parseDate(
+            entry.updatedAt ?? entry.endTime ?? entry.clockOut ?? entry.approvedAt
+        );
+        if (!completionDate) {
+            return false;
+        }
+        return completionDate >= dates.weekStart && completionDate < dates.weekEnd;
+    }).length;
+    
+    return { 
+        submittedTimesheets, 
+        approvedTimesheets, 
+        pendingApprovals, 
+        activeTimesheets,
+        complianceRate,
+        averageHours,
+        overtimeHours,
+        approvedThisWeek
+    };
+};
+
+const getTaskMetrics = (todos: any[], dates: ReturnType<typeof getDateRanges>) => {
+    const tasksWithDueDates = todos.filter(todo => parseDate(todo.dueDate ?? todo.due_at));
+
+    const tasksDueSoon = tasksWithDueDates.filter(todo => {
+        // Access properties safely without type assertions
+        const todoAny = todo as Record<string, any>;
+        const due = parseDate(todoAny.dueDate ?? todoAny.due_at);
+        if (!due) {
+            return false;
+        }
+        const time = due.getTime();
+        return time >= dates.nowTime && time <= dates.nowTime + 7 * MILLISECONDS_PER_DAY;
+    }).length;
+
+    const overdueTasks = tasksWithDueDates.filter(todo => {
+        // Access properties safely without type assertions
+        const todoAny = todo as Record<string, any>;
+        const due = parseDate(todoAny.dueDate ?? todoAny.due_at);
+        if (!due) {
+            return false;
+        }
+        const status = normalizeTodoStatus(todoAny.status);
+        return due.getTime() < dates.nowTime && status !== TodoStatus.DONE;
+    }).length;
+
+    const tasksInProgress = todos.filter(
+        todo => normalizeTodoStatus(todo.status) === TodoStatus.IN_PROGRESS
+    ).length;
+    
+    return { tasksDueSoon, overdueTasks, tasksInProgress };
+};
+
+const getSafetyMetrics = (incidents: SafetyIncident[], dates: ReturnType<typeof getDateRanges>) => {
+    const openIncidents = incidents.filter(incident => {
+        const status = normalizeIncidentStatus(incident.status);
+        return status !== IncidentStatus.RESOLVED;
+    });
+
+    const highSeverity = openIncidents.filter(incident => {
+        const severity = normalizeIncidentSeverity(incident.severity);
+        return severity === IncidentSeverity.HIGH || severity === IncidentSeverity.CRITICAL;
+    }).length;
+
+    const lastIncidentDate = incidents.reduce<Date | null>((latest, incident) => {
+        const date = parseDate(incident.incidentDate ?? incident.timestamp ?? incident.createdAt);
+        if (!date) {
+            return latest;
+        }
+        if (!latest || date.getTime() > latest.getTime()) {
+            return date;
+        }
+        return latest;
+    }, null);
+
+    const daysSinceLastIncident = lastIncidentDate
+        ? Math.max(0, Math.floor((dates.nowTime - lastIncidentDate.getTime()) / MILLISECONDS_PER_DAY))
+        : null;
+        
+    return { openIncidents, highSeverity, daysSinceLastIncident };
+};
+
+const getFinancialMetrics = (expenses: Expense[], invoices: Invoice[], dates: ReturnType<typeof getDateRanges>) => {
+    const approvedExpensesThisMonth = expenses.reduce((sum, expense) => {
+        if (!isApprovedExpense(expense.status)) {
+            return sum;
+        }
+        // Access properties safely without type assertions
+        const expenseAny = expense as Record<string, any>;
+        const expenseDate = parseDate(expense.date ?? expenseAny.submittedAt ?? expenseAny.createdAt);
+        if (!expenseDate || expenseDate < dates.startOfMonth) {
+            return sum;
+        }
+        return sum + safeNumber(expense.amount);
+    }, 0);
+
+    const outstandingReceivables = invoices.reduce((sum, invoice) => {
+        const financials = getInvoiceFinancials(invoice);
+        return sum + financials.balance;
+    }, 0);
+    
+    return { approvedExpensesThisMonth, outstandingReceivables };
+};
 
 const upgradeLegacyUsers = () => {
     const legacyUsersToUpgrade = db.users.filter(u => u.password && (!u.passwordHash || !u.passwordSalt));
@@ -1319,228 +1715,37 @@ export const api = {
         await delay();
         ensureNotAborted(options?.signal);
 
-        const now = new Date();
-        const isoNow = now.toISOString();
-        const nowTime = now.getTime();
-
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        startOfMonth.setHours(0, 0, 0, 0);
-
-        const weekStart = new Date(now);
-        weekStart.setHours(0, 0, 0, 0);
-        const weekday = weekStart.getDay();
-        const isoWeekday = weekday === 0 ? 6 : weekday - 1;
-        weekStart.setDate(weekStart.getDate() - isoWeekday);
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 7);
-
+        // Use the date helper function
+        const dateRanges = getDateRanges();
+        const { isoNow } = dateRanges;
         const companyCurrency = getCompanyCurrency(companyId);
 
-        const projects = db.projects.filter(project => project.companyId === companyId);
-        const projectIds = new Set<string>();
-        for (const project of projects) {
-            if (project.id != null) {
-                projectIds.add(String(project.id));
-            }
-        }
-
-        const companyUsers = db.users.filter(user => user.companyId === companyId);
-        const userIds = new Set<string>();
-        for (const user of companyUsers) {
-            if (user.id != null) {
-                userIds.add(String(user.id));
-            }
-        }
-
-        const relevantTodos = db.todos.filter(todo => {
-            const projectId = (todo as Todo).projectId ?? (todo as any).projectId;
-            if (projectId != null && projectIds.has(String(projectId))) {
-                return true;
-            }
-            const assignee = (todo as Todo).assignedTo ?? (todo as any).assigneeId;
-            return assignee != null && userIds.has(String(assignee));
-        });
-
-        const relevantTimesheets = db.timeEntries.filter(entry => {
-            const projectCompany = resolveCompanyIdFromProject(entry.projectId);
-            if (projectCompany === companyId) {
-                return true;
-            }
-            const userCompany = resolveCompanyIdFromUser(entry.userId);
-            return userCompany === companyId;
-        });
-
+        // Get relevant data for the company
+        const { projects, projectIds, userIds } = getRelevantCompanyData(companyId);
+        
+        // Get relevant records
+        const relevantTodos = getCompanyTodos(projectIds, userIds);
+        const relevantTimesheets = getCompanyTimesheets(companyId);
         const safetyIncidents = db.safetyIncidents.filter(
-            incident => resolveCompanyIdFromProject(incident.projectId) === companyId,
+            incident => resolveCompanyIdFromProject(incident.projectId) === companyId
         );
         const invoices = db.invoices.filter(invoice => resolveCompanyIdForInvoice(invoice) === companyId);
         const expenses = db.expenses.filter(expense => resolveCompanyIdForExpense(expense) === companyId);
 
-        const normaliseTodoStatus = (value: unknown): TodoStatus | null => {
-            if (!value) {
-                return null;
-            }
-            let status: string | null;
-            if (typeof value === 'string') {
-                status = value.toUpperCase();
-            } else if (typeof value === 'number') {
-                status = String(value).toUpperCase();
-            } else {
-                status = null;
-            }
-            if (!status) return null;
-            return Object.values(TodoStatus).includes(status as TodoStatus) ? (status as TodoStatus) : null;
-        };
-
-        const normaliseTimesheetStatus = (value: unknown): TimesheetStatus | null => {
-            if (!value) {
-                return null;
-            }
-            let status: string | null;
-            if (typeof value === 'string') {
-                status = value.toUpperCase();
-            } else if (typeof value === 'number') {
-                status = String(value).toUpperCase();
-            } else {
-                status = null;
-            }
-            if (!status) return null;
-            return Object.values(TimesheetStatus).includes(status as TimesheetStatus)
-                ? (status as TimesheetStatus)
-                : null;
-        };
-
-        const isApprovedExpense = (value: unknown): boolean => {
-            if (!value) {
-                return false;
-            }
-            let status: string | null;
-            if (typeof value === 'string') {
-                status = value.toUpperCase();
-            } else if (typeof value === 'number') {
-                status = String(value).toUpperCase();
-            } else {
-                status = null;
-            }
-            if (!status) return false;
-            return status === ExpenseStatus.APPROVED || status === ExpenseStatus.PAID;
-        };
-
-        const getTimesheetHours = (entry: Partial<Timesheet>): number => {
-            const start = parseDate(entry.startTime ?? (entry as any).clockIn);
-            const end = parseDate(entry.endTime ?? (entry as any).clockOut);
-            if (start && end) {
-                return Math.max(0, (end.getTime() - start.getTime()) / MILLISECONDS_PER_HOUR);
-            }
-            const recorded = safeNumber((entry as any).duration ?? entry.duration);
-            if (recorded <= 0) {
-                return 0;
-            }
-            if (recorded > 48) {
-                return recorded / 60;
-            }
-            return recorded;
-        };
-
-        const submittedTimesheets = relevantTimesheets.filter(entry => {
-            const status = normaliseTimesheetStatus(entry.status);
-            return status !== null && status !== TimesheetStatus.DRAFT;
-        });
-
-        const approvedTimesheets = submittedTimesheets.filter(
-            entry => normaliseTimesheetStatus(entry.status) === TimesheetStatus.APPROVED,
-        );
-
-        const pendingApprovals = submittedTimesheets.filter(
-            entry => normaliseTimesheetStatus(entry.status) === TimesheetStatus.PENDING,
-        ).length;
-
-        const activeTimesheets = relevantTimesheets.filter(entry => {
-            const status = normaliseTimesheetStatus(entry.status);
-            if (status !== TimesheetStatus.PENDING) {
-                return false;
-            }
-            const hasEnded = entry.endTime != null || (entry as any).clockOut != null;
-            return !hasEnded;
-        }).length;
-
-        const complianceRate = submittedTimesheets.length
-            ? (approvedTimesheets.length / submittedTimesheets.length) * 100
-            : 0;
-
-        const hoursLogged = submittedTimesheets
-            .map(entry => getTimesheetHours(entry))
-            .filter(hours => hours > 0);
-        const totalHoursLogged = hoursLogged.reduce((sum, hours) => sum + hours, 0);
-        const averageHours = hoursLogged.length ? totalHoursLogged / hoursLogged.length : 0;
-        const overtimeHours = hoursLogged.reduce((sum, hours) => sum + Math.max(0, hours - 8), 0);
-
-        const approvedThisWeek = approvedTimesheets.filter(entry => {
-            const completionDate = parseDate(
-                entry.updatedAt ?? entry.endTime ?? (entry as any).clockOut ?? (entry as any).approvedAt,
-            );
-            if (!completionDate) {
-                return false;
-            }
-            return completionDate >= weekStart && completionDate < weekEnd;
-        }).length;
-
-        const tasksWithDueDates = relevantTodos.filter(todo => parseDate((todo as Todo).dueDate ?? (todo as any).due_at));
-
-        const tasksDueSoon = tasksWithDueDates.filter(todo => {
-            const due = parseDate((todo as Todo).dueDate ?? (todo as any).due_at);
-            if (!due) {
-                return false;
-            }
-            const time = due.getTime();
-            return time >= nowTime && time <= nowTime + 7 * MILLISECONDS_PER_DAY;
-        }).length;
-
-        const overdueTasks = tasksWithDueDates.filter(todo => {
-            const due = parseDate((todo as Todo).dueDate ?? (todo as any).due_at);
-            if (!due) {
-                return false;
-            }
-            const status = normaliseTodoStatus((todo as Todo).status ?? (todo as any).status);
-            return due.getTime() < nowTime && status !== TodoStatus.DONE;
-        }).length;
-
-        const tasksInProgress = relevantTodos.filter(
-            todo => normaliseTodoStatus((todo as Todo).status ?? (todo as any).status) === TodoStatus.IN_PROGRESS,
-        ).length;
-
-        const openIncidents = safetyIncidents.filter(incident => {
-            const status = incident.status ? String(incident.status).toUpperCase() : null;
-            return status !== IncidentStatus.RESOLVED;
-        });
-
-        const highSeverity = openIncidents.filter(incident => {
-            const severity = incident.severity ? String(incident.severity).toUpperCase() : null;
-            return severity === IncidentSeverity.HIGH || severity === IncidentSeverity.CRITICAL;
-        }).length;
-
-        const lastIncidentDate = safetyIncidents.reduce<Date | null>((latest, incident) => {
-            const date = parseDate(incident.incidentDate ?? incident.timestamp ?? incident.createdAt);
-            if (!date) {
-                return latest;
-            }
-            if (!latest || date.getTime() > latest.getTime()) {
-                return date;
-            }
-            return latest;
-        }, null);
-
-        const daysSinceLastIncident = lastIncidentDate
-            ? Math.max(0, Math.floor((nowTime - lastIncidentDate.getTime()) / MILLISECONDS_PER_DAY))
-            : null;
-
+        // Calculate metrics using helper functions
+        const timesheetMetrics = getTimesheetMetrics(relevantTimesheets, dateRanges);
+        const taskMetrics = getTaskMetrics(relevantTodos, dateRanges);
+        const safetyMetrics = getSafetyMetrics(safetyIncidents, dateRanges);
+        const financialMetrics = getFinancialMetrics(expenses, invoices, dateRanges);
+        
+        // Calculate project metrics
         const portfolioSummary = computeProjectPortfolioSummary(projects);
         const activeProjects = portfolioSummary.activeProjects > 0
             ? portfolioSummary.activeProjects
-            : projects.filter(project => String(project.status).toUpperCase() === 'ACTIVE').length;
+            : projects.filter(project => normalizeStringValue(project.status) === 'ACTIVE').length;
 
         const atRiskActiveProjects = projects.reduce((count, project) => {
-            const status = project.status ? String(project.status).toUpperCase() : null;
+            const status = normalizeStringValue(project.status);
             if (status === 'COMPLETED' || status === 'CANCELLED') {
                 return count;
             }
@@ -1552,26 +1757,12 @@ export const api = {
             return actual > budget * 1.05 ? count + 1 : count;
         }, 0);
 
-        const approvedExpensesThisMonth = expenses.reduce((sum, expense) => {
-            if (!isApprovedExpense(expense.status)) {
-                return sum;
-            }
-            const expenseDate = parseDate(expense.date ?? (expense as any).submittedAt ?? (expense as any).createdAt);
-            if (!expenseDate || expenseDate < startOfMonth) {
-                return sum;
-            }
-            return sum + safeNumber(expense.amount);
-        }, 0);
-
+        // Calculate burn rate
         const burnRatePerActiveProject = activeProjects > 0
-            ? approvedExpensesThisMonth / activeProjects
-            : approvedExpensesThisMonth;
+            ? financialMetrics.approvedExpensesThisMonth / activeProjects
+            : financialMetrics.approvedExpensesThisMonth;
 
-        const outstandingReceivables = invoices.reduce((sum, invoice) => {
-            const financials = getInvoiceFinancials(invoice as Invoice);
-            return sum + financials.balance;
-        }, 0);
-
+        // Generate alerts
         const alerts: OperationalAlert[] = [];
         const formatCurrencyForAlert = (value: number) =>
             new Intl.NumberFormat('en-GB', {
@@ -1580,66 +1771,67 @@ export const api = {
                 maximumFractionDigits: 0,
             }).format(Math.round(value));
 
-        if (submittedTimesheets.length > 0 && complianceRate < 85) {
+        if (timesheetMetrics.submittedTimesheets.length > 0 && timesheetMetrics.complianceRate < 85) {
             alerts.push({
                 id: 'low-timesheet-compliance',
-                severity: complianceRate < 60 ? 'critical' : 'warning',
-                message: `Timesheet approvals are at ${Math.round(complianceRate)}%. Clear pending entries to restore compliance.`,
+                severity: timesheetMetrics.complianceRate < 60 ? 'critical' : 'warning',
+                message: `Timesheet approvals are at ${Math.round(timesheetMetrics.complianceRate)}%. Clear pending entries to restore compliance.`,
             });
         }
 
-        if (highSeverity > 0) {
+        if (safetyMetrics.highSeverity > 0) {
             alerts.push({
                 id: 'high-severity-incidents',
                 severity: 'critical',
-                message: `${highSeverity} high-severity incident${highSeverity === 1 ? ' requires' : 's require'} immediate action.`,
+                message: `${safetyMetrics.highSeverity} high-severity incident${safetyMetrics.highSeverity === 1 ? ' requires' : 's require'} immediate action.`,
             });
         }
 
-        if (overdueTasks > 0) {
+        if (taskMetrics.overdueTasks > 0) {
             alerts.push({
                 id: 'overdue-field-tasks',
                 severity: 'warning',
-                message: `${overdueTasks} task${overdueTasks === 1 ? ' is' : 's are'} past due. Rebalance crew priorities.`,
+                message: `${taskMetrics.overdueTasks} task${taskMetrics.overdueTasks === 1 ? ' is' : 's are'} past due. Rebalance crew priorities.`,
             });
         }
 
-        if (outstandingReceivables > 0) {
+        if (financialMetrics.outstandingReceivables > 0) {
             alerts.push({
                 id: 'outstanding-receivables',
-                severity: outstandingReceivables > 100000 ? 'warning' : 'info',
-                message: `${formatCurrencyForAlert(outstandingReceivables)} outstanding in receivables.`,
+                severity: financialMetrics.outstandingReceivables > 100000 ? 'warning' : 'info',
+                message: `${formatCurrencyForAlert(financialMetrics.outstandingReceivables)} outstanding in receivables.`,
             });
         }
 
+        // Return structured insights
         return {
             updatedAt: isoNow,
             safety: {
-                openIncidents: openIncidents.length,
-                highSeverity,
-                daysSinceLastIncident,
+                openIncidents: safetyMetrics.openIncidents.length,
+                highSeverity: safetyMetrics.highSeverity,
+                daysSinceLastIncident: safetyMetrics.daysSinceLastIncident,
             },
             workforce: {
-                complianceRate: Math.round(complianceRate * 10) / 10,
-                approvedThisWeek,
-                overtimeHours: Math.round(overtimeHours * 10) / 10,
-                averageHours: Math.round(averageHours * 10) / 10,
-                activeTimesheets,
-                pendingApprovals,
+                complianceRate: Math.round(timesheetMetrics.complianceRate * 10) / 10,
+                approvedThisWeek: timesheetMetrics.approvedThisWeek,
+                overtimeHours: Math.round(timesheetMetrics.overtimeHours * 10) / 10,
+                averageHours: Math.round(timesheetMetrics.averageHours * 10) / 10,
+                activeTimesheets: timesheetMetrics.activeTimesheets,
+                pendingApprovals: timesheetMetrics.pendingApprovals,
             },
             schedule: {
                 atRiskProjects: atRiskActiveProjects,
                 overdueProjects: portfolioSummary.overdueProjects,
-                tasksDueSoon,
-                overdueTasks,
-                tasksInProgress,
+                tasksDueSoon: taskMetrics.tasksDueSoon,
+                overdueTasks: taskMetrics.overdueTasks,
+                tasksInProgress: taskMetrics.tasksInProgress,
                 averageProgress: Math.round(portfolioSummary.averageProgress * 10) / 10,
             },
             financial: {
                 currency: companyCurrency,
-                approvedExpensesThisMonth: Math.round(approvedExpensesThisMonth * 100) / 100,
+                approvedExpensesThisMonth: Math.round(financialMetrics.approvedExpensesThisMonth * 100) / 100,
                 burnRatePerActiveProject: Math.round(burnRatePerActiveProject * 100) / 100,
-                outstandingReceivables: Math.round(outstandingReceivables * 100) / 100,
+                outstandingReceivables: Math.round(financialMetrics.outstandingReceivables * 100) / 100,
             },
             alerts,
         };

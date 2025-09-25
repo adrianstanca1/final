@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
-import { User, View, Project, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
+import { User, View, Project, AppNotification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
 import { api } from './services/mockApi';
 import { notificationService } from './services/notificationService';
 import { analytics } from './services/analyticsService';
@@ -52,7 +52,7 @@ interface Toast {
   id: number;
   message: string;
   type: 'success' | 'error';
-  notification?: Notification;
+  notification?: AppNotification;
 }
 
 const ToastMessage: React.FC<{ toast: Toast; onDismiss: (id: number) => void }> = ({ toast, onDismiss }) => {
@@ -127,7 +127,7 @@ function AppContent() {
       notificationService.connect(user.id);
 
       // Subscribe to notifications
-      const unsubscribe = notificationService.subscribe((notification) => {
+      const unsubscribe = notificationService.subscribe((notification: AppNotification) => {
         addToast(notification.message, 'success', notification);
       });
 
@@ -157,8 +157,8 @@ function AppContent() {
   const [openIncidentCount, setOpenIncidentCount] = useState(0);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const previousNotificationsRef = useRef<Notification[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const previousNotificationsRef = useRef<AppNotification[]>([]);
 
   const changeView = useCallback(
     (view: View) => {
@@ -173,7 +173,7 @@ function AppContent() {
     [selectedProject]
   );
 
-  const addToast = useCallback((message: string, type: 'success' | 'error' = 'success', notification?: Notification) => {
+  const addToast = useCallback((message: string, type: 'success' | 'error' = 'success', notification?: AppNotification) => {
     const id = Date.now();
     setToasts(currentToasts => [...currentToasts, { id, message, type, notification }]);
 
@@ -306,7 +306,7 @@ function AppContent() {
     setActiveView('chat');
   };
 
-  const handleNotificationClick = useCallback(async (notification: Notification) => {
+  const handleNotificationClick = useCallback(async (notification: AppNotification) => {
     if (!user) return;
 
     const wasUnread = !(notification.isRead ?? notification.read);

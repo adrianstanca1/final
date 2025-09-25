@@ -81,18 +81,93 @@ const EquipmentModal: React.FC<{
         }
     };
 
+    const dialogRef = useRef<HTMLDialogElement>(null);
+
+    // Proper focus management for the dialog
+    useEffect(() => {
+        if (dialogRef.current) {
+            // Save the element that had focus before the dialog was opened
+            const previouslyFocusedElement = document.activeElement as HTMLElement;
+
+            // Focus the first input element
+            const firstInput = dialogRef.current.querySelector('input, select, button') as HTMLElement;
+            if (firstInput) {
+                firstInput.focus();
+            }
+
+            // Return a cleanup function to restore focus when the dialog is closed
+            return () => {
+                if (previouslyFocusedElement) {
+                    previouslyFocusedElement.focus();
+                }
+            };
+        }
+    }, []);
+
+    // Handle dialog keyboard navigation trapping
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            onClose();
+        } else if (e.key === 'Tab') {
+            // Get all focusable elements in the dialog
+            const focusableElements = dialogRef.current?.querySelectorAll(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            ) as NodeListOf<HTMLElement>;
+
+            if (!focusableElements || focusableElements.length === 0) return;
+
+            const firstElement = focusableElements[0];
+            const lastElement = focusableElements[focusableElements.length - 1];
+
+            // If shift+tab and focus is on first element, move to last element
+            if (e.shiftKey && document.activeElement === firstElement) {
+                e.preventDefault();
+                lastElement.focus();
+            }
+            // If tab and focus is on last element, move to first element
+            else if (!e.shiftKey && document.activeElement === lastElement) {
+                e.preventDefault();
+                firstElement.focus();
+            }
+        }
+    };
+
     return (
-        <div
+        <dialog
+            ref={dialogRef}
+            open
             className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4"
             onClick={onClose}
-            onKeyDown={(e) => e.key === 'Escape' && onClose()}
-            role="dialog"
+            onKeyDown={handleKeyDown}
+            aria-labelledby="dialog-title"
+            aria-describedby="dialog-description"
             aria-modal="true"
+            role="dialog"
         >
             <Card className="w-full max-w-xl" onClick={e => e.stopPropagation()}>
-                <h3 className="font-bold text-lg mb-4">{equipmentToEdit ? 'Equipment Details' : 'Add Equipment'}</h3>
+                <h3 id="dialog-title" className="font-bold text-lg mb-4">{equipmentToEdit ? 'Equipment Details' : 'Add Equipment'}</h3>
+                <p id="dialog-description" className="sr-only">
+                    {equipmentToEdit
+                        ? "Edit equipment details including name and status"
+                        : "Add new equipment with name and status"}
+                </p>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Equipment Name" className="w-full p-2 border rounded" required />
+                    <div>
+                        <label htmlFor="equipment-name" className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">
+                            Equipment Name
+                        </label>
+                        <input
+                            id="equipment-name"
+                            type="text"
+                            value={name}
+                            onChange={e => setName(e.target.value)}
+                            className="w-full p-2 border rounded"
+                            required
+                            aria-required="true"
+                            disabled={isSaving}
+                        />
+                    </div>
 
                     <div>
                         <label htmlFor="equipment-status" className="block text-sm font-medium text-gray-700 dark:text-slate-300">Status</label>
@@ -145,7 +220,7 @@ const EquipmentModal: React.FC<{
                     </div>
                 </form>
             </Card>
-        </div>
+        </dialog>
     );
 }; // FIX: Close the component assignment
 
