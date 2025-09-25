@@ -25,7 +25,7 @@ const OptimizedTaskCard: React.FC<TaskCardProps> = memo(({
   onDragStart
 }) => {
   // Memoize assignee lookup to prevent recalculation on every render
-  const assignee = useMemo(() => 
+  const assignee = useMemo(() =>
     personnel.find(p => p.id === (todo as any).assigneeId),
     [personnel, todo]
   );
@@ -34,7 +34,7 @@ const OptimizedTaskCard: React.FC<TaskCardProps> = memo(({
   const isBlocked = useMemo(() => {
     const dependsOn = (todo as any).dependsOn;
     if (!dependsOn || dependsOn.length === 0) return false;
-    
+
     return dependsOn.some((depId: any) => {
       const dependency = allTodos.find(t => t.id == depId);
       return dependency && dependency.status !== TodoStatus.DONE;
@@ -87,7 +87,7 @@ const OptimizedTaskCard: React.FC<TaskCardProps> = memo(({
   // Memoize assignee display
   const assigneeDisplay = useMemo(() => {
     if (!assignee) return null;
-    
+
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-xs font-medium">
@@ -143,7 +143,7 @@ const OptimizedTaskCard: React.FC<TaskCardProps> = memo(({
 
       <div className="space-y-2">
         {statusDisplay}
-        
+
         {isBlocked && (
           <div className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
             ⚠️ Blocked by dependencies
