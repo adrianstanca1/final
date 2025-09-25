@@ -595,7 +595,12 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                     <p className="text-xs text-muted-foreground">
                                         Use at least {PASSWORD_MIN_LENGTH} characters with numbers and symbols.
                                     </p>
-                                    <PasswordStrengthMeter password={form.password} />
+                                    <PasswordStrengthMeter password={form.password} rules={[
+                                        // Example rules, adjust as needed
+                                        password => password.length >= PASSWORD_MIN_LENGTH,
+                                        password => /[0-9]/.test(password),
+                                        password => /[!@#$%^&*]/.test(password)
+                                    ]} />
                                     {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
                                 </label>
                                 <label className="space-y-1 text-sm">
