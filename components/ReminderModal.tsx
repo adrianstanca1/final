@@ -135,7 +135,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ todo, user, onClos
                     )}
                 </div>
                 <div className="flex justify-between items-center mt-6 pt-4 border-t dark:border-slate-700">
-                    <div>{todoWithReminder.reminderAt && <Button variant="danger" onClick={handleRemove} isLoading={isSaving}>Remove</Button>}</div>
+                    <div>{todoWithReminder.reminderAt && <Button variant="outline" onClick={handleRemove} isLoading={isSaving}>Remove</Button>}</div>
                     <div className="flex gap-2">
                         <Button variant="secondary" onClick={onClose}>Cancel</Button>
                         <Button onClick={handleSave} isLoading={isSaving}>Save Reminder</Button>

@@ -8,7 +8,7 @@ interface ClientsViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
   setActiveView: (view: View) => void;
-}
+}; // FIX: Close the interface
 
 export const ClientsView: React.FC<ClientsViewProps> = ({ user, addToast, setActiveView }) => {
   const [clients, setClients] = useState<Client[]>([]);
@@ -100,10 +100,9 @@ export const ClientsView: React.FC<ClientsViewProps> = ({ user, addToast, setAct
                       <td className="py-3">{client.phone}</td>
                       <td className="py-3">{clientProjects.length}</td>
                       <td className="py-3">
-                        <span 
-                          className={`px-2 py-1 rounded text-xs ${
-                            client.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
-                          }`}
+                        <span
+                          className={`px-2 py-1 rounded text-xs ${client.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                            }`}
                         >
                           {client.status}
                         </span>

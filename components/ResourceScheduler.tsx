@@ -57,16 +57,16 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
         try {
             setLoading(true);
             const [usersData, projectsData, equipmentData] = await Promise.all([
-                api.getUsers(),
-                api.getProjects(),
-                api.getEquipment()
+                api.getUsersByCompany(user.companyId),
+                api.getProjectsByCompany(user.companyId),
+                api.getEquipmentByCompany(user.companyId)
             ]);
 
             if (!controller.signal.aborted) {
                 setUsers(usersData);
                 setProjects(projectsData);
                 setEquipment(equipmentData);
-                
+
                 // Mock schedule data
                 const mockSchedule: ScheduleItem[] = [];
                 usersData.slice(0, 3).forEach((u, userIndex) => {
@@ -114,7 +114,7 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
 
     useEffect(() => {
         fetchData();
-        
+
         return () => {
             abortControllerRef.current?.abort();
         };
@@ -127,9 +127,9 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
     };
 
     const getScheduleForResource = (resourceType: 'user' | 'equipment', resourceId: string, date: Date) => {
-        return schedule.find(item => 
-            item.type === resourceType && 
-            item.resourceId === resourceId && 
+        return schedule.find(item =>
+            item.type === resourceType &&
+            item.resourceId === resourceId &&
             item.date === dateToYMD(date)
         );
     };
@@ -137,9 +137,9 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
     const updateSchedule = async (resourceType: 'user' | 'equipment', resourceId: string, date: Date, projectId: string, hours: number) => {
         try {
             const dateStr = dateToYMD(date);
-            const existingIndex = schedule.findIndex(item => 
-                item.type === resourceType && 
-                item.resourceId === resourceId && 
+            const existingIndex = schedule.findIndex(item =>
+                item.type === resourceType &&
+                item.resourceId === resourceId &&
                 item.date === dateStr
             );
 
@@ -194,11 +194,11 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
                             ← Previous
                         </Button>
                         <span className="text-sm font-medium">
-                            {currentWeek.toLocaleDateString('en-US', { 
-                                month: 'short', 
-                                day: 'numeric' 
-                            })} - {new Date(currentWeek.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', { 
-                                month: 'short', 
+                            {currentWeek.toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric'
+                            })} - {new Date(currentWeek.getTime() + 6 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
+                                month: 'short',
                                 day: 'numeric',
                                 year: 'numeric'
                             })}
@@ -250,7 +250,7 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
                                 {weekDays.map(day => {
                                     const scheduleItem = getScheduleForResource('user', user.id, day);
                                     const project = scheduleItem ? projects.find(p => p.id === scheduleItem.projectId) : null;
-                                    
+
                                     return (
                                         <div key={day.toISOString()} className="p-2 border rounded">
                                             {scheduleItem ? (
@@ -286,7 +286,7 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
                                 {weekDays.map(day => {
                                     const scheduleItem = getScheduleForResource('equipment', eq.id, day);
                                     const project = scheduleItem ? projects.find(p => p.id === scheduleItem.projectId) : null;
-                                    
+
                                     return (
                                         <div key={day.toISOString()} className="p-2 border rounded">
                                             {scheduleItem ? (

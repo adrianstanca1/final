@@ -71,7 +71,7 @@ export const ProjectsMapView: React.FC<ProjectsMapViewProps> = ({ user, addToast
                 ),
             }));
     }, [projects]);
-    
+
     if (loading) {
         return <Card><p>Loading map and project locations...</p></Card>;
     }

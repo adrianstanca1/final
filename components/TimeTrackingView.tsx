@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // FIX: Corrected import paths to be relative.
-import { User, View, Project, Timesheet, TimesheetStatus } from '../types';
+import { User, View, Project, Timesheet } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -8,9 +8,9 @@ import { useGeolocation } from '../hooks/useGeolocation';
 import { MapView, MapMarkerData } from './MapView';
 
 interface TimeTrackingViewProps {
-  user: User;
-  addToast: (message: string, type: 'success' | 'error') => void;
-  setActiveView: (view: View) => void;
+    user: User;
+    addToast: (message: string, type: 'success' | 'error') => void;
+    setActiveView: (view: View) => void;
 }
 
 const Timer: React.FC<{ startTime: Date }> = ({ startTime }) => {
@@ -24,14 +24,14 @@ const Timer: React.FC<{ startTime: Date }> = ({ startTime }) => {
             const seconds = Math.floor((diff % 60000) / 1000).toString().padStart(2, '0');
             setDuration(`${hours}:${minutes}:${seconds}`);
         };
-        
+
         updateDuration();
         const intervalId = setInterval(updateDuration, 1000);
         return () => clearInterval(intervalId);
     }, [startTime]);
 
     return <p className="text-4xl font-mono font-bold text-center">{duration}</p>;
-};export const TimeTrackingView: React.FC<TimeTrackingViewProps> = ({ user, addToast, setActiveView }) => {
+}; export const TimeTrackingView: React.FC<TimeTrackingViewProps> = ({ user, addToast, setActiveView }) => {
     const [loading, setLoading] = useState(true);
     const [projects, setProjects] = useState<Project[]>([]);
     const [timesheets, setTimesheets] = useState<Timesheet[]>([]);
@@ -45,7 +45,7 @@ const Timer: React.FC<{ startTime: Date }> = ({ startTime }) => {
     }, [projects, selectedProjectId]);
 
     const geofences = useMemo(() => {
-        if (!selectedProject || !selectedProject.geofenceRadius) {
+        if (!selectedProject?.geofenceRadius) {
             return [];
         }
         return [{
@@ -57,9 +57,9 @@ const Timer: React.FC<{ startTime: Date }> = ({ startTime }) => {
     }, [selectedProject]);
 
     const { data: geoData, watchLocation, stopWatching, insideGeofenceIds } = useGeolocation({ geofences });
-    
+
     const activeTimesheet = useMemo(() => timesheets.find(ts => ts.clockOut === null), [timesheets]);
-    
+
     const fetchData = useCallback(async () => {
         const controller = new AbortController();
         abortControllerRef.current?.abort();
@@ -74,20 +74,26 @@ const Timer: React.FC<{ startTime: Date }> = ({ startTime }) => {
             if (controller.signal.aborted) return;
             setProjects(projData);
             if (controller.signal.aborted) return;
-            setTimesheets(tsData.sort((a,b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime()));
+            // Sort the timesheets by clockIn date (newest first)
+            const sortedData = [...tsData].sort((a, b) =>
+                new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime());
+            setTimesheets(sortedData);
             if (controller.signal.aborted) return;
             if (activeTimesheet) {
                 setSelectedProjectId(activeTimesheet.projectId.toString());
-            } else if(projData.length > 0 && !selectedProjectId) {
+            } else if (projData.length > 0 && !selectedProjectId) {
                 if (controller.signal.aborted) return;
                 setSelectedProjectId(projData[0].id.toString());
             }
         } catch (error) {
-            if (controller.signal.aborted) return;
-            addToast("Failed to load time tracking data", "error");
+            if (!controller.signal.aborted) {
+                console.error("Error loading time tracking data:", error);
+                addToast("Failed to load time tracking data", "error");
+            }
         } finally {
-            if (controller.signal.aborted) return;
-            setLoading(false);
+            if (!controller.signal.aborted) {
+                setLoading(false);
+            }
         }
     }, [user.id, addToast, selectedProjectId, activeTimesheet]);
 
@@ -112,17 +118,17 @@ const Timer: React.FC<{ startTime: Date }> = ({ startTime }) => {
         if (selectedProject.geofenceRadius) {
             const isInside = insideGeofenceIds.has(selectedProject.id);
             if (!isInside) {
-                const proceed = window.confirm( "Warning: You appear to be outside the project's geofence. This action will be logged. Are you sure you want to clock in?");
+                const proceed = window.confirm("Warning: You appear to be outside the project's geofence. This action will be logged. Are you sure you want to clock in?");
                 if (!proceed) return;
             }
         }
-        
+
         setIsSubmitting(true);
         try {
             await api.clockIn(selectedProject.id, user.id);
             addToast(`Clocked into project ${selectedProject.name}`, 'success');
             fetchData();
-        } catch(e) {
+        } catch (e) {
             addToast(e instanceof Error ? e.message : "Clock-in failed", "error");
         } finally {
             setIsSubmitting(false);
@@ -135,7 +141,7 @@ const Timer: React.FC<{ startTime: Date }> = ({ startTime }) => {
             await api.clockOut(user.id);
             addToast(`Clocked out successfully`, 'success');
             fetchData();
-        } catch(e) {
+        } catch (e) {
             addToast(e instanceof Error ? e.message : "Clock-out failed", "error");
         } finally {
             setIsSubmitting(false);
@@ -145,14 +151,27 @@ const Timer: React.FC<{ startTime: Date }> = ({ startTime }) => {
     const mapMarkers = useMemo((): MapMarkerData[] => {
         const markers: MapMarkerData[] = [];
         if (selectedProject) {
-            markers.push({ id: selectedProject.id, lat: selectedProject.location.lat, lng: selectedProject.location.lng, radius: selectedProject.geofenceRadius });
+            markers.push({
+                id: selectedProject.id,
+                lat: selectedProject.location.lat,
+                lng: selectedProject.location.lng,
+                title: selectedProject.name,
+                radius: selectedProject.geofenceRadius
+            });
         }
         if (geoData) {
-            markers.push({ id: 'user', lat: geoData.coords.latitude, lng: geoData.coords.longitude, isUserLocation: true, popupContent: "Your Location" });
+            markers.push({
+                id: 'user',
+                lat: geoData.coords.latitude,
+                lng: geoData.coords.longitude,
+                title: 'Your Location',
+                isUserLocation: true,
+                popupContent: "Your Location"
+            });
         }
         return markers;
     }, [selectedProject, geoData]);
-    
+
     if (loading) return <Card>Loading...</Card>;
 
     return (
@@ -163,16 +182,22 @@ const Timer: React.FC<{ startTime: Date }> = ({ startTime }) => {
                     <div className="space-y-4">
                         <p className="text-center text-lg">Currently clocked in at <strong>{projects.find(p => p.id === activeTimesheet.projectId)?.name}</strong></p>
                         <Timer startTime={activeTimesheet.clockIn} />
-                        <Button variant="danger" className="w-full" onClick={handleClockOut} isLoading={isSubmitting}>Clock Out</Button>
+                        <Button variant="outline" className="w-full" onClick={handleClockOut} isLoading={isSubmitting}>Clock Out</Button>
                     </div>
                 ) : (
                     <div className="space-y-4">
-                        <select value={selectedProjectId} onChange={e => setSelectedProjectId(e.target.value)} className="w-full p-3 border rounded-md bg-white dark:bg-slate-800">
+                        <select
+                            value={selectedProjectId}
+                            onChange={e => setSelectedProjectId(e.target.value)}
+                            className="w-full p-3 border rounded-md bg-white dark:bg-slate-800"
+                            aria-label="Select project"
+                            title="Select project"
+                        >
                             <option value="">-- Select a project --</option>
                             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>
                         <div className="h-64 w-full rounded-lg overflow-hidden">
-                             <MapView markers={mapMarkers} />
+                            <MapView markers={mapMarkers} />
                         </div>
                         <Button className="w-full" onClick={handleClockIn} disabled={!selectedProjectId || isSubmitting} isLoading={isSubmitting}>Clock In</Button>
                     </div>
@@ -182,9 +207,9 @@ const Timer: React.FC<{ startTime: Date }> = ({ startTime }) => {
                 <h3 className="text-lg font-semibold mb-4">Recent Shifts</h3>
                 <ul className="space-y-2">
                     {timesheets.slice(0, 5).map(ts => {
-                         const hours = ts.clockOut ? ((new Date(ts.clockOut).getTime() - new Date(ts.clockIn).getTime()) / 3600000).toFixed(2) + ' hrs' : 'Active';
-                         return (
-                             <li key={ts.id} className="p-2 border rounded-md flex justify-between items-center dark:border-slate-700">
+                        const hours = ts.clockOut ? ((new Date(ts.clockOut).getTime() - new Date(ts.clockIn).getTime()) / 3600000).toFixed(2) + ' hrs' : 'Active';
+                        return (
+                            <li key={ts.id} className="p-2 border rounded-md flex justify-between items-center dark:border-slate-700">
                                 <div>
                                     <p className="font-medium">{projects.find(p => p.id == ts.projectId)?.name}</p>
                                     <p className="text-xs text-slate-500">{new Date(ts.clockIn).toLocaleDateString()}</p>
@@ -193,8 +218,8 @@ const Timer: React.FC<{ startTime: Date }> = ({ startTime }) => {
                                     <p className="font-semibold">{hours}</p>
                                     <p className="text-xs text-slate-500">{ts.status}</p>
                                 </div>
-                             </li>
-                         );
+                            </li>
+                        );
                     })}
                 </ul>
             </Card>

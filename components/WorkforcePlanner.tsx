@@ -27,8 +27,8 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
         try {
             setLoading(true);
             const [usersResponse, projectsResponse] = await Promise.all([
-                api.getUsers(),
-                api.getProjects()
+                api.getUsersByCompany(user.companyId),
+                api.getProjectsByCompany(user.companyId)
             ]);
 
             if (!controller.signal.aborted) {

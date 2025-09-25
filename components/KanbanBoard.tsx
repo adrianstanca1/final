@@ -19,14 +19,14 @@ const statusColumns = [
   { id: 'completed', title: 'Completed', color: 'bg-green-100 border-green-300' }
 ] as const;
 
-export const KanbanBoard: React.FC<KanbanBoardProps> = ({ 
-  todos, 
-  allTodos, 
-  user, 
-  personnel, 
-  onTaskStatusChange, 
-  onTaskSelectionChange, 
-  selectedTaskIds 
+export const KanbanBoard: React.FC<KanbanBoardProps> = ({
+  todos,
+  allTodos,
+  user,
+  personnel,
+  onTaskStatusChange,
+  onTaskSelectionChange,
+  selectedTaskIds
 }) => {
   const [draggedTaskId, setDraggedTaskId] = useState<string | number | null>(null);
 
@@ -54,7 +54,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   const handleTaskClick = (taskId: string) => {
     if (!onTaskSelectionChange || !selectedTaskIds) return;
-    
+
     const isSelected = selectedTaskIds.includes(taskId);
     if (isSelected) {
       onTaskSelectionChange(selectedTaskIds.filter(id => id !== taskId));
@@ -71,7 +71,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       {statusColumns.map((column) => {
         const tasks = getTasksByStatus(column.id as Todo['status']);
-        
+
         return (
           <div key={column.id} className="space-y-4">
             <div className="flex items-center justify-between">
@@ -80,7 +80,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 {tasks.length}
               </span>
             </div>
-            
+
             <div
               className={`min-h-96 p-4 rounded-lg border-2 border-dashed ${column.color} transition-colors`}
               onDragOver={handleDragOver}
@@ -90,13 +90,12 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 {tasks.map((task) => {
                   const assignee = getAssigneeInfo(task.assignedTo);
                   const isSelected = selectedTaskIds?.includes(task.id) || false;
-                  
+
                   return (
                     <Card
                       key={task.id}
-                      className={`cursor-move transition-all duration-200 hover:shadow-md ${
-                        isSelected ? 'ring-2 ring-blue-500' : ''
-                      } ${draggedTaskId === task.id ? 'opacity-50' : ''}`}
+                      className={`cursor-move transition-all duration-200 hover:shadow-md ${isSelected ? 'ring-2 ring-blue-500' : ''
+                        } ${draggedTaskId === task.id ? 'opacity-50' : ''}`}
                       draggable
                       onDragStart={(e) => handleDragStart(e, task.id)}
                       onClick={() => handleTaskClick(task.id)}
@@ -106,25 +105,24 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                         {task.description && (
                           <p className="text-sm text-gray-600 mb-3">{task.description}</p>
                         )}
-                        
+
                         <div className="flex items-center justify-between text-xs text-gray-500">
                           <div className="flex items-center space-x-2">
                             {assignee && (
                               <span>👤 {assignee.firstName} {assignee.lastName}</span>
                             )}
                           </div>
-                          
+
                           <div className="flex items-center space-x-2">
                             <span
-                              className={`px-2 py-1 rounded text-xs ${
-                                task.priority === 'high' ? 'bg-red-100 text-red-700' :
+                              className={`px-2 py-1 rounded text-xs ${task.priority === 'high' ? 'bg-red-100 text-red-700' :
                                 task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                                'bg-gray-100 text-gray-700'
-                              }`}
+                                  'bg-gray-100 text-gray-700'
+                                }`}
                             >
                               {task.priority}
                             </span>
-                            
+
                             {task.dueDate && (
                               <span className="text-gray-500">
                                 📅 {new Date(task.dueDate).toLocaleDateString()}
@@ -136,7 +134,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     </Card>
                   );
                 })}
-                
+
                 {tasks.length === 0 && (
                   <div className="text-center py-8 text-gray-400">
                     <p>Drop tasks here</p>

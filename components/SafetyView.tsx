@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, SafetyIncident, Project, View } from '../types';
+import { User, SafetyIncident, Project, View, IncidentStatus } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { api } from '../services/mockApi';
@@ -8,7 +8,7 @@ interface SafetyViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
   setActiveView: (view: View) => void;
-}
+}; // FIX: Close the interface
 
 export const SafetyView: React.FC<SafetyViewProps> = ({ user, addToast, setActiveView }) => {
   const [incidents, setIncidents] = useState<SafetyIncident[]>([]);
@@ -19,8 +19,8 @@ export const SafetyView: React.FC<SafetyViewProps> = ({ user, addToast, setActiv
     const loadData = async () => {
       try {
         const [incidentsResult, projectsResult] = await Promise.all([
-          api.getSafetyIncidents(),
-          api.getProjects()
+          api.getSafetyIncidentsByCompany(user.companyId),
+          api.getProjectsByCompany(user.companyId)
         ]);
         setIncidents(incidentsResult);
         setProjects(projectsResult);
@@ -36,8 +36,8 @@ export const SafetyView: React.FC<SafetyViewProps> = ({ user, addToast, setActiv
 
   if (loading) return <Card>Loading safety data...</Card>;
 
-  const openIncidents = incidents.filter(i => i.status === 'open');
-  const resolvedIncidents = incidents.filter(i => i.status === 'resolved');
+  const openIncidents = incidents.filter(i => i.status !== IncidentStatus.RESOLVED);
+  const resolvedIncidents = incidents.filter(i => i.status === IncidentStatus.RESOLVED);
 
   return (
     <div className="space-y-6">
@@ -79,13 +79,12 @@ export const SafetyView: React.FC<SafetyViewProps> = ({ user, addToast, setActiv
                   <div>
                     <h4 className="font-medium">{incident.title}</h4>
                     <p className="text-sm text-gray-500">
-                      {incident.severity} • {new Date(incident.date).toLocaleDateString()}
+                      {incident.severity} • {new Date(incident.incidentDate).toLocaleDateString()}
                     </p>
                   </div>
-                  <span 
-                    className={`px-2 py-1 rounded text-xs ${
-                      incident.status === 'open' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-                    }`}
+                  <span
+                    className={`px-2 py-1 rounded text-xs ${incident.status !== IncidentStatus.RESOLVED ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                      }`}
                   >
                     {incident.status}
                   </span>
@@ -110,7 +109,7 @@ export const SafetyView: React.FC<SafetyViewProps> = ({ user, addToast, setActiv
               <div className="flex justify-between items-center">
                 <span>Days Since Last Incident</span>
                 <span className="font-medium">
-                  {incidents.length > 0 ? Math.floor((Date.now() - Math.max(...incidents.map(i => new Date(i.date).getTime()))) / (1000 * 60 * 60 * 24)) : 'N/A'}
+                  {incidents.length > 0 ? Math.floor((Date.now() - Math.max(...incidents.map(i => new Date(i.incidentDate).getTime()))) / (1000 * 60 * 60 * 24)) : 'N/A'}
                 </span>
               </div>
             </div>

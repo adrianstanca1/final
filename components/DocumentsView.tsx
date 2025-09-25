@@ -43,7 +43,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ user, addToast }) 
                 <h1 className="text-2xl font-bold text-gray-900">Documents</h1>
                 <Button>Upload Document</Button>
             </div>
-            
+
             <Card>
                 <div className="p-6">
                     <h3 className="text-lg font-semibold mb-4">Recent Documents</h3>

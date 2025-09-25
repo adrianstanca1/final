@@ -19,10 +19,10 @@ interface SiteUpdateCardProps {
   onView?: (update: SiteUpdate) => void;
 }
 
-export const SiteUpdateCard: React.FC<SiteUpdateCardProps> = ({ 
-  update, 
-  user, 
-  onView 
+export const SiteUpdateCard: React.FC<SiteUpdateCardProps> = ({
+  update,
+  user,
+  onView
 }) => {
   const getTypeColor = (type: SiteUpdate['type']) => {
     switch (type) {
@@ -56,11 +56,11 @@ export const SiteUpdateCard: React.FC<SiteUpdateCardProps> = ({
 
   return (
     <Card className="mb-4">
-      <Card.Header>
-        <div className="flex justify-between items-start">
+      <div>
+        <div className="flex justify-between items-start mb-4">
           <div className="flex items-center space-x-2">
             <span className="text-lg">{getTypeIcon(update.type)}</span>
-            <Card.Title className="text-lg">{update.title}</Card.Title>
+            <h3 className="text-lg font-semibold">{update.title}</h3>
             <span className={`px-2 py-1 rounded-full text-xs ${getTypeColor(update.type)}`}>
               {update.type}
             </span>
@@ -69,8 +69,8 @@ export const SiteUpdateCard: React.FC<SiteUpdateCardProps> = ({
             {update.timestamp.toLocaleDateString()} {update.timestamp.toLocaleTimeString()}
           </span>
         </div>
-      </Card.Header>
-      <Card.Content>
+      </div>
+      <div>
         <p className="text-gray-700 mb-3">{update.description}</p>
         <div className="flex justify-between items-center">
           <span className="text-sm text-gray-500">By: {update.author}</span>
@@ -80,7 +80,7 @@ export const SiteUpdateCard: React.FC<SiteUpdateCardProps> = ({
             </Button>
           )}
         </div>
-      </Card.Content>
+      </div>
     </Card>
   );
 };

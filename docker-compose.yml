@@ -1,0 +1,55 @@
+version : '3.8'
+
+          services :
+#PostgreSQL Database
+    postgres : image : postgres : 15 -
+                       alpine
+                           container_name : construction_postgres
+                                                restart : unless -
+                                                          stopped
+                                                                  environment : POSTGRES_DB : construction_db
+                                                                                                  POSTGRES_USER : construction_user
+                                                                                                                      POSTGRES_PASSWORD : construction_pass
+                                                                                                                                              ports : -"5432:5432" volumes : -postgres_data : /
+                                                                                                                                                                                              var / lib / postgresql / data -
+                                                              ./ backend / database / init.sql : / docker - entrypoint - initdb.d / init.sql networks : -construction_network healthcheck : test : [ "CMD-SHELL", "pg_isready -U construction_user -d construction_db" ] interval : 10s timeout : 5s retries : 5
+
+#Redis Cache
+                                                                                                                                                                                                   redis : image : redis : 7 -
+                                                          alpine
+                                                              container_name : construction_redis
+                                                                                   restart : unless -
+                                                                                             stopped
+                                                                                                     ports : -"6379:6379" volumes : -redis_data : /
+                                                                                                                                                  data
+                                                                                                                                                      networks : -construction_network
+                                                                                                                                                                     healthcheck : test : [ "CMD", "redis-cli", "ping" ] interval : 10s timeout : 5s retries : 5 command : redis -
+                                                                                             server-- appendonly yes
+
+#Backend API
+                                                                                                     backend : build : context :./
+                                                                                                 backend
+                                                                                                     dockerfile : Dockerfile
+                                                                                                                      container_name : construction_backend
+                                                                                                                                           restart : unless -
+                                                                                             stopped
+                                                                                                 environment : NODE_ENV : development
+                                                                                                                              PORT : 4000 DATABASE_URL : postgresql :                     // construction_user:construction_pass@postgres:5432/construction_db
+                                                                                                                                                                      REDIS_URL : redis : // redis:6379
+                                                                                                                                                                                          JWT_SECRET : your -
+                                                                                                                                                                                                       super - secret - jwt - key - change - in - production CORS_ORIGINS : http : // localhost:3000,http://localhost:8080
+                                                                                                                                                                                                                                                                                   GEMINI_API_KEY : ${GEMINI_API_KEY} ports : -"4000:4000" volumes : -./
+                                                                                                                                                                                                                                                      backend : / app -
+                                                                                                                                                                                                       / app / node_modules -./ uploads : / app / uploads networks : -construction_network depends_on : postgres : condition : service_healthy redis : condition : service_healthy healthcheck : test : [ "CMD", "curl", "-f", "http://localhost:4000/health" ] interval : 30s timeout : 10s retries : 5
+
+#Frontend(Development)
+                                                                                                                                                                                                                                                                                                                                                                                                        frontend : build : context :.dockerfile : Dockerfile.frontend container_name : construction_frontend restart : unless -
+                                                                                                                                                                                                       stopped
+                                                                                                                                                                                                               environment : VITE_API_URL : http : // localhost:4000
+                                                                                                                                                                                                                                                   VITE_GEMINI_API_KEY : ${GEMINI_API_KEY} ports : -"3000:3000" volumes : -. : /
+                                                                                                                                                                                                                                                                                                                               app -
+                                                                                                                                                                                                       / app / node_modules networks : -construction_network depends_on : -backend
+
+                                                                                                                                                                                                                                                                              volumes : postgres_data : driver : local redis_data : driver : local
+
+                                                                                                                                                                                                                                                                                                                                                 networks : construction_network : driver : bridge

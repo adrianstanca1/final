@@ -9,8 +9,8 @@ import { Button } from './ui/Button';
 import { hasPermission } from '../services/auth';
 
 interface TimesheetsViewProps {
-  user: User;
-  addToast: (message: string, type: 'success' | 'error') => void;
+    user: User;
+    addToast: (message: string, type: 'success' | 'error') => void;
 }
 
 const LogTimeModal: React.FC<{
@@ -23,8 +23,8 @@ const LogTimeModal: React.FC<{
 }> = ({ user, projects, timesheetToEdit, onClose, onSuccess, addToast }) => {
     const [projectId, setProjectId] = useState(timesheetToEdit?.projectId.toString() || projects[0]?.id.toString() || '');
     const [date, setDate] = useState(timesheetToEdit ? new Date(timesheetToEdit.clockIn).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
-    const [startTime, setStartTime] = useState(timesheetToEdit ? new Date(timesheetToEdit.clockIn).toTimeString().substring(0,5) : '09:00');
-    const [endTime, setEndTime] = useState(timesheetToEdit?.clockOut ? new Date(timesheetToEdit.clockOut).toTimeString().substring(0,5) : '17:00');
+    const [startTime, setStartTime] = useState(timesheetToEdit ? new Date(timesheetToEdit.clockIn).toTimeString().substring(0, 5) : '09:00');
+    const [endTime, setEndTime] = useState(timesheetToEdit?.clockOut ? new Date(timesheetToEdit.clockOut).toTimeString().substring(0, 5) : '17:00');
     const [notes, setNotes] = useState(timesheetToEdit?.notes || '');
     const [isSaving, setIsSaving] = useState(false);
 
@@ -37,11 +37,11 @@ const LogTimeModal: React.FC<{
             addToast("Clock-in time must be before clock-out time.", "error");
             return;
         }
-        
+
         setIsSaving(true);
         try {
             if (timesheetToEdit) {
-                 await api.updateTimesheetEntry(timesheetToEdit.id, {
+                await api.updateTimesheetEntry(timesheetToEdit.id, {
                     // FIX: Removed parseInt as projectId is a string
                     projectId: projectId,
                     clockIn,
@@ -50,7 +50,7 @@ const LogTimeModal: React.FC<{
                 }, user.id);
                 addToast("Timesheet updated successfully.", "success");
             } else {
-                 await api.submitTimesheet({
+                await api.submitTimesheet({
                     userId: user.id,
                     // FIX: Removed parseInt as projectId is a string
                     projectId: projectId,
@@ -62,7 +62,7 @@ const LogTimeModal: React.FC<{
             }
             onSuccess();
             onClose();
-        } catch(err) {
+        } catch (err) {
             addToast(err instanceof Error ? err.message : "Failed to save timesheet.", "error");
         } finally {
             setIsSaving(false);
@@ -74,7 +74,7 @@ const LogTimeModal: React.FC<{
             <Card className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
                 <h2 className="text-2xl font-bold text-slate-800 mb-4">{timesheetToEdit ? 'Edit' : 'Log'} Time</h2>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                     <div>
+                    <div>
                         <label className="block text-sm font-medium text-gray-700">Project</label>
                         <select value={projectId} onChange={e => setProjectId(e.target.value)} className="mt-1 w-full p-2 border rounded-md bg-white">
                             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -86,15 +86,15 @@ const LogTimeModal: React.FC<{
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                             <label className="block text-sm font-medium text-gray-700">Start Time</label>
+                            <label className="block text-sm font-medium text-gray-700">Start Time</label>
                             <input type="time" value={startTime} onChange={e => setStartTime(e.target.value)} className="mt-1 w-full p-2 border rounded-md" />
                         </div>
                         <div>
-                             <label className="block text-sm font-medium text-gray-700">End Time</label>
+                            <label className="block text-sm font-medium text-gray-700">End Time</label>
                             <input type="time" value={endTime} onChange={e => setEndTime(e.target.value)} className="mt-1 w-full p-2 border rounded-md" />
                         </div>
                     </div>
-                     <div>
+                    <div>
                         <label className="block text-sm font-medium text-gray-700">Notes (Optional)</label>
                         <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="mt-1 w-full p-2 border rounded-md" />
                     </div>
@@ -141,7 +141,7 @@ export const TimesheetsView: React.FC<TimesheetsViewProps> = ({ user, addToast }
             ]);
 
             if (controller.signal.aborted) return;
-            setTimesheets(tsData.sort((a,b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime()));
+            setTimesheets(tsData.sort((a, b) => new Date(b.clockIn).getTime() - new Date(a.clockIn).getTime()));
             if (controller.signal.aborted) return;
             setProjects(projData);
             if (controller.signal.aborted) return;
@@ -162,7 +162,7 @@ export const TimesheetsView: React.FC<TimesheetsViewProps> = ({ user, addToast }
             abortControllerRef.current?.abort();
         };
     }, [fetchData]);
-    
+
     // FIX: Correctly map user ID to full name.
     const userMap = useMemo(() => new Map(users.map(u => [u.id, `${u.firstName} ${u.lastName}`])), [users]);
     const projectMap = useMemo(() => new Map(projects.map(p => [p.id, p.name])), [projects]);
@@ -182,7 +182,7 @@ export const TimesheetsView: React.FC<TimesheetsViewProps> = ({ user, addToast }
             addToast("Failed to update timesheet.", "error");
         }
     };
-    
+
     const { reviewQueue, myTimesheets } = useMemo(() => {
         const review: Timesheet[] = [];
         const my: Timesheet[] = [];
@@ -192,7 +192,7 @@ export const TimesheetsView: React.FC<TimesheetsViewProps> = ({ user, addToast }
         });
         return { reviewQueue: review, myTimesheets: my };
     }, [timesheets, user.id]);
-    
+
     const openLogTimeModal = (ts: Timesheet | null = null) => {
         setEditingTimesheet(ts);
         setIsModalOpen(true);
@@ -226,8 +226,8 @@ export const TimesheetsView: React.FC<TimesheetsViewProps> = ({ user, addToast }
                                 <td className="px-6 py-4 whitespace-nowrap text-right space-x-2">
                                     {activeTab === 'review' && ts.status === TimesheetStatus.PENDING && (
                                         <>
-                                            <Button size="sm" variant="success" onClick={() => handleUpdateStatus(ts.id, TimesheetStatus.APPROVED)}>Approve</Button>
-                                            <Button size="sm" variant="danger" onClick={() => handleUpdateStatus(ts.id, TimesheetStatus.REJECTED)}>Reject</Button>
+                                            <Button size="sm" variant="primary" onClick={() => handleUpdateStatus(ts.id, TimesheetStatus.APPROVED)}>Approve</Button>
+                                            <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(ts.id, TimesheetStatus.REJECTED)}>Reject</Button>
                                         </>
                                     )}
                                     {activeTab === 'my-timesheets' && (ts.status === TimesheetStatus.PENDING || ts.status === TimesheetStatus.REJECTED) && (
@@ -247,7 +247,7 @@ export const TimesheetsView: React.FC<TimesheetsViewProps> = ({ user, addToast }
 
     return (
         <div className="space-y-6">
-             {isModalOpen && (
+            {isModalOpen && (
                 <LogTimeModal
                     user={user}
                     projects={projects}
@@ -261,15 +261,15 @@ export const TimesheetsView: React.FC<TimesheetsViewProps> = ({ user, addToast }
                 <h2 className="text-3xl font-bold text-slate-800">Timesheets</h2>
                 <Button onClick={() => openLogTimeModal()}>Log Time</Button>
             </div>
-            
+
             <Card>
-                 <div className="border-b border-gray-200">
+                <div className="border-b border-gray-200">
                     <nav className="-mb-px flex space-x-6">
-                       {canManage && (
+                        {canManage && (
                             <button onClick={() => setActiveTab('review')} className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm ${activeTab === 'review' ? 'border-sky-500 text-sky-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
                                 Review Queue ({reviewQueue.length})
                             </button>
-                       )}
+                        )}
                         <button onClick={() => setActiveTab('my-timesheets')} className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm ${activeTab === 'my-timesheets' ? 'border-sky-500 text-sky-600' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>
                             My Timesheets
                         </button>

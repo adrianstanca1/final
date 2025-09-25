@@ -9,13 +9,13 @@ interface ProjectsViewProps {
   addToast: (message: string, type: 'success' | 'error') => void;
   onProjectSelect?: (project: Project) => void;
   selectedProject?: Project | null;
-}
+}; // FIX: Close the interface
 
-export const ProjectsView: React.FC<ProjectsViewProps> = ({ 
-  user, 
-  addToast, 
+export const ProjectsView: React.FC<ProjectsViewProps> = ({
+  user,
+  addToast,
   onProjectSelect,
-  selectedProject 
+  selectedProject
 }) => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,7 +27,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   const loadProjects = async () => {
     try {
       setLoading(true);
-      const projectsData = await api.getProjects();
+      const projectsData = await api.getProjectsByCompany(user.companyId);
       setProjects(projectsData);
     } catch (error) {
       console.error('Error loading projects:', error);
@@ -39,11 +39,11 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
 
   const getStatusColor = (status: ProjectStatus) => {
     switch (status) {
-      case 'active':
+      case 'ACTIVE':
         return 'bg-green-100 text-green-800';
-      case 'on-hold':
+      case 'ON_HOLD':
         return 'bg-yellow-100 text-yellow-800';
-      case 'completed':
+      case 'COMPLETED':
         return 'bg-blue-100 text-blue-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -63,39 +63,38 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
     <div className="p-6">
       <div className="mb-6 flex justify-between items-center">
         <h1 className="text-2xl font-bold">Projects</h1>
-        <Button onClick={() => addToast('Create project feature coming soon', 'info')}>
+        <Button onClick={() => addToast('Create project feature coming soon', 'success')}>
           Create Project
         </Button>
       </div>
 
       {projects.length === 0 ? (
         <Card>
-          <Card.Content className="text-center py-8">
+          <div className="text-center py-8">
             <p className="text-gray-500 mb-4">No projects found.</p>
-            <Button onClick={() => addToast('Create project feature coming soon', 'info')}>
+            <Button onClick={() => addToast('Create project feature coming soon', 'success')}>
               Create Your First Project
             </Button>
-          </Card.Content>
+          </div>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {projects.map(project => (
-            <Card 
-              key={project.id} 
-              className={`cursor-pointer transition-all hover:shadow-lg ${
-                selectedProject?.id === project.id ? 'ring-2 ring-blue-500' : ''
-              }`}
+            <Card
+              key={project.id}
+              className={`cursor-pointer transition-all hover:shadow-lg ${selectedProject?.id === project.id ? 'ring-2 ring-blue-500' : ''
+                }`}
               onClick={() => onProjectSelect?.(project)}
             >
-              <Card.Header>
-                <div className="flex justify-between items-start">
-                  <Card.Title className="text-lg">{project.name}</Card.Title>
+              <div>
+                <div className="flex justify-between items-start mb-4">
+                  <h3 className="text-lg font-semibold">{project.name}</h3>
                   <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(project.status)}`}>
                     {project.status}
                   </span>
                 </div>
-              </Card.Header>
-              <Card.Content>
+              </div>
+              <div>
                 <p className="text-gray-600 mb-4 text-sm">{project.description}</p>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
@@ -111,7 +110,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                     <span>${project.budget?.toLocaleString() || 'N/A'}</span>
                   </div>
                 </div>
-              </Card.Content>
+              </div>
             </Card>
           ))}
         </div>

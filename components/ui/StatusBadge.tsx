@@ -50,7 +50,6 @@ export const QuoteStatusBadge: React.FC<{ status: QuoteStatus }> = ({ status }) 
         [QuoteStatus.SENT]: { label: 'Sent', color: 'blue', indicator: 'blue' },
         [QuoteStatus.ACCEPTED]: { label: 'Accepted', color: 'green', indicator: 'green' },
         [QuoteStatus.REJECTED]: { label: 'Rejected', color: 'red', indicator: 'red' },
-        [QuoteStatus.EXPIRED]: { label: 'Expired', color: 'orange', indicator: 'orange' },
     };
     const { label, color, indicator } = statusMap[status] || { label: 'Unknown', color: 'gray', indicator: 'gray' };
     return <Tag label={label} color={color as any} statusIndicator={indicator as any} />;
@@ -58,10 +57,9 @@ export const QuoteStatusBadge: React.FC<{ status: QuoteStatus }> = ({ status }) 
 
 export const TodoStatusBadge: React.FC<{ status: TodoStatus }> = ({ status }) => {
     const statusMap = {
-        [TodoStatus.PENDING]: { label: 'Pending', color: 'yellow', indicator: 'yellow' },
+        [TodoStatus.TODO]: { label: 'To Do', color: 'yellow', indicator: 'yellow' },
         [TodoStatus.IN_PROGRESS]: { label: 'In Progress', color: 'blue', indicator: 'blue' },
-        [TodoStatus.COMPLETED]: { label: 'Completed', color: 'green', indicator: 'green' },
-        [TodoStatus.CANCELLED]: { label: 'Cancelled', color: 'red', indicator: 'red' },
+        [TodoStatus.DONE]: { label: 'Done', color: 'green', indicator: 'green' },
     };
     const { label, color, indicator } = statusMap[status] || { label: 'Unknown', color: 'gray', indicator: 'gray' };
     return <Tag label={label} color={color as any} statusIndicator={indicator as any} />;
@@ -70,9 +68,8 @@ export const TodoStatusBadge: React.FC<{ status: TodoStatus }> = ({ status }) =>
 export const DocumentStatusBadge: React.FC<{ status: DocumentStatus }> = ({ status }) => {
     const statusMap = {
         [DocumentStatus.DRAFT]: { label: 'Draft', color: 'gray', indicator: 'gray' },
-        [DocumentStatus.REVIEW]: { label: 'Review', color: 'yellow', indicator: 'yellow' },
+        [DocumentStatus.IN_REVIEW]: { label: 'In Review', color: 'yellow', indicator: 'yellow' },
         [DocumentStatus.APPROVED]: { label: 'Approved', color: 'green', indicator: 'green' },
-        [DocumentStatus.ARCHIVED]: { label: 'Archived', color: 'blue', indicator: 'blue' },
     };
     const { label, color, indicator } = statusMap[status] || { label: 'Unknown', color: 'gray', indicator: 'gray' };
     return <Tag label={label} color={color as any} statusIndicator={indicator as any} />;
@@ -83,7 +80,7 @@ export const EquipmentStatusBadge: React.FC<{ status: EquipmentStatus }> = ({ st
         [EquipmentStatus.AVAILABLE]: { label: 'Available', color: 'green', indicator: 'green' },
         [EquipmentStatus.IN_USE]: { label: 'In Use', color: 'blue', indicator: 'blue' },
         [EquipmentStatus.MAINTENANCE]: { label: 'Maintenance', color: 'yellow', indicator: 'yellow' },
-        [EquipmentStatus.OUT_OF_SERVICE]: { label: 'Out of Service', color: 'red', indicator: 'red' },
+        [EquipmentStatus.OUT_OF_ORDER]: { label: 'Out of Order', color: 'red', indicator: 'red' },
     };
     const { label, color, indicator } = statusMap[status] || { label: 'Unknown', color: 'gray', indicator: 'gray' };
     return <Tag label={label} color={color as any} statusIndicator={indicator as any} />;

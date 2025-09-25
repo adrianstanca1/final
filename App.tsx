@@ -1,31 +1,52 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense } from 'react';
 import { User, View, Project, Role, Notification, CompanySettings, IncidentStatus, TimesheetStatus, NotificationType } from './types';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import type { User, View, Project, Notification, CompanySettings } from './types';
 import { api } from './services/mockApi';
-import { notificationService } from './services/notificationService';
-import { analytics } from './services/analyticsService';
-import { backupService } from './services/backupService';
-import { authService } from './services/auth';
 import { Login } from './components/Login';
 import { Sidebar } from './components/layout/Sidebar';
+import { Header } from './components/layout/Header';
+import { Dashboard } from './components/Dashboard';
+import { MyDayView } from './components/MyDayView';
+import { ForemanDashboard } from './components/ForemanDashboard';
+import { PrincipalAdminDashboard } from './components/PrincipalAdminDashboard';
+import { ProjectsView } from './components/ProjectsView';
+import { ProjectDetailView } from './components/ProjectDetailView';
+import { AllTasksView } from './components/AllTasksView';
+import { ProjectsMapView } from './components/ProjectsMapView';
+import { TimeTrackingView } from './components/TimeTrackingView';
+import { TimesheetsView } from './components/TimesheetsView';
+import { DocumentsView } from './components/DocumentsView';
+import { SafetyView } from './components/SafetyView';
+import { FinancialsView } from './components/FinancialsView';
+import { TeamView } from './components/TeamView';
+import { EquipmentView } from './components/EquipmentView';
+import { TemplatesView } from './components/TemplatesView';
+import { ToolsView } from './components/ToolsView';
+import { AuditLogView } from './components/AuditLogView';
+import { SettingsView } from './components/SettingsView';
+import { ChatView } from './components/ChatView';
 import { AISearchModal } from './components/AISearchModal';
 import { CommandPalette } from './components/CommandPalette';
 import { useOfflineSync } from './hooks/useOfflineSync';
 import { useCommandPalette } from './hooks/useCommandPalette';
 import { useReminderService } from './hooks/useReminderService';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { ClientsView } from './components/ClientsView';
+import { InvoicesView } from './components/InvoicesView';
 import { PageErrorBoundary } from './components/ErrorBoundary';
+import { UserRegistration } from './components/UserRegistration';
 import { useAuth } from './contexts/AuthContext';
 import { ForgotPassword } from './components/auth/ForgotPassword';
 import { ResetPassword } from './components/auth/ResetPassword';
-import { ViewHeader } from './components/layout/ViewHeader';
-import { Header } from './components/layout/Header';
-import { getViewMetadata } from './utils/viewMetadata';
 import { ViewAccessBoundary } from './components/layout/ViewAccessBoundary';
 import { evaluateViewAccess, getDefaultViewForUser } from './utils/viewAccess';
+
+// Lazy-load heavy view components to reduce initial bundle size
 const Dashboard = React.lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
 const OwnerDashboard = React.lazy(() => import('./components/OwnerDashboard').then(m => ({ default: m.OwnerDashboard })));
 const MyDayView = React.lazy(() => import('./components/MyDayView').then(m => ({ default: m.MyDayView })));
-const ForemanDashboard = React.lazy(() => import('./components/ForemanDashboard'));
+const ForemanDashboard = React.lazy(() => import('./components/ForemanDashboard').then(m => ({ default: m.ForemanDashboard })));
 const PrincipalAdminDashboard = React.lazy(() => import('./components/PrincipalAdminDashboard').then(m => ({ default: m.PrincipalAdminDashboard })));
 const ProjectsView = React.lazy(() => import('./components/ProjectsView').then(m => ({ default: m.ProjectsView })));
 const ProjectDetailView = React.lazy(() => import('./components/ProjectDetailView').then(m => ({ default: m.ProjectDetailView })));
@@ -116,7 +137,6 @@ function AppContent() {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [initialChatRecipient, setInitialChatRecipient] = useState<User | null>(null);
 
-
   // States for sidebar badge counts
   const [pendingTimesheetCount, setPendingTimesheetCount] = useState(0);
   const [openIncidentCount, setOpenIncidentCount] = useState(0);
@@ -127,30 +147,16 @@ function AppContent() {
 
   const changeView = useCallback(
     (view: View) => {
-      // Track page view for analytics
-      analytics.trackPageView(view, selectedProject ? `${view} - ${selectedProject.name}` : view);
-
       if (view !== 'project-detail') {
         setSelectedProject(null);
       }
       setActiveView(view);
     },
-    [selectedProject]
+    []
   );
 
   const addToast = useCallback((message: string, type: 'success' | 'error' = 'success', notification?: Notification) => {
-    const id = Date.now();
-    setToasts(currentToasts => [...currentToasts, { id, message, type, notification }]);
-
-    // Track toast events for analytics
-    analytics.track('toast_shown', {
-      message_type: type,
-      has_notification: !!notification,
-      notification_type: notification?.type,
-    });
-
-    // Auto-dismiss after 5 seconds
-    setTimeout(() => dismissToast(id), 5000);
+    setToasts(currentToasts => [...currentToasts, { id: Date.now(), message, type, notification }]);
   }, []);
 
   const dismissToast = (id: number) => {
@@ -172,31 +178,10 @@ function AppContent() {
   useReminderService(user);
   
   useEffect(() => {
-    if (!user?.companyId) {
-      setCompanySettings(null);
-      return;
+    if (user?.companyId) {
+      api.getCompanySettings(user.companyId).then(setCompanySettings);
     }
-
-    let isActive = true;
-    api
-      .getCompanySettings(user.companyId)
-      .then(settings => {
-        if (isActive) {
-          setCompanySettings(settings);
-        }
-      })
-      .catch(error => {
-        if (!isActive) {
-          return;
-        }
-        console.error('Failed to load company settings', error);
-        addToast('We could not load your company preferences. Some pages may use defaults.', 'error');
-      });
-
-    return () => {
-      isActive = false;
-    };
-  }, [user, addToast]);
+  }, [user]);
 
   useEffect(() => {
     if(companySettings) {
@@ -209,20 +194,6 @@ function AppContent() {
       setActiveView(getDefaultViewForUser(user));
     }
   }, [isAuthenticated, user]);
-
-
-  const handleCompanySettingsUpdate = useCallback(
-    async (updates: Partial<CompanySettings>) => {
-      if (!user?.companyId) {
-        throw new Error('You must belong to a company to update settings.');
-      }
-
-      const updated = await api.updateCompanySettings(user.companyId, updates, user.id);
-      setCompanySettings(updated);
-      return updated;
-    },
-    [user]
-  );
 
 
   const updateBadgeCounts = useCallback(async (user: User) => {
@@ -276,28 +247,12 @@ function AppContent() {
   }, [user, updateBadgeCounts]);
 
   const handleLogout = () => {
-    // Track logout event
-    analytics.track('user_logout', {
-      session_duration: Date.now() - (analytics.getSessionData().startTime || 0),
-    });
-
-    // Create backup before logout
-    backupService.createBackup({}, { userId: user?.id || 'unknown' }).catch(console.error);
-
     logout();
     setAuthView('login');
-    changeView('dashboard');
     changeView('dashboard');
   };
 
   const handleSelectProject = (project: Project) => {
-    // Track project selection
-    analytics.track('project_selected', {
-      project_id: project.id,
-      project_name: project.name,
-      project_status: project.status,
-    });
-
     setSelectedProject(project);
     setActiveView('project-detail');
   };
@@ -310,118 +265,123 @@ function AppContent() {
   const handleNotificationClick = useCallback(async (notification: Notification) => {
     if (!user) return;
 
+    const wasUnread = !(notification.isRead ?? notification.read);
+
     try {
-      await api.markNotificationAsRead(notification.id);
+      if (wasUnread) {
+        await api.markNotificationAsRead(notification.id);
+      }
+
+      setNotifications(prev => prev.map(n => (
+        n.id === notification.id ? { ...n, isRead: true, read: true } : n
+      )));
+
+      previousNotificationsRef.current = previousNotificationsRef.current.map(n => (
+        n.id === notification.id ? { ...n, isRead: true, read: true } : n
+      ));
+
+      if (wasUnread) {
+        setUnreadNotificationCount(prev => Math.max(0, prev - 1));
+      }
     } catch (error) {
-      console.error('Failed to mark notification as read', error);
+      console.error('Failed to update notification state', error);
+      addToast('Unable to update that notification right now.', 'error');
+      return;
     }
 
-    setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, isRead: true } : n));
+    const metadata = (notification.metadata ?? {}) as { view?: View; projectId?: string };
 
-    let targetView: View | null = null;
-    let project: Project | null = null;
-
-    if (notification.metadata?.projectId) {
+    if (metadata.projectId) {
       try {
-        project = await api.getProjectById(notification.metadata.projectId);
+        const project = await api.getProjectById(metadata.projectId);
+        if (project) {
+          setSelectedProject(project);
+          changeView('project-detail');
+          return;
+        }
+        addToast('The project linked to this notification is no longer available.', 'error');
+        changeView('projects');
+        return;
       } catch (error) {
-        console.error('Failed to resolve project from notification metadata', error);
+        console.error('Failed to load project from notification', error);
+        addToast('We could not open the related project.', 'error');
+        changeView('projects');
+        return;
       }
+    } else if (metadata.view && metadata.view !== activeView) {
+      changeView(metadata.view);
+      return;
+    } else if (notification.type === NotificationType.NEW_MESSAGE) {
+      changeView('chat');
+      return;
     }
 
-    if (project) {
-      setSelectedProject(project);
-      targetView = 'project-detail';
-    } else if (notification.metadata?.view) {
-      targetView = notification.metadata.view as View;
-    } else {
-      switch (notification.type) {
-        case NotificationType.NEW_MESSAGE:
-          targetView = 'chat';
-          break;
-        case NotificationType.SAFETY_ALERT:
-          targetView = 'safety';
-          break;
-        case NotificationType.APPROVAL_REQUEST:
-          targetView = 'timesheets';
-          break;
-        case NotificationType.TASK_ASSIGNED:
-          targetView = 'all-tasks';
-          break;
-        case NotificationType.DOCUMENT_COMMENT:
-          targetView = 'documents';
-          break;
-        default:
-          targetView = null;
-      }
+    if (wasUnread) {
+      addToast('Notification marked as read.', 'success');
     }
-
-    if (targetView) {
-      changeView(targetView);
-    }
-
-    updateBadgeCounts(user);
-  }, [user, updateBadgeCounts, setSelectedProject, changeView]);
+  }, [user, addToast, changeView, activeView]);
 
   const renderView = () => {
     if (!user) return null;
     if (activeView === 'project-detail' && selectedProject) {
-      return <ProjectDetailView project={selectedProject} user={user} onBack={() => changeView('projects')} addToast={addToast} isOnline={isOnline} onStartChat={handleStartChat}/>;
+      return (
+        <ProjectDetailView
+          project={selectedProject}
+          user={user}
+          onBack={() => changeView('projects')}
+          addToast={addToast}
+          isOnline={isOnline}
+          onStartChat={handleStartChat}
+        />
+      );
     }
 
     switch (activeView) {
-      case 'dashboard': return <Dashboard user={user} addToast={addToast} activeView={activeView} setActiveView={changeView} onSelectProject={handleSelectProject} />;
+      case 'dashboard':
+        return (
+          <Dashboard
+            user={user}
+            addToast={addToast}
+            activeView={activeView}
+            setActiveView={changeView}
+            onSelectProject={handleSelectProject}
+          />
+        );
       case 'my-day': return <MyDayView user={user} addToast={addToast} />;
       case 'foreman-dashboard': return <ForemanDashboard user={user} addToast={addToast} />;
       case 'principal-dashboard': return <PrincipalAdminDashboard user={user} addToast={addToast} />;
       case 'projects': return <ProjectsView user={user} addToast={addToast} onSelectProject={handleSelectProject} />;
       case 'all-tasks': return <AllTasksView user={user} addToast={addToast} isOnline={isOnline} />;
       case 'map': return <ProjectsMapView user={user} addToast={addToast} />;
-      case 'time': return <TimeTrackingView user={user} addToast={addToast} setActiveView={changeView} />;
+      case 'time':
+        return <TimeTrackingView user={user} addToast={addToast} setActiveView={changeView} />;
       case 'timesheets': return <TimesheetsView user={user} addToast={addToast} />;
       case 'documents': return <DocumentsView user={user} addToast={addToast} isOnline={isOnline} settings={companySettings} />;
-      case 'safety': return <SafetyView user={user} addToast={addToast} setActiveView={changeView} />;
+      case 'safety':
+        return <SafetyView user={user} addToast={addToast} setActiveView={changeView} />;
       case 'financials': return <FinancialsView user={user} addToast={addToast} />;
       case 'users': return <TeamView user={user} addToast={addToast} onStartChat={handleStartChat} />;
       case 'equipment': return <EquipmentView user={user} addToast={addToast} />;
       case 'templates': return <TemplatesView user={user} addToast={addToast} />;
-      case 'tools': return <ToolsView user={user} addToast={addToast} setActiveView={changeView} />;
+      case 'tools':
+        return <ToolsView user={user} addToast={addToast} setActiveView={changeView} />;
       case 'audit-log': return <AuditLogView user={user} addToast={addToast} />;
+      case 'settings': return <SettingsView user={user} addToast={addToast} settings={companySettings} onSettingsUpdate={(s) => setCompanySettings(prev => ({...prev, ...s}))} />;
       case 'chat': return <ChatView user={user} addToast={addToast} initialRecipient={initialChatRecipient}/>;
       case 'clients': return <ClientsView user={user} addToast={addToast} />;
       case 'invoices': return <InvoicesView user={user} addToast={addToast} />;
-      default: return <Dashboard user={user} addToast={addToast} activeView={activeView} setActiveView={changeView} onSelectProject={handleSelectProject} />;
+      default:
+        return (
+          <Dashboard
+            user={user}
+            addToast={addToast}
+            activeView={activeView}
+            setActiveView={changeView}
+            onSelectProject={handleSelectProject}
+          />
+        );
     }
   };
-
-  const viewMetadata = useMemo(() => (
-    getViewMetadata(activeView, { selectedProject, userRole: user?.role ?? null })
-  ), [activeView, selectedProject, user?.role]);
-
-  const headerStats = useMemo(() => {
-    switch (activeView) {
-      case 'timesheets':
-        return [{
-          label: 'Pending approvals',
-          value: pendingTimesheetCount,
-          tone: pendingTimesheetCount > 0 ? 'warning' : 'success',
-        }];
-      case 'safety':
-        return [{
-          label: 'Open incidents',
-          value: openIncidentCount,
-          tone: openIncidentCount > 0 ? 'warning' : 'success',
-        }];
-      case 'chat':
-        return [{
-          label: 'Unread conversations',
-          value: unreadMessageCount,
-          tone: unreadMessageCount > 0 ? 'info' : 'neutral',
-        }];
-      default:
-        return undefined;
-    }
-  }, [activeView, pendingTimesheetCount, openIncidentCount, unreadMessageCount]);
 
   if (loading) {
     return (
@@ -465,9 +425,8 @@ function AppContent() {
         pendingTimesheetCount={pendingTimesheetCount}
         openIncidentCount={openIncidentCount}
         unreadMessageCount={unreadMessageCount}
-        companyName={company?.name}
       />
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
         <Header
           user={user}
           onLogout={handleLogout}
@@ -484,16 +443,6 @@ function AppContent() {
           addToast={addToast}
         />
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-          <ViewHeader
-            title={viewMetadata.title}
-            description={viewMetadata.description}
-            icon={viewMetadata.icon}
-            accentColorClass={viewMetadata.accentColorClass}
-            contextPill={viewMetadata.contextPill}
-            stats={headerStats}
-            isOnline={isOnline}
-          />
-
           <PageErrorBoundary>
             <ViewAccessBoundary
               user={user}
@@ -516,7 +465,6 @@ function AppContent() {
           user={user}
           onClose={() => setIsCommandPaletteOpen(false)}
           setActiveView={changeView}
-          onProjectSelect={handleSelectProject}
         />
       )}
 
@@ -531,34 +479,6 @@ function AppContent() {
 
 // Main App component with enhanced error handling and toast provider
 function App() {
-  useEffect(() => {
-    // Set up global error handling
-    const handleError = (error: ErrorEvent) => {
-      analytics.trackError(new Error(error.message), {
-        filename: error.filename,
-        lineno: error.lineno,
-        colno: error.colno,
-      });
-    };
-
-    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-      analytics.trackError(new Error(event.reason), {
-        type: 'unhandled_promise_rejection',
-      });
-    };
-
-    window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
-
-    // Track initial page load
-    analytics.trackPageView(window.location.pathname, document.title);
-
-    return () => {
-      window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-    };
-  }, []);
-
   return (
     <ToastProvider>
       <AppContent />

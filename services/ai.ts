@@ -17,15 +17,11 @@ import {
 } from '../types';
 import { apiCache } from './cacheService';
 import { wrapError, withRetry } from '../utils/errorHandling';
+import { getEnvironment } from '../config/environment';
 
 const MODEL_NAME = 'gemini-2.0-flash-001';
-const API_KEY = typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_GEMINI_API_KEY
-  ? (import.meta as any).env.VITE_GEMINI_API_KEY
-  : typeof process !== 'undefined'
-    ? (process.env?.GEMINI_API_KEY as string | undefined)
-    : undefined;
-
 let cachedClient: GoogleGenAI | null = null;
+let cachedApiKey: string | null = null;
 
 const DEFAULT_GENERATION_CONFIG = {
   temperature: 0.35,
@@ -33,18 +29,22 @@ const DEFAULT_GENERATION_CONFIG = {
 };
 
 const getClient = (): GoogleGenAI | null => {
-  if (!API_KEY) {
+  const { geminiApiKey } = getEnvironment();
+  if (!geminiApiKey) {
     return null;
   }
 
-  if (cachedClient) {
+  if (cachedClient && cachedApiKey === geminiApiKey) {
     return cachedClient;
   }
 
   try {
-    cachedClient = new GoogleGenAI({ apiKey: API_KEY });
+    cachedClient = new GoogleGenAI({ apiKey: geminiApiKey });
+    cachedApiKey = geminiApiKey;
     return cachedClient;
   } catch (error) {
+    cachedClient = null;
+    cachedApiKey = null;
     console.error('Failed to initialise Gemini client', error);
     return null;
   }

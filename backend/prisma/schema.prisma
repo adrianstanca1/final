@@ -1,0 +1,449 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Company {
+  id          String   @id @default(cuid())
+  name        String
+  type        CompanyType
+  settings    Json?
+  subscription Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  users       User[]
+  projects    Project[]
+  equipment   Equipment[]
+  clients     Client[]
+  
+  @@map("companies")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String
+  lastName  String
+  phone     String?
+  role      Role
+  permissions Json?
+  avatar    String?
+  isActive  Boolean  @default(true)
+  lastLogin DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  // Projects and tasks
+  managedProjects Project[] @relation("ProjectManager")
+  assignedTasks   Task[]
+  timeEntries     TimeEntry[]
+  
+  // Safety and incidents
+  reportedIncidents SafetyIncident[] @relation("IncidentReporter")
+  assignedIncidents SafetyIncident[] @relation("IncidentAssignee")
+  
+  // Communications
+  sentMessages    Message[] @relation("MessageSender")
+  receivedMessages Message[] @relation("MessageReceiver")
+  
+  // Audit logs
+  auditLogs AuditLog[]
+  
+  @@map("users")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  location    Json?    // { address, lat, lng, city, state, country }
+  status      ProjectStatus
+  priority    ProjectPriority
+  budget      Float?
+  actualCost  Float?
+  startDate   DateTime?
+  endDate     DateTime?
+  completedAt DateTime?
+  progress    Float    @default(0)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  managerId String
+  manager   User   @relation("ProjectManager", fields: [managerId], references: [id])
+  
+  // Project data
+  tasks           Task[]
+  timeEntries     TimeEntry[]
+  safetyIncidents SafetyIncident[]
+  invoices        Invoice[]
+  expenses        Expense[]
+  documents       Document[]
+  messages        Message[]
+  
+  @@map("projects")
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  status      TaskStatus
+  priority    TaskPriority
+  estimatedHours Float?
+  actualHours    Float?
+  dueDate     DateTime?
+  completedAt DateTime?
+  metadata    Json?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  // Relations
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  assigneeId String?
+  assignee   User?   @relation(fields: [assigneeId], references: [id])
+  
+  // Time tracking
+  timeEntries TimeEntry[]
+  
+  @@map("tasks")
+}
+
+model TimeEntry {
+  id          String   @id @default(cuid())
+  date        DateTime
+  hours       Float
+  description String?
+  status      TimeEntryStatus
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  taskId String?
+  task   Task?   @relation(fields: [taskId], references: [id])
+  
+  @@map("time_entries")
+}
+
+model SafetyIncident {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  severity    IncidentSeverity
+  status      IncidentStatus
+  location    String?
+  injuryType  String?
+  actionTaken String?
+  incidentDate DateTime
+  resolvedAt  DateTime?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  reporterId String
+  reporter   User   @relation("IncidentReporter", fields: [reporterId], references: [id])
+  
+  assigneeId String?
+  assignee   User?  @relation("IncidentAssignee", fields: [assigneeId], references: [id])
+  
+  @@map("safety_incidents")
+}
+
+model Equipment {
+  id           String   @id @default(cuid())
+  name         String
+  type         String
+  model        String?
+  serialNumber String?
+  status       EquipmentStatus
+  location     String?
+  purchaseDate DateTime?
+  purchaseCost Float?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  // Relations
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  @@map("equipment")
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  address   Json?
+  type      ClientType
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  
+  invoices  Invoice[]
+  
+  @@map("clients")
+}
+
+model Invoice {
+  id          String   @id @default(cuid())
+  number      String   @unique
+  title       String
+  description String?
+  status      InvoiceStatus
+  amount      Float
+  taxAmount   Float?
+  totalAmount Float
+  dueDate     DateTime?
+  paidAt      DateTime?
+  issuedAt    DateTime @default(now())
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+  
+  // Line items
+  lineItems InvoiceLineItem[]
+  
+  @@map("invoices")
+}
+
+model InvoiceLineItem {
+  id          String  @id @default(cuid())
+  description String
+  quantity    Float
+  unitPrice   Float
+  totalPrice  Float
+  
+  // Relations
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  @@map("invoice_line_items")
+}
+
+model Expense {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  amount      Float
+  category    String
+  status      ExpenseStatus
+  date        DateTime
+  receipt     String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@map("expenses")
+}
+
+model Document {
+  id        String   @id @default(cuid())
+  name      String
+  type      String
+  size      Int
+  url       String
+  mimeType  String
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@map("documents")
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  content   String
+  type      MessageType
+  metadata  Json?
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  senderId String
+  sender   User   @relation("MessageSender", fields: [senderId], references: [id])
+  
+  receiverId String?
+  receiver   User?  @relation("MessageReceiver", fields: [receiverId], references: [id])
+  
+  @@map("messages")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  target    Json?    // { type, id, name }
+  metadata  Json?
+  createdAt DateTime @default(now())
+  
+  // Relations
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("audit_logs")
+}
+
+// Enums
+enum CompanyType {
+  GENERAL_CONTRACTOR
+  SUBCONTRACTOR
+  DEVELOPER
+  ARCHITECT
+  ENGINEER
+  OTHER
+}
+
+enum Role {
+  OWNER
+  ADMIN
+  PROJECT_MANAGER
+  FOREMAN
+  WORKER
+  CLIENT
+  VIEWER
+}
+
+enum ProjectStatus {
+  PLANNING
+  IN_PROGRESS
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum ProjectPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  REVIEW
+  DONE
+  BLOCKED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TimeEntryStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum IncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum IncidentStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum EquipmentStatus {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
+  OUT_OF_ORDER
+  RETIRED
+}
+
+enum ClientType {
+  INDIVIDUAL
+  COMPANY
+  GOVERNMENT
+  NON_PROFIT
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  VIEWED
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum ExpenseStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum MessageType {
+  GENERAL
+  TASK_UPDATE
+  PROJECT_UPDATE
+  SAFETY_ALERT
+  SYSTEM_NOTIFICATION
+}

@@ -8,7 +8,7 @@ import { formatCurrency } from '../utils/finance';
 interface FinancialsViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
-}
+}; // FIX: Close the interface
 
 export const FinancialsView: React.FC<FinancialsViewProps> = ({ user, addToast }) => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);

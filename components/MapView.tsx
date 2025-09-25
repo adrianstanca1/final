@@ -1,6 +1,9 @@
-import React from 'react';
 
-interface Marker {
+// FIX: Added missing import for L.divIcon
+import React from 'react';
+import L from 'leaflet';
+
+export interface MapMarkerData {
   id: string;
   lat: number;
   lng: number;
@@ -11,6 +14,8 @@ interface Marker {
   popupContent?: React.ReactNode;
   status?: 'Planning' | 'Active' | 'Completed' | 'On Hold';
 }
+
+interface Marker extends MapMarkerData { }
 
 interface MapViewProps {
   markers: Marker[];
@@ -37,16 +42,16 @@ const createProjectIcon = (status: MapMarkerData['status']) => {
 };
 
 const userLocationIcon = L.divIcon({
-    html: `<div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-md"></div>`,
-    className: '',
-    iconSize: [16, 16],
+  html: `<div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-md"></div>`,
+  className: '',
+  iconSize: [16, 16],
 });
 
 export const MapView: React.FC<MapViewProps> = ({ markers, height = '100%', className = '' }) => {
   const mapRef = React.useRef<HTMLDivElement>(null);
 
   return (
-    <div 
+    <div
       ref={mapRef}
       className={`bg-gray-100 rounded-lg flex items-center justify-center ${className}`}
       style={{ height }}

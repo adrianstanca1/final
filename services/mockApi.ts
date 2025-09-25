@@ -5,6 +5,37 @@ import { initialData } from './mockData';
 import { User, Company, Project, Task, TimeEntry, SafetyIncident, Equipment, Client, Invoice, Expense, Notification, LoginCredentials, RegistrationPayload, TaskStatus, TaskPriority, TimeEntryStatus, IncidentSeverity, SiteUpdate, ProjectMessage, Weather, InvoiceStatus, Quote, FinancialKPIs, MonthlyFinancials, CostBreakdown, Role, TimesheetStatus, IncidentStatus, AuditLog, ResourceAssignment, Conversation, Message, CompanySettings, ProjectAssignment, ProjectTemplate, ProjectInsight, WhiteboardNote, BidPackage, RiskAnalysis, Grant, Timesheet, Todo, InvoiceLineItem, Document, UsageMetric, CompanyType, ExpenseStatus, TodoStatus, TodoPriority, RolePermissions, Permission } from '../types';
 import { createPasswordRecord, sanitizeUser, upgradeLegacyPassword, verifyPassword } from '../utils/password';
 import { getStorage } from '../utils/storage';
+import { apiCache } from './cacheService';
+import { ValidationService } from './validationService';
+
+// Create instances
+// Use apiCache directly from cacheService
+const securityValidation = {
+    checkRateLimit: (key: string, limit: number, windowMs: number) => true, // Simplified for mock
+    checkSqlInjection: (input: string) => false, // Simplified for mock
+    checkXss: (input: string) => false // Simplified for mock
+};
+
+// Base64 utilities
+const encodeBase64 = (value: string): string => {
+    if (typeof btoa === 'function') {
+        return btoa(value);
+    }
+    if (typeof Buffer !== 'undefined') {
+        return Buffer.from(value, 'binary').toString('base64');
+    }
+    throw new Error('Base64 encoding is not supported in this environment.');
+};
+
+const decodeBase64 = (value: string): string => {
+    if (typeof atob === 'function') {
+        return atob(value);
+    }
+    if (typeof Buffer !== 'undefined') {
+        return Buffer.from(value, 'base64').toString('binary');
+    }
+    throw new Error('Base64 decoding is not supported in this environment.');
+};
 
 const delay = (ms = 50) => new Promise(res => setTimeout(res, ms));
 
@@ -822,12 +853,6 @@ export const api = {
         await delay();
         ensureNotAborted(options?.signal);
         return db.projects.filter(p => (p as any).managerId === managerId) as Project[];
-    },
-    getUsersByCompany: async (companyId: string, options?: RequestOptions): Promise<User[]> => {
-        ensureNotAborted(options?.signal);
-        await delay();
-        ensureNotAborted(options?.signal);
-        return db.users.filter(u => u.companyId === companyId) as User[];
     },
     getUsersByCompany: async (companyId: string, options?: RequestOptions): Promise<User[]> => {
         ensureNotAborted(options?.signal);

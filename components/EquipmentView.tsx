@@ -3,14 +3,13 @@ import { User, Equipment, Project, Permission, EquipmentStatus, ResourceAssignme
 import { api } from '../services/mockApi';
 import { hasPermission } from '../services/auth';
 import { Card } from './ui/Card';
-import './ui/equipmentAssignmentBar.css';
 import { Button } from './ui/Button';
 import { EquipmentStatusBadge } from './ui/StatusBadge';
 
 interface EquipmentViewProps {
-  user: User;
-  addToast: (message: string, type: 'success' | 'error') => void;
-}
+    user: User;
+    addToast: (message: string, type: 'success' | 'error') => void;
+}; // FIX: Close the interface
 
 const EquipmentModal: React.FC<{
     equipmentToEdit: Equipment | null;
@@ -24,7 +23,7 @@ const EquipmentModal: React.FC<{
 }> = ({ equipmentToEdit, projects, assignments, user, onClose, onSuccess, addToast, currentAssignment }) => {
     const [name, setName] = useState('');
     // This state holds the *persistent* status ('Available' or 'Maintenance'), which is the value we want to save.
-// FIX: Used EquipmentStatus enum for useState initial value.
+    // FIX: Used EquipmentStatus enum for useState initial value.
     const [persistentStatus, setPersistentStatus] = useState<EquipmentStatus>(EquipmentStatus.AVAILABLE);
     const [isSaving, setIsSaving] = useState(false);
     const isCurrentlyInUse = !!currentAssignment;
@@ -37,13 +36,13 @@ const EquipmentModal: React.FC<{
             // The form should reflect the underlying, persistent status.
             // A derived 'In Use' status from the schedule should not be the editable value.
             // If the database has a stale 'In Use', we treat it as 'Available'.
-// FIX: Used EquipmentStatus enum for comparison and value.
+            // FIX: Used EquipmentStatus enum for comparison and value.
             const underlyingStatus = equipmentToEdit.status === EquipmentStatus.IN_USE ? EquipmentStatus.AVAILABLE : equipmentToEdit.status;
             setPersistentStatus(underlyingStatus);
         } else {
             // Reset for "Add Equipment" mode
             setName('');
-// FIX: Used EquipmentStatus enum for state update.
+            // FIX: Used EquipmentStatus enum for state update.
             setPersistentStatus(EquipmentStatus.AVAILABLE);
         }
     }, [equipmentToEdit]);
@@ -75,7 +74,7 @@ const EquipmentModal: React.FC<{
             }
             onSuccess();
             onClose();
-        } catch(error) {
+        } catch (error) {
             addToast(error instanceof Error ? error.message : "Failed to save equipment.", "error");
         } finally {
             setIsSaving(false);
@@ -88,7 +87,7 @@ const EquipmentModal: React.FC<{
                 <h3 className="font-bold text-lg mb-4">{equipmentToEdit ? 'Equipment Details' : 'Add Equipment'}</h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Equipment Name" className="w-full p-2 border rounded" required />
-                    
+
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-slate-300">Status</label>
                         {isCurrentlyInUse && (
@@ -123,7 +122,7 @@ const EquipmentModal: React.FC<{
                                     })}
                                 </div>
                             ) : (
-                                 <p className="text-sm text-slate-500 p-2">No assignments found. Manage assignments in the Resource Scheduler.</p>
+                                <p className="text-sm text-slate-500 p-2">No assignments found. Manage assignments in the Resource Scheduler.</p>
                             )}
                         </div>
                     )}
@@ -136,8 +135,9 @@ const EquipmentModal: React.FC<{
             </Card>
         </div>
     );
+}; // FIX: Close the component assignment
 
-};export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) => {
+export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) => {
     const [equipment, setEquipment] = useState<Equipment[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
     const [assignments, setAssignments] = useState<ResourceAssignment[]>([]);
@@ -182,14 +182,14 @@ const EquipmentModal: React.FC<{
             abortControllerRef.current?.abort();
         };
     }, [fetchData]);
-    
+
     const projectMap = useMemo(() => new Map(projects.map(p => [p.id, p.name])), [projects]);
 
     const currentAssignments = useMemo(() => {
-// FIX: Changed Map key from number to string to match resourceId type.
+        // FIX: Changed Map key from number to string to match resourceId type.
         const map = new Map<string, ResourceAssignment>();
         const today = new Date();
-        today.setHours(0, 0, 0, 0); 
+        today.setHours(0, 0, 0, 0);
         assignments.forEach(a => {
             if (a.resourceType === 'equipment') {
                 const startDate = new Date(a.startDate);
@@ -207,15 +207,15 @@ const EquipmentModal: React.FC<{
     const getDerivedStatus = (item: Equipment): EquipmentStatus => {
         // If there's an active assignment for today, the status is always 'In Use'.
         if (currentAssignments.has(item.id)) {
-// FIX: Used EquipmentStatus enum member.
+            // FIX: Used EquipmentStatus enum member.
             return EquipmentStatus.IN_USE;
         }
         // Otherwise, it's the status set in the database ('Available' or 'Maintenance').
         // We safeguard against a stale 'In Use' status in the DB.
-// FIX: Used EquipmentStatus enum for comparison and value.
+        // FIX: Used EquipmentStatus enum for comparison and value.
         return item.status === EquipmentStatus.IN_USE ? EquipmentStatus.AVAILABLE : item.status;
     };
-    
+
     const openModal = (item: Equipment | null = null) => {
         setEditingEquipment(item);
         setIsModalOpen(true);
@@ -241,6 +241,38 @@ const EquipmentModal: React.FC<{
                 <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Equipment</h2>
                 {canManage && <Button onClick={() => openModal()}>Add Equipment</Button>}
             </div>
+            <Card>
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+                        <thead className="bg-slate-50 dark:bg-slate-800">
+                            <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Name</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Current Project</th>
+                                {canManage && <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 uppercase">Actions</th>}
+                            </tr>
+                        </thead>
+                        <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-slate-700">
+                            {equipment.map(item => (
+                                <tr key={item.id}>
+                                    <td className="px-6 py-4 font-medium">{item.name}</td>
+                                    <td className="px-6 py-4"><EquipmentStatusBadge status={getDerivedStatus(item)} /></td>
+                                    <td className="px-6 py-4">
+                                        {currentAssignments.has(item.id)
+                                            ? projectMap.get(currentAssignments.get(item.id)!.projectId)
+                                            : 'Unassigned'}
+                                    </td>
+                                    {canManage && (
+                                        <td className="px-6 py-4 text-right">
+                                            <Button variant="ghost" size="sm" onClick={() => openModal(item)}>Details</Button>
+                                        </td>
+                                    )}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </Card>
         </div>
     );
 };

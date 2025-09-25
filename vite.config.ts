@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => {
       environment: 'jsdom',
       setupFiles: ['./tests/setup-simple.ts'],
       css: true,
-      include: ['services/**/*.test.ts', 'utils/**/*.test.ts'],
+      include: ['services/**/*.test.ts', 'utils/**/*.test.ts', 'components/**/*.test.ts'],
       exclude: ['**/node_modules/**', '**/dist/**', 'dist-services/**', 'final/**', 'final-1/**', 'final-2/**'],
       coverage: {
         provider: 'v8',
@@ -45,13 +45,6 @@ export default defineConfig(({ mode }) => {
             genai: ['@google/genai'],
             dateFns: ['date-fns'],
           },
-        },
-        onwarn(warning, warn) {
-          // Suppress warnings for component files with merge conflicts
-          if (warning.code === 'PARSE_ERROR' && warning.id?.includes('components/')) {
-            return;
-          }
-          warn(warning);
         },
       },
       // Raise limit slightly to avoid noisy warnings while we improve chunking

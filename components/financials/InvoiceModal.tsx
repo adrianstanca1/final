@@ -217,7 +217,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
                                     {formatCurrency((item.quantity || 0) * (item.unitPrice || 0))}
                                 </span>
                                 {!isReadOnly && (
-                                    <Button type="button" variant="danger" size="sm" onClick={() => removeLineItem(index)}>
+                                    <Button type="button" variant="outline" size="sm" onClick={() => removeLineItem(index)}>
                                         &times;
                                     </Button>
                                 )}
@@ -317,5 +317,5 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({
             </Card>
         </div>
     );
-export default InvoiceModal;
+    export default InvoiceModal;
 };
