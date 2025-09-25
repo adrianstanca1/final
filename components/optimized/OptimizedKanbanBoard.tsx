@@ -1,5 +1,6 @@
 import React, { memo, useMemo, useCallback, useState } from 'react';
-import type { Todo, User, TodoStatus } from '../../types';
+import type { Todo, User } from '../../types';
+import { TodoStatus } from '../../types';
 import { OptimizedTaskCard } from './OptimizedTaskCard';
 
 interface KanbanBoardProps {
