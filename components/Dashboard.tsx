@@ -22,6 +22,7 @@ import { Button } from './ui/Button';
 // FIX: Corrected API import from mockApi
 import { api } from '../services/mockApi';
 import { useOfflineSync } from '../hooks/useOfflineSync';
+import './dashboard.css';
 
 import { Avatar } from './ui/Avatar';
 import { EquipmentStatusBadge } from './ui/StatusBadge';
@@ -56,18 +57,16 @@ const KpiCard: React.FC<{ title: string; value: string; subtext?: string; icon: 
 const BarChart: React.FC<{ data: { label: string, value: number }[], barColor: string }> = ({ data, barColor }) => {
     const maxValue = Math.max(...data.map(d => d.value), 1); // Ensure maxValue is at least 1 to avoid division by zero
     return (
-        <div className="w-full h-48 flex items-end justify-around gap-2 p-2">
+        <div className="bar-chart-container">
             {data.map((item, index) => (
-                <div key={`bar-${item.label}-${index}`} className="flex flex-col items-center justify-end h-full w-full group">
-                    <div className="text-xs font-bold text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{item.value}</div>
+                <div key={`bar-${item.label}-${index}`} className="bar-chart-item group">
+                    <div className="bar-chart-value">{item.value}</div>
                     <div
-                        className={`${barColor} w-full rounded-t-sm group-hover:opacity-80 transition-opacity`}
-                        style={{
-                            height: `${(item.value / maxValue) * 90}%`
-                        } as React.CSSProperties}
+                        className={`${barColor} bar-chart-bar`}
+                        style={{ '--height': `${(item.value / maxValue) * 90}%` } as React.CSSProperties}
                         title={`${item.label}: ${item.value}`}
                     ></div>
-                    <span className="text-xs mt-1 text-muted-foreground">{item.label}</span>
+                    <span className="bar-chart-label">{item.label}</span>
                 </div>
             ))}
         </div>
