@@ -82,8 +82,14 @@ const callGemini = async (
       },
       {
         maxAttempts: 3,
-        delay: 1000,
-        backoff: 'exponential',
+        baseDelay: 1000,
+        backoffFactor: 2,
+      },
+      {
+        operation: 'callGemini',
+        component: 'ai-service',
+        timestamp: new Date().toISOString(),
+        metadata: { prompt: prompt.slice(0, 100), config: overrides },
       }
     );
 
@@ -97,6 +103,7 @@ const callGemini = async (
     const wrappedError = wrapError(error, {
       operation: 'callGemini',
       component: 'ai-service',
+      timestamp: new Date().toISOString(),
       metadata: { prompt: prompt.slice(0, 100), config: overrides },
     });
     console.error('Gemini request failed', wrappedError);

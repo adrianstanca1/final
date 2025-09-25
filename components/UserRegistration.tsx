@@ -116,18 +116,33 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const URL_REGEX = /^https?:\/\/\S+$/i;
 const PASSWORD_MIN_LENGTH = 8;
 
-const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password }) => {
-    const rules = [
-        password.length >= PASSWORD_MIN_LENGTH,
-        /[A-Z]/.test(password),
-        /[a-z]/.test(password),
-        /\d/.test(password),
-        /[^A-Za-z0-9]/.test(password),
-    ];
-    const score = rules.filter(Boolean).length;
-    const width = (score / rules.length) * 100;
-    const color = score <= 2 ? 'bg-destructive' : score < 5 ? 'bg-amber-500' : 'bg-emerald-500';
+type PasswordRule = (password: string) => boolean;
+
+const DEFAULT_PASSWORD_RULES: PasswordRule[] = [
+    value => value.length >= PASSWORD_MIN_LENGTH,
+    value => /[A-Z]/.test(value),
+    value => /[a-z]/.test(value),
+    value => /\d/.test(value),
+    value => /[^A-Za-z0-9]/.test(value),
+];
+
+const PasswordStrengthMeter: React.FC<{ password: string; rules?: PasswordRule[] }> = ({ password, rules }) => {
+    const evaluators = rules && rules.length > 0 ? rules : DEFAULT_PASSWORD_RULES;
+    const evaluations = evaluators.map(rule => {
+        try {
+            return rule(password);
+        } catch (error) {
+            console.error('[PasswordStrengthMeter] rule evaluation failed', error);
+            return false;
+        }
+    });
+
+    const totalRules = evaluations.length || 1;
+    const score = evaluations.filter(Boolean).length;
+    const width = Math.min(100, Math.max(0, (score / totalRules) * 100));
+    const color = score <= 2 ? 'bg-destructive' : score < totalRules ? 'bg-amber-500' : 'bg-emerald-500';
     const labels = ['Very weak', 'Weak', 'Fair', 'Strong', 'Excellent'];
+    const labelIndex = Math.min(labels.length - 1, Math.max(score - 1, 0));
 
     return (
         <div className="space-y-1">
@@ -135,7 +150,7 @@ const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password }) => 
                 <div className={`h-1.5 rounded-full transition-all duration-300 ${color}`} style={{ width: `${width}%` }} />
             </div>
             <p className="text-xs text-muted-foreground">
-                Password strength: <span className="font-medium text-foreground">{labels[Math.max(score - 1, 0)]}</span>
+                Password strength: <span className="font-medium text-foreground">{labels[labelIndex]}</span>
             </p>
         </div>
     );

@@ -350,6 +350,7 @@ export interface Location {
     address: string;
     lat: number;
     lng: number;
+    city?: string;
 }
 
 export interface Project {
@@ -582,6 +583,7 @@ export interface SafetyIncident {
   // FIX: Added missing properties
   timestamp: string;
   reportedById: string;
+  companyId?: string;
 }
 
 export interface Notification {
@@ -796,8 +798,8 @@ export interface DashboardSnapshotMetadata {
     generatedAt: string;
     usedFallback: boolean;
     projectCount?: number;
-     fallbackReason?: string;
-      [key: string]: unknown;
+    fallbackReason?: string;
+    [key: string]: unknown;
 }
 
 export interface DashboardSnapshot {
