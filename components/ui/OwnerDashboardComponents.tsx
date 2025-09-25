@@ -1,54 +1,4 @@
 import React from 'react';
-im < div
-return (
-    <div className="flex items-end gap-2">
-        {data.map((item) => (
-            <div className="flex flex-1 flex-col items-center gap-1" key={item.label}>
-                <div className="text-xs font-semibold text-muted-foreground">{item.label}</div>
-                <div className="flex h-32 w-full items-end overflow-hidden rounded bg-muted/60">
-                    <div
-                        className={`${color} chart-bar`}
-                        style={{ height: `${Math.max(6, (item.value / max) * 100)}%` }}
-                        title={`${item.label}: ${item.value.toLocaleString()}`}
-                    />
-                </div>
-            </div>
-        ))}
-    </div>
-);
-};${ color } chart - bar`}
-              data-height={Math.max(6, (item.value / max) * 100)}
-              style={{ '--bar-height': `${ Math.max(6, (item.value / max) * 100) }% ` } as React.CSSProperties}
-              title={`${ item.label }: ${ item.value.toLocaleString() } `}
-            />useOwnerDashboardFormatting } from '../../hooks/useOwnerDashboardFormatting';
-
-interface MiniBarChartProps {
-  data: Array<{ label: string; value: number }>;
-  accent?: 'primary' | 'emerald' | 'amber';
-  emptyLabel: string;
-}
-
-export const MiniBarChart: React.FC<MiniBarChartProps> = ({ data, accent = 'primary', emptyLabel }) => {
-  if (!data.length) {
-    return <p className="text-sm text-muted-foreground">{emptyLabel}</p>;
-  }
-  
-  const max = Math.max(...data.map((item) => item.value), 1);
-  const colorMap = {
-    'emerald': 'bg-emerald-500',
-    'amber': 'bg-amber-500',
-    'primary': 'bg-primary',
-  };
-  
-  const color = colorMap[accent];
-  
-  return (
-    <div className="flex items-end gap-2">
-      {data.map((item) => (
-        <div className="flex flex-1 flex-col items-center gap-1" key={item.label}>
-          <div className="text-xs font-semibold text-muted-foreground">{item.label}</div>
-          <div className="flex h-32 w-full items-end overflow-hidden rounded bg-muted/60">
-            import React from 'react';
 import { useOwnerDashboardFormatting } from '../../hooks/useOwnerDashboardFormatting';
 import './ownerDashboard.css';
 
@@ -79,9 +29,9 @@ export const MiniBarChart: React.FC<MiniBarChartProps> = ({ data, accent = 'prim
           <div className="text-xs font-semibold text-muted-foreground">{item.label}</div>
           <div className="flex h-32 w-full items-end overflow-hidden rounded bg-muted/60">
             <div
-              className={`${ color } chart - bar`}
-              style={{ height: `${ Math.max(6, (item.value / max) * 100) }% ` }}
-              title={`${ item.label }: ${ item.value.toLocaleString() } `}
+              className={`${color} chart-bar`}
+              style={{ height: `${Math.max(6, (item.value / max) * 100)}%` }}
+              title={`${item.label}: ${item.value.toLocaleString()}`}
             />
           </div>
         </div>
@@ -118,7 +68,7 @@ export const CostBreakdownList: React.FC<CostBreakdownListProps> = ({ data, curr
               <div
                 className="progress-bar-fill"
                 style={{
-                  width: `${ share }% `
+                  width: `${share}%`
                 }}
               />
             </div>
@@ -184,7 +134,7 @@ export const OperationalSignals: React.FC<OperationalSignalsProps> = ({
       </div>
       <div className="flex items-center justify-between">
         <span className="text-muted-foreground">Timesheet compliance</span>
-        <span className={`font - semibold ${ complianceRate < 80 ? 'text-amber-600' : 'text-foreground' } `}>
+        <span className={`font-semibold ${complianceRate < 80 ? 'text-amber-600' : 'text-foreground'}`}>
           {complianceRate}%
         </span>
       </div>
@@ -206,9 +156,9 @@ export const OperationalSignals: React.FC<OperationalSignalsProps> = ({
       </div>
       {(burnRatePerProject !== null || (overtimeHours !== null && overtimeHours > 0)) && (
         <p className="text-xs text-muted-foreground">
-          {burnRatePerProject !== null && `Burn per active project: ${ formatCurrency(burnRatePerProject, financialCurrency) } `}
+          {burnRatePerProject !== null && `Burn per active project: ${formatCurrency(burnRatePerProject, financialCurrency)}`}
           {overtimeHours !== null && overtimeHours > 0 && 
-            `${ burnRatePerProject !== null ? ' • ' : '' }${ overtimeHours.toFixed(1) } overtime hrs`
+            `${burnRatePerProject !== null ? ' • ' : ''}${overtimeHours.toFixed(1)} overtime hrs`
           }
         </p>
       )}
