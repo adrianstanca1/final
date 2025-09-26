@@ -1,268 +1,66 @@
-# 🚀 Construction Management App - Deployment Guide
-
-## ✅ Service Integration Complete
-
-All comprehensive services have been successfully adopted and integrated into the application:
-
-### 🔧 Integrated Services
-
-#### 1. **CacheService** - Intelligent Caching
-- **Location**: `services/cacheService.ts`
-- **Integration**: Automatic caching for API calls, user data, and project data
-- **Features**: TTL, LRU eviction, localStorage persistence, browser-safe
-- **Usage**: Automatically used by enhanced mockApi and AI service
-
-#### 2. **ValidationService** - Data Security & Validation
-- **Location**: `services/validationService.ts`
-- **Integration**: AuthContext login validation, form validation
-- **Features**: SQL injection protection, XSS detection, data sanitization
-- **Usage**: Integrated into authentication and form submissions
-
-#### 3. **NotificationService** - Real-time Communications
-- **Location**: `services/notificationService.ts`
-- **Integration**: App.tsx initialization, WebSocket connection on login
-- **Features**: Real-time notifications, offline queuing, push notifications
-- **Usage**: Automatic connection when user logs in, toast notifications
-
-#### 4. **AnalyticsService** - User Behavior Tracking
-- **Location**: `services/analyticsService.ts`
-- **Integration**: App.tsx global tracking, user identification, error tracking
-- **Features**: Page views, user interactions, performance monitoring
-- **Usage**: Automatic tracking of navigation, clicks, errors, and performance
-
-#### 5. **BackupService** - Data Protection
-- **Location**: `services/backupService.ts`
-- **Integration**: Automatic backup on logout, manual backup capabilities
-- **Features**: Auto backup, sync, export/import, conflict resolution
-- **Usage**: Background backups, data export/import functionality
-
-#### 6. **Enhanced AuthService** - Security & Session Management
-- **Location**: `services/auth.ts`
-- **Integration**: AuthContext enhanced with security monitoring
-- **Features**: Session management, account lockout, security metrics
-- **Usage**: Enhanced login security, session timeout handling
-
-### 📱 PWA & Offline Support
-
-#### Service Worker (`public/sw.js`)
-- **Offline caching** for static assets and API responses
-- **Push notification** handling with click actions
-- **Background sync** for offline data synchronization
-- **Cache management** with automatic cleanup
-
-#### PWA Manifest (`public/manifest.json`)
-- **App shortcuts** for quick access to key features
-- **File handlers** for importing project data
-- **Responsive icons** and screenshots
-- **Standalone app** experience
-
-### 🔧 Deployment Configuration
-
-#### Multiple Deployment Targets
-- **Vercel**: Optimized for serverless deployment
-- **Netlify**: Static site deployment with edge functions
-- **Docker**: Containerized deployment for any platform
-
-#### Environment Management
-- **Development**: Local development with debug mode
-- **Staging**: Pre-production testing environment
-- **Production**: Optimized production deployment
-
-## 🚀 Deployment Instructions
-
-### Prerequisites
-```bash
-# Ensure you have Node.js 18+ installed
-node --version
-
-# Install dependencies
-npm ci
-```
-
-### Quick Deployment
-
-#### 1. Deploy to Vercel (Recommended)
-```bash
-# Production deployment
-npm run deploy:vercel
-
-# Or step by step
-npm run deploy:production vercel
-```
-
-#### 2. Deploy to Netlify
-```bash
-npm run deploy:netlify
-```
-
-#### 3. Deploy with Docker
-```bash
-npm run deploy:docker
-```
-
-### Advanced Deployment
-
-#### Dry Run (Test deployment without actually deploying)
-```bash
-npm run deploy:dry-run
-```
-
-#### Staging Deployment
-```bash
-npm run deploy:staging
-```
-
-#### Custom Environment
-```bash
-node scripts/deploy.js <environment> <target>
-# Example: node scripts/deploy.js staging vercel
-```
+# 🚀 Deployment Guide
 
-### Environment Variables
-
-Set these environment variables for production:
-
-```bash
-# Required
-VITE_GEMINI_API_KEY=your_gemini_api_key_here
-VITE_VAPID_PUBLIC_KEY=your_vapid_public_key_here
-
-# Optional
-ANALYTICS_TRACKING_ID=your_analytics_id
-CDN_URL=your_cdn_url
-```
-
-### Deployment Checklist
-
-- [ ] ✅ All services integrated and tested
-- [ ] ✅ Environment variables configured
-- [ ] ✅ Tests passing (18/18)
-- [ ] ✅ TypeScript compilation working for services
-- [ ] ✅ PWA manifest and service worker configured
-- [ ] ✅ Security headers configured
-- [ ] ✅ Performance optimization enabled
-- [ ] ✅ Analytics and monitoring setup
-
-## 🔍 Verification
-
-### Local Testing
-```bash
-# Type checking
-npm run type-check
-
-# Run tests
-npm test
-
-# Build verification
-npm run build
-
-# Preview production build
-npm run preview
-```
-
-### Production Health Checks
-After deployment, verify:
-
-1. **Application loads** correctly
-2. **Service worker** registers successfully
-3. **PWA features** work (install prompt, offline mode)
-4. **Analytics tracking** is active
-5. **Notifications** are working
-6. **Caching** is functioning
-7. **Security headers** are present
-
-## 📊 Monitoring & Analytics
-
-### Built-in Analytics
-- **User behavior tracking** (page views, clicks, searches)
-- **Performance monitoring** (load times, API calls)
-- **Error tracking** (JavaScript errors, API failures)
-- **Session analytics** (duration, engagement)
-
-### Service Metrics
-- **Cache performance** (hit rates, memory usage)
-- **Notification delivery** (success rates, engagement)
-- **Backup operations** (frequency, success rates)
-- **Security events** (login attempts, lockouts)
-
-## 🛠️ Maintenance
-
-### Regular Tasks
-```bash
-# Update dependencies
-npm update
-
-# Security audit
-npm audit
-
-# Performance analysis
-npm run analyze
-
-# Backup verification
-# (Automatic backups run every 5 minutes)
-```
-
-### Monitoring Commands
-```bash
-# Check deployment status
-npm run deploy:dry-run
-
-# Analyze bundle size
-npm run analyze
-
-# Run comprehensive tests
-npm run test:coverage
-```
-
-## 🎯 Performance Optimizations
-
-### Implemented Optimizations
-- **Code splitting** with manual chunks for vendors
-- **Lazy loading** for route components
-- **Service worker caching** for offline performance
-- **Asset optimization** and compression
-- **Bundle analysis** for size monitoring
-
-### Performance Metrics
-- **Initial load**: ~117 kB main chunk (down from ~993 kB)
-- **Vendor chunks**: React (~142 kB), Leaflet (~155 kB), AI (~245 kB)
-- **Cache hit rate**: 85%+ for repeated visits
-- **Offline support**: Full functionality when offline
-
-## 🔐 Security Features
-
-### Implemented Security
-- **Input validation** and sanitization
-- **SQL injection** and XSS protection
-- **Rate limiting** for API calls
-- **Session management** with timeouts
-- **Account lockout** protection
-- **Security headers** (CSP, HSTS, etc.)
-
-## 📞 Support
-
-### Troubleshooting
-1. **Build failures**: Check TypeScript errors in components
-2. **Service issues**: Verify environment variables
-3. **Deployment errors**: Run dry-run first
-4. **Performance issues**: Check bundle analysis
-
-### Logs & Debugging
-- **Browser console**: Service worker and analytics logs
-- **Network tab**: API calls and caching behavior
-- **Application tab**: Service worker status and cache storage
-
----
-
-## 🎉 Ready for Production!
-
-The Construction Management App is now fully integrated with comprehensive services and ready for production deployment. All services are working together to provide:
-
-- **Enhanced performance** through intelligent caching
-- **Improved security** with validation and monitoring
-- **Real-time features** via notifications and WebSocket
-- **Data protection** through automatic backups
-- **User insights** via comprehensive analytics
-- **Offline support** through PWA capabilities
-
-Choose your deployment target and run the deployment script to go live! 🚀
+This document captures the current release process for the AS Agents platform so you can ship safely and repeatably. It reflects the repository as it exists today—no placeholder commands or imaginary services—so treat it as the single source of truth when preparing a production release.
+
+## ✅ Readiness checklist
+
+Before promoting a build ensure every item below passes locally or in CI:
+
+- [ ] Install fresh dependencies with `npm ci`.
+- [ ] Type safety: `npm run type-check`.
+- [ ] Unit tests: `npm run test -- --run`.
+- [ ] Production build: `npm run build`.
+- [ ] Verify `.env.production`, `.env.local`, and Vercel secrets contain the Gemini key that UI features require.
+- [ ] Confirm the changelog/README updates that reference deployment steps remain accurate.
+
+Document the results in your pull request description or release ticket so reviewers can confirm the state quickly.
+
+## 🔐 Environment variables
+
+| Variable | Where to set it | Purpose |
+| --- | --- | --- |
+| `VITE_GEMINI_API_KEY` | `.env.local` for local runs, Vercel project settings for Preview/Production | Client-exposed Gemini key required for all AI powered flows. |
+| `GEMINI_API_KEY` | GitHub Actions secrets & Vercel project settings | Server-side Gemini key. The workflows fall back to this value if the Vite-prefixed key is missing. |
+| `VITE_API_BASE_URL` | Optional (local + Vercel) | Point the UI at a hosted authentication API. Leave unset to use the encrypted mock service. |
+
+`vercel.json` mirrors the shared Gemini secret so the CLI and automation stay in sync. Run `vercel secrets add gemini_api_key <value>` if you rotate credentials.
+
+## 🤖 CI/CD automation
+
+Three workflows keep the repository deployable:
+
+1. **CI (`.github/workflows/ci.yml`)** – Runs on every push and pull request. Installs dependencies with `npm ci`, runs Vitest, and builds the production bundle to guard against regressions.
+2. **Deploy to Vercel (`.github/workflows/vercel-deploy.yml`)** – Repeats the CI checks and, on success, publishes a preview deployment for pull requests or promotes the artefact to production when the commit lands on `main`. Concurrency control ensures only the newest commit per branch deploys.
+3. **Deploy to GitHub Pages (`.github/workflows/deploy.yml`)** – Optional static export retained for disaster recovery. Triggered manually or on pushes to `main` when you need a Pages-hosted mirror.
+
+Keep the CI workflow required in branch protection so code cannot merge without a green build. The Vercel workflow provides the live URL in the Actions run summary for smoke testing.
+
+## 🚀 Manual deployment steps
+
+### Vercel (primary host)
+
+1. Connect the GitHub repository to a Vercel project (Framework: **Vite**, Output directory: **dist**).
+2. Add the environment variables listed above for both **Preview** and **Production** environments.
+3. Push to `main` (or merge an approved pull request). GitHub Actions runs the **Deploy to Vercel** workflow automatically and promotes the build when it passes.
+4. To redeploy or roll back, visit the Vercel dashboard, choose the desired build, and click **Promote to Production** or **Rollback**. The automation will update the environment status accordingly.
+
+### GitHub Pages fallback
+
+1. Enable GitHub Pages in the repository settings with **GitHub Actions** as the source.
+2. Trigger the **Deploy to GitHub Pages** workflow manually (Actions → Deploy to GitHub Pages → Run workflow) or push to `main`.
+3. The workflow uploads the `dist/` artefact built by Vite and publishes it at the configured Pages URL.
+
+## 🔍 Post-deploy verification
+
+- Load the deployed site (Vercel preview or production URL) and confirm the Gemini-backed experiences render correctly.
+- Inspect the browser console/network tab for failed requests or missing environment configuration.
+- Run the quick AI regression checklist: open the AI Advisor, request a portfolio summary, and ensure fallback messaging appears when keys are absent.
+- Capture the outcome and any issues in the release notes or monitoring channel.
+
+## 🛠️ Rollback playbook
+
+1. **Preview regression**: fix on the feature branch and push a new commit; superseded preview deployments are cancelled automatically.
+2. **Production incident**: select a prior healthy deployment in Vercel and click **Rollback**, or revert the offending commit on `main`. The Deploy workflow republishes the previous artefact.
+3. **Secret rotation**: update `GEMINI_API_KEY` and `VITE_GEMINI_API_KEY` in GitHub and Vercel, re-run the **Deploy to Vercel** workflow, and verify the AI flows before announcing completion.
+
+Keep this document updated as the release process evolves so the entire team understands how to ship confidently.
