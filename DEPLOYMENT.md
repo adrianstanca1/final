@@ -173,6 +173,9 @@ CDN_URL=your_cdn_url
 # Type checking
 npm run type-check
 
+# Targeted service layer check used by the deploy script fallback
+npx tsc --noEmit -p tsconfig.services.json
+
 # Run tests
 npm test
 

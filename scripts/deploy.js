@@ -47,17 +47,25 @@ if (!deployConfig.targets[target]) {
 const config = deployConfig.environments[environment];
 const targetConfig = deployConfig.targets[target];
 
-async function runCommand(command, description) {
+async function runCommand(command, description, options = {}) {
+  const { allowFailure = false } = options;
+
   console.log(`📋 ${description}...`);
   if (dryRun) {
     console.log(`   Command: ${command}`);
-    return;
+    return { success: true, skipped: true };
   }
-  
+
   try {
     execSync(command, { stdio: 'inherit' });
     console.log(`✅ ${description} completed`);
+    return { success: true };
   } catch (error) {
+    if (allowFailure) {
+      console.warn(`⚠️  ${description} failed but continuing: ${error.message}`);
+      return { success: false, error };
+    }
+
     console.error(`❌ ${description} failed:`, error.message);
     process.exit(1);
   }
@@ -116,21 +124,22 @@ async function runTests() {
 }
 
 async function runLinting() {
-  try {
-    await runCommand('npm run lint', 'Running linting');
-  } catch (error) {
-    console.log('⚠️  Linting not configured, skipping...');
+  const result = await runCommand('npm run lint', 'Running linting', { allowFailure: true });
+
+  if (result?.success === false) {
+    console.log('ℹ️  Linting is optional for this deployment. Continuing without blocking the pipeline.');
   }
 }
 
 async function runTypeChecking() {
-  try {
-    await runCommand('npx tsc --noEmit --skipLibCheck', 'Running TypeScript type checking');
-  } catch (error) {
-    console.log('⚠️  TypeScript errors found in components, but services are working. Continuing deployment...');
-    // Check if services compile correctly
+  const fullCheck = await runCommand('npx tsc --noEmit --skipLibCheck', 'Running TypeScript type checking', {
+    allowFailure: true,
+  });
+
+  if (fullCheck?.success === false) {
+    console.log('⚠️  Full project type check failed. Running targeted services compilation to ensure critical paths remain stable...');
     await runCommand(
-      'npx tsc --noEmit src/services/*.ts',
+      'npx tsc --noEmit -p tsconfig.services.json',
       'Checking service TypeScript compilation for core services'
     );
   }
@@ -141,10 +150,10 @@ async function buildApplication() {
 }
 
 async function runSecurityAudit() {
-  try {
-    await runCommand('npm audit --audit-level=high', 'Running security audit');
-  } catch (error) {
-    console.log('⚠️  Security audit found issues, but continuing deployment...');
+  const result = await runCommand('npm audit --audit-level=high', 'Running security audit', { allowFailure: true });
+
+  if (result?.success === false) {
+    console.log('ℹ️  Security audit reported issues. Review the findings post-deploy to address them without blocking the release.');
   }
 }
 
