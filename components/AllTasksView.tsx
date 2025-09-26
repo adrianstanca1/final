@@ -540,6 +540,8 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                         <Button onClick={handleApplyBulkAction}>Apply</Button>
                     </div>
                 )}
+            </Card>
+
             <Card>
                  <div className="flex flex-col md:flex-row gap-4 mb-4 pb-4 border-b">
                      <select title="Project filter" value={projectFilter} onChange={e => setProjectFilter(e.target.value)} className="w-full md:w-auto p-2 border bg-white rounded-md">
