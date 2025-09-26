@@ -90,6 +90,15 @@ npm run deploy:vercel
 npm run deploy:production vercel
 ```
 
+#### Local-only deployment (CI-safe)
+```bash
+# Run the full deployment pipeline but skip the remote platform step
+npm run deploy -- --local-only
+
+# Or set an environment variable for repeated use
+DEPLOY_SKIP_REMOTE=true npm run deploy
+```
+
 #### 2. Deploy to Netlify
 ```bash
 npm run deploy:netlify

@@ -10,14 +10,25 @@ import { join } from 'path';
 import { deployConfig } from '../deploy.config.js';
 
 const args = process.argv.slice(2);
-const environment = args[0] || 'production';
-const target = args[1] || 'vercel';
-const dryRun = args.includes('--dry-run');
+const positionalArgs = args.filter((arg) => !arg.startsWith('--'));
+const flagArgs = args.filter((arg) => arg.startsWith('--'));
+
+const environment = positionalArgs[0] || 'production';
+const target = positionalArgs[1] || 'vercel';
+const dryRun = flagArgs.includes('--dry-run');
+const skipRemoteDeploy =
+  flagArgs.includes('--skip-remote') ||
+  flagArgs.includes('--local-only') ||
+  process.env.DEPLOY_SKIP_REMOTE === 'true';
 
 console.log(`🚀 Starting deployment to ${environment} environment on ${target}...`);
 
 if (dryRun) {
   console.log('🔍 DRY RUN MODE - No actual deployment will occur');
+}
+
+if (skipRemoteDeploy && !dryRun) {
+  console.log('🛠️  Local-only mode enabled - remote deployment steps will be skipped');
 }
 
 // Validate environment
@@ -56,9 +67,10 @@ async function runCommand(command, description) {
 async function updateEnvironmentVariables() {
   console.log('🔧 Setting up environment variables...');
   
-  const envContent = Object.entries(config)
-    .map(([key, value]) => `${key}=${value}`)
-    .join('\n');
+  const envContent =
+    Object.entries(config)
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n') + '\n';
   
   if (!dryRun) {
     writeFileSync('.env.production', envContent);
@@ -118,7 +130,10 @@ async function runTypeChecking() {
   } catch (error) {
     console.log('⚠️  TypeScript errors found in components, but services are working. Continuing deployment...');
     // Check if services compile correctly
-    await runCommand('npx tsc --noEmit services/*.ts', 'Checking service TypeScript compilation');
+    await runCommand(
+      'npx tsc --noEmit src/services/*.ts',
+      'Checking service TypeScript compilation for core services'
+    );
   }
 }
 
@@ -168,7 +183,7 @@ async function generateSitemap() {
 
 async function deployToVercel() {
   console.log('🚀 Deploying to Vercel...');
-  
+
   // Create vercel.json configuration
   const vercelConfig = {
     version: 2,
@@ -182,13 +197,20 @@ async function deployToVercel() {
     rewrites: targetConfig.rewrites,
     env: config,
   };
-  
-  if (!dryRun) {
+
+  if (!dryRun && !skipRemoteDeploy) {
     writeFileSync('vercel.json', JSON.stringify(vercelConfig, null, 2));
     await runCommand('npx vercel --prod', 'Deploying to Vercel');
+    console.log('✅ Deployed to Vercel');
+    return;
   }
-  
-  console.log('✅ Deployed to Vercel');
+
+  if (!dryRun && skipRemoteDeploy) {
+    writeFileSync('vercel.json', JSON.stringify(vercelConfig, null, 2));
+    console.log('ℹ️  Vercel configuration updated locally - remote deploy skipped');
+  } else {
+    console.log('✅ Deployed to Vercel');
+  }
 }
 
 async function deployToNetlify() {
@@ -215,12 +237,19 @@ ${Object.entries(targetConfig.headers[0].values).map(([key, value]) => `
 `).join('')}
 `;
   
-  if (!dryRun) {
+  if (!dryRun && !skipRemoteDeploy) {
     writeFileSync('netlify.toml', netlifyConfig);
     await runCommand('npx netlify deploy --prod', 'Deploying to Netlify');
+    console.log('✅ Deployed to Netlify');
+    return;
   }
-  
-  console.log('✅ Deployed to Netlify');
+
+  if (!dryRun && skipRemoteDeploy) {
+    writeFileSync('netlify.toml', netlifyConfig);
+    console.log('ℹ️  Netlify configuration updated locally - remote deploy skipped');
+  } else {
+    console.log('✅ Deployed to Netlify');
+  }
 }
 
 async function deployToDocker() {
@@ -249,13 +278,20 @@ ${Object.entries(targetConfig.environment).map(([key, value]) => `ENV ${key}=${v
 CMD ["npm", "start"]
 `;
   
-  if (!dryRun) {
+  if (!dryRun && !skipRemoteDeploy) {
     writeFileSync('Dockerfile', dockerfile);
     await runCommand('docker build -t construction-app .', 'Building Docker image');
     await runCommand('docker tag construction-app construction-app:latest', 'Tagging Docker image');
+    console.log('✅ Docker image built');
+    return;
   }
-  
-  console.log('✅ Docker image built');
+
+  if (!dryRun && skipRemoteDeploy) {
+    writeFileSync('Dockerfile', dockerfile);
+    console.log('ℹ️  Dockerfile prepared locally - container build skipped');
+  } else {
+    console.log('✅ Docker image built');
+  }
 }
 
 async function runPostDeploymentChecks() {
@@ -280,6 +316,7 @@ async function notifyDeployment() {
     target,
     timestamp: new Date().toISOString(),
     version: JSON.parse(readFileSync('package.json', 'utf8')).version,
+    localOnly: skipRemoteDeploy,
   };
   
   if (!dryRun) {
@@ -296,7 +333,8 @@ async function deploy() {
     console.log(`\n🎯 Deploying Construction Management App`);
     console.log(`   Environment: ${environment}`);
     console.log(`   Target: ${target}`);
-    console.log(`   Dry Run: ${dryRun}\n`);
+    console.log(`   Dry Run: ${dryRun}`);
+    console.log(`   Remote Deploy: ${skipRemoteDeploy ? 'skipped (local-only mode)' : 'enabled'}\n`);
     
     await runPreDeploymentChecks();
     await updateEnvironmentVariables();
