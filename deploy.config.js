@@ -49,6 +49,9 @@ export const deployConfig = {
       VAPID_PUBLIC_KEY: process.env.VAPID_PUBLIC_KEY || '',
       ANALYTICS_ENABLED: true,
       DEBUG_MODE: false,
+      IONOS_FTP_HOST: process.env.IONOS_FTP_HOST || '',
+      IONOS_FTP_USER: process.env.IONOS_FTP_USER || '',
+      IONOS_FTP_PASS: process.env.IONOS_FTP_PASS || '',
     },
   },
 
@@ -243,6 +246,47 @@ export const deployConfig = {
         NODE_ENV: 'production',
         PORT: '3000',
       },
+    },
+
+    ionos: {
+      buildCommand: 'npm run build',
+      outputDirectory: 'dist',
+      installCommand: 'npm ci',
+      framework: 'static',
+      headers: [
+        {
+          source: '/(.*)',
+          headers: [
+            {
+              key: 'X-Frame-Options',
+              value: 'DENY',
+            },
+            {
+              key: 'X-Content-Type-Options',
+              value: 'nosniff',
+            },
+            {
+              key: 'Cache-Control',
+              value: 'public, max-age=86400',
+            },
+          ],
+        },
+        {
+          source: '/assets/(.*)',
+          headers: [
+            {
+              key: 'Cache-Control',
+              value: 'public, max-age=31536000, immutable',
+            },
+          ],
+        },
+      ],
+      rewrites: [
+        {
+          source: '/*',
+          destination: '/index.html',
+        },
+      ],
     },
   },
 
