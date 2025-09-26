@@ -1,12 +1,12 @@
-// full contents of components/CostEstimator.tsx
-
 import React, { useState } from 'react';
-import { User } from '../types';
+import type { User } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
-// FIX: Corrected API import
-import { api } from '../services/mockApi';
-import { GoogleGenAI, Type } from "@google/genai";
+import {
+  generateCostEstimate,
+  type CostEstimateResult,
+  type CostEstimateQuality,
+} from '../services/ai';
 
 interface CostEstimatorProps {
   user: User;
@@ -14,122 +14,201 @@ interface CostEstimatorProps {
   onBack: () => void;
 }
 
-interface Estimate {
-    totalEstimate: number;
-    breakdown: {
-        category: string;
-        cost: number;
-        details: string;
-    }[];
-    contingency: number;
-    summary: string;
-const formatCurrency = (amount: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 0 }).format(amount);
+const QUALITY_OPTIONS: Array<{ value: CostEstimateQuality; label: string; helper: string }> = [
+  { value: 'basic', label: 'Basic', helper: 'Shell and core with economical finishes.' },
+  { value: 'standard', label: 'Standard', helper: 'Balanced specification for commercial fit-out.' },
+  { value: 'high-end', label: 'High-End', helper: 'Premium finishes and complex MEP integration.' },
+];
+
+const formatCurrency = (amount: number, currency: string) =>
+  new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 0,
+  }).format(amount);
+
+const DEFAULT_CURRENCY = 'GBP';
 
 export const CostEstimator: React.FC<CostEstimatorProps> = ({ user, addToast, onBack }) => {
-    const [description, setDescription] = useState('');
-    const [sqft, setSqft] = useState<number | ''>('');
-    const [quality, setQuality] = useState('standard');
-    const [estimate, setEstimate] = useState<Estimate | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
+  const [description, setDescription] = useState('');
+  const [squareFootage, setSquareFootage] = useState<number | ''>('');
+  const [quality, setQuality] = useState<CostEstimateQuality>('standard');
+  const [estimate, setEstimate] = useState<CostEstimateResult | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
-    const handleEstimate = async () => {
-        if (!description.trim() || !sqft) {
-            addToast('Please provide a description and square footage.', 'error');
-            return;
-        }
-        setIsLoading(true);
-        setEstimate(null);
+  const handleEstimate = async () => {
+    const trimmedDescription = description.trim();
+    const sqftValue = typeof squareFootage === 'number' ? squareFootage : Number(squareFootage);
 
-        try {
-            const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
-            const result = await ai.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: `Provide a UK-based construction cost estimate for the following project: "${description}". Square footage: ${sqft} sq ft. Quality: ${quality}. Provide a JSON object with keys: "totalEstimate" (number), "breakdown" (array of objects with "category", "cost", "details"), "contingency" (number), "summary" (string).`,
-                config: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            totalEstimate: { type: Type.NUMBER },
-                            breakdown: {
-                                type: Type.ARRAY,
-                                items: {
-                                    type: Type.OBJECT,
-                                    properties: {
-                                        category: { type: Type.STRING },
-                                        cost: { type: Type.NUMBER },
-                                        details: { type: Type.STRING },
-                                    },
-                                    // FIX: Added required property to satisfy schema
-                                    required: ['category', 'cost', 'details'],
-                                }
-                            },
-                            contingency: { type: Type.NUMBER },
-                            summary: { type: Type.STRING },
-                        },
-                         // FIX: Added required property to satisfy schema
-                        required: ['totalEstimate', 'breakdown', 'contingency', 'summary'],
-                    }
-                }
-            });
+    if (!trimmedDescription) {
+      addToast('Please describe the project to scope the estimate.', 'error');
+      return;
+    }
 
-            const jsonText = result.text.trim();
-            setEstimate(JSON.parse(jsonText));
-            addToast("Cost estimate generated!", "success");
-        } catch (error) {
-            console.error(error);
-            addToast("Failed to generate cost estimate.", "error");
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    if (!Number.isFinite(sqftValue) || sqftValue <= 0) {
+      addToast('Enter a positive square footage to size the works.', 'error');
+      return;
+    }
 
-    return (
-        <Card>
-            <h3 className="text-xl font-semibold text-slate-700 mb-2">AI Cost Estimator</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4 p-4 border rounded-lg bg-slate-50">
-                    <div>
-                        <label className="block text-sm font-medium">Project Description</label>
-                        <textarea value={description} onChange={e => setDescription(e.target.value)} rows={5} className="w-full p-2 border rounded" placeholder="e.g., Two-story office building with open-plan interior and glass facade."/>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium">Square Footage</label>
-                        <input type="number" value={sqft} onChange={e => setSqft(e.target.value === '' ? '' : parseInt(e.target.value))} className="w-full p-2 border rounded" placeholder="5000" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium">Finish Quality</label>
-                        <select value={quality} onChange={e => setQuality(e.target.value)} className="w-full p-2 border rounded bg-white">
-                            <option value="basic">Basic</option>
-                            <option value="standard">Standard</option>
-                            <option value="high-end">High-End</option>
-                        </select>
-                    </div>
-                    <Button onClick={handleEstimate} isLoading={isLoading}>Estimate Costs</Button>
-                </div>
-                <div>
-                    {isLoading && <p>AI is calculating...</p>}
-                    {estimate && (
-                        <div className="space-y-4">
-                            <div className="p-4 bg-sky-100 rounded-lg text-center">
-                                <p className="text-sky-800 font-semibold">Total Estimated Cost</p>
-                                <p className="text-4xl font-bold text-sky-900">{formatCurrency(estimate.totalEstimate)}</p>
-                            </div>
-                            <div>
-                                <h4 className="font-semibold">Breakdown:</h4>
-                                <ul className="list-disc list-inside">
-                                    {estimate.breakdown.map((item, i) => <li key={i}>{item.category}: {formatCurrency(item.cost)}</li>)}
-                                </ul>
-                                <p className="mt-2 text-sm">Contingency: {formatCurrency(estimate.contingency)}</p>
-                            </div>
-                            <div>
-                                <h4 className="font-semibold">Summary:</h4>
-                                <p className="text-sm text-slate-600">{estimate.summary}</p>
-                            </div>
-                        </div>
-                    )}
-                </div>
+    setIsLoading(true);
+    setEstimate(null);
+
+    try {
+      const result = await generateCostEstimate({
+        description: trimmedDescription,
+        squareFootage: sqftValue,
+        quality,
+        currency: DEFAULT_CURRENCY,
+        requestedBy: `${user.firstName} ${user.lastName}`.trim(),
+      });
+
+      setEstimate(result);
+      if (result.isFallback) {
+        addToast('Using offline baseline costs. Configure Gemini for live market pricing.', 'error');
+      } else {
+        addToast('Gemini generated a fresh cost model.', 'success');
+      }
+    } catch (error) {
+      console.error('[CostEstimator] Unable to generate estimate', error);
+      addToast('Failed to generate cost estimate. Please try again shortly.', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-xl font-semibold text-slate-800">AI Cost Estimator</h3>
+        <Button variant="ghost" onClick={onBack}>
+          Back
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="space-y-5">
+          <div>
+            <label htmlFor="cost-description" className="block text-sm font-medium text-slate-600">
+              Project scope
+            </label>
+            <textarea
+              id="cost-description"
+              value={description}
+              onChange={event => setDescription(event.target.value)}
+              rows={5}
+              className="w-full rounded-lg border border-slate-300 bg-white p-3 text-sm shadow-sm focus:border-sky-500 focus:outline-none"
+              placeholder="e.g. 2-storey office with meeting suites, cafe, and exposed services."
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="cost-square-footage" className="block text-sm font-medium text-slate-600">
+                Floor area (sq ft)
+              </label>
+              <input
+                id="cost-square-footage"
+                type="number"
+                min={1}
+                value={squareFootage}
+                onChange={event => {
+                  const value = event.target.value;
+                  setSquareFootage(value === '' ? '' : Number(value));
+                }}
+                className="w-full rounded-lg border border-slate-300 p-3 text-sm shadow-sm focus:border-sky-500 focus:outline-none"
+                placeholder="5000"
+              />
             </div>
-        </Card>
-    );
+
+            <div>
+              <label htmlFor="cost-quality" className="block text-sm font-medium text-slate-600">
+                Finish quality
+              </label>
+              <select
+                id="cost-quality"
+                value={quality}
+                onChange={event => setQuality(event.target.value as CostEstimateQuality)}
+                className="w-full rounded-lg border border-slate-300 bg-white p-3 text-sm shadow-sm focus:border-sky-500 focus:outline-none"
+              >
+                {QUALITY_OPTIONS.map(option => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-slate-500">
+                {QUALITY_OPTIONS.find(option => option.value === quality)?.helper}
+              </p>
+            </div>
+          </div>
+
+          <Button onClick={handleEstimate} isLoading={isLoading} disabled={isLoading}>
+            Generate estimate
+          </Button>
+        </div>
+
+        <div className="space-y-4">
+          {isLoading && <p className="text-sm text-slate-500">Gemini is preparing the estimate…</p>}
+
+          {estimate && (
+            <div className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-inner">
+              <div className="rounded-lg bg-sky-100 p-4 text-center">
+                <p className="text-sm font-medium text-sky-700">Total estimated cost</p>
+                <p className="text-3xl font-bold text-sky-900">
+                  {formatCurrency(
+                    estimate.totalEstimate,
+                    typeof estimate.metadata.currency === 'string'
+                      ? (estimate.metadata.currency as string)
+                      : DEFAULT_CURRENCY,
+                  )}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {estimate.isFallback ? 'Baseline offline calculation' : estimate.model ?? 'Gemini'}
+                </p>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-semibold text-slate-700">Cost allocation</h4>
+                <ul className="mt-2 space-y-1 text-sm text-slate-600">
+                  {estimate.breakdown.map(item => (
+                    <li key={item.category} className="flex items-start justify-between gap-3">
+                      <span className="font-medium text-slate-700">{item.category}</span>
+                      <span>
+                        {formatCurrency(
+                          item.cost,
+                          typeof estimate.metadata.currency === 'string'
+                            ? (estimate.metadata.currency as string)
+                            : DEFAULT_CURRENCY,
+                        )}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-3 text-xs text-slate-500">
+                  Contingency allowance:{' '}
+                  {formatCurrency(
+                    estimate.contingency,
+                    typeof estimate.metadata.currency === 'string'
+                      ? (estimate.metadata.currency as string)
+                      : DEFAULT_CURRENCY,
+                  )}
+                </p>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-semibold text-slate-700">Summary</h4>
+                <p className="mt-1 whitespace-pre-line text-sm text-slate-600">{estimate.summary}</p>
+              </div>
+            </div>
+          )}
+
+          {!estimate && !isLoading && (
+            <div className="rounded-lg border border-dashed border-slate-300 p-6 text-sm text-slate-500">
+              Provide scope and size to calculate a Gemini-backed budget envelope.
+            </div>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
 };
