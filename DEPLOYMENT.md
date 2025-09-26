@@ -99,6 +99,26 @@ npm run deploy -- --local-only
 DEPLOY_SKIP_REMOTE=true npm run deploy
 ```
 
+#### Granular pipeline control
+
+The deployment runner now supports fine-grained flags so teams can tailor the pipeline for different stages:
+
+| Flag | Purpose |
+| --- | --- |
+| `--skip-install` | Re-use existing `node_modules` (use `--force-install` to override) |
+| `--skip-tests` | Bypass the Vitest suite when quick smoke deploys are needed |
+| `--skip-typecheck` | Disable TypeScript validation entirely |
+| `--skip-lint` | Omit linting (already optional when executed) |
+| `--skip-audit` | Skip the `npm audit` security scan |
+| `--skip-build` | Assume a prior `npm run build` output exists |
+| `--skip-optimize` | Omit post-build asset optimization hooks |
+| `--skip-sitemap` | Prevent sitemap regeneration (automatically implied by `--skip-build`) |
+| `--skip-post-checks` | Skip health checks after deployment |
+| `--skip-notify` | Suppress stakeholder notifications |
+| `--only=step1,step2` | Execute only the listed step IDs (see summary output for IDs) |
+
+Every run prints a 📦 deployment summary that mirrors the executed steps, highlights warnings, and reminds you when remote commands were skipped.
+
 #### 2. Deploy to Netlify
 ```bash
 npm run deploy:netlify
