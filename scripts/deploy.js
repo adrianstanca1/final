@@ -258,6 +258,72 @@ CMD ["npm", "start"]
   console.log('✅ Docker image built');
 }
 
+async function deployToIonos() {
+  console.log('🌐 Deploying to IONOS...');
+  
+  // Create .htaccess for SPA routing
+  const htaccess = `
+Options -MultiViews
+RewriteEngine On
+
+# Handle Angular and Vue.js router
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.html [L]
+
+# Security headers
+Header always set X-Frame-Options DENY
+Header always set X-Content-Type-Options nosniff
+Header always set X-XSS-Protection "1; mode=block"
+
+# Cache static assets
+<FilesMatch "\\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$">
+    ExpiresActive On
+    ExpiresDefault "access plus 1 year"
+    Header append Cache-Control "public, immutable"
+</FilesMatch>
+
+# Cache HTML with shorter time
+<FilesMatch "\\.html$">
+    ExpiresActive On
+    ExpiresDefault "access plus 1 day"
+    Header set Cache-Control "public, max-age=86400"
+</FilesMatch>
+`;
+
+  if (!dryRun) {
+    writeFileSync('dist/.htaccess', htaccess);
+    
+    // Check for FTP/SFTP credentials
+    const ftpHost = process.env.IONOS_FTP_HOST || config.IONOS_FTP_HOST;
+    const ftpUser = process.env.IONOS_FTP_USER || config.IONOS_FTP_USER;
+    const ftpPass = process.env.IONOS_FTP_PASS || config.IONOS_FTP_PASS;
+    
+    if (!ftpHost || !ftpUser || !ftpPass) {
+      console.log('📋 IONOS FTP credentials not found in environment variables.');
+      console.log('   Please set IONOS_FTP_HOST, IONOS_FTP_USER, and IONOS_FTP_PASS');
+      console.log('   Or upload the dist/ folder manually to your IONOS hosting space.');
+      console.log('   Files are ready in the dist/ directory.');
+    } else {
+      // If lftp is available, use it for deployment
+      try {
+        await runCommand(`which lftp`, 'Checking for lftp');
+        await runCommand(`lftp -c "open -u ${ftpUser},${ftpPass} ${ftpHost}; mirror -R dist/ /; quit"`, 'Uploading to IONOS');
+        console.log('✅ Files uploaded to IONOS via FTP');
+      } catch (error) {
+        console.log('📋 lftp not available. Please upload dist/ folder manually:');
+        console.log(`   Host: ${ftpHost}`);
+        console.log(`   Upload dist/ contents to your web root directory`);
+      }
+    }
+  } else {
+    console.log('   Would create .htaccess file');
+    console.log('   Would upload dist/ folder to IONOS hosting');
+  }
+  
+  console.log('✅ IONOS deployment completed');
+}
+
 async function runPostDeploymentChecks() {
   console.log('🔍 Running post-deployment checks...');
   
@@ -319,6 +385,9 @@ async function deploy() {
         break;
       case 'docker':
         await deployToDocker();
+        break;
+      case 'ionos':
+        await deployToIonos();
         break;
       default:
         console.error(`❌ Unsupported deployment target: ${target}`);
