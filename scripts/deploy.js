@@ -6,7 +6,6 @@
 
 import { execSync } from 'child_process';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { join } from 'path';
 import { deployConfig } from '../deploy.config.js';
 
 const args = process.argv.slice(2);
@@ -253,45 +252,108 @@ ${Object.entries(targetConfig.headers[0].values).map(([key, value]) => `
 }
 
 async function deployToDocker() {
-  console.log('🐳 Building Docker image...');
-  
+  console.log('🐳 Preparing Docker deployment...');
+
+  const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
+  const version = packageJson.version && packageJson.version !== '0.0.0' ? packageJson.version : new Date().toISOString().replace(/[:.]/g, '-');
+
+  const registry = targetConfig.registry ? targetConfig.registry.replace(/\/$/, '') : '';
+  const imageBaseName = targetConfig.imageName || 'construction-app';
+  const repository = registry ? `${registry}/${imageBaseName}` : imageBaseName;
+  const versionTag = `${repository}:${version}`;
+  const latestTag = `${repository}:latest`;
+
   const dockerfile = `
-FROM ${targetConfig.baseImage}
+FROM ${targetConfig.baseImage} AS builder
 
 WORKDIR ${targetConfig.workdir}
 
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci
 
-COPY dist/ ./dist/
-COPY public/ ./public/
+COPY . .
+RUN npm run build
+
+FROM ${targetConfig.runtimeImage}
+
+WORKDIR ${targetConfig.workdir}
+ENV NODE_ENV=production
+
+COPY package*.json ./
+RUN npm ci --omit=dev && npm install -g serve
+
+COPY --from=builder ${targetConfig.workdir}/dist ./dist
+COPY --from=builder ${targetConfig.workdir}/public ./public
 
 EXPOSE ${targetConfig.port}
 
 HEALTHCHECK --interval=${targetConfig.healthcheck.interval} \\
   --timeout=${targetConfig.healthcheck.timeout} \\
   --retries=${targetConfig.healthcheck.retries} \\
-  CMD ${targetConfig.healthcheck.test.join(' ')}
+  ${targetConfig.healthcheck.test.join(' ')}
 
-${Object.entries(targetConfig.environment).map(([key, value]) => `ENV ${key}=${value}`).join('\n')}
+${Object.entries(targetConfig.environment)
+    .map(([key, value]) => `ENV ${key}=${value}`)
+    .join('\n')}
 
-CMD ["npm", "start"]
+CMD ["serve", "-s", "dist", "-l", "${targetConfig.port}"]
 `;
-  
-  if (!dryRun && !skipRemoteDeploy) {
+
+  const composeFile = `services:
+  ${targetConfig.containerName}:
+    image: ${latestTag}
+    container_name: ${targetConfig.containerName}
+    restart: unless-stopped
+    ports:
+${(targetConfig.publishPorts || [])
+    .map((mapping) => `      - "${mapping}"`)
+    .join('\n') || '      - "4173:4173"'}
+    environment:
+${Object.entries(targetConfig.environment)
+    .map(([key, value]) => `      ${key}: ${value}`)
+    .join('\n')}
+`;
+
+  if (!dryRun) {
     writeFileSync('Dockerfile', dockerfile);
-    await runCommand('docker build -t construction-app .', 'Building Docker image');
-    await runCommand('docker tag construction-app construction-app:latest', 'Tagging Docker image');
-    console.log('✅ Docker image built');
+    writeFileSync('docker-compose.yaml', composeFile);
+  }
+
+  if (dryRun) {
+    console.log('   Dockerfile and docker-compose.yaml generated (dry run)');
+    console.log(`   Image would be built with tag ${versionTag}`);
     return;
   }
 
-  if (!dryRun && skipRemoteDeploy) {
-    writeFileSync('Dockerfile', dockerfile);
-    console.log('ℹ️  Dockerfile prepared locally - container build skipped');
-  } else {
-    console.log('✅ Docker image built');
+  await runCommand(`docker build -t ${versionTag} .`, 'Building Docker image');
+  await runCommand(`docker tag ${versionTag} ${latestTag}`, 'Tagging Docker image as latest');
+
+  if (targetConfig.pushImage && !skipRemoteDeploy) {
+    await runCommand(`docker push ${versionTag}`, 'Pushing versioned Docker image');
+    await runCommand(`docker push ${latestTag}`, 'Pushing latest Docker image');
+  } else if (targetConfig.pushImage) {
+    console.log('ℹ️  Docker push skipped (local-only mode)');
   }
+
+  if (skipRemoteDeploy) {
+    console.log('ℹ️  Docker image built locally - skipping container restart');
+    return;
+  }
+
+  const containerName = targetConfig.containerName || 'construction-app';
+  const publishFlags = (targetConfig.publishPorts || []).map((mapping) => `-p ${mapping}`).join(' ');
+  const envFlags = Object.entries(targetConfig.environment || {})
+    .map(([key, value]) => `-e ${key}=${value}`)
+    .join(' ');
+  const runArgs = (targetConfig.runArgs || []).join(' ');
+
+  await runCommand(`docker rm -f ${containerName} 2>/dev/null || true`, 'Removing existing Docker container');
+  await runCommand(
+    `docker run -d --name ${containerName} ${publishFlags} ${envFlags} ${runArgs} ${latestTag}`.replace(/\s+/g, ' ').trim(),
+    'Starting Docker container'
+  );
+
+  console.log('✅ Docker deployment completed');
 }
 
 async function runPostDeploymentChecks() {

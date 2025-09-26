@@ -106,8 +106,22 @@ npm run deploy:netlify
 
 #### 3. Deploy with Docker
 ```bash
+# Build the multi-stage Docker image, tag it, and run the container locally
 npm run deploy:docker
+
+# Skip container restart/push but keep image + artifact generation
+npm run deploy:docker -- --local-only
+
+# Push the image to a registry (set DOCKER_PUSH=true and optionally DOCKER_REGISTRY)
+DOCKER_PUSH=true DOCKER_REGISTRY=registry.example.com npm run deploy:docker
 ```
+
+The Docker deployment target now:
+
+- Generates an optimized multi-stage `Dockerfile` and companion `docker-compose.yaml`
+- Builds a production-ready image tagged with the package version (or timestamp) and `latest`
+- Optionally pushes the image to a registry when `DOCKER_PUSH=true`
+- Restarts the running container (`constructapp-web`) with published port `4173:4173` unless `--local-only` or `DEPLOY_SKIP_REMOTE=true`
 
 ### Advanced Deployment
 
