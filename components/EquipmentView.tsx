@@ -136,8 +136,6 @@ const EquipmentModal: React.FC<{
             </Card>
         </div>
     );
-<<<<<<< Updated upstream
-=======
 };
 
 // --- EquipmentHistoryModal Sub-Component ---
@@ -286,8 +284,6 @@ const EquipmentScheduleView: React.FC<{
         </Card>
     );
 };
->>>>>>> Stashed changes
-
 export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) => {
     const [equipment, setEquipment] = useState<Equipment[]>([]);
     const [projects, setProjects] = useState<Project[]>([]);
@@ -392,7 +388,6 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) 
                 <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Equipment</h2>
                 {canManage && <Button onClick={() => openModal()}>Add Equipment</Button>}
             </div>
-<<<<<<< Updated upstream
             <Card>
                  <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
@@ -489,7 +484,6 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ user, addToast }) 
             ) : (
                 <EquipmentScheduleView user={user} projects={projects} equipment={equipment} assignments={assignments} addToast={addToast} />
             )}
->>>>>>> Stashed changes
         </div>
     );
 };

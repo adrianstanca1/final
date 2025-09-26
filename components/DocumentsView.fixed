@@ -1,0 +1,595 @@
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { User, Document, Project, Permission, CompanySettings } from '../types';
+import { api } from '../services/mockApi';
+import { hasPermission } from '../services/auth';
+import { Card } from './ui/Card';
+import { Button } from './ui/Button';
+const Upload = () => <span>📤</span>;
+const FileText = () => <span>📄</span>;
+const Download = () => <span>⬇️</span>;
+const Search = () => <span>🔍</span>;
+const Filter = () => <span>🔽</span>;
+
+interface DocumentsViewProps {
+  user: User;
+  addToast: (message: string, type: 'success' | 'error') => void;
+  isOnline: boolean;
+  settings: CompanySettings | null;
+}
+
+interface FileUploadModalProps {
+  project: Project;
+  onClose: () => void;
+  onSuccess: () => void;
+  addToast: (message: string, type: 'success' | 'error') => void;
+  user: User;
+}
+
+const FileUploadModal: React.FC<FileUploadModalProps> = ({ 
+  project, 
+  onClose, 
+  onSuccess, 
+  addToast, 
+  user 
+}) => {
+  const [file, setFile] = useState<File | null>(null);
+  const [category, setCategory] = useState('General');
+  const [description, setDescription] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile) {
+      setFile(droppedFile);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!file) {
+      addToast("Please select a file.", "error");
+      return;
+    }
+
+    if (file.size > 50 * 1024 * 1024) { // 50MB limit
+      addToast("File size exceeds 50MB limit.", "error");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      await api.uploadDocument({
+        name: file.name,
+        projectId: project.id,
+        category,
+        description: description || undefined,
+        size: file.size,
+        mimeType: file.type,
+      }, user.id);
+      
+      addToast("Document uploaded successfully.", 'success');
+      onSuccess();
+      onClose();
+    } catch (error) {
+      addToast(error instanceof Error ? error.message : "Upload failed.", "error");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h3 className="font-bold text-xl text-slate-800 dark:text-slate-100">Upload Document</h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400">Project: {project.name}</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="text-slate-500 hover:text-slate-700"
+            >
+              ×
+            </Button>
+          </div>
+
+          <div className="space-y-6">
+            {/* File Drop Zone */}
+            <div
+              className={`
+                border-2 border-dashed rounded-lg p-8 text-center transition-colors
+                ${file ? 'border-green-300 bg-green-50 dark:bg-green-950' : 'border-slate-300 dark:border-slate-600'}
+                hover:border-slate-400 dark:hover:border-slate-500
+              `}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+            >
+              {file ? (
+                <div className="space-y-2">
+                  <FileText className="w-12 h-12 mx-auto text-green-600" />
+                  <div>
+                    <p className="font-medium text-slate-800 dark:text-slate-200">{file.name}</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      {formatFileSize(file.size)} • {file.type || 'Unknown type'}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFile(null)}
+                    className="text-slate-500 hover:text-slate-700"
+                  >
+                    Remove file
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <Upload className="w-12 h-12 mx-auto text-slate-400" />
+                  <div>
+                    <p className="text-lg font-medium text-slate-700 dark:text-slate-300">
+                      Drop files here or click to browse
+                    </p>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">
+                      Maximum file size: 50MB
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Choose File
+                  </Button>
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                className="hidden"
+                onChange={handleFileSelect}
+                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.gif,.bmp,.tiff,.dwg,.zip,.rar"
+                aria-label="Select file to upload"
+                title="Select file to upload"
+              />
+            </div>
+
+            {/* Document Details */}
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label htmlFor="category" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Category *
+                </label>
+                <select
+                  id="category"
+                  value={category}
+                  onChange={e => setCategory(e.target.value)}
+                  className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="General">General</option>
+                  <option value="Blueprints">Blueprints</option>
+                  <option value="Contracts">Contracts</option>
+                  <option value="Permits">Permits</option>
+                  <option value="Safety">Safety Documents</option>
+                  <option value="Financial">Financial</option>
+                  <option value="Progress Photos">Progress Photos</option>
+                  <option value="Specifications">Specifications</option>
+                  <option value="Reports">Reports</option>
+                  <option value="Correspondence">Correspondence</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="description" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  Description
+                </label>
+                <textarea
+                  id="description"
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  placeholder="Optional description of the document..."
+                  className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                  rows={3}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-slate-200 dark:border-slate-700">
+            <Button variant="outline" onClick={onClose} disabled={isUploading}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpload}
+              disabled={!file || isUploading}
+              isLoading={isUploading}
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Upload Document
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+export const DocumentsView: React.FC<DocumentsViewProps> = ({ 
+  user, 
+  addToast, 
+  isOnline, 
+  settings 
+}) => {
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<'name' | 'uploadedAt' | 'size'>('uploadedAt');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  const canUpload = hasPermission(user, Permission.UPLOAD_DOCUMENTS);
+  const canDownload = hasPermission(user, Permission.VIEW_DOCUMENTS);
+
+  const fetchData = useCallback(async () => {
+    const controller = new AbortController();
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = controller;
+
+    setLoading(true);
+    try {
+      if (!user.companyId) return;
+      
+      const [docData, projData] = await Promise.all([
+        api.getDocumentsByCompany(user.companyId, { signal: controller.signal }),
+        api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
+      ]);
+      
+      if (controller.signal.aborted) return;
+      setDocuments(docData);
+      
+      if (controller.signal.aborted) return;
+      setProjects(projData);
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      console.error('Failed to load documents:', error);
+      addToast("Failed to load documents.", "error");
+    } finally {
+      if (controller.signal.aborted) return;
+      setLoading(false);
+    }
+  }, [user.companyId, addToast]);
+
+  useEffect(() => {
+    fetchData();
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, [fetchData]);
+
+  const filteredDocuments = useMemo(() => {
+    let filtered = documents;
+
+    // Filter by project
+    if (selectedProjectId !== 'all') {
+      filtered = filtered.filter(d => d.projectId.toString() === selectedProjectId);
+    }
+
+    // Filter by category
+    if (selectedCategory !== 'all') {
+      filtered = filtered.filter(d => d.category === selectedCategory);
+    }
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(d =>
+        d.name.toLowerCase().includes(query) ||
+        d.category.toLowerCase().includes(query) ||
+        d.description?.toLowerCase().includes(query)
+      );
+    }
+
+    // Sort documents
+    return filtered.sort((a, b) => {
+      let comparison = 0;
+      switch (sortBy) {
+        case 'name':
+          comparison = a.name.localeCompare(b.name);
+          break;
+        case 'uploadedAt':
+          comparison = new Date(a.uploadedAt).getTime() - new Date(b.uploadedAt).getTime();
+          break;
+        case 'size':
+          comparison = (a.size || 0) - (b.size || 0);
+          break;
+      }
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+  }, [documents, selectedProjectId, selectedCategory, searchQuery, sortBy, sortOrder]);
+
+  const projectMap = useMemo(() => new Map(projects.map(p => [p.id.toString(), p.name])), [projects]);
+
+  const categories = useMemo(() => {
+    const cats = new Set(documents.map(d => d.category));
+    return Array.from(cats).sort();
+  }, [documents]);
+
+  const projectForUpload = projects.find(p => p.id.toString() === selectedProjectId);
+  const selectedProject = selectedProjectId === 'all' ? projects[0] : projectForUpload;
+
+  const handleDownload = async (document: Document) => {
+    if (!canDownload) {
+      addToast("You don't have permission to download documents.", "error");
+      return;
+    }
+
+    try {
+      // In a real app, this would trigger a download
+      addToast(`Downloading ${document.name}...`, "success");
+    } catch (error) {
+      addToast("Failed to download document.", "error");
+    }
+  };
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return 'Unknown';
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const getDocumentIcon = (mimeType?: string) => {
+    if (!mimeType) return FileText;
+    if (mimeType.includes('pdf')) return FileText;
+    if (mimeType.includes('image')) return FileText;
+    if (mimeType.includes('spreadsheet') || mimeType.includes('excel')) return FileText;
+    if (mimeType.includes('presentation') || mimeType.includes('powerpoint')) return FileText;
+    return FileText;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Upload Modal */}
+      {isUploadModalOpen && selectedProject && (
+        <FileUploadModal
+          project={selectedProject}
+          onClose={() => setIsUploadModalOpen(false)}
+          onSuccess={fetchData}
+          addToast={addToast}
+          user={user}
+        />
+      )}
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Documents</h2>
+          <p className="text-slate-600 dark:text-slate-400">
+            {documents.length} document{documents.length !== 1 ? 's' : ''} across {projects.length} project{projects.length !== 1 ? 's' : ''}
+          </p>
+        </div>
+        {canUpload && (
+          <Button
+            onClick={() => setIsUploadModalOpen(true)}
+            disabled={projects.length === 0}
+            className="shrink-0"
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            Upload Document
+          </Button>
+        )}
+      </div>
+
+      {/* Filters and Search */}
+      <Card className="p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search documents..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+
+          {/* Project Filter */}
+          <div>
+            <label htmlFor="project-filter" className="sr-only">Filter by project</label>
+            <select
+              id="project-filter"
+              value={selectedProjectId}
+              onChange={e => setSelectedProjectId(e.target.value)}
+              className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Projects</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id.toString()}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Category Filter */}
+          <div>
+            <label htmlFor="category-filter" className="sr-only">Filter by category</label>
+            <select
+              id="category-filter"
+              value={selectedCategory}
+              onChange={e => setSelectedCategory(e.target.value)}
+              className="w-full p-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Categories</option>
+              {categories.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Sort */}
+          <div className="flex gap-2">
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as 'name' | 'uploadedAt' | 'size')}
+              className="flex-1 p-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              aria-label="Sort by"
+              title="Sort by"
+            >
+              <option value="uploadedAt">Sort by Date</option>
+              <option value="name">Sort by Name</option>
+              <option value="size">Sort by Size</option>
+            </select>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              className="px-3"
+            >
+              {sortOrder === 'asc' ? '↑' : '↓'}
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+      {/* Documents Table */}
+      <Card className="overflow-hidden">
+        {filteredDocuments.length === 0 ? (
+          <div className="text-center py-12">
+            <FileText className="w-12 h-12 mx-auto text-slate-400 mb-4" />
+            <h3 className="text-lg font-medium text-slate-900 dark:text-slate-100 mb-2">
+              No documents found
+            </h3>
+            <p className="text-slate-600 dark:text-slate-400">
+              {documents.length === 0
+                ? "Upload your first document to get started."
+                : "Try adjusting your search or filter criteria."}
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+              <thead className="bg-slate-50 dark:bg-slate-800">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    Document
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    Project
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    Size
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    Uploaded
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-200 dark:divide-slate-700">
+                {filteredDocuments.map(doc => {
+                  const DocumentIcon = getDocumentIcon(doc.mimeType);
+                  return (
+                    <tr key={doc.id} className="hover:bg-slate-50 dark:hover:bg-slate-800">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <DocumentIcon className="w-5 h-5 text-slate-400 mr-3 shrink-0" />
+                          <div className="min-w-0">
+                            <div className="font-medium text-slate-900 dark:text-slate-100 truncate">
+                              {doc.name}
+                            </div>
+                            {doc.description && (
+                              <div className="text-sm text-slate-500 dark:text-slate-400 truncate">
+                                {doc.description}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-slate-100">
+                        {projectMap.get(doc.projectId.toString()) || 'Unknown Project'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+                          {doc.category}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
+                        {formatFileSize(doc.size)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
+                        {new Date(doc.uploadedAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDownload(doc)}
+                          disabled={!canDownload}
+                          title={canDownload ? 'Download document' : 'No permission to download'}
+                        >
+                          <Download className="w-4 h-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
+      {/* Status */}
+      {!isOnline && (
+        <div className="text-center p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+          <p className="text-sm text-yellow-800 dark:text-yellow-200">
+            You're currently offline. Document uploads will be queued and processed when connection is restored.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};

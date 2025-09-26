@@ -110,7 +110,6 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ user, addToast, is
 
     return (
         <div className="space-y-6">
-<<<<<<< Updated upstream
             {isUploadModalOpen && projectForUpload && (
                 <FileUploadModal 
                     project={projectForUpload} 
@@ -125,24 +124,6 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ user, addToast, is
                 {canUpload && (
                     <Button onClick={() => setIsUploadModalOpen(true)} disabled={!projectForUpload}>
                         Upload Document
-=======
-            <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-                <div className="flex items-center gap-4">
-                    <h2 className="text-3xl font-bold text-slate-800">Documents</h2>
-                    <select title="Document filter"
-                        value={currentProject?.id || ''}
-                        onChange={e => handleProjectChange(e.target.value)}
-                        className="p-2 border rounded-md bg-white"
-                    >
-                        {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </select>
-                </div>
-                {canManage && <div className="flex gap-2">
-                    <Button variant="secondary">New Folder</Button>
-                    <Button onClick={() => setIsUploadModalOpen(true)} disabled={!isOnline}>
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                        Upload
->>>>>>> Stashed changes
                     </Button>
                 )}
             </div>

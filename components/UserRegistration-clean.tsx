@@ -1,13 +1,24 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { useAuth } from '../contexts/AuthContext';
+import { authClient, InvitePreview } from '../services/authClient';
 import { CompanyType, RegistrationPayload, Role } from '../types';
 import { AuthEnvironmentNotice } from './auth/AuthEnvironmentNotice';
+import {
+    clearRegistrationDraft,
+    loadRegistrationDraft,
+    saveRegistrationDraft,
+    type RegistrationStep,
+    registrationDraftHasContent,
+} from '../utils/registrationDraft';
+import { persistRememberedEmail } from '../utils/authRememberMe';
 
 interface UserRegistrationProps {
-  onSwitchToLogin: () => void;
+    onSwitchToLogin: () => void;
 }
+
+type FormErrors = Partial<Record<keyof RegistrationState, string>>;
 
 interface RegistrationState {
     firstName: string;
@@ -47,9 +58,6 @@ const INITIAL_STATE: RegistrationState = {
     termsAccepted: false,
 };
 
-type FormErrors = Partial<Record<keyof RegistrationState, string>>;
-type Step = 'account' | 'workspace' | 'confirm';
-
 const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password = '' }) => {
     const getStrength = () => {
         let score = 0;
@@ -60,23 +68,147 @@ const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password =
         if (/[^A-Za-z0-9]/.test(password)) score++;
         return score;
     };
-    
+
     const strength = getStrength();
-    
+    const width = (strength / 5) * 100;
+
     let color = 'bg-destructive';
     if (strength >= 5) color = 'bg-green-500';
     else if (strength >= 3) color = 'bg-yellow-500';
-    
-    let widthClass = 'w-0';
-    if (strength === 1) widthClass = 'w-1/5';
-    else if (strength === 2) widthClass = 'w-2/5';
-    else if (strength === 3) widthClass = 'w-3/5';
-    else if (strength === 4) widthClass = 'w-4/5';
-    else if (strength === 5) widthClass = 'w-full';
+
+    const widthClass = width === 0 ? 'w-0' : width <= 20 ? 'w-1/5' : width <= 40 ? 'w-2/5' : width <= 60 ? 'w-3/5' : width <= 80 ? 'w-4/5' : 'w-full';
 
     return (
         <div className="w-full bg-muted rounded-full h-1.5 mt-1">
             <div className={`h-1.5 rounded-full transition-all duration-300 ${color} ${widthClass}`}></div>
+        </div>
+    );
+};
+
+const CreateCompanyModal: React.FC<{
+    onClose: () => void;
+    onSave: (data: { name: string; type: CompanyType; email: string; phone: string; website: string; }) => void;
+    initialData: { name?: string; type?: CompanyType; email?: string; phone?: string; website?: string; };
+}> = ({ onClose, onSave, initialData }) => {
+    const [name, setName] = useState(initialData.name || '');
+    const [type, setType] = useState<CompanyType | ''>(initialData.type || '');
+    const [email, setEmail] = useState(initialData.email || '');
+    const [phone, setPhone] = useState(initialData.phone || '');
+    const [website, setWebsite] = useState(initialData.website || '');
+    const [errors, setErrors] = useState<Record<string, string>>({});
+
+    const companyTypeOptions = [
+        { value: 'GENERAL_CONTRACTOR', label: 'General Contractor' },
+        { value: 'SUBCONTRACTOR', label: 'Subcontractor' },
+        { value: 'SUPPLIER', label: 'Supplier' },
+        { value: 'CONSULTANT', label: 'Consultant' },
+        { value: 'CLIENT', label: 'Client' },
+        { value: 'OTHER', label: 'Other' },
+    ];
+
+    const validate = () => {
+        const newErrors: Record<string, string> = {};
+        if (!name.trim()) newErrors.name = 'Company name is required';
+        if (!type) newErrors.type = 'Company type is required';
+        if (!email.trim()) newErrors.email = 'Company email is required';
+        if (email && !/\S+@\S+\.\S+/.test(email)) newErrors.email = 'Please enter a valid email';
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
+
+    const handleSave = () => {
+        if (validate()) {
+            onSave({ name, type: type as CompanyType, email, phone, website });
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <Card className="w-full max-w-md">
+                <div className="p-6">
+                    <h3 className="text-lg font-semibold mb-4">Create New Company</h3>
+
+                    <div className="space-y-4">
+                        <div>
+                            <label htmlFor="company-name" className="block text-sm font-medium mb-1">Company Name *</label>
+                            <input
+                                id="company-name"
+                                type="text"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                className={`w-full p-2 border rounded-md ${errors.name ? 'border-destructive' : 'border-border'}`}
+                                placeholder="Enter company name"
+                            />
+                            {errors.name && <p className="text-destructive text-sm mt-1">{errors.name}</p>}
+                        </div>
+
+                        <div>
+                            <label htmlFor="company-type" className="block text-sm font-medium mb-1">Company Type *</label>
+                            <select
+                                id="company-type"
+                                aria-label="Company Type"
+                                value={type}
+                                onChange={(e) => setType(e.target.value as CompanyType)}
+                                className={`w-full p-2 border rounded-md ${errors.type ? 'border-destructive' : 'border-border'}`}
+                            >
+                                <option value="">Select company type</option>
+                                {companyTypeOptions.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                        {option.label}
+                                    </option>
+                                ))}
+                            </select>
+                            {errors.type && <p className="text-destructive text-sm mt-1">{errors.type}</p>}
+                        </div>
+
+                        <div>
+                            <label htmlFor="company-email" className="block text-sm font-medium mb-1">Company Email *</label>
+                            <input
+                                id="company-email"
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className={`w-full p-2 border rounded-md ${errors.email ? 'border-destructive' : 'border-border'}`}
+                                placeholder="company@example.com"
+                            />
+                            {errors.email && <p className="text-destructive text-sm mt-1">{errors.email}</p>}
+                        </div>
+
+                        <div>
+                            <label htmlFor="company-phone" className="block text-sm font-medium mb-1">Phone</label>
+                            <input
+                                id="company-phone"
+                                type="tel"
+                                value={phone}
+                                onChange={(e) => setPhone(e.target.value)}
+                                className="w-full p-2 border border-border rounded-md"
+                                placeholder="(555) 123-4567"
+                            />
+                        </div>
+
+                        <div>
+                            <label htmlFor="company-website" className="block text-sm font-medium mb-1">Website</label>
+                            <input
+                                id="company-website"
+                                type="url"
+                                value={website}
+                                onChange={(e) => setWebsite(e.target.value)}
+                                className="w-full p-2 border border-border rounded-md"
+                                placeholder="https://www.company.com"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3 mt-6">
+                        <Button variant="outline" onClick={onClose} className="flex-1">
+                            Cancel
+                        </Button>
+                        <Button onClick={handleSave} className="flex-1">
+                            Create Company
+                        </Button>
+                    </div>
+                </div>
+            </Card>
         </div>
     );
 };
@@ -99,14 +231,90 @@ const QuickOptionButton: React.FC<{
 export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLogin }) => {
     const { register, error: authError, loading: isSubmitting } = useAuth();
 
-    const [step, setStep] = useState<Step>('account');
+    const [step, setStep] = useState<RegistrationStep>('account');
     const [form, setForm] = useState<RegistrationState>(INITIAL_STATE);
     const [errors, setErrors] = useState<FormErrors>({});
     const [generalError, setGeneralError] = useState<string | null>(null);
 
+    const [emailStatus, setEmailStatus] = useState<'idle' | 'checking' | 'available' | 'unavailable'>('idle');
+    const [invitePreview, setInvitePreview] = useState<any | null>(null);
+    const [inviteError, setInviteError] = useState<string | null>(null);
+    const [isCheckingInvite, setIsCheckingInvite] = useState(false);
+    const [draftRestored, setDraftRestored] = useState(false);
+
+    const hasHydratedDraftRef = useRef(false);
+
     useEffect(() => {
         setGeneralError(authError);
     }, [authError]);
+
+    useEffect(() => {
+        if (emailStatus === 'available') {
+            setErrors(prev => {
+                if (!prev.email) {
+                    return prev;
+                }
+                const next = { ...prev };
+                delete next.email;
+                return next;
+            });
+        }
+    }, [emailStatus]);
+
+    useEffect(() => {
+        if (hasHydratedDraftRef.current) {
+            return;
+        }
+
+        let isMounted = true;
+        const draft = loadRegistrationDraft();
+        if (draft) {
+            if (isMounted) {
+                setForm({
+                    firstName: draft.firstName,
+                    lastName: draft.lastName,
+                    email: draft.email,
+                    phone: draft.phone,
+                    password: '',
+                    confirmPassword: '',
+                    companySelection: draft.companySelection,
+                    companyName: draft.companyName,
+                    companyType: draft.companyType,
+                    companyEmail: draft.companyEmail,
+                    companyPhone: draft.companyPhone,
+                    companyWebsite: draft.companyWebsite,
+                    inviteToken: draft.inviteToken,
+                    role: draft.role,
+                    updatesOptIn: draft.updatesOptIn,
+                    termsAccepted: draft.termsAccepted
+                });
+                setStep(draft.step);
+                setDraftRestored(true);
+            }
+        }
+
+        hasHydratedDraftRef.current = true;
+
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
+    const isStepComplete = useMemo(() => {
+        switch (step) {
+            case 'account':
+                return !!(form.firstName && form.lastName && form.email && form.password && form.confirmPassword);
+            case 'workspace': {
+                if (form.companySelection === 'join') return !!form.inviteToken;
+                if (form.companySelection === 'create') return !!(form.companyName && form.companyType && form.companyEmail);
+                return false;
+            }
+            case 'confirm':
+                return form.termsAccepted && !!form.role;
+            default:
+                return false;
+        }
+    }, [step, form]);
 
     const updateField = <K extends keyof RegistrationState>(field: K, value: RegistrationState[K]) => {
         setForm(prev => ({ ...prev, [field]: value }));
@@ -120,6 +328,49 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
         setGeneralError(null);
     };
 
+    const checkEmailAvailability = async (email: string) => {
+        if (!email || !/\S+@\S+\.\S+/.test(email)) {
+            setEmailStatus('idle');
+            return;
+        }
+
+        setEmailStatus('checking');
+        try {
+            const available = await authClient.checkEmailAvailability(email);
+            setEmailStatus(available ? 'available' : 'unavailable');
+            if (!available) {
+                setErrors(prev => ({ ...prev, email: 'Email is already registered' }));
+            }
+        } catch (error) {
+            setEmailStatus('idle');
+            console.error('Failed to check email availability:', error);
+        }
+    };
+
+    const checkInviteToken = async (token: string) => {
+        if (!token.trim()) {
+            setInvitePreview(null);
+            setInviteError(null);
+            return;
+        }
+
+        setIsCheckingInvite(true);
+        setInviteError(null);
+
+        try {
+            // Simple validation for now
+            if (token.length < 10) {
+                throw new Error('Invalid invite token format');
+            }
+            setInvitePreview({ companyName: 'Construction Company', role: 'OPERATIVE', inviterName: 'John Doe' });
+        } catch (error) {
+            setInviteError(error instanceof Error ? error.message : 'Invalid invite token');
+            setInvitePreview(null);
+        } finally {
+            setIsCheckingInvite(false);
+        }
+    };
+
     const validateStep = (): boolean => {
         const newErrors: FormErrors = {};
 
@@ -129,26 +380,28 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                 if (!form.lastName.trim()) newErrors.lastName = 'Last name is required';
                 if (!form.email.trim()) newErrors.email = 'Email is required';
                 else if (!/\S+@\S+\.\S+/.test(form.email)) newErrors.email = 'Please enter a valid email';
-                
+                else if (emailStatus === 'unavailable') newErrors.email = 'Email is already registered';
+
                 if (!form.password) newErrors.password = 'Password is required';
                 else if (form.password.length < 8) newErrors.password = 'Password must be at least 8 characters';
-                
+
                 if (!form.confirmPassword) newErrors.confirmPassword = 'Please confirm your password';
                 else if (form.password !== form.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
                 break;
 
             case 'workspace':
                 if (!form.companySelection) newErrors.companySelection = 'Please select an option';
-                
+
                 if (form.companySelection === 'create') {
                     if (!form.companyName.trim()) newErrors.companyName = 'Company name is required';
                     if (!form.companyType) newErrors.companyType = 'Company type is required';
                     if (!form.companyEmail.trim()) newErrors.companyEmail = 'Company email is required';
                     else if (!/\S+@\S+\.\S+/.test(form.companyEmail)) newErrors.companyEmail = 'Please enter a valid email';
                 }
-                
+
                 if (form.companySelection === 'join') {
                     if (!form.inviteToken.trim()) newErrors.inviteToken = 'Invite token is required';
+                    else if (inviteError) newErrors.inviteToken = inviteError;
                 }
                 break;
 
@@ -164,7 +417,9 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
 
     const handleNext = () => {
         if (validateStep()) {
-            const stepOrder: Step[] = ['account', 'workspace', 'confirm'];
+            saveRegistrationDraft({ data: form, step });
+
+            const stepOrder: RegistrationStep[] = ['account', 'company', 'role', 'review'];
             const currentIndex = stepOrder.indexOf(step);
             if (currentIndex < stepOrder.length - 1) {
                 setStep(stepOrder[currentIndex + 1]);
@@ -173,7 +428,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
     };
 
     const handleBack = () => {
-        const stepOrder: Step[] = ['account', 'workspace', 'confirm'];
+        const stepOrder: RegistrationStep[] = ['account', 'company', 'role', 'review'];
         const currentIndex = stepOrder.indexOf(step);
         if (currentIndex > 0) {
             setStep(stepOrder[currentIndex - 1]);
@@ -191,18 +446,21 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
             phone: form.phone,
             companySelection: form.companySelection as 'create' | 'join',
             inviteToken: form.companySelection === 'join' ? form.inviteToken : undefined,
-            companyName: form.companySelection === 'create' ? form.companyName : undefined,
-            companyType: form.companySelection === 'create' ? form.companyType as CompanyType : undefined,
-            companyEmail: form.companySelection === 'create' ? form.companyEmail : undefined,
-            companyPhone: form.companySelection === 'create' ? form.companyPhone : undefined,
-            companyWebsite: form.companySelection === 'create' ? form.companyWebsite : undefined,
+            company: form.companySelection === 'create' ? {
+                name: form.companyName,
+                type: form.companyType as CompanyType,
+                email: form.companyEmail,
+                phone: form.companyPhone,
+                website: form.companyWebsite,
+            } : undefined,
             role: form.role as Role,
             updatesOptIn: form.updatesOptIn,
-            termsAccepted: form.termsAccepted,
         };
 
         try {
             await register(payload);
+            persistRememberedEmail(form.email);
+            clearRegistrationDraft();
         } catch (error) {
             console.error('Registration failed:', error);
         }
@@ -217,9 +475,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label htmlFor="firstName" className="block text-sm font-medium mb-1">First Name *</label>
+                    <label className="block text-sm font-medium mb-1">First Name *</label>
                     <input
-                        id="firstName"
                         type="text"
                         value={form.firstName}
                         onChange={(e) => updateField('firstName', e.target.value)}
@@ -230,9 +487,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                 </div>
 
                 <div>
-                    <label htmlFor="lastName" className="block text-sm font-medium mb-1">Last Name *</label>
+                    <label className="block text-sm font-medium mb-1">Last Name *</label>
                     <input
-                        id="lastName"
                         type="text"
                         value={form.lastName}
                         onChange={(e) => updateField('lastName', e.target.value)}
@@ -244,24 +500,39 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
             </div>
 
             <div>
-                <label htmlFor="email" className="block text-sm font-medium mb-1">Email Address *</label>
+                <label className="block text-sm font-medium mb-1">Email Address *</label>
                 <div className="relative">
                     <input
-                        id="email"
                         type="email"
                         value={form.email}
-                        onChange={(e) => updateField('email', e.target.value)}
+                        onChange={(e) => {
+                            updateField('email', e.target.value);
+                            if (e.target.value) {
+                                const timeoutId = setTimeout(() => checkEmailAvailability(e.target.value), 500);
+                                return () => clearTimeout(timeoutId);
+                            }
+                        }}
                         className={`w-full p-3 border rounded-md pr-10 ${errors.email ? 'border-destructive' : 'border-border'}`}
                         placeholder="john@company.com"
                     />
+                    {emailStatus === 'checking' && (
+                        <div className="absolute right-3 top-3">
+                            <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                    )}
+                    {emailStatus === 'available' && (
+                        <div className="absolute right-3 top-3 text-green-500">✓</div>
+                    )}
+                    {emailStatus === 'unavailable' && (
+                        <div className="absolute right-3 top-3 text-destructive">✗</div>
+                    )}
                 </div>
                 {errors.email && <p className="text-destructive text-sm mt-1">{errors.email}</p>}
             </div>
 
             <div>
-                <label htmlFor="phone" className="block text-sm font-medium mb-1">Phone (optional)</label>
+                <label className="block text-sm font-medium mb-1">Phone (optional)</label>
                 <input
-                    id="phone"
                     type="tel"
                     value={form.phone}
                     onChange={(e) => updateField('phone', e.target.value)}
@@ -271,9 +542,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
             </div>
 
             <div>
-                <label htmlFor="password" className="block text-sm font-medium mb-1">Password *</label>
+                <label className="block text-sm font-medium mb-1">Password *</label>
                 <input
-                    id="password"
                     type="password"
                     value={form.password}
                     onChange={(e) => updateField('password', e.target.value)}
@@ -285,9 +555,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
             </div>
 
             <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium mb-1">Confirm Password *</label>
+                <label className="block text-sm font-medium mb-1">Confirm Password *</label>
                 <input
-                    id="confirmPassword"
                     type="password"
                     value={form.confirmPassword}
                     onChange={(e) => updateField('confirmPassword', e.target.value)}
@@ -299,11 +568,11 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
         </div>
     );
 
-    const renderWorkspaceStep = () => (
+    const renderCompanyStep = () => (
         <div className="space-y-6">
             <div>
-                <h2 className="text-2xl font-bold text-center mb-2">Workspace Setup</h2>
-                <p className="text-muted-foreground text-center">How would you like to set up your workspace?</p>
+                <h2 className="text-2xl font-bold text-center mb-2">Company Setup</h2>
+                <p className="text-muted-foreground text-center">How would you like to set up your company?</p>
             </div>
 
             <div className="space-y-4">
@@ -327,11 +596,10 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
             {form.companySelection === 'create' && (
                 <div className="mt-6 space-y-4 p-4 border border-border rounded-lg">
                     <h3 className="font-semibold">Company Information</h3>
-                    
+
                     <div>
-                        <label htmlFor="companyName" className="block text-sm font-medium mb-1">Company Name *</label>
+                        <label className="block text-sm font-medium mb-1">Company Name *</label>
                         <input
-                            id="companyName"
                             type="text"
                             value={form.companyName}
                             onChange={(e) => updateField('companyName', e.target.value)}
@@ -342,10 +610,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                     </div>
 
                     <div>
-                        <label htmlFor="companyType" className="block text-sm font-medium mb-1">Company Type *</label>
+                        <label className="block text-sm font-medium mb-1">Company Type *</label>
                         <select
-                            id="companyType"
-                            aria-label="Company Type"
                             value={form.companyType}
                             onChange={(e) => updateField('companyType', e.target.value as CompanyType)}
                             className={`w-full p-3 border rounded-md ${errors.companyType ? 'border-destructive' : 'border-border'}`}
@@ -356,14 +622,14 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                             <option value="SUPPLIER">Supplier</option>
                             <option value="CONSULTANT">Consultant</option>
                             <option value="CLIENT">Client</option>
+                            <option value="OTHER">Other</option>
                         </select>
                         {errors.companyType && <p className="text-destructive text-sm mt-1">{errors.companyType}</p>}
                     </div>
 
                     <div>
-                        <label htmlFor="companyEmail" className="block text-sm font-medium mb-1">Company Email *</label>
+                        <label className="block text-sm font-medium mb-1">Company Email *</label>
                         <input
-                            id="companyEmail"
                             type="email"
                             value={form.companyEmail}
                             onChange={(e) => updateField('companyEmail', e.target.value)}
@@ -375,9 +641,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label htmlFor="companyPhone" className="block text-sm font-medium mb-1">Phone</label>
+                            <label className="block text-sm font-medium mb-1">Phone</label>
                             <input
-                                id="companyPhone"
                                 type="tel"
                                 value={form.companyPhone}
                                 onChange={(e) => updateField('companyPhone', e.target.value)}
@@ -387,9 +652,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                         </div>
 
                         <div>
-                            <label htmlFor="companyWebsite" className="block text-sm font-medium mb-1">Website</label>
+                            <label className="block text-sm font-medium mb-1">Website</label>
                             <input
-                                id="companyWebsite"
                                 type="url"
                                 value={form.companyWebsite}
                                 onChange={(e) => updateField('companyWebsite', e.target.value)}
@@ -404,25 +668,37 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
             {form.companySelection === 'join' && (
                 <div className="mt-6 space-y-4 p-4 border border-border rounded-lg">
                     <h3 className="font-semibold">Company Invitation</h3>
-                    
+
                     <div>
-                        <label htmlFor="inviteToken" className="block text-sm font-medium mb-1">Invite Token *</label>
+                        <label className="block text-sm font-medium mb-1">Invite Token *</label>
                         <input
-                            id="inviteToken"
                             type="text"
                             value={form.inviteToken}
-                            onChange={(e) => updateField('inviteToken', e.target.value)}
+                            onChange={(e) => {
+                                updateField('inviteToken', e.target.value);
+                                const timeoutId = setTimeout(() => checkInviteToken(e.target.value), 500);
+                                return () => clearTimeout(timeoutId);
+                            }}
                             className={`w-full p-3 border rounded-md ${errors.inviteToken ? 'border-destructive' : 'border-border'}`}
                             placeholder="Enter your invitation token"
                         />
+                        {isCheckingInvite && <p className="text-muted-foreground text-sm mt-1">Checking invitation...</p>}
                         {errors.inviteToken && <p className="text-destructive text-sm mt-1">{errors.inviteToken}</p>}
                     </div>
+
+                    {invitePreview && (
+                        <div className="p-3 bg-muted rounded-md">
+                            <p className="font-medium">{invitePreview.companyName}</p>
+                            <p className="text-sm text-muted-foreground">Role: {invitePreview.role}</p>
+                            <p className="text-sm text-muted-foreground">Invited by: {invitePreview.inviterName}</p>
+                        </div>
+                    )}
                 </div>
             )}
         </div>
     );
 
-    const renderConfirmStep = () => (
+    const renderRoleStep = () => (
         <div className="space-y-6">
             <div>
                 <h2 className="text-2xl font-bold text-center mb-2">Select Your Role</h2>
@@ -433,49 +709,88 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                 <QuickOptionButton
                     title="Project Manager"
                     description="Oversee projects, manage teams, track progress"
-                    onClick={() => updateField('role', Role.PROJECT_MANAGER)}
-                    className={form.role === Role.PROJECT_MANAGER ? 'border-primary bg-primary/5' : ''}
+                    onClick={() => updateField('role', 'PROJECT_MANAGER')}
+                    className={form.role === 'PROJECT_MANAGER' ? 'border-primary bg-primary/5' : ''}
                 />
 
                 <QuickOptionButton
                     title="Foreman"
                     description="Lead on-site operations and crews"
-                    onClick={() => updateField('role', Role.FOREMAN)}
-                    className={form.role === Role.FOREMAN ? 'border-primary bg-primary/5' : ''}
+                    onClick={() => updateField('role', 'FOREMAN')}
+                    className={form.role === 'FOREMAN' ? 'border-primary bg-primary/5' : ''}
                 />
 
                 <QuickOptionButton
                     title="Operative"
                     description="Skilled tradesperson or worker"
-                    onClick={() => updateField('role', Role.OPERATIVE)}
-                    className={form.role === Role.OPERATIVE ? 'border-primary bg-primary/5' : ''}
+                    onClick={() => updateField('role', 'OPERATIVE')}
+                    className={form.role === 'OPERATIVE' ? 'border-primary bg-primary/5' : ''}
                 />
 
                 <QuickOptionButton
                     title="Owner/Executive"
                     description="Company owner or executive"
-                    onClick={() => updateField('role', Role.OWNER)}
-                    className={form.role === Role.OWNER ? 'border-primary bg-primary/5' : ''}
+                    onClick={() => updateField('role', 'OWNER')}
+                    className={form.role === 'OWNER' ? 'border-primary bg-primary/5' : ''}
                 />
 
                 <QuickOptionButton
                     title="Client"
                     description="Project client or stakeholder"
-                    onClick={() => updateField('role', Role.CLIENT)}
-                    className={form.role === Role.CLIENT ? 'border-primary bg-primary/5' : ''}
+                    onClick={() => updateField('role', 'CLIENT')}
+                    className={form.role === 'CLIENT' ? 'border-primary bg-primary/5' : ''}
                 />
 
                 <QuickOptionButton
                     title="Administrator"
                     description="System administrator"
-                    onClick={() => updateField('role', Role.ADMIN)}
-                    className={form.role === Role.ADMIN ? 'border-primary bg-primary/5' : ''}
+                    onClick={() => updateField('role', 'ADMIN')}
+                    className={form.role === 'ADMIN' ? 'border-primary bg-primary/5' : ''}
                 />
             </div>
 
             {errors.role && <p className="text-destructive text-sm text-center">{errors.role}</p>}
+        </div>
+    );
 
-            <div className="space-y-4 mt-8">
+    const renderReviewStep = () => (
+        <div className="space-y-6">
+            <div>
+                <h2 className="text-2xl font-bold text-center mb-2">Review & Confirm</h2>
+                <p className="text-muted-foreground text-center">Please review your information before completing registration</p>
+            </div>
+
+            <div className="space-y-4">
+                <div className="p-4 border border-border rounded-lg">
+                    <h3 className="font-semibold mb-2">Personal Information</h3>
+                    <p className="text-sm"><strong>Name:</strong> {form.firstName} {form.lastName}</p>
+                    <p className="text-sm"><strong>Email:</strong> {form.email}</p>
+                    {form.phone && <p className="text-sm"><strong>Phone:</strong> {form.phone}</p>}
+                    <p className="text-sm"><strong>Role:</strong> {form.role?.replace('_', ' ')}</p>
+                </div>
+
+                {form.companySelection === 'create' && (
+                    <div className="p-4 border border-border rounded-lg">
+                        <h3 className="font-semibold mb-2">Company Information</h3>
+                        <p className="text-sm"><strong>Company:</strong> {form.companyName}</p>
+                        <p className="text-sm"><strong>Type:</strong> {form.companyType?.replace('_', ' ')}</p>
+                        <p className="text-sm"><strong>Email:</strong> {form.companyEmail}</p>
+                        {form.companyPhone && <p className="text-sm"><strong>Phone:</strong> {form.companyPhone}</p>}
+                        {form.companyWebsite && <p className="text-sm"><strong>Website:</strong> {form.companyWebsite}</p>}
+                    </div>
+                )}
+
+                {form.companySelection === 'join' && invitePreview && (
+                    <div className="p-4 border border-border rounded-lg">
+                        <h3 className="font-semibold mb-2">Company Invitation</h3>
+                        <p className="text-sm"><strong>Company:</strong> {invitePreview.companyName}</p>
+                        <p className="text-sm"><strong>Invited Role:</strong> {invitePreview.role}</p>
+                        <p className="text-sm"><strong>Invited by:</strong> {invitePreview.inviterName}</p>
+                    </div>
+                )}
+            </div>
+
+            <div className="space-y-4">
                 <label className="flex items-start gap-3">
                     <input
                         type="checkbox"
@@ -510,16 +825,18 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
         switch (step) {
             case 'account':
                 return renderAccountStep();
-            case 'workspace':
-                return renderWorkspaceStep();
-            case 'confirm':
-                return renderConfirmStep();
+            case 'company':
+                return renderCompanyStep();
+            case 'role':
+                return renderRoleStep();
+            case 'review':
+                return renderReviewStep();
             default:
                 return null;
         }
     };
 
-    const stepOrder: Step[] = ['account', 'workspace', 'confirm'];
+    const stepOrder: RegistrationStep[] = ['account', 'company', 'role', 'review'];
     const currentStepIndex = stepOrder.indexOf(step);
     const isFirstStep = currentStepIndex === 0;
     const isLastStep = currentStepIndex === stepOrder.length - 1;
@@ -528,6 +845,12 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
         <div className="min-h-screen bg-background flex items-center justify-center p-4">
             <div className="w-full max-w-2xl">
                 <Card className="p-8">
+                    {draftRestored && registrationDraftHasContent() && (
+                        <div className="mb-6 p-3 bg-muted rounded-md">
+                            <p className="text-sm">Your previous registration progress has been restored.</p>
+                        </div>
+                    )}
+
                     <AuthEnvironmentNotice />
 
                     {/* Progress indicator */}
@@ -539,19 +862,17 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                     className={`flex items-center ${index < stepOrder.length - 1 ? 'flex-1' : ''}`}
                                 >
                                     <div
-                                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                                            index <= currentStepIndex
+                                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${index <= currentStepIndex
                                                 ? 'bg-primary text-primary-foreground'
                                                 : 'bg-muted text-muted-foreground'
-                                        }`}
+                                            }`}
                                     >
                                         {index + 1}
                                     </div>
                                     {index < stepOrder.length - 1 && (
                                         <div
-                                            className={`h-0.5 flex-1 mx-2 ${
-                                                index < currentStepIndex ? 'bg-primary' : 'bg-muted'
-                                            }`}
+                                            className={`h-0.5 flex-1 mx-2 ${index < currentStepIndex ? 'bg-primary' : 'bg-muted'
+                                                }`}
                                         />
                                     )}
                                 </div>
@@ -559,8 +880,9 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                         </div>
                         <div className="flex justify-between mt-2 text-xs text-muted-foreground">
                             <span>Account</span>
-                            <span>Workspace</span>
-                            <span>Confirm</span>
+                            <span>Company</span>
+                            <span>Role</span>
+                            <span>Review</span>
                         </div>
                     </div>
 
@@ -582,7 +904,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
 
                         <Button
                             onClick={isLastStep ? handleSubmit : handleNext}
-                            disabled={isSubmitting}
+                            disabled={!isStepComplete || isSubmitting}
                             loading={isSubmitting}
                         >
                             {isLastStep ? 'Create Account' : 'Next'}

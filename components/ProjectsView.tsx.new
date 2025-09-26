@@ -1,0 +1,329 @@
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  User,
+  Project,
+  Permission,
+  ProjectStatus,
+  ProjectPortfolioSummary,
+} from '../types';
+import { api } from '../services/mockApi';
+import { hasPermission } from '../services/auth';
+import { Card } from './ui/Card';
+import { Button } from './ui/Button';
+import { ProjectModal } from './CreateProjectModal';
+import { ViewHeader } from './layout/ViewHeader';
+import { Tag } from './ui/Tag';
+import { computeProjectPortfolioSummary, PROJECT_STATUS_ORDER } from '../utils/projectPortfolio';
+
+interface ProjectsViewProps {
+  user: User;
+  addToast: (message: string, type: 'success' | 'error') => void;
+  onSelectProject: (project: Project) => void;
+}
+
+const STATUS_BADGE_STYLES: Record<ProjectStatus, string> = {
+    PLANNING: 'bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-200',
+    ACTIVE: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-200',
+    ON_HOLD: 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-200',
+    COMPLETED: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-200',
+    CANCELLED: 'bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-200',
+};
+
+const STATUS_FILTERS = [
+    { label: 'All projects', value: 'ALL' },
+    { label: 'Active', value: 'ACTIVE' },
+    { label: 'Planning', value: 'PLANNING' },
+    { label: 'Completed', value: 'COMPLETED' },
+    { label: 'On hold', value: 'ON_HOLD' },
+    { label: 'Cancelled', value: 'CANCELLED' },
+] as const;
+
+type StatusFilterValue = typeof STATUS_FILTERS[number]['value'];
+
+const formatStatusLabel = (status: ProjectStatus) =>
+    status
+        .toLowerCase()
+        .split('_')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+
+interface ProjectSummaryCardProps {
+    project: Project;
+    taskCount: number;
+    memberCount: number;
+    overdueTaskCount: number;
+    upcomingMilestone: { name: string; date: Date } | null;
+    onSelect: () => void;
+}
+
+const ProjectSummaryCard: React.FC<ProjectSummaryCardProps> = ({
+    project,
+    taskCount,
+    memberCount,
+    overdueTaskCount,
+    upcomingMilestone,
+    onSelect,
+}) => {
+    return (
+        <Card 
+            className="p-6 hover:shadow-lg transition-shadow cursor-pointer"
+            onClick={onSelect}
+        >
+            <div className="flex justify-between items-start mb-4">
+                <div>
+                    <h3 className="text-lg font-semibold text-foreground mb-1">
+                        {project.name}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                        {project.description}
+                    </p>
+                </div>
+                <Tag
+                    label={formatStatusLabel(project.status)}
+                    color={project.status === 'ACTIVE' ? 'green' : 
+                           project.status === 'COMPLETED' ? 'blue' :
+                           project.status === 'ON_HOLD' ? 'yellow' :
+                           project.status === 'CANCELLED' ? 'red' : 'gray'}
+                />
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                    <span className="text-muted-foreground">Tasks</span>
+                    <p className="font-semibold">{taskCount}</p>
+                    {overdueTaskCount > 0 && (
+                        <p className="text-red-600 text-xs">{overdueTaskCount} overdue</p>
+                    )}
+                </div>
+                <div>
+                    <span className="text-muted-foreground">Team</span>
+                    <p className="font-semibold">{memberCount} members</p>
+                </div>
+                <div>
+                    <span className="text-muted-foreground">Location</span>
+                    <p className="font-semibold">{project.location}</p>
+                </div>
+            </div>
+
+            {upcomingMilestone && (
+                <div className="mt-4 pt-4 border-t">
+                    <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Next milestone</span>
+                        <span className="text-sm font-medium">{upcomingMilestone.name}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                        Due: {upcomingMilestone.date.toLocaleDateString()}
+                    </p>
+                </div>
+            )}
+        </Card>
+    );
+};
+
+export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSelectProject }) => {
+    const [projects, setProjects] = useState<Project[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [statusFilter, setStatusFilter] = useState<StatusFilterValue>('ALL');
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+    const [projectStats, setProjectStats] = useState<{
+        [projectId: string]: {
+            taskCount: number;
+            memberCount: number;
+            overdueTaskCount: number;
+            upcomingMilestone: { name: string; date: Date } | null;
+        };
+    }>({});
+
+    const canCreateProject = hasPermission(user, Permission.CREATE_PROJECTS);
+    const canViewProjects = hasPermission(user, Permission.VIEW_PROJECTS);
+
+    const loadData = useCallback(async () => {
+        if (!user.companyId) {
+            setLoading(false);
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const [projectsData, tasks, assignments] = await Promise.all([
+                api.getProjects(user.companyId),
+                api.getTasks(user.companyId),
+                api.getAssignments(user.companyId),
+            ]);
+
+            setProjects(projectsData);
+
+            // Calculate project statistics
+            const stats: typeof projectStats = {};
+            for (const project of projectsData) {
+                const projectTasks = tasks.filter(task => task.projectId === project.id);
+                const projectAssignments = assignments.filter(assignment => 
+                    projectTasks.some(task => task.id === assignment.taskId)
+                );
+                
+                const uniqueMemberIds = new Set(projectAssignments.map(a => a.userId));
+                const overdueTasks = projectTasks.filter(task => 
+                    task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'COMPLETED'
+                );
+
+                // Find upcoming milestone (this would need to be implemented based on your milestone structure)
+                const upcomingMilestone = null; // Placeholder
+
+                stats[project.id] = {
+                    taskCount: projectTasks.length,
+                    memberCount: uniqueMemberIds.size,
+                    overdueTaskCount: overdueTasks.length,
+                    upcomingMilestone,
+                };
+            }
+            setProjectStats(stats);
+
+        } catch (error) {
+            console.error('Failed to load projects:', error);
+            addToast('Failed to load projects', 'error');
+        } finally {
+            setLoading(false);
+        }
+    }, [user.companyId, addToast]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
+    const filteredProjects = useMemo(() => {
+        return projects.filter(project => {
+            const matchesStatus = statusFilter === 'ALL' || project.status === statusFilter;
+            const matchesSearch = searchTerm === '' || 
+                project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                project.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                project.location.toLowerCase().includes(searchTerm.toLowerCase());
+            
+            return matchesStatus && matchesSearch;
+        });
+    }, [projects, statusFilter, searchTerm]);
+
+    const portfolioSummary = useMemo((): ProjectPortfolioSummary => {
+        return computeProjectPortfolioSummary(projects);
+    }, [projects]);
+
+    if (!canViewProjects) {
+        return (
+            <Card className="p-6">
+                <p>You don't have permission to view projects.</p>
+            </Card>
+        );
+    }
+
+    if (loading) {
+        return (
+            <Card className="p-6">
+                <p>Loading projects...</p>
+            </Card>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
+            <ViewHeader 
+                title="Projects"
+                description="Manage your construction projects"
+                action={canCreateProject ? (
+                    <Button onClick={() => setIsProjectModalOpen(true)}>
+                        Create Project
+                    </Button>
+                ) : undefined}
+            />
+
+            {/* Portfolio Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <Card className="p-6">
+                    <h3 className="text-sm font-medium text-muted-foreground">Total Projects</h3>
+                    <p className="text-2xl font-bold">{portfolioSummary.totalProjects}</p>
+                </Card>
+                <Card className="p-6">
+                    <h3 className="text-sm font-medium text-muted-foreground">Active Projects</h3>
+                    <p className="text-2xl font-bold">{portfolioSummary.activeProjects}</p>
+                </Card>
+                <Card className="p-6">
+                    <h3 className="text-sm font-medium text-muted-foreground">Completed Projects</h3>
+                    <p className="text-2xl font-bold">{portfolioSummary.completedProjects}</p>
+                </Card>
+                <Card className="p-6">
+                    <h3 className="text-sm font-medium text-muted-foreground">On Hold</h3>
+                    <p className="text-2xl font-bold">{portfolioSummary.onHoldProjects}</p>
+                </Card>
+            </div>
+
+            {/* Filters and Search */}
+            <Card className="p-6">
+                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+                    <div className="flex flex-wrap gap-2">
+                        {STATUS_FILTERS.map(filter => (
+                            <button
+                                key={filter.value}
+                                onClick={() => setStatusFilter(filter.value)}
+                                className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                                    statusFilter === filter.value
+                                        ? 'bg-primary text-primary-foreground'
+                                        : 'bg-muted text-muted-foreground hover:bg-muted-foreground/10'
+                                }`}
+                            >
+                                {filter.label}
+                            </button>
+                        ))}
+                    </div>
+                    <input
+                        type="text"
+                        placeholder="Search projects..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="px-3 py-2 border border-border rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+                    />
+                </div>
+            </Card>
+
+            {/* Projects Grid */}
+            {filteredProjects.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredProjects.map(project => (
+                        <ProjectSummaryCard
+                            key={project.id}
+                            project={project}
+                            taskCount={projectStats[project.id]?.taskCount || 0}
+                            memberCount={projectStats[project.id]?.memberCount || 0}
+                            overdueTaskCount={projectStats[project.id]?.overdueTaskCount || 0}
+                            upcomingMilestone={projectStats[project.id]?.upcomingMilestone || null}
+                            onSelect={() => onSelectProject(project)}
+                        />
+                    ))}
+                </div>
+            ) : (
+                <Card className="p-12 text-center">
+                    <p className="text-muted-foreground">
+                        {searchTerm || statusFilter !== 'ALL' 
+                            ? 'No projects match your filters.'
+                            : 'No projects found. Create your first project to get started.'
+                        }
+                    </p>
+                </Card>
+            )}
+
+            {/* Project Creation Modal */}
+            {isProjectModalOpen && (
+                <ProjectModal
+                    user={user}
+                    onClose={() => setIsProjectModalOpen(false)}
+                    onSuccess={() => {
+                        setIsProjectModalOpen(false);
+                        loadData();
+                        addToast('Project created successfully', 'success');
+                    }}
+                    addToast={addToast}
+                />
+            )}
+        </div>
+    );
+};
+
+export default ProjectsView;
