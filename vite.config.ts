@@ -34,6 +34,11 @@ export default defineConfig(({ mode }) => {
       },
       // Raise limit slightly to avoid noisy warnings while we improve chunking
       chunkSizeWarningLimit: 1200,
+      minify: false,
+      target: 'esnext',
+    },
+    esbuild: {
+      legalComments: 'none',
     },
   };
 });

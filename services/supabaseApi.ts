@@ -1453,7 +1453,6 @@ class SupabaseApiService implements SupabaseApiInterface {
     };
   }
 }
-}
 
 // Export singleton instance
 export const supabaseApi = new SupabaseApiService();

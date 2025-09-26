@@ -9,6 +9,7 @@ import { Avatar } from './ui/Avatar';
 interface WorkforcePlannerProps {
     user: User;
     addToast: (message: string, type: 'success' | 'error') => void;
+}
 interface AssignedUser extends User {
     // FIX: Changed projectId to allow string for temporary IDs.
     projectId: string | null;
@@ -84,7 +85,7 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
         e.preventDefault();
         e.currentTarget.classList.add('bg-sky-100');
     };
-    
+
     const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
         e.currentTarget.classList.remove('bg-sky-100');
     };
@@ -96,7 +97,7 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
         <Card>
             <h3 className="font-bold text-lg mb-4">Workforce Planner</h3>
             <div className="flex gap-6">
-                <div 
+                <div
                     className="w-1/4 p-4 bg-slate-100 rounded-lg transition-colors"
                     onDrop={(e) => handleDrop(e, null)}
                     onDragOver={handleDragOver}
@@ -116,7 +117,7 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
                     {projects.map(p => {
                         const assigned = users.filter(u => u.projectId === p.id);
                         return (
-                            <div 
+                            <div
                                 key={p.id}
                                 className="p-4 bg-slate-50 rounded-lg transition-colors"
                                 onDrop={(e) => handleDrop(e, p.id)}
@@ -125,10 +126,10 @@ export const WorkforcePlanner: React.FC<WorkforcePlannerProps> = ({ user, addToa
                             >
                                 <h4 className="font-semibold mb-2">{p.name} ({assigned.length})</h4>
                                 <div className="space-y-2">
-                                     {assigned.map(u => (
+                                    {assigned.map(u => (
                                         <div key={u.id} draggable onDragStart={(e) => handleDragStart(e, u.id)} className="p-2 bg-white rounded shadow-sm cursor-grab flex items-center gap-2">
-                                             <Avatar name={`${u.firstName} ${u.lastName}`} className="w-6 h-6 text-xs" />
-                                             <span className="text-sm">{`${u.firstName} ${u.lastName}`}</span>
+                                            <Avatar name={`${u.firstName} ${u.lastName}`} className="w-6 h-6 text-xs" />
+                                            <span className="text-sm">{`${u.firstName} ${u.lastName}`}</span>
                                         </div>
                                     ))}
                                 </div>

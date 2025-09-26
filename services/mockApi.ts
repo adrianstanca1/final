@@ -682,4 +682,4 @@ export const api = {
         equipment: true, 
         reporting: true 
     }
-}};
+};

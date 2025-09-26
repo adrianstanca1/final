@@ -7,22 +7,24 @@ import { Button } from './ui/Button';
 import { Avatar } from './ui/Avatar';
 
 interface ResourceSchedulerProps {
-  user: User;
-  addToast: (message: string, type: 'success' | 'error') => void;
-const getWeekStart = (date: Date): Date => {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
-  return new Date(new Date(d.setDate(diff)).setHours(0, 0, 0, 0));
-const dateToYMD = (date: Date) => date.toISOString().split('T')[0];
-
+    user: User;
+    addToast: (message: string, type: 'success' | 'error') => void;
 }
+
+const getWeekStart = (date: Date): Date => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+    return new Date(new Date(d.setDate(diff)).setHours(0, 0, 0, 0));
+};
+
+const dateToYMD = (date: Date) => date.toISOString().split('T')[0];
 
 const AssignmentModal: React.FC<{
     assignment: ResourceAssignment | null,
     onClose: () => void,
     onSave: (data: Omit<ResourceAssignment, 'id'>) => void,
-// FIX: Changed id type from number | string to string.
+    // FIX: Changed id type from number | string to string.
     onDelete: (id: string) => void,
     projects: Project[],
     users: User[],
@@ -37,7 +39,7 @@ const AssignmentModal: React.FC<{
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!resourceId || !projectId || !startDate || !endDate) return;
-// FIX: Corrected payload to match ResourceAssignment type (string IDs, string dates).
+        // FIX: Corrected payload to match ResourceAssignment type (string IDs, string dates).
         onSave({
             resourceType,
             resourceId: resourceId,
@@ -60,7 +62,7 @@ const AssignmentModal: React.FC<{
                     </select>
                     <select value={resourceId} onChange={e => setResourceId(e.target.value)} className="w-full p-2 border rounded bg-white" required>
                         <option value="">Select {resourceType}...</option>
-{/* FIX: Combined firstName and lastName for User display name. */}
+                        {/* FIX: Combined firstName and lastName for User display name. */}
                         {resourceList.map(r => <option key={r.id} value={r.id}>{resourceType === 'user' ? `${(r as User).firstName} ${(r as User).lastName}` : (r as Equipment).name}</option>)}
                     </select>
                     <select value={projectId} onChange={e => setProjectId(e.target.value)} className="w-full p-2 border rounded bg-white" required>
@@ -68,20 +70,21 @@ const AssignmentModal: React.FC<{
                         {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                     <div className="grid grid-cols-2 gap-4">
-                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 border rounded" required/>
-                        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2 border rounded" required/>
+                        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-full p-2 border rounded" required />
+                        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2 border rounded" required />
                     </div>
                     <div className="flex justify-between items-center pt-2">
                         <div>{assignment && <Button type="button" variant="danger" onClick={() => onDelete(assignment.id)}>Delete</Button>}</div>
                         <div className="flex gap-2">
-                             <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
-                             <Button type="submit">Save</Button>
+                            <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+                            <Button type="submit">Save</Button>
                         </div>
                     </div>
                 </form>
             </Card>
         </div>
     );
+};
 
 export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addToast }) => {
     const [assignments, setAssignments] = useState<ResourceAssignment[]>([]);
@@ -101,7 +104,7 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
 
         setLoading(true);
         try {
-            if(!user.companyId) return;
+            if (!user.companyId) return;
             const [assignData, projData, userData, equipData] = await Promise.all([
                 api.getResourceAssignments(user.companyId, { signal: controller.signal }),
                 api.getProjectsByCompany(user.companyId, { signal: controller.signal }),
@@ -131,7 +134,7 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
             abortControllerRef.current?.abort();
         };
     }, [fetchData]);
-    
+
     const openModal = (assignment: ResourceAssignment | null) => {
         setEditingAssignment(assignment);
         setIsModalOpen(true);
@@ -153,8 +156,8 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
             addToast("Failed to save assignment.", "error");
         }
     };
-    
-// FIX: Changed id type from number | string to string.
+
+    // FIX: Changed id type from number | string to string.
     const handleDelete = async (id: string) => {
         try {
             await api.deleteResourceAssignment(id, user.id);
@@ -182,19 +185,19 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
             return newDate;
         });
     };
-    
+
     if (loading) {
         return <Card><p>Loading scheduler data...</p></Card>
     }
-    
+
     const resources: ({ type: 'user' | 'equipment' } & (User | Equipment))[] = [
-        ...users.map(u => ({...u, type: 'user' as const})),
-        ...equipment.map(e => ({...e, type: 'equipment' as const})),
+        ...users.map(u => ({ ...u, type: 'user' as const })),
+        ...equipment.map(e => ({ ...e, type: 'equipment' as const })),
     ];
 
     return (
         <Card>
-             {isModalOpen && (
+            {isModalOpen && (
                 <AssignmentModal
                     assignment={editingAssignment}
                     onClose={() => setIsModalOpen(false)}
@@ -210,7 +213,7 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
                 <div className="flex items-center gap-4">
                     <Button onClick={() => openModal(null)}>Add Assignment</Button>
                     <button onClick={() => changeWeek('prev')} className="p-2 rounded-full hover:bg-slate-100">&lt;</button>
-                    <span className="font-medium">{weekStart.toLocaleDateString(undefined, {month: 'short', day: 'numeric'})} - {weekDays[6].toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: 'numeric'})}</span>
+                    <span className="font-medium">{weekStart.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - {weekDays[6].toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                     <button onClick={() => changeWeek('next')} className="p-2 rounded-full hover:bg-slate-100">&gt;</button>
                 </div>
             </div>
@@ -221,62 +224,63 @@ export const ResourceScheduler: React.FC<ResourceSchedulerProps> = ({ user, addT
                     {weekDays.map(day => (
                         <div key={day.toISOString()} className={`p-2 font-semibold border-b text-center bg-slate-50 ${dateToYMD(day) === dateToYMD(new Date()) ? 'bg-sky-100' : ''}`}>
                             {day.toLocaleDateString('en-US', { weekday: 'short' })}
-                            <br/>
+                            <br />
                             <span className="text-xs font-normal">{day.getDate()}</span>
                         </div>
                     ))}
-                    
+
                     {/* Rows */}
                     {resources.map((resource, rowIndex) => {
-// FIX: Combined firstName and lastName for User display name.
+                        // FIX: Combined firstName and lastName for User display name.
                         const resourceName = resource.type === 'user' ? `${(resource as User).firstName} ${(resource as User).lastName}` : (resource as Equipment).name;
                         return (
-                        <React.Fragment key={`${resource.type}-${resource.id}`}>
-                            <div className={`p-2 font-medium border-b border-r break-words sticky left-0 z-10 flex items-center gap-2 ${rowIndex % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
-                                {resource.type === 'user' && <Avatar name={resourceName} className="w-6 h-6 text-xs" />}
-                                <span className="text-sm">{resourceName}</span>
-                            </div>
-                            <div className="col-span-7 border-b relative grid grid-cols-7">
-                                {[...Array(7)].map((_, dayIndex) => (
-                                    <div key={dayIndex} className={`h-16 border-r ${rowIndex % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}></div>
-                                ))}
-                                {assignments
-                                .filter(a => a.resourceId === resource.id && a.resourceType === resource.type)
-                                .map((a) => {
-                                    const start = new Date(new Date(a.startDate).setHours(0,0,0,0)).getTime();
-                                    const end = new Date(new Date(a.endDate).setHours(0,0,0,0)).getTime();
-                                    const weekStartTime = weekStart.getTime();
-                                    
-                                    if (end < weekStartTime || start >= weekStartTime + 7 * 24*60*60*1000) return null;
+                            <React.Fragment key={`${resource.type}-${resource.id}`}>
+                                <div className={`p-2 font-medium border-b border-r break-words sticky left-0 z-10 flex items-center gap-2 ${rowIndex % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
+                                    {resource.type === 'user' && <Avatar name={resourceName} className="w-6 h-6 text-xs" />}
+                                    <span className="text-sm">{resourceName}</span>
+                                </div>
+                                <div className="col-span-7 border-b relative grid grid-cols-7">
+                                    {[...Array(7)].map((_, dayIndex) => (
+                                        <div key={dayIndex} className={`h-16 border-r ${rowIndex % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}></div>
+                                    ))}
+                                    {assignments
+                                        .filter(a => a.resourceId === resource.id && a.resourceType === resource.type)
+                                        .map((a) => {
+                                            const start = new Date(new Date(a.startDate).setHours(0, 0, 0, 0)).getTime();
+                                            const end = new Date(new Date(a.endDate).setHours(0, 0, 0, 0)).getTime();
+                                            const weekStartTime = weekStart.getTime();
 
-                                    const startDayIndex = Math.max(0, (start - weekStartTime) / (24*60*60*1000));
-                                    const endDayIndex = Math.min(6.99, (end - weekStartTime) / (24*60*60*1000));
-                                    
-                                    const left = (startDayIndex / 7) * 100;
-                                    const width = ((endDayIndex - startDayIndex + 1) / 7) * 100;
-                                    const project = projectMap.get(a.projectId.toString());
+                                            if (end < weekStartTime || start >= weekStartTime + 7 * 24 * 60 * 60 * 1000) return null;
 
-                                    return (
-                                        <div 
-                                            key={a.id}
-                                            onClick={() => openModal(a)}
-                                            className={`absolute h-8 px-2 py-1 rounded text-white text-xs overflow-hidden cursor-pointer group flex justify-between items-center ${a.resourceType === 'user' ? 'bg-sky-600' : 'bg-green-600'}`}
-                                            style={{ left: `${left}%`, width: `calc(${width}% - 4px)`, top: '0.5rem', margin: '0 2px' }}
-                                            title={`${project?.name}\n${new Date(a.startDate).toLocaleDateString()} - ${new Date(a.endDate).toLocaleDateString()}`}
-                                        >
-                                           <span className="truncate">{project?.name || 'Unknown Project'}</span>
-                                           <button 
-                                                onClick={(e) => { e.stopPropagation(); handleDelete(a.id); }} 
-                                                className="opacity-0 group-hover:opacity-100 text-white/70 hover:text-white/100 ml-2"
-                                            >
-                                               &times;
-                                           </button>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </React.Fragment>
-                    )})}
+                                            const startDayIndex = Math.max(0, (start - weekStartTime) / (24 * 60 * 60 * 1000));
+                                            const endDayIndex = Math.min(6.99, (end - weekStartTime) / (24 * 60 * 60 * 1000));
+
+                                            const left = (startDayIndex / 7) * 100;
+                                            const width = ((endDayIndex - startDayIndex + 1) / 7) * 100;
+                                            const project = projectMap.get(a.projectId.toString());
+
+                                            return (
+                                                <div
+                                                    key={a.id}
+                                                    onClick={() => openModal(a)}
+                                                    className={`absolute h-8 px-2 py-1 rounded text-white text-xs overflow-hidden cursor-pointer group flex justify-between items-center ${a.resourceType === 'user' ? 'bg-sky-600' : 'bg-green-600'}`}
+                                                    style={{ left: `${left}%`, width: `calc(${width}% - 4px)`, top: '0.5rem', margin: '0 2px' }}
+                                                    title={`${project?.name}\n${new Date(a.startDate).toLocaleDateString()} - ${new Date(a.endDate).toLocaleDateString()}`}
+                                                >
+                                                    <span className="truncate">{project?.name || 'Unknown Project'}</span>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleDelete(a.id); }}
+                                                        className="opacity-0 group-hover:opacity-100 text-white/70 hover:text-white/100 ml-2"
+                                                    >
+                                                        &times;
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                </div>
+                            </React.Fragment>
+                        )
+                    })}
                 </div>
             </div>
         </Card>

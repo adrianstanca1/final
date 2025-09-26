@@ -9,9 +9,9 @@ import { api } from '../services/mockApi';
 import { GoogleGenAI, Type } from "@google/genai";
 
 interface CostEstimatorProps {
-  user: User;
-  addToast: (message: string, type: 'success' | 'error') => void;
-  onBack: () => void;
+    user: User;
+    addToast: (message: string, type: 'success' | 'error') => void;
+    onBack: () => void;
 }
 
 interface Estimate {
@@ -23,6 +23,7 @@ interface Estimate {
     }[];
     contingency: number;
     summary: string;
+}
 const formatCurrency = (amount: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 0 }).format(amount);
 
 export const CostEstimator: React.FC<CostEstimatorProps> = ({ user, addToast, onBack }) => {
@@ -41,7 +42,7 @@ export const CostEstimator: React.FC<CostEstimatorProps> = ({ user, addToast, on
         setEstimate(null);
 
         try {
-            const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             const result = await ai.models.generateContent({
                 model: "gemini-2.5-flash",
                 contents: `Provide a UK-based construction cost estimate for the following project: "${description}". Square footage: ${sqft} sq ft. Quality: ${quality}. Provide a JSON object with keys: "totalEstimate" (number), "breakdown" (array of objects with "category", "cost", "details"), "contingency" (number), "summary" (string).`,
@@ -67,7 +68,7 @@ export const CostEstimator: React.FC<CostEstimatorProps> = ({ user, addToast, on
                             contingency: { type: Type.NUMBER },
                             summary: { type: Type.STRING },
                         },
-                         // FIX: Added required property to satisfy schema
+                        // FIX: Added required property to satisfy schema
                         required: ['totalEstimate', 'breakdown', 'contingency', 'summary'],
                     }
                 }
@@ -91,7 +92,7 @@ export const CostEstimator: React.FC<CostEstimatorProps> = ({ user, addToast, on
                 <div className="space-y-4 p-4 border rounded-lg bg-slate-50">
                     <div>
                         <label className="block text-sm font-medium">Project Description</label>
-                        <textarea value={description} onChange={e => setDescription(e.target.value)} rows={5} className="w-full p-2 border rounded" placeholder="e.g., Two-story office building with open-plan interior and glass facade."/>
+                        <textarea value={description} onChange={e => setDescription(e.target.value)} rows={5} className="w-full p-2 border rounded" placeholder="e.g., Two-story office building with open-plan interior and glass facade." />
                     </div>
                     <div>
                         <label className="block text-sm font-medium">Square Footage</label>

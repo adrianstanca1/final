@@ -40,6 +40,8 @@ const formatDate = (value?: string): string => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return '—';
   return format(parsed, 'd MMM yyyy');
+};
+
 const getDueDate = (invoice: Invoice): string | undefined => invoice.dueAt || invoice.dueDate;
 
 const getIssuedDate = (invoice: Invoice): string | undefined => invoice.issuedAt || invoice.issueDate;
@@ -49,6 +51,7 @@ const getDateValue = (value?: string): number | null => {
   const parsed = new Date(value);
   const timestamp = parsed.getTime();
   return Number.isNaN(timestamp) ? null : timestamp;
+};
 const getDueDateValue = (invoice: Invoice): number | null => getDateValue(getDueDate(invoice));
 
 const getIssuedDateValue = (invoice: Invoice): number | null => getDateValue(getIssuedDate(invoice));
@@ -73,6 +76,8 @@ const getAgingInfo = (invoice: Invoice) => {
   }
 
   return { label: `${Math.abs(diff)} day${Math.abs(diff) === 1 ? '' : 's'} overdue`, color: 'red' as const };
+};
+
 const SummaryCard: React.FC<{ title: string; value: string; helper?: string; tone?: SummaryTone }> = ({
   title,
   value,
@@ -94,6 +99,8 @@ const SummaryCard: React.FC<{ title: string; value: string; helper?: string; ton
       {helper && <p className="mt-2 text-xs text-muted-foreground">{helper}</p>}
     </Card>
   );
+};
+
 interface InvoicesViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
@@ -618,9 +625,8 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
               value={formatCurrency(summary.overdue)}
               helper={
                 statusCounts[InvoiceStatus.OVERDUE] > 0
-                  ? `${statusCounts[InvoiceStatus.OVERDUE]} invoice${
-                      statusCounts[InvoiceStatus.OVERDUE] === 1 ? '' : 's'
-                    } require attention.`
+                  ? `${statusCounts[InvoiceStatus.OVERDUE]} invoice${statusCounts[InvoiceStatus.OVERDUE] === 1 ? '' : 's'
+                  } require attention.`
                   : 'No invoices are overdue right now.'
               }
               tone={summary.overdue > 0 ? 'danger' : 'success'}
@@ -643,8 +649,8 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
                 summary.collectionRate >= 90
                   ? 'success'
                   : summary.collectionRate >= 60
-                  ? 'warning'
-                  : 'danger'
+                    ? 'warning'
+                    : 'danger'
               }
             />
           </div>
@@ -659,11 +665,10 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({ user, addToast }) =>
                       key={filter.id}
                       type="button"
                       onClick={() => setStatusFilter(filter.id)}
-                      className={`flex items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors ${
-                        isActive
+                      className={`flex items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors ${isActive
                           ? 'border-primary bg-primary/10 text-primary'
                           : 'border-border bg-background text-muted-foreground hover:bg-muted'
-                      }`}
+                        }`}
                     >
                       <span>{filter.label}</span>
                       <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-semibold text-muted-foreground">

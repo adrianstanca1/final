@@ -1,15 +1,15 @@
 
 
 import React, { useState } from 'react';
-// FIX: Corrected import paths to be relative.
 import { User } from '../types';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
+import { analyzeConstructionImage, generateSiteInspectionReport } from '../services/multimodalAI';
 
 interface AISiteInspectorProps {
-  user: User;
-  addToast: (message: string, type: 'success' | 'error') => void;
-  onBack: () => void;
+    user: User;
+    addToast: (message: string, type: 'success' | 'error') => void;
+    onBack: () => void;
 }
 
 export const AISiteInspector: React.FC<AISiteInspectorProps> = ({ user, addToast, onBack }) => {
@@ -43,7 +43,7 @@ export const AISiteInspector: React.FC<AISiteInspectorProps> = ({ user, addToast
             // Mock API call
             await new Promise(resolve => setTimeout(resolve, 2000));
             setAnalysis(
-`**AI Site Inspection Report**
+                `**AI Site Inspection Report**
 - **Progress:** Wall framing for the west wing appears to be ~75% complete, consistent with the project schedule.
 - **Safety Concern (High):** An unsecured ladder is visible near gridline C-4. Immediate action required.
 - **Observation:** Debris accumulation is noted in the staging area. Recommend cleanup to maintain a safe work environment.
@@ -61,7 +61,7 @@ export const AISiteInspector: React.FC<AISiteInspectorProps> = ({ user, addToast
         <Card>
             <h3 className="text-xl font-semibold text-slate-700 mb-2">AI Site Inspector</h3>
             <p className="text-sm text-slate-500 mb-4">Upload a photo from the site to automatically check progress and identify potential safety hazards.</p>
-            
+
             <div className="space-y-4 p-4 border rounded-lg bg-slate-50">
                 <div>
                     <label htmlFor="site-photo" className="block text-sm font-medium text-gray-700 mb-1">Site Photo</label>
@@ -80,7 +80,7 @@ export const AISiteInspector: React.FC<AISiteInspectorProps> = ({ user, addToast
                 )}
                 <Button onClick={handleAnalyze} isLoading={isLoading} disabled={!imageFile}>Analyze Photo</Button>
             </div>
-            
+
             <div className="mt-6">
                 {isLoading && (
                     <div className="text-center py-10">
