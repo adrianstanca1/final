@@ -10,6 +10,8 @@ import { Tag } from './ui/Tag';
 interface ClientsViewProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
+}
+
 interface ClientFormState {
   name: string;
   contactPerson: string;

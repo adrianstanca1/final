@@ -6,6 +6,7 @@ import { ToggleSwitch } from './ui/ToggleSwitch';
 import { getFailedSyncActions, retryFailedAction, discardFailedAction, formatFailedActionForUI, FailedActionForUI } from '../services/mockApi';
 import { useAuth } from '../contexts/AuthContext';
 import { Avatar } from './ui/Avatar';
+import { ProjectConfigurationPanel } from './ProjectConfigurationPanel';
 
 interface SettingsViewProps {
   user: User;
@@ -22,7 +23,7 @@ const FailedSyncActions: React.FC<{ addToast: (m: string, t: 'success' | 'error'
     const actions = getFailedSyncActions().map(formatFailedActionForUI);
     setFailedActions(actions);
   }, []);
-    
+
   useEffect(() => {
     loadFailedActions();
     const interval = setInterval(loadFailedActions, 5000);
@@ -41,7 +42,7 @@ const FailedSyncActions: React.FC<{ addToast: (m: string, t: 'success' | 'error'
     loadFailedActions();
     setIsLoading(false);
   };
-    
+
   const handleDiscard = (id: number) => {
     discardFailedAction(id);
     addToast("Action discarded.", "success");
@@ -79,9 +80,9 @@ const FailedSyncActions: React.FC<{ addToast: (m: string, t: 'success' | 'error'
   );
 };
 
-const UserProfileSettings: React.FC<{ 
-  user: User; 
-  addToast: (m: string, t: 'success' | 'error') => void; 
+const UserProfileSettings: React.FC<{
+  user: User;
+  addToast: (m: string, t: 'success' | 'error') => void;
 }> = ({ user, addToast }) => {
   const { updateUserProfile } = useAuth();
   const [formData, setFormData] = useState({
@@ -152,15 +153,15 @@ const UserProfileSettings: React.FC<{
       setIsSaving(false);
     }
   };
-    
+
   return (
     <Card>
       <h3 className="font-bold text-lg mb-4">My Profile</h3>
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="flex items-center gap-6">
-          <Avatar 
-            name={`${formData.firstName} ${formData.lastName}`} 
-            imageUrl={formData.avatar} 
+          <Avatar
+            name={`${formData.firstName} ${formData.lastName}`}
+            imageUrl={formData.avatar}
             className="w-24 h-24 text-3xl"
           />
           <div>
@@ -173,20 +174,20 @@ const UserProfileSettings: React.FC<{
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label htmlFor="firstName" className="block text-sm font-medium">First Name</label>
-            <input 
+            <input
               id="firstName"
-              value={formData.firstName} 
-              onChange={e => handleChange('firstName', e.target.value)} 
+              value={formData.firstName}
+              onChange={e => handleChange('firstName', e.target.value)}
               className={`w-full p-2 border rounded ${errors.firstName ? 'border-destructive' : 'border-border'}`}
             />
             {errors.firstName && <p className="text-xs text-destructive mt-1">{errors.firstName}</p>}
           </div>
           <div>
             <label htmlFor="lastName" className="block text-sm font-medium">Last Name</label>
-            <input 
+            <input
               id="lastName"
-              value={formData.lastName} 
-              onChange={e => handleChange('lastName', e.target.value)} 
+              value={formData.lastName}
+              onChange={e => handleChange('lastName', e.target.value)}
               className={`w-full p-2 border rounded ${errors.lastName ? 'border-destructive' : 'border-border'}`}
             />
             {errors.lastName && <p className="text-xs text-destructive mt-1">{errors.lastName}</p>}
@@ -197,11 +198,11 @@ const UserProfileSettings: React.FC<{
           </div>
           <div>
             <label htmlFor="phone" className="block text-sm font-medium">Phone</label>
-            <input 
+            <input
               id="phone"
-              type="tel" 
-              value={formData.phone} 
-              onChange={e => handleChange('phone', e.target.value)} 
+              type="tel"
+              value={formData.phone}
+              onChange={e => handleChange('phone', e.target.value)}
               className="w-full p-2 border rounded"
             />
           </div>
@@ -330,25 +331,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, addToast, sett
 
       <div className="border-b border-border">
         <nav className="-mb-px flex space-x-6">
-          <button 
-            onClick={() => setActiveTab('profile')} 
-            className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'profile' 
-                ? 'border-primary text-primary' 
+          <button
+            onClick={() => setActiveTab('profile')}
+            className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm ${activeTab === 'profile'
+                ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+              }`}
           >
             My Profile
           </button>
-          <button 
-            onClick={() => setActiveTab('company')} 
-            className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm ${
-              activeTab === 'company' 
-                ? 'border-primary text-primary' 
+          <button
+            onClick={() => setActiveTab('company')}
+            className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm ${activeTab === 'company'
+                ? 'border-primary text-primary'
                 : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
+              }`}
           >
             Company
+          </button>
+          <button
+            onClick={() => setActiveTab('projects')}
+            className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm ${activeTab === 'projects'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+          >
+            Projects
           </button>
         </nav>
       </div>
@@ -356,7 +364,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, addToast, sett
       {activeTab === 'profile' && (
         <UserProfileSettings user={user} addToast={addToast} />
       )}
-      
+
       {activeTab === 'company' && (
         <div className="space-y-6">
           <CompanySettingsComponent
@@ -365,6 +373,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ user, addToast, sett
             addToast={addToast}
           />
           <FailedSyncActions addToast={addToast} />
+        </div>
+      )}
+
+      {activeTab === 'projects' && (
+        <div className="space-y-6">
+          <Card>
+            <h3 className="font-bold text-lg mb-4">Multi-Project Configuration</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Manage multiple Supabase projects and switch between them seamlessly.
+            </p>
+            <ProjectConfigurationPanel />
+          </Card>
         </div>
       )}
     </div>

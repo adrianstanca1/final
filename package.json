@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.17.0",
+    "@supabase/supabase-js": "^2.58.0",
     "date-fns": "^4.1.0",
     "leaflet": "1.9.4",
     "react": "18.2.0",

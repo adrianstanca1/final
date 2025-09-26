@@ -69,7 +69,7 @@ const ChatView = React.lazy(() => import('./components/ChatView').then(m => ({ d
 const ClientsView = React.lazy(() => import('./components/ClientsView').then(m => ({ default: m.ClientsView })));
 const InvoicesView = React.lazy(() => import('./components/InvoicesView').then(m => ({ default: m.InvoicesView })));
 const UserRegistration = React.lazy(() => import('./components/UserRegistration').then(m => ({ default: m.UserRegistration })));
-import { ToastProvider, useToastHelpers } from './components/ui/Toast';
+import { ToastProvider, useToast } from './components/ui/Toast';
 import { setupGlobalErrorHandling } from './utils/errorHandling';
 import { useErrorHandling } from './hooks/useErrorHandling';
 
