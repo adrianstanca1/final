@@ -1,3 +1,4 @@
+import { firebaseAuthClient } from './firebaseAuthClient';
 import { authApi } from './mockApi';
 import type { LoginCredentials, RegistrationPayload, User, Company, Role, CompanyType } from '../types';
 
@@ -24,7 +25,7 @@ export type InvitePreview = {
 export type EmailAvailability = { available: boolean };
 
 export type AuthConnectionInfo = {
-    mode: 'backend' | 'mock';
+    mode: 'firebase' | 'mock';
     baseUrl: string | null;
     baseHost: string | null;
     allowMockFallback: boolean;
@@ -37,34 +38,20 @@ class BackendUnavailableError extends Error {
     }
 }
 
-const sanitizeBaseUrl = (value?: string | null): string | null => {
-    if (!value) {
-        return null;
+// Firebase config check
+const isFirebaseConfigured = () => {
+    try {
+        return !!(
+            (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_FIREBASE_API_KEY) ||
+            (typeof process !== 'undefined' && process.env?.VITE_FIREBASE_API_KEY)
+        );
+    } catch {
+        return false;
     }
-    const trimmed = value.trim();
-    if (!trimmed) {
-        return null;
-    }
-    return trimmed.replace(/\/+$/, '');
 };
 
-const detectBaseUrl = (): string | null => {
-    if (typeof window !== 'undefined' && typeof (window as any).__ASAGENTS_API_BASE_URL__ === 'string') {
-        return sanitizeBaseUrl((window as any).__ASAGENTS_API_BASE_URL__);
-    }
-    if (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_BASE_URL) {
-        return sanitizeBaseUrl((import.meta as any).env.VITE_API_BASE_URL);
-    }
-    if (typeof process !== 'undefined' && typeof process.env?.VITE_API_BASE_URL === 'string') {
-        return sanitizeBaseUrl(process.env.VITE_API_BASE_URL);
-    }
-    return null;
-};
-
-const initialBaseUrl = detectBaseUrl();
-const initialAllowMockFallback = !initialBaseUrl;
-let runtimeBaseUrl = initialBaseUrl;
-let allowMockFallback = initialAllowMockFallback;
+const useFirebase = isFirebaseConfigured();
+let allowMockFallback = !useFirebase;
 
 type AuthClientListener = () => void;
 const subscribers = new Set<AuthClientListener>();
@@ -74,9 +61,7 @@ const notifySubscribers = () => {
         try {
             listener();
         } catch (error) {
-            if (typeof console !== 'undefined' && typeof console.error === 'function') {
-                console.error('[authClient] subscriber callback failed', error);
-            }
+            console.error('[authClient] subscriber callback failed', error);
         }
     });
 };
@@ -88,191 +73,151 @@ export const subscribeToAuthClientChanges = (listener: AuthClientListener): (() 
     };
 };
 
-const buildHeaders = (headers: HeadersInit | undefined, body: BodyInit | null | undefined) => {
-    const composed = new Headers(headers ?? {});
-    if (!composed.has('Accept')) {
-        composed.set('Accept', 'application/json');
-    }
-    if (body != null && body !== '' && !composed.has('Content-Type')) {
-        composed.set('Content-Type', 'application/json');
-    }
-    return composed;
-};
-
-const ensureLeadingSlash = (path: string) => (path.startsWith('/') ? path : `/${path}`);
-
-const request = async <T>(path: string, init: RequestInit): Promise<T> => {
-    if (!runtimeBaseUrl) {
-        throw new BackendUnavailableError('No authentication backend configured.');
-    }
-
-    const url = `${runtimeBaseUrl}${ensureLeadingSlash(path)}`;
-    let response: Response;
-    try {
-        response = await fetch(url, {
-            ...init,
-            headers: buildHeaders(init.headers, init.body ?? undefined),
-        });
-    } catch (error) {
-        throw new BackendUnavailableError('Unable to reach authentication service.', error);
-    }
-
-    let data: any = null;
-    const contentType = response.headers.get('content-type');
-    if (contentType && contentType.includes('application/json')) {
-        data = await response.json();
-    } else {
-        const text = await response.text();
-        data = text ? { message: text } : {};
-    }
-
-    if (!response.ok) {
-        const message = data?.message || data?.error || `Request failed with status ${response.status}`;
-        const error: any = new Error(message);
-        error.status = response.status;
-        error.details = data;
-        throw error;
-    }
-
-    return data as T;
-};
-
-const withAuthFallback = async <T>(path: string, init: RequestInit, fallback: () => Promise<T>): Promise<T> => {
-    if (!runtimeBaseUrl) {
-        return fallback();
-    }
-    try {
-        return await request<T>(path, init);
-    } catch (error) {
-        if (error instanceof BackendUnavailableError) {
+const withFirebaseOrMock = async <T>(firebaseCall: () => Promise<T>, mockCall: () => Promise<T>): Promise<T> => {
+    if (useFirebase) {
+        try {
+            return await firebaseCall();
+        } catch (error) {
             if (allowMockFallback) {
-                console.warn('[authClient] Falling back to local mock authentication.', error);
-                return fallback();
+                console.warn('[authClient] Firebase failed, falling back to mock authentication.', error);
+                return mockCall();
             }
-            const friendly = new Error('Authentication service is currently unavailable. Please try again later.');
-            (friendly as any).cause = error;
-            throw friendly;
+            throw error;
         }
-        throw error;
+    }
+    return mockCall();
+};
+
+export const configureAuthClient = (options: { allowMockFallback?: boolean } = {}) => {
+    if (Object.prototype.hasOwnProperty.call(options, 'allowMockFallback')) {
+        const nextAllowMockFallback = !!options.allowMockFallback;
+        const hasChanged = nextAllowMockFallback !== allowMockFallback;
+        if (hasChanged) {
+            allowMockFallback = nextAllowMockFallback;
+            notifySubscribers();
+        }
     }
 };
 
-export const configureAuthClient = (options: { baseUrl?: string | null; allowMockFallback?: boolean } = {}) => {
-    let nextBaseUrl = runtimeBaseUrl;
-    let nextAllowMockFallback = allowMockFallback;
-
-    if (Object.prototype.hasOwnProperty.call(options, 'baseUrl')) {
-        nextBaseUrl = sanitizeBaseUrl(options.baseUrl ?? null);
-        if (Object.prototype.hasOwnProperty.call(options, 'allowMockFallback')) {
-            nextAllowMockFallback = !!options.allowMockFallback;
-        } else {
-            nextAllowMockFallback = !nextBaseUrl;
-        }
-    } else if (Object.prototype.hasOwnProperty.call(options, 'allowMockFallback')) {
-        nextAllowMockFallback = !!options.allowMockFallback;
-    }
-
-    const hasChanged = nextBaseUrl !== runtimeBaseUrl || nextAllowMockFallback !== allowMockFallback;
+export const resetAuthClient = () => {
+    const nextAllowMockFallback = !useFirebase;
+    const hasChanged = nextAllowMockFallback !== allowMockFallback;
     if (hasChanged) {
-        runtimeBaseUrl = nextBaseUrl;
         allowMockFallback = nextAllowMockFallback;
         notifySubscribers();
     }
 };
 
-export const resetAuthClient = () => {
-    const hasChanged = runtimeBaseUrl !== initialBaseUrl || allowMockFallback !== initialAllowMockFallback;
-    runtimeBaseUrl = initialBaseUrl;
-    allowMockFallback = initialAllowMockFallback;
-    if (hasChanged) {
-        notifySubscribers();
-    }
-};
-
-const formatBaseHost = (baseUrl: string | null) => {
-    if (!baseUrl) {
-        return null;
-    }
-    try {
-        return new URL(baseUrl).host;
-    } catch {
-        return baseUrl.replace(/^https?:\/\//, '');
-    }
-};
-
 export const getAuthConnectionInfo = (): AuthConnectionInfo => ({
-    mode: runtimeBaseUrl ? ('backend' as const) : ('mock' as const),
-    baseUrl: runtimeBaseUrl,
-    baseHost: formatBaseHost(runtimeBaseUrl),
+    mode: useFirebase ? ('firebase' as const) : ('mock' as const),
+    baseUrl: useFirebase ? 'firebase' : null,
+    baseHost: useFirebase ? 'firebase' : null,
     allowMockFallback,
 });
 
 export const authClient = {
-    login: (credentials: LoginCredentials): Promise<LoginResult> =>
-        withAuthFallback<LoginResult>(
-            '/auth/login',
-            { method: 'POST', body: JSON.stringify(credentials) },
+    login: async (credentials: LoginCredentials): Promise<LoginResult> => {
+        return withFirebaseOrMock(
+            async () => {
+                const result = await firebaseAuthClient.login(credentials);
+                if (result.session) {
+                    const { user, company } = await firebaseAuthClient.me(result.session.token);
+                    return {
+                        success: true as const,
+                        token: result.session.token,
+                        refreshToken: result.session.refreshToken,
+                        user,
+                        company,
+                        mfaRequired: false as const
+                    };
+                } else if (result.mfaRequired) {
+                    return {
+                        success: true as const,
+                        mfaRequired: true as const,
+                        userId: result.userId!
+                    };
+                }
+                throw new Error('Unexpected login result');
+            },
             () => authApi.login(credentials)
-        ),
+        );
+    },
 
-    register: (payload: RegistrationPayload): Promise<AuthenticatedSession> =>
-        withAuthFallback<AuthenticatedSession>(
-            '/auth/register',
-            { method: 'POST', body: JSON.stringify(payload) },
+    register: async (payload: RegistrationPayload): Promise<AuthenticatedSession> => {
+        return withFirebaseOrMock(
+            async () => {
+                const session = await firebaseAuthClient.register(payload);
+                const { user, company } = await firebaseAuthClient.me(session.token);
+                return {
+                    success: true as const,
+                    token: session.token,
+                    refreshToken: session.refreshToken,
+                    user,
+                    company
+                };
+            },
             () => authApi.register(payload)
-        ),
+        );
+    },
 
-    verifyMfa: (userId: string, code: string): Promise<AuthenticatedSession> =>
-        withAuthFallback<AuthenticatedSession>(
-            '/auth/mfa/verify',
-            { method: 'POST', body: JSON.stringify({ userId, code }) },
+    verifyMfa: async (userId: string, code: string): Promise<AuthenticatedSession> => {
+        return withFirebaseOrMock(
+            async () => {
+                const session = await firebaseAuthClient.verifyMfa(userId, code);
+                const { user, company } = await firebaseAuthClient.me(session.token);
+                return {
+                    success: true as const,
+                    token: session.token,
+                    refreshToken: session.refreshToken,
+                    user,
+                    company
+                };
+            },
             () => authApi.verifyMfa(userId, code)
-        ),
+        );
+    },
 
     refreshToken: (refreshToken: string): Promise<{ token: string }> =>
-        withAuthFallback<{ token: string }>(
-            '/auth/token/refresh',
-            { method: 'POST', body: JSON.stringify({ refreshToken }) },
+        withFirebaseOrMock(
+            () => firebaseAuthClient.refreshToken(refreshToken),
             () => authApi.refreshToken(refreshToken)
         ),
 
     me: (token: string): Promise<{ user: User; company: Company }> =>
-        withAuthFallback<{ user: User; company: Company }>(
-            '/auth/me',
-            {
-                method: 'GET',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            },
+        withFirebaseOrMock(
+            () => firebaseAuthClient.me(token),
             () => authApi.me(token)
         ),
 
     checkEmailAvailability: (email: string): Promise<EmailAvailability> =>
-        withAuthFallback<EmailAvailability>(
-            `/auth/email-availability?email=${encodeURIComponent(email)}`,
-            { method: 'GET' },
+        withFirebaseOrMock(
+            async () => ({ available: true }), // Firebase doesn't have this check built-in
             () => authApi.checkEmailAvailability(email)
         ),
 
     lookupInviteToken: (token: string): Promise<InvitePreview> =>
-        withAuthFallback<InvitePreview>(
-            `/auth/invites/${encodeURIComponent(token)}`,
-            { method: 'GET' },
+        withFirebaseOrMock(
+            async () => {
+                throw new Error('Invite tokens not implemented in Firebase mode');
+            },
             () => authApi.lookupInviteToken(token)
         ),
 
     requestPasswordReset: (email: string): Promise<{ success: boolean }> =>
-        withAuthFallback<{ success: boolean }>(
-            '/auth/password/request-reset',
-            { method: 'POST', body: JSON.stringify({ email }) },
+        withFirebaseOrMock(
+            async () => {
+                await firebaseAuthClient.requestPasswordReset(email);
+                return { success: true };
+            },
             () => authApi.requestPasswordReset(email)
         ),
 
     resetPassword: (token: string, newPassword: string): Promise<{ success: boolean }> =>
-        withAuthFallback<{ success: boolean }>(
-            '/auth/password/reset',
-            { method: 'POST', body: JSON.stringify({ token, newPassword }) },
+        withFirebaseOrMock(
+            async () => {
+                await firebaseAuthClient.resetPassword(token, newPassword);
+                return { success: true };
+            },
             () => authApi.resetPassword(token, newPassword)
         ),
 };

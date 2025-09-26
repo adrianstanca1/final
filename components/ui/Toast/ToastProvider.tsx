@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';import React, { createContext, useContext, useCallback, useState, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react'; import React, { createContext, useContext, useCallback, useState, useRef } from 'react';
 
 import { Toast, ToastProps } from './Toast';
 
@@ -6,37 +6,39 @@ import { Toast, ToastProps } from './Toast';
 
 interface ToastOptions {export interface ToastOptions {
 
-  type?: 'success' | 'error' | 'warning' | 'info';  id?: string;
+  type?: 'success' | 'error' | 'warning' | 'info'; id?: string;
 
-  title?: string;  type?: 'success' | 'error' | 'warning' | 'info';
+  title?: string; type?: 'success' | 'error' | 'warning' | 'info';
 
-  message: string;  title?: string;
+  message: string; title?: string;
 
-  duration?: number;  message: string;
+  duration?: number; message: string;
 
-  action?: {  duration?: number;
+  action?: {
+    duration?: number;
 
-    label: string;  persistent?: boolean;
+    label: string; persistent?: boolean;
 
-    onClick: () => void;  action?: {
+    onClick: () => void; action?: {
 
-  };    label: string;
+    }; label: string;
 
-  onDismiss?: () => void;    onClick: () => void;
+    onDismiss?: () => void; onClick: () => void;
 
-}  };
+  }
+};
 
-  onDismiss?: () => void;
+onDismiss ?: () => void;
 
 interface ToastContextType {interface ToastContextType {
 
-  addToast: (options: ToastOptions) => string;  addToast: (options: ToastOptions) => string;
+  addToast: (options: ToastOptions) => string; addToast: (options: ToastOptions) => string;
 
-  removeToast: (id: string) => void;  removeToast: (id: string) => void;
+  removeToast: (id: string) => void; removeToast: (id: string) => void;
 
-  clearAllToasts: () => void;  clearAllToasts: () => void;
+  clearAllToasts: () => void; clearAllToasts: () => void;
 
-  updateToast: (id: string, updates: Partial<ToastOptions>) => void;  updateToast: (id: string, updates: Partial<ToastOptions>) => void;
+  updateToast: (id: string, updates: Partial<ToastOptions>) => void; updateToast: (id: string, updates: Partial<ToastOptions>) => void;
 
 }const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
@@ -46,151 +48,162 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);}
 
 
 
-export function useToast() {export function useToast() {
+export function useToast() {
+  export function useToast() {
 
-  const context = useContext(ToastContext);  const context = useContext(ToastContext);
+    const context = useContext(ToastContext); const context = useContext(ToastContext);
 
-  if (!context) {  if (!context) {
+    if (!context) {
+      if (!context) {
 
-    throw new Error('useToast must be used within a ToastProvider');    throw new Error('useToast must be used within a ToastProvider');
+        throw new Error('useToast must be used within a ToastProvider'); throw new Error('useToast must be used within a ToastProvider');
 
-  }  }
+      }
+    }
 
-  return context;  return context;
+    return context; return context;
 
-}interface ToastState extends ToastOptions {
+  } interface ToastState extends ToastOptions {
 
-  id: string;
+    id: string;
 
-interface ToastProviderProps {  createdAt: number;
+interface ToastProviderProps {
+    createdAt: number;
 
-  children: ReactNode;export function ToastProvider({ children }: { children: React.ReactNode }) {
+    children: ReactNode;export function ToastProvider({ children }: { children: React.ReactNode }) {
 
-}  const [toasts, setToasts] = useState<ToastState[]>([]);
+    } const [toasts, setToasts] = useState<ToastState[]>([]);
 
   const timeoutRefs = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
-export function ToastProvider({ children }: ToastProviderProps) {
+  export function ToastProvider({ children }: ToastProviderProps) {
 
-  const [toasts, setToasts] = useState<Array<ToastProps & { duration?: number }>>([]);  const removeToast = useCallback((id: string) => {
+    const [toasts, setToasts] = useState<Array<ToastProps & { duration?: number }>>([]); const removeToast = useCallback((id: string) => {
 
-    setToasts(prev => prev.filter(toast => toast.id !== id));
+      setToasts(prev => prev.filter(toast => toast.id !== id));
 
-  const addToast = useCallback((options: ToastOptions) => {    
+      const addToast = useCallback((options: ToastOptions) => {
 
-    const id = `toast-${Date.now()}-${Math.random()}`;    // Clear timeout if it exists
+        const id = `toast-${Date.now()}-${Math.random()}`;    // Clear timeout if it exists
 
-    const toast = {    const timeoutId = timeoutRefs.current.get(id);
+        const toast = {
+          const timeoutId = timeoutRefs.current.get(id);
 
-      id,    if (timeoutId) {
+          id, if(timeoutId) {
 
-      ...options,      clearTimeout(timeoutId);
+      ...options, clearTimeout(timeoutId);
 
-      onDismiss: () => {      timeoutRefs.current.delete(id);
+      onDismiss: () => {
+            timeoutRefs.current.delete(id);
 
-        removeToast(id);    }
+            removeToast(id);
+          }
 
-        options.onDismiss?.();  }, []);
+        options.onDismiss?.();
+        }, []);
 
-      },
+    },
 
-    };  const addToast = useCallback((options: ToastOptions): string => {
+    }; const addToast = useCallback((options: ToastOptions): string => {
 
-    const id = options.id || `toast_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const id = options.id || `toast_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    setToasts(prev => [...prev, toast]);    const duration = options.duration ?? (options.type === 'error' ? 8000 : 5000);
+      setToasts(prev => [...prev, toast]); const duration = options.duration ?? (options.type === 'error' ? 8000 : 5000);
 
-    
 
-    // Auto-dismiss after duration    const toast: ToastState = {
 
-    if (options.duration !== 0) {      ...options,
+      // Auto-dismiss after duration    const toast: ToastState = {
 
-      const duration = options.duration || 5000;      id,
+      if (options.duration !== 0) {      ...options,
 
-      setTimeout(() => removeToast(id), duration);      createdAt: Date.now(),
+      const duration = options.duration || 5000; id,
+
+    setTimeout(() => removeToast(id), duration); createdAt: Date.now(),
 
     }    };
 
 
 
-    return id;    setToasts(prev => {
+return id; setToasts(prev => {
 
-  }, []);      // Remove existing toast with same ID if it exists
+}, []);      // Remove existing toast with same ID if it exists
 
-      const filtered = prev.filter(t => t.id !== id);
+const filtered = prev.filter(t => t.id !== id);
 
-  const removeToast = useCallback((id: string) => {      
+const removeToast = useCallback((id: string) => {
 
-    setToasts(prev => prev.filter(toast => toast.id !== id));      // Add new toast at the beginning
+  setToasts(prev => prev.filter(toast => toast.id !== id));      // Add new toast at the beginning
 
-  }, []);      return [toast, ...filtered];
+}, []); return [toast, ...filtered];
 
     });
 
-  const clearAllToasts = useCallback(() => {
+const clearAllToasts = useCallback(() => {
 
-    setToasts([]);    // Set auto-dismiss timeout unless persistent
+  setToasts([]);    // Set auto-dismiss timeout unless persistent
 
-  }, []);    if (!options.persistent && duration > 0) {
+}, []); if (!options.persistent && duration > 0) {
 
-      const timeoutId = setTimeout(() => {
+  const timeoutId = setTimeout(() => {
 
-  const updateToast = useCallback((id: string, updates: Partial<ToastOptions>) => {        removeToast(id);
+    const updateToast = useCallback((id: string, updates: Partial<ToastOptions>) => {
+      removeToast(id);
 
-    setToasts(prev =>      }, duration);
+      setToasts(prev =>      }, duration);
 
-      prev.map(toast =>      
+    prev.map(toast =>
 
-        toast.id === id      timeoutRefs.current.set(id, timeoutId);
+      toast.id === id      timeoutRefs.current.set(id, timeoutId);
 
           ? { ...toast, ...updates }    }
 
           : toast
 
-      )    return id;
+      ) return id;
 
     );  }, [removeToast]);
 
   }, []);
 
-  const clearAllToasts = useCallback(() => {
+const clearAllToasts = useCallback(() => {
 
   const value = {    // Clear all timeouts
 
-    addToast,    timeoutRefs.current.forEach(timeoutId => clearTimeout(timeoutId));
+    addToast, timeoutRefs.current.forEach(timeoutId => clearTimeout(timeoutId));
 
-    removeToast,    timeoutRefs.current.clear();
+    removeToast, timeoutRefs.current.clear();
 
-    clearAllToasts,    
+    clearAllToasts,
 
-    updateToast,    setToasts([]);
+    updateToast, setToasts([]);
 
-  };  }, []);
+  };
+}, []);
 
 
 
-  return (  const updateToast = useCallback((id: string, updates: Partial<ToastOptions>) => {
+return (  const updateToast = useCallback((id: string, updates: Partial<ToastOptions>) => {
 
-    <ToastContext.Provider value={value}>    setToasts(prev => prev.map(toast => 
+  <ToastContext.Provider value={value}>    setToasts(prev => prev.map(toast =>
 
-      {children}      toast.id === id ? { ...toast, ...updates } : toast
+    {children}      toast.id === id ? {...toast, ...updates } : toast
 
-      <ToastContainer toasts={toasts} onDismiss={removeToast} />    ));
+    <ToastContainer toasts={toasts} onDismiss={removeToast} />    ));
 
-    </ToastContext.Provider>  }, []);
+  </ToastContext.Provider>
+}, []);
 
-  );
+);
 
 }  // Convenience methods for common toast types
 
-  const contextValue: ToastContextType = {
+const contextValue: ToastContextType = {
 
-interface ToastContainerProps {    addToast,
+  interface ToastContainerProps { addToast,
 
-  toasts: Array<ToastProps & { duration?: number }>;    removeToast,
+    toasts: Array<ToastProps & { duration?: number } >; removeToast,
 
-  onDismiss: (id: string) => void;    clearAllToasts,
+      onDismiss: (id: string) => void; clearAllToasts,
 
 }    updateToast,
 
@@ -198,7 +211,8 @@ interface ToastContainerProps {    addToast,
 
 function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
 
-  if (toasts.length === 0) {  return (
+  if (toasts.length === 0) {
+    return (
 
     return null;    <ToastContext.Provider value={contextValue}>
 
@@ -214,27 +228,28 @@ function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
 
       aria-live="polite"  toasts: ToastState[];
 
-      aria-label="Notifications"  onDismiss: (id: string) => void;
+    aria - label="Notifications"  onDismiss: (id: string) => void;
 
     >}
 
-      {toasts.map(toast => (
+  {
+    toasts.map(toast => (
 
-        <div key={toast.id} className="pointer-events-auto">function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
+      <div key={toast.id} className="pointer-events-auto">function ToastContainer({toasts, onDismiss}: ToastContainerProps) {
 
-          <Toast  if (toasts.length === 0) return null;
+        <Toast if (toasts.length === 0) return null;
 
-            id={toast.id}
+        id={toast.id}
 
-            type={toast.type}  return (
+        type={toast.type}  return (
 
-            title={toast.title}    <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm w-full">
+        title={toast.title}    <div className="fixed top-4 right-4 z-50 space-y-2 max-w-sm w-full">
 
-            message={toast.message}      {toasts.map(toast => (
+          message={toast.message}      {toasts.map(toast => (
 
-            action={toast.action}        <Toast
+            action = { toast.action } < Toast
 
-            onDismiss={() => onDismiss(toast.id)}          key={toast.id}
+            onDismiss = {() => onDismiss(toast.id)}          key={toast.id}
 
           />          id={toast.id}
 
@@ -242,43 +257,44 @@ function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
 
       ))}          title={toast.title}
 
-    </div>          message={toast.message}
+      </div>          message = { toast.message }
 
-  );          action={toast.action}
+    ); action = { toast.action }
 
-}          onDismiss={() => {
-            toast.onDismiss?.();
-            onDismiss(toast.id);
-          }}
+  } onDismiss = {() => {
+    toast.onDismiss?.();
+    onDismiss(toast.id);
+  }
+}
         />
       ))}
-    </div>
+    </div >
   );
 // Convenience hook for common toast patterns
 export function useToastHelpers() {
   const { addToast } = useToast();
 
   return {
-    success: useCallback((message: string, title?: string) => 
+    success: useCallback((message: string, title?: string) =>
       addToast({ type: 'success', message, title }), [addToast]),
-    
-    error: useCallback((message: string, title?: string, options?: { persistent?: boolean; action?: ToastOptions['action'] }) => 
-      addToast({ 
-        type: 'error', 
-        message, 
+
+    error: useCallback((message: string, title?: string, options?: { persistent?: boolean; action?: ToastOptions['action'] }) =>
+      addToast({
+        type: 'error',
+        message,
         title: title || 'Error',
         persistent: options?.persistent,
         action: options?.action,
       }), [addToast]),
-    
-    warning: useCallback((message: string, title?: string) => 
+
+    warning: useCallback((message: string, title?: string) =>
       addToast({ type: 'warning', message, title }), [addToast]),
-    
-    info: useCallback((message: string, title?: string) => 
+
+    info: useCallback((message: string, title?: string) =>
       addToast({ type: 'info', message, title }), [addToast]),
 
     // Error-specific helpers
-    networkError: useCallback(() => 
+    networkError: useCallback(() =>
       addToast({
         type: 'error',
         title: 'Connection Error',
@@ -290,7 +306,7 @@ export function useToastHelpers() {
         },
       }), [addToast]),
 
-    sessionExpired: useCallback(() => 
+    sessionExpired: useCallback(() =>
       addToast({
         type: 'warning',
         title: 'Session Expired',
@@ -306,7 +322,7 @@ export function useToastHelpers() {
         },
       }), [addToast]),
 
-    permissionDenied: useCallback(() => 
+    permissionDenied: useCallback(() =>
       addToast({
         type: 'error',
         title: 'Permission Denied',
@@ -314,14 +330,14 @@ export function useToastHelpers() {
         duration: 6000,
       }), [addToast]),
 
-    operationSuccess: useCallback((operation: string) => 
+    operationSuccess: useCallback((operation: string) =>
       addToast({
         type: 'success',
         message: `${operation} completed successfully.`,
         duration: 3000,
       }), [addToast]),
 
-    operationFailed: useCallback((operation: string, canRetry = true) => 
+    operationFailed: useCallback((operation: string, canRetry = true) =>
       addToast({
         type: 'error',
         title: 'Operation Failed',

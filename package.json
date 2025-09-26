@@ -27,9 +27,11 @@
     "@google/genai": "^1.17.0",
     "@supabase/supabase-js": "^2.58.0",
     "date-fns": "^4.1.0",
+    "firebase": "^12.3.0",
     "leaflet": "1.9.4",
     "react": "18.2.0",
     "react-dom": "18.2.0",
+    "react-firebase-hooks": "^5.1.1",
     "react-leaflet": "4.2.1",
     "use-supercluster": "0.4.0"
   },

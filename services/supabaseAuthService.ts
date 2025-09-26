@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient, User as SupabaseUser, AuthError } from '@supabase/supabase-js';
-import { User, Company, LoginCredentials, RegistrationPayload, AuthState, Permission } from '../types';
+import { User, Company, LoginCredentials, RegistrationPayload, AuthState, Permission, Role, RolePermissions } from '../types';
 import { multiProjectManager } from './multiProjectManager';
 import { hasPermission } from './auth';
 
@@ -30,15 +30,31 @@ class SupabaseAuthService {
   }
 
   private initializeClient() {
-    const config = multiProjectManager.getCurrentConfig();
-    if (config.supabaseUrl && config.anonKey) {
-      this.supabase = createClient(config.supabaseUrl, config.anonKey, {
-        auth: {
-          autoRefreshToken: true,
-          persistSession: true,
-          detectSessionInUrl: true
-        }
+    try {
+      const config = multiProjectManager.getCurrentConfig();
+      console.log('Initializing Supabase client with config:', {
+        hasUrl: !!config.supabaseUrl,
+        hasAnonKey: !!config.anonKey,
+        url: config.supabaseUrl
       });
+      
+      if (config.supabaseUrl && config.anonKey) {
+        this.supabase = createClient(config.supabaseUrl, config.anonKey, {
+          auth: {
+            autoRefreshToken: true,
+            persistSession: true,
+            detectSessionInUrl: true
+          }
+        });
+        console.log('Supabase client initialized successfully');
+      } else {
+        console.warn('Supabase configuration incomplete:', {
+          supabaseUrl: config.supabaseUrl,
+          hasAnonKey: !!config.anonKey
+        });
+      }
+    } catch (error) {
+      console.error('Failed to initialize Supabase client:', error);
     }
   }
 
@@ -395,12 +411,12 @@ class SupabaseAuthService {
   }
 
   /**
-   * Get role permissions (placeholder - should match your existing permission system)
+   * Get role permissions
    */
   private getRolePermissions(role: string): Permission[] {
-    // This should match the RolePermissions from your existing auth service
-    // For now, returning empty array - you'll need to implement this based on your existing system
-    return [];
+    const roleEnum = role as Role;
+    const permissions = RolePermissions[roleEnum];
+    return permissions ? Array.from(permissions) : [];
   }
 }
 
