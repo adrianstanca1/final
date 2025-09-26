@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User, Project, Todo, Document, SafetyIncident, Expense } from '../types';
 import { Card } from './ui/Card';
-import { Button } from './ui/Button';
+import Button from './ui/Button'; // FIX: Changed Button to Button
 import { api } from '../services/mockApi';
 import { searchKnowledgeBase } from '../services/ai';
 
@@ -10,6 +10,8 @@ interface AISearchModalProps {
   currentProject: Project | null;
   onClose: () => void;
   addToast: (message: string, type: 'success' | 'error') => void;
+}
+
 export const AISearchModal: React.FC<AISearchModalProps> = ({ user, currentProject, onClose, addToast }) => {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);

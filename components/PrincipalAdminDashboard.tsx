@@ -8,6 +8,8 @@ import { InviteCompanyModal } from './InviteCompanyModal';
 interface PrincipalAdminDashboardProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
+}
+
 const KpiCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode }> = ({
   title,
   value,
@@ -271,11 +273,10 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
                     <td className="px-4 py-3 text-slate-700">{company.subscriptionPlan || 'FREE'}</td>
                     <td className="px-4 py-3">
                       <span
-                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${
-                          company.status === 'Suspended'
+                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${company.status === 'Suspended'
                             ? 'bg-red-100 text-red-700'
                             : 'bg-emerald-100 text-emerald-700'
-                        }`}
+                          }`}
                       >
                         {company.status || 'Active'}
                       </span>

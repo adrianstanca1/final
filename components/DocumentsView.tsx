@@ -8,13 +8,13 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 
 interface DocumentsViewProps {
-  user: User;
-  addToast: (message: string, type: 'success' | 'error') => void;
-  isOnline: boolean;
-  settings: CompanySettings | null;
+    user: User;
+    addToast: (message: string, type: 'success' | 'error') => void;
+    isOnline: boolean;
+    settings: CompanySettings | null;
 }
 
-const FileUploadModal: React.FC<{ project: Project; onClose: () => void; onSuccess: () => void; addToast: (m:string, t:'success'|'error')=>void; user: User }> = ({ project, onClose, onSuccess, addToast, user }) => {
+const FileUploadModal: React.FC<{ project: Project; onClose: () => void; onSuccess: () => void; addToast: (m: string, t: 'success' | 'error') => void; user: User }> = ({ project, onClose, onSuccess, addToast, user }) => {
     const [file, setFile] = useState<File | null>(null);
     const [category, setCategory] = useState('General');
     const [isUploading, setIsUploading] = useState(false);
@@ -44,7 +44,7 @@ const FileUploadModal: React.FC<{ project: Project; onClose: () => void; onSucce
 
     return (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <Card className="w-full max-w-lg" onClick={e=>e.stopPropagation()}>
+            <Card className="w-full max-w-lg" onClick={e => e.stopPropagation()}>
                 <h3 className="font-bold text-lg mb-2">Upload to {project.name}</h3>
                 <input type="file" onChange={e => setFile(e.target.files?.[0] || null)} />
                 <input type="text" value={category} onChange={e => setCategory(e.target.value)} placeholder="Category (e.g., Blueprints)" className="w-full p-2 border rounded mt-2" />
@@ -55,6 +55,7 @@ const FileUploadModal: React.FC<{ project: Project; onClose: () => void; onSucce
             </Card>
         </div>
     );
+};
 
 export const DocumentsView: React.FC<DocumentsViewProps> = ({ user, addToast, isOnline, settings }) => {
     const [documents, setDocuments] = useState<Document[]>([]);
@@ -98,7 +99,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ user, addToast, is
             abortControllerRef.current?.abort();
         };
     }, [fetchData]);
-    
+
     const filteredDocuments = useMemo(() => {
         if (selectedProjectId === 'all') return documents;
         return documents.filter(d => d.projectId.toString() === selectedProjectId);
@@ -111,8 +112,8 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ user, addToast, is
     return (
         <div className="space-y-6">
             {isUploadModalOpen && projectForUpload && (
-                <FileUploadModal 
-                    project={projectForUpload} 
+                <FileUploadModal
+                    project={projectForUpload}
                     onClose={() => setIsUploadModalOpen(false)}
                     onSuccess={fetchData}
                     addToast={addToast}
@@ -127,7 +128,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ user, addToast, is
                     </Button>
                 )}
             </div>
-            
+
             <Card>
                 <div className="mb-4">
                     <select value={selectedProjectId} onChange={e => setSelectedProjectId(e.target.value)} className="p-2 border rounded bg-white dark:bg-slate-800">
@@ -135,7 +136,7 @@ export const DocumentsView: React.FC<DocumentsViewProps> = ({ user, addToast, is
                         {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                 </div>
-                 <div className="overflow-x-auto">
+                <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
                         <thead className="bg-slate-50 dark:bg-slate-800">
                             <tr>

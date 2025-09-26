@@ -601,13 +601,6 @@ export const api = {
             saveDb();
         }
     },
-        if (!notification) {
-            throw new Error('Notification not found');
-        }
-        notification.isRead = true;
-        notification.read = true;
-        saveDb();
-    },
     getProjectsByManager: async (managerId: string, options?: RequestOptions): Promise<Project[]> => {
         ensureNotAborted(options?.signal);
         await delay();

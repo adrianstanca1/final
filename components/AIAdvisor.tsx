@@ -1,17 +1,19 @@
 // full contents of components/AIAdvisor.tsx
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-// FIX: Changed Todo to Task
-import { User, Project, Task as Todo } from '../types';
-import { api } from '../services/mockApi';
+// FIX: Changed Todo to Task and imported correct enums
+import { User, Project, Task as Todo, TodoPriority, TodoStatus } from '../types';
+// FIX: Corrected API import from mockApi
+import { api } from '../services/api';
 import { Card } from './ui/Card';
-import { Button } from './ui/Button';
+import Button from './ui/Button';
+// FIX: Corrected API import from mockApi
 import { GoogleGenAI, Chat } from "@google/genai";
 
 interface AIAdvisorProps {
-  user: User;
-  addToast: (message: string, type: 'success' | 'error') => void;
-  onBack: () => void;
+    user: User;
+    addToast: (message: string, type: 'success' | 'error') => void;
+    onBack: () => void;
 interface ChatMessage {
     role: 'user' | 'model';
     text: string;
@@ -40,7 +42,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ user, addToast, onBack }) 
             // FIX: Corrected property from .text to .title
             const taskContext = todoData.slice(0, 10).map(t => `Task: ${t.text || t.title} (Status: ${t.status}, Priority: ${t.priority})`).join('\n');
 
-            const ai = new GoogleGenAI({apiKey: process.env.API_KEY});
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             const chatInstance = ai.chats.create({
                 model: 'gemini-2.5-flash',
                 config: {
@@ -48,7 +50,7 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ user, addToast, onBack }) 
                 },
             });
             setChat(chatInstance);
-            
+
             const initialResponse = await chatInstance.sendMessage({ message: "Introduce yourself and ask what I need help with." });
             setHistory([{ role: 'model', text: initialResponse.text }]);
         } catch (error) {
