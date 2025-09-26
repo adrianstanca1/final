@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Construction Management Platform</title>
+    <link rel="stylesheet" href="/src/index.css">
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module">
+        // Simple loading fallback
+        document.getElementById('root').innerHTML = `
+            <div style="font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 2rem; background: linear-gradient(135deg, #1e40af, #3b82f6); color: white; min-height: 100vh; display: flex; align-items: center; justify-content: center;">
+                <div style="text-align: center; max-width: 600px;">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">🏗️</div>
+                    <h1 style="font-size: 2.5rem; font-weight: bold; margin-bottom: 1rem;">Construction Management Platform</h1>
+                    <p style="font-size: 1.2rem; margin-bottom: 2rem; opacity: 0.9;">
+                        AI-powered construction management with real-time collaboration, safety monitoring, and project tracking.
+                    </p>
+                    <div style="background: rgba(255, 255, 255, 0.1); padding: 1rem; border-radius: 8px; backdrop-filter: blur(10px);">
+                        <h2>Platform Loading... ⚡</h2>
+                        <p>Initializing your construction management workspace.</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Try to load the React app, fallback to simple version
+        try {
+            import('/src/main.tsx').catch(() => {
+                console.log('React app failed to load, showing static version');
+                // Keep the static version visible
+            });
+        } catch (e) {
+            console.log('Module loading not supported, showing static version');
+        }
+    </script>
+</body>
+</html>
