@@ -1,18 +1,11 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react'; import React, { createContext, useContext, useCallback, useState, useRef } from 'react';
-
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 import { Toast, ToastProps } from './Toast';
 
-
-
-interface ToastOptions {export interface ToastOptions {
-
-  type?: 'success' | 'error' | 'warning' | 'info'; id?: string;
-
-  title?: string; type?: 'success' | 'error' | 'warning' | 'info';
-
-  message: string; title?: string;
-
-  duration?: number; message: string;
+interface ToastOptions {
+  type?: 'success' | 'error' | 'warning' | 'info';
+  title?: string;
+  message: string;
+  duration?: number;
 
   action?: {
     duration?: number;
