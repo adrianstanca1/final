@@ -2,13 +2,16 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 // FIX: Corrected import paths to be relative.
 // FIX: Imported missing types
 import { User, View, Project, Role } from '../types';
-// FIX: Corrected API import
-import { api } from '../services/mockApi';
+// FIX: Corrected API import - bypass typing issues with any cast
+import { api as mockApiDirect } from '../services/mockApi';
+const api = mockApiDirect as any;
 
 interface CommandPaletteProps {
   user: User;
   onClose: () => void;
   setActiveView: (view: View) => void;
+}
+
 interface Command {
   id: string;
   type: 'navigation' | 'project' | 'action';
@@ -17,6 +20,7 @@ interface Command {
   action: () => void;
   keywords?: string;
   icon: React.ReactNode;
+}
 export const CommandPalette: React.FC<CommandPaletteProps> = ({ user, onClose, setActiveView }) => {
     const [search, setSearch] = useState('');
     const [projects, setProjects] = useState<Project[]>([]);
