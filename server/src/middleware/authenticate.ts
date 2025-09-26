@@ -1,9 +1,8 @@
 import type { Request, Response, NextFunction } from 'express';
-import type { JwtPayload } from 'jsonwebtoken';
 import { verifyAccessToken } from '../services/auth.js';
 
 export interface AuthenticatedRequest extends Request {
-  user?: JwtPayload & { tenant_id: number; role: string; sub: number };
+  user?: Express.AuthenticatedUserPayload;
 }
 
 export function authenticateUser(req: AuthenticatedRequest, res: Response, next: NextFunction) {

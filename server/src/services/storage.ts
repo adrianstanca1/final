@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import multer from 'multer';
+import type { AuthenticatedRequest } from '../middleware/authenticate.js';
 import { env } from '../utils/env.js';
 
 async function ensureTenantFolder(tenantId: number) {
@@ -13,9 +14,9 @@ async function ensureTenantFolder(tenantId: number) {
 const storage = multer.diskStorage({
   destination: async (req, _file, cb) => {
     try {
-      const tenantId = (req as any).user?.tenant_id;
+      const tenantId = (req as AuthenticatedRequest).user?.tenant_id;
       if (!tenantId) {
-        return cb(new Error('Missing tenant context'));
+        return cb(new Error('Missing tenant context'), '');
       }
       const folder = await ensureTenantFolder(tenantId);
       cb(null, folder);

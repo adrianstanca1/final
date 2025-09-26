@@ -1,8 +1,13 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
+import type { RowDataPacket } from 'mysql2/promise';
 import { authenticate, refreshTokens, revokeRefreshToken } from '../services/auth.js';
 import { pool } from '../services/db.js';
 import { authenticateUser, type AuthenticatedRequest } from '../middleware/authenticate.js';
+
+interface PasswordHashRow extends RowDataPacket {
+  password_hash: string;
+}
 
 const router = Router();
 
@@ -59,7 +64,11 @@ router.post('/change-password', authenticateUser, async (req: AuthenticatedReque
     return res.status(400).json({ message: 'Both currentPassword and newPassword are required' });
   }
 
-  const [rows] = await pool.query<{ password_hash: string }[]>(`SELECT password_hash FROM users WHERE id = ?`, [req.user?.sub]);
+  if (!req.user) {
+    return res.status(401).json({ message: 'Unauthenticated' });
+  }
+
+  const [rows] = await pool.query<PasswordHashRow[]>(`SELECT password_hash FROM users WHERE id = ?`, [req.user.sub]);
   const user = rows[0];
   if (!user) {
     return res.status(404).json({ message: 'User not found' });
@@ -71,7 +80,7 @@ router.post('/change-password', authenticateUser, async (req: AuthenticatedReque
   }
 
   const nextHash = await bcrypt.hash(newPassword, 12);
-  await pool.execute(`UPDATE users SET password_hash = ? WHERE id = ?`, [nextHash, req.user?.sub]);
+  await pool.execute(`UPDATE users SET password_hash = ? WHERE id = ?`, [nextHash, req.user.sub]);
   return res.status(204).send();
 });
 

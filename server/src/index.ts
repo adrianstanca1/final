@@ -34,7 +34,11 @@ app.use('/api/invoices', invoiceRoutes);
 app.use('/api/system', systemRoutes);
 
 app.get('/api/me', authenticateUser, (req, res) => {
-  res.json({ user: req.user });
+  if (!req.user) {
+    return res.status(401).json({ message: 'Unauthenticated' });
+  }
+
+  return res.json({ user: req.user });
 });
 
 app.use('/docs', express.static(env.uploadRoot));

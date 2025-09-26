@@ -1,8 +1,18 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import type { RowDataPacket } from 'mysql2/promise';
 import { pool } from './db.js';
 import { env } from '../utils/env.js';
 import type { AuthenticatedUser, User } from '../types/index.js';
+
+interface AuthenticatedUserRow extends AuthenticatedUser, RowDataPacket {}
+interface SessionRow extends RowDataPacket {
+  refresh_token: string;
+  expires_at: Date;
+}
+interface UserRow extends User, RowDataPacket {}
+
+type AuthenticatedUserPayload = Express.AuthenticatedUserPayload;
 
 interface TokenPair {
   accessToken: string;
@@ -11,7 +21,7 @@ interface TokenPair {
 }
 
 async function findUserByEmail(tenantSlug: string, email: string): Promise<AuthenticatedUser | null> {
-  const [rows] = await pool.query<AuthenticatedUser[]>(
+  const [rows] = await pool.query<AuthenticatedUserRow[]>(
     `SELECT u.*, t.slug as tenant_slug
      FROM users u
      INNER JOIN tenants t ON u.tenant_id = t.id
@@ -68,16 +78,16 @@ export async function issueTokens(user: AuthenticatedUser): Promise<TokenPair> {
 }
 
 export async function refreshTokens(userId: number, refreshToken: string): Promise<TokenPair> {
-  const [rows] = await pool.query(
+  const [rows] = await pool.query<SessionRow[]>(
     `SELECT refresh_token, expires_at FROM sessions WHERE user_id = ? AND refresh_token = ? AND expires_at > UTC_TIMESTAMP()`,
     [userId, refreshToken]
   );
 
-  if ((rows as any[]).length === 0) {
+  if (rows.length === 0) {
     throw new Error('Session expired');
   }
 
-  const [userRows] = await pool.query<User[]>(`SELECT * FROM users WHERE id = ?`, [userId]);
+  const [userRows] = await pool.query<UserRow[]>(`SELECT * FROM users WHERE id = ?`, [userId]);
   const user = userRows[0];
   if (!user) {
     throw new Error('User not found');
@@ -91,10 +101,25 @@ export async function revokeRefreshToken(refreshToken: string): Promise<void> {
   await pool.execute(`DELETE FROM sessions WHERE refresh_token = ?`, [refreshToken]);
 }
 
-export function verifyAccessToken(token: string): jwt.JwtPayload {
+export function verifyAccessToken(token: string): AuthenticatedUserPayload {
   const payload = jwt.verify(token, env.jwtAccessSecret, { issuer: 'asagents-platform' });
   if (typeof payload === 'string') {
     throw new Error('Unexpected token payload');
   }
-  return payload;
+
+  const candidate = payload as Partial<AuthenticatedUserPayload>;
+  if (
+    typeof candidate.tenant_id !== 'number' ||
+    typeof candidate.sub !== 'number' ||
+    typeof candidate.role !== 'string'
+  ) {
+    throw new Error('Invalid token payload');
+  }
+
+  return {
+    ...payload,
+    tenant_id: candidate.tenant_id,
+    sub: candidate.sub,
+    role: candidate.role
+  } as AuthenticatedUserPayload;
 }
