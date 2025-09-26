@@ -86,7 +86,8 @@ const readFromWindow = (key: string): string | undefined => {
     if (!globalKey) {
         return undefined;
     }
-    const value = (window as Record<string, unknown>)[globalKey];
+    const globalObject = window as unknown as Record<string, unknown>;
+    const value = globalObject[globalKey];
     return typeof value === 'string' ? value : undefined;
 };
 

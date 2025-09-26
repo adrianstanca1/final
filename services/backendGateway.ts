@@ -9,6 +9,7 @@ import type {
     BackendConnectionState,
     BackendInteractionEvent,
     DashboardSnapshot,
+    DashboardSnapshotMetadata,
     Project,
     User,
     Equipment,
@@ -178,7 +179,7 @@ class BackendGateway {
             snapshot = await this.buildLocalSnapshot({ userId, companyId, signal });
         }
 
-        const existingMetadata = snapshot.metadata ?? {};
+        const existingMetadata: Partial<DashboardSnapshotMetadata> = snapshot.metadata ?? {};
         snapshot.metadata = {
             ...existingMetadata,
             projectCount: existingMetadata.projectCount ?? snapshot.projects.length,
@@ -198,9 +199,8 @@ class BackendGateway {
                 source: snapshot.metadata.source,
                 project_count: snapshot.metadata.projectCount,
                 used_fallback: snapshot.metadata.usedFallback,
-                 fallback_reason: snapshot.metadata.fallbackReason ?? null,
- 
-             });
+                fallback_reason: snapshot.metadata.fallbackReason ?? null,
+            });
         } catch (error) {
             console.warn('[backendGateway] analytics tracking failed', error);
         }
