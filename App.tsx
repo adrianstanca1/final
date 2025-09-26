@@ -5,7 +5,7 @@ import { UserRegistration } from './components/UserRegistration';
 import { Card } from './components/ui/Card';
 import { Sidebar as SidebarLite } from './components/layout/SidebarLite';
 import { ToolsView } from './components/ToolsView';
-import { FinancialsViewLite } from './components/FinancialsViewLite';
+import { FinancialsView } from './components/FinancialsView';
 import { Dashboard } from './components/Dashboard';
 import { PrincipalAdminDashboard } from './components/PrincipalAdminDashboard';
 import { SettingsView } from './components/SettingsView';
@@ -226,7 +226,7 @@ const AppInner: React.FC = () => {
               <ToolsView user={user} addToast={addToast} setActiveView={setActiveView} />
             )}
             {activeView === 'financials' && (
-              <FinancialsViewLite user={user} addToast={addToast} />
+              <FinancialsView user={user} addToast={addToast} />
             )}
             {activeView === 'settings' && <SettingsView />}
             {activeView !== 'tools' &&
