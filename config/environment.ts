@@ -9,7 +9,11 @@
 
 type BoolLike = string | number | boolean | undefined | null;
 
+<<<<<<< HEAD
 type EnvironmentShape = {
+=======
+export type EnvironmentShape = {
+>>>>>>> origin/main
     apiBaseUrl: string | null;
     analyticsWriteKey: string | null;
     geminiApiKey: string | null;
@@ -86,7 +90,12 @@ const readFromWindow = (key: string): string | undefined => {
     if (!globalKey) {
         return undefined;
     }
+<<<<<<< HEAD
     const value = (window as Record<string, unknown>)[globalKey];
+=======
+    const globalObject = window as unknown as Record<string, unknown>;
+    const value = globalObject[globalKey];
+>>>>>>> origin/main
     return typeof value === 'string' ? value : undefined;
 };
 

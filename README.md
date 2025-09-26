@@ -1,85 +1,58 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+  <img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
 </div>
 
 # Run and deploy your AI Studio app
 
-This contains everything you need to run your app locally.
+This repository contains everything you need to run the AS Agents platform locally and prepare production deployments.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1bxBJgk2nuKF5tvtdT-YfJQL4PdtvzUvq
+View the hosted experience in AI Studio: https://ai.studio/apps/drive/1bxBJgk2nuKF5tvtdT-YfJQL4PdtvzUvq
 
-## Run Locally
+## Run locally
 
-**Prerequisites:**  Node.js
+**Prerequisites:** Node.js 18+
 
-
-1. Install dependencies:
-   `npm install`
-<<<<<<< HEAD
-<<<<<<< HEAD
-2. Copy `.env.example` to `.env.local` and set `VITE_GEMINI_API_KEY` to your Gemini API key
-3. Run the app:
-   `npm run dev`
+1. Install dependencies: `npm install`
+2. Create a local environment file: `cp .env.example .env.local`
+3. Edit `.env.local` and set:
+   - `VITE_GEMINI_API_KEY` – your Gemini client key so AI features work in the browser.
+   - (Optional) `VITE_API_BASE_URL` – point authentication at a deployed backend. If omitted, the encrypted in-browser mock service is used.
+4. Start the dev server: `npm run dev`
 
 ## Environment variables
 
-The app reads its Gemini credentials from the standard Vite prefix so that the
-key is available in the browser bundle. When developing locally create a
-`.env.local` file from the provided example:
+The app reads Gemini credentials from the standard Vite prefix so they are available to browser code. For local development update `.env.local`; in CI/CD mirror the same values into build secrets.
 
-```bash
-cp .env.example .env.local
-```
-
-Then edit `.env.local` and set the `VITE_GEMINI_API_KEY`. The same variable must
-be configured in any deployment environment.
+| Variable | Description |
+| --- | --- |
+| `VITE_GEMINI_API_KEY` | Required. Client-exposed Gemini key used by the browser app. |
+| `GEMINI_API_KEY` | Optional. Server-side Gemini key used during builds and as a fallback for tooling. |
+| `VITE_API_BASE_URL` | Optional. REST endpoint for an external auth service. When omitted the mock API persists data in encrypted browser storage. |
 
 ## Deploying to Vercel
 
-This project is ready to be deployed as a static Vite site on Vercel.
+1. Create a new Vercel project and link this repository.
+2. In **Environment Variables** add `VITE_GEMINI_API_KEY` (and optionally `GEMINI_API_KEY`) for Preview and Production.
+3. Vercel automatically runs `npm install` followed by `npm run build`; the generated `dist` directory is served as static assets.
+4. The included `vercel.json` enables single-page application routing so deep links render without additional configuration.
 
-1. Create a new Vercel project and select this repository.
-2. In the **Environment Variables** section add `VITE_GEMINI_API_KEY` with your
-   Gemini API key (repeat for Preview/Production as needed).
-3. Vercel automatically detects the framework and runs `npm install` followed by
-   `npm run build`. The generated `dist` directory is served as static assets.
-4. The included `vercel.json` ensures single-page application routing works, so
-   deep links render correctly without additional configuration.
+After the first build completes, visit the generated Vercel URL to confirm the application loads and Gemini powered features work with your configured API key.
 
-After the first build completes, visit the generated Vercel URL to confirm the
-application loads and AI powered features work with your configured API key.
-=======
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. (Optional) Point authentication at a deployed backend by setting `VITE_API_BASE_URL` in `.env.local`. When omitted the app runs in secure local demo mode and persists accounts in browser storage.
-4. Run the app:
-   `npm run dev`
-
-=======
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. (Optional) Point authentication at a deployed backend by setting `VITE_API_BASE_URL` in `.env.local`. When omitted the app runs in secure local demo mode and persists accounts in browser storage.
-4. Run the app:
-   `npm run dev`
-
->>>>>>> origin/codex/create-autonomous-deployment-plan-srvw3l
 ### Configure authentication backend
 
-By default the registration and login flows use the encrypted in-browser mock API. Provide a `VITE_API_BASE_URL` in `.env.local` to connect to a real authentication service. If that service becomes unreachable you can allow automatic fallback to the mock implementation by exposing `window.__ASAGENTS_API_BASE_URL__` at runtime or by calling `configureAuthClient({ baseUrl, allowMockFallback: true })` in your initialization code.
+By default the registration and login flows use the encrypted in-browser mock API. Provide a `VITE_API_BASE_URL` in `.env.local` (and mirror it in production secrets) to connect to a real authentication service. If that service becomes unreachable you can allow automatic fallback to the mock implementation by exposing `window.__ASAGENTS_API_BASE_URL__` at runtime or by calling `configureAuthClient({ baseUrl, allowMockFallback: true })` during app bootstrap.
 
 ## Deployment automation
 
 This project ships with a fully automated CI/CD pipeline backed by GitHub Actions and Vercel.
 
 - Pull requests run tests and builds via the [`CI` workflow](.github/workflows/ci.yml).
-- Previews and production releases are handled by the [`Deploy to Vercel` workflow](.github/workflows/vercel-deploy.yml). Pushes to `main` promote the build to the production environment; pull requests publish preview URLs for QA.
+- Previews and production releases are handled by the [`Deploy to Vercel` workflow](.github/workflows/vercel-deploy.yml). Pushes to `main` promote the build to production; pull requests publish preview URLs for QA.
 - The legacy GitHub Pages workflow remains available in [.github/workflows/deploy.yml](.github/workflows/deploy.yml) for static exports if you need an alternative host.
 
 ### Operations playbooks & secrets
 
-- **Runbooks & responsibilities**: [docs/deployment-plan.md](docs/deployment-plan.md) outlines the automation flow, operational checklists, and ownership model for engineers, reviewers, QA, and on-call.
-- **Vercel-specific setup**: follow [docs/vercel-deployment.md](docs/vercel-deployment.md) to connect the repository to Vercel and provision the required secrets (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`).
+- **Runbooks & responsibilities**: [docs/deployment-plan.md](docs/deployment-plan.md) outlines automation flow, operational checklists, and ownership model for engineers, reviewers, QA, and on-call.
+- **Vercel-specific setup**: follow [docs/vercel-deployment.md](docs/vercel-deployment.md) to connect the repository to Vercel and provision `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`.
 - **Gemini credentials**: store the shared Gemini credential as `GEMINI_API_KEY` in repository secrets and mirror it to `VITE_GEMINI_API_KEY` (or provide a separate client-safe key). Developers keep personal keys in `.env.local` for local runs.
 - **Monitoring**: follow the plan's observability section to wire synthetic uptime checks and error tracking so deployments stay production ready.
-<<<<<<< HEAD
->>>>>>> e7ec06c (Log sixth autonomous deployment run)
-=======
->>>>>>> origin/codex/create-autonomous-deployment-plan-srvw3l

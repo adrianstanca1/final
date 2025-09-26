@@ -144,8 +144,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
             });
 
             if (controller.signal.aborted) return;
-             setSnapshotMetadata(snapshot.metadata);
-              setProjects(snapshot.projects);
+            setSnapshotMetadata(snapshot.metadata);
+            setProjects(snapshot.projects);
             setAiSelectedProjectId(prev => prev ?? snapshot.projects.find(p => p.status === 'ACTIVE')?.id ?? snapshot.projects[0]?.id ?? null);
             if (controller.signal.aborted) return;
             setTeam(snapshot.team);
@@ -299,6 +299,47 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     const scheduleInProgress = insight?.schedule.tasksInProgress ?? tasksInProgress;
     const operationalAlerts = insight?.alerts ?? [];
 
+    const kpiData = useMemo(() => {
+        const activeProjectsCount = portfolioSummary.activeProjects;
+        const atRiskCount = insight?.schedule?.atRiskProjects ?? atRiskProjects.length;
+        const openIncidentsCount = insight?.safety?.openIncidents ?? openIncidents.length;
+        const budgetUtilization = portfolioSummary.pipelineValue > 0
+            ? clampPercentage((portfolioSummary.totalActualCost / portfolioSummary.pipelineValue) * 100)
+            : 0;
+
+        return {
+            activeProjectsCount,
+            atRisk: atRiskCount,
+            openIncidents: openIncidentsCount,
+            budgetUtilization,
+            teamSize: team.length,
+        };
+    }, [
+        insight?.schedule?.atRiskProjects,
+        insight?.safety?.openIncidents,
+        portfolioSummary.activeProjects,
+        portfolioSummary.pipelineValue,
+        portfolioSummary.totalActualCost,
+        atRiskProjects.length,
+        openIncidents.length,
+        team.length,
+    ]);
+
+    const isRealtimeSync = snapshotMetadata?.source === 'backend' && !snapshotMetadata.usedFallback;
+    const headerContextPill = useMemo(() => {
+        if (!snapshotMetadata) {
+            return undefined;
+        }
+
+        const mode = snapshotMetadata.source === 'backend' ? 'Live backend' : 'Local workspace';
+        return {
+            label: 'Sync mode',
+            value: mode,
+            helper: snapshotMetadata.fallbackReason ? `Last fallback: ${snapshotMetadata.fallbackReason}` : undefined,
+            tone: snapshotMetadata.source === 'backend' && !snapshotMetadata.usedFallback ? 'success' : 'warning',
+        } as const;
+    }, [snapshotMetadata]);
+
     const handleGenerateProjectBrief = useCallback(async () => {
         if (!aiSelectedProjectId) {
             setAiError('Select a project to analyse.');
@@ -346,9 +387,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
         <div className="space-y-6">
             <BackendConnectionBanner metadata={snapshotMetadata} />
             <ViewHeader
+                view="dashboard"
                 title={`Welcome back, ${user.firstName}!`}
                 description="Your live delivery and commercial snapshot."
                 actions={<Button variant="secondary" onClick={() => setActiveView('projects')}>Open projects workspace</Button>}
+                contextPill={headerContextPill}
+                isOnline={isRealtimeSync}
                 meta={[
                     {
                         label: 'Active projects',

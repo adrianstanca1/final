@@ -116,18 +116,33 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const URL_REGEX = /^https?:\/\/\S+$/i;
 const PASSWORD_MIN_LENGTH = 8;
 
-const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password }) => {
-    const rules = [
-        password.length >= PASSWORD_MIN_LENGTH,
-        /[A-Z]/.test(password),
-        /[a-z]/.test(password),
-        /\d/.test(password),
-        /[^A-Za-z0-9]/.test(password),
-    ];
-    const score = rules.filter(Boolean).length;
-    const width = (score / rules.length) * 100;
-    const color = score <= 2 ? 'bg-destructive' : score < 5 ? 'bg-amber-500' : 'bg-emerald-500';
+type PasswordRule = (password: string) => boolean;
+
+const DEFAULT_PASSWORD_RULES: PasswordRule[] = [
+    value => value.length >= PASSWORD_MIN_LENGTH,
+    value => /[A-Z]/.test(value),
+    value => /[a-z]/.test(value),
+    value => /\d/.test(value),
+    value => /[^A-Za-z0-9]/.test(value),
+];
+
+const PasswordStrengthMeter: React.FC<{ password: string; rules?: PasswordRule[] }> = ({ password, rules }) => {
+    const evaluators = rules && rules.length > 0 ? rules : DEFAULT_PASSWORD_RULES;
+    const evaluations = evaluators.map(rule => {
+        try {
+            return rule(password);
+        } catch (error) {
+            console.error('[PasswordStrengthMeter] rule evaluation failed', error);
+            return false;
+        }
+    });
+
+    const totalRules = evaluations.length || 1;
+    const score = evaluations.filter(Boolean).length;
+    const width = Math.min(100, Math.max(0, (score / totalRules) * 100));
+    const color = score <= 2 ? 'bg-destructive' : score < totalRules ? 'bg-amber-500' : 'bg-emerald-500';
     const labels = ['Very weak', 'Weak', 'Fair', 'Strong', 'Excellent'];
+    const labelIndex = Math.min(labels.length - 1, Math.max(score - 1, 0));
 
     return (
         <div className="space-y-1">
@@ -135,7 +150,7 @@ const PasswordStrengthMeter: React.FC<{ password: string }> = ({ password }) => 
                 <div className={`h-1.5 rounded-full transition-all duration-300 ${color}`} style={{ width: `${width}%` }} />
             </div>
             <p className="text-xs text-muted-foreground">
-                Password strength: <span className="font-medium text-foreground">{labels[Math.max(score - 1, 0)]}</span>
+                Password strength: <span className="font-medium text-foreground">{labels[labelIndex]}</span>
             </p>
         </div>
     );
@@ -149,13 +164,12 @@ const StepIndicator: React.FC<{ currentStep: RegistrationStep }> = ({ currentSte
             return (
                 <li
                     key={step.id}
-                    className={`flex-1 rounded-lg border px-4 py-3 text-left transition ${
-                        isActive
-                            ? 'border-primary bg-primary/5 text-primary'
-                            : isComplete
+                    className={`flex-1 rounded-lg border px-4 py-3 text-left transition ${isActive
+                        ? 'border-primary bg-primary/5 text-primary'
+                        : isComplete
                             ? 'border-emerald-400 bg-emerald-50 text-emerald-600'
                             : 'border-border bg-muted/40 text-muted-foreground'
-                    }`}
+                        }`}
                 >
                     <div className="text-xs font-semibold uppercase tracking-wide">Step {index + 1}</div>
                     <div className="text-sm font-semibold text-foreground">{step.title}</div>
@@ -375,7 +389,9 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
             if (!form.firstName.trim()) nextErrors.firstName = 'Enter your first name.';
             if (!form.lastName.trim()) nextErrors.lastName = 'Enter your last name.';
             if (!EMAIL_REGEX.test(form.email.trim())) nextErrors.email = 'Provide a valid email address.';
-            
+            if (form.username && form.username.trim().length < 3) {
+                nextErrors.username = 'Username must be at least 3 characters.';
+            }
             if (form.password.length < PASSWORD_MIN_LENGTH) {
                 nextErrors.password = `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`;
             }
@@ -518,9 +534,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                         type="text"
                                         value={form.firstName}
                                         onChange={event => updateField('firstName', event.target.value)}
-                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                            errors.firstName ? 'border-destructive' : 'border-border'
-                                        }`}
+                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.firstName ? 'border-destructive' : 'border-border'
+                                            }`}
                                     />
                                     {errors.firstName && <p className="text-xs text-destructive">{errors.firstName}</p>}
                                 </label>
@@ -530,9 +545,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                         type="text"
                                         value={form.lastName}
                                         onChange={event => updateField('lastName', event.target.value)}
-                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                            errors.lastName ? 'border-destructive' : 'border-border'
-                                        }`}
+                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.lastName ? 'border-destructive' : 'border-border'
+                                            }`}
                                     />
                                     {errors.lastName && <p className="text-xs text-destructive">{errors.lastName}</p>}
                                 </label>
@@ -543,9 +557,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                         value={form.email}
                                         onChange={event => updateField('email', event.target.value)}
                                         onBlur={handleEmailBlur}
-                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                            errors.email ? 'border-destructive' : 'border-border'
-                                        }`}
+                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.email ? 'border-destructive' : 'border-border'
+                                            }`}
                                     />
                                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                                         <span>
@@ -564,9 +577,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                         value={form.username}
                                         onChange={event => updateField('username', event.target.value)}
                                         placeholder="e.g. omnitenant.builder"
-                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                            errors.username ? 'border-destructive' : 'border-border'
-                                        }`}
+                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.username ? 'border-destructive' : 'border-border'
+                                            }`}
                                     />
                                     <p className="text-xs text-muted-foreground">Unique handle for cross-tenant visibility.</p>
                                     {errors.username && <p className="text-xs text-destructive">{errors.username}</p>}
@@ -586,14 +598,18 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                         type="password"
                                         value={form.password}
                                         onChange={event => updateField('password', event.target.value)}
-                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                            errors.password ? 'border-destructive' : 'border-border'
-                                        }`}
+                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.password ? 'border-destructive' : 'border-border'
+                                            }`}
                                     />
                                     <p className="text-xs text-muted-foreground">
                                         Use at least {PASSWORD_MIN_LENGTH} characters with numbers and symbols.
                                     </p>
-                                    <PasswordStrengthMeter password={form.password} />
+                                    <PasswordStrengthMeter password={form.password} rules={[
+                                        // Example rules, adjust as needed
+                                        password => password.length >= PASSWORD_MIN_LENGTH,
+                                        password => /[0-9]/.test(password),
+                                        password => /[!@#$%^&*]/.test(password)
+                                    ]} />
                                     {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
                                 </label>
                                 <label className="space-y-1 text-sm">
@@ -602,9 +618,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                         type="password"
                                         value={form.confirmPassword}
                                         onChange={event => updateField('confirmPassword', event.target.value)}
-                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                            errors.confirmPassword ? 'border-destructive' : 'border-border'
-                                        }`}
+                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.confirmPassword ? 'border-destructive' : 'border-border'
+                                            }`}
                                     />
                                     {errors.confirmPassword && (
                                         <p className="text-xs text-destructive">{errors.confirmPassword}</p>
@@ -620,11 +635,10 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                         <button
                                             type="button"
                                             onClick={() => updateField('companySelection', 'create')}
-                                            className={`rounded-lg border px-4 py-3 text-left transition ${
-                                                form.companySelection === 'create'
-                                                    ? 'border-primary bg-primary/5 text-primary'
-                                                    : 'border-border hover:border-primary'
-                                            }`}
+                                            className={`rounded-lg border px-4 py-3 text-left transition ${form.companySelection === 'create'
+                                                ? 'border-primary bg-primary/5 text-primary'
+                                                : 'border-border hover:border-primary'
+                                                }`}
                                         >
                                             <span className="block text-sm font-semibold">Create a new tenant</span>
                                             <span className="text-xs text-muted-foreground">
@@ -634,11 +648,10 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                         <button
                                             type="button"
                                             onClick={() => updateField('companySelection', 'join')}
-                                            className={`rounded-lg border px-4 py-3 text-left transition ${
-                                                form.companySelection === 'join'
-                                                    ? 'border-primary bg-primary/5 text-primary'
-                                                    : 'border-border hover:border-primary'
-                                            }`}
+                                            className={`rounded-lg border px-4 py-3 text-left transition ${form.companySelection === 'join'
+                                                ? 'border-primary bg-primary/5 text-primary'
+                                                : 'border-border hover:border-primary'
+                                                }`}
                                         >
                                             <span className="block text-sm font-semibold">Join an existing tenant</span>
                                             <span className="text-xs text-muted-foreground">
@@ -658,9 +671,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                                 type="text"
                                                 value={form.companyName}
                                                 onChange={event => updateField('companyName', event.target.value)}
-                                                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                                    errors.companyName ? 'border-destructive' : 'border-border'
-                                                }`}
+                                                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.companyName ? 'border-destructive' : 'border-border'
+                                                    }`}
                                             />
                                             {errors.companyName && (
                                                 <p className="text-xs text-destructive">{errors.companyName}</p>
@@ -671,9 +683,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                             <select
                                                 value={form.companyType}
                                                 onChange={event => updateField('companyType', event.target.value as CompanyType)}
-                                                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                                    errors.companyType ? 'border-destructive' : 'border-border'
-                                                }`}
+                                                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.companyType ? 'border-destructive' : 'border-border'
+                                                    }`}
                                             >
                                                 <option value="">Select type</option>
                                                 {COMPANY_TYPES.map(type => (
@@ -692,9 +703,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                                 type="email"
                                                 value={form.companyEmail}
                                                 onChange={event => updateField('companyEmail', event.target.value)}
-                                                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                                    errors.companyEmail ? 'border-destructive' : 'border-border'
-                                                }`}
+                                                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.companyEmail ? 'border-destructive' : 'border-border'
+                                                    }`}
                                             />
                                             {errors.companyEmail && (
                                                 <p className="text-xs text-destructive">{errors.companyEmail}</p>
@@ -716,9 +726,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                                 value={form.companyWebsite}
                                                 onChange={event => updateField('companyWebsite', event.target.value)}
                                                 placeholder="https://"
-                                                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                                    errors.companyWebsite ? 'border-destructive' : 'border-border'
-                                                }`}
+                                                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.companyWebsite ? 'border-destructive' : 'border-border'
+                                                    }`}
                                             />
                                             {errors.companyWebsite && (
                                                 <p className="text-xs text-destructive">{errors.companyWebsite}</p>
@@ -735,9 +744,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                                     type="text"
                                                     value={form.inviteToken}
                                                     onChange={event => updateField('inviteToken', event.target.value.toUpperCase())}
-                                                    className={`flex-1 rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                                        errors.inviteToken ? 'border-destructive' : 'border-border'
-                                                    }`}
+                                                    className={`flex-1 rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.inviteToken ? 'border-destructive' : 'border-border'
+                                                        }`}
                                                 />
                                                 <Button type="button" variant="secondary" onClick={handleInviteLookup} isLoading={isCheckingInvite}>
                                                     Verify invite
@@ -760,11 +768,10 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                                         type="button"
                                                         key={role}
                                                         onClick={() => updateField('role', role)}
-                                                        className={`rounded-lg border px-4 py-3 text-left text-sm transition ${
-                                                            form.role === role
-                                                                ? 'border-primary bg-primary/5 text-primary'
-                                                                : 'border-border hover:border-primary'
-                                                        }`}
+                                                        className={`rounded-lg border px-4 py-3 text-left text-sm transition ${form.role === role
+                                                            ? 'border-primary bg-primary/5 text-primary'
+                                                            : 'border-border hover:border-primary'
+                                                            }`}
                                                     >
                                                         <span className="block font-semibold">{ROLE_DETAILS[role].label}</span>
                                                         <span className="text-xs text-muted-foreground">
@@ -837,9 +844,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                         type="checkbox"
                                         checked={form.termsAccepted}
                                         onChange={event => updateField('termsAccepted', event.target.checked)}
-                                        className={`mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary ${
-                                            errors.termsAccepted ? 'border-destructive' : ''
-                                        }`}
+                                        className={`mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary ${errors.termsAccepted ? 'border-destructive' : ''
+                                            }`}
                                     />
                                     <span>
                                         I agree to the{' '}
@@ -932,4 +938,3 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
         </div>
     );
 };
-

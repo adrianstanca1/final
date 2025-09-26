@@ -169,7 +169,13 @@ export const TimeTrackingView: React.FC<TimeTrackingViewProps> = ({ user, addToa
                     </div>
                 ) : (
                     <div className="space-y-4">
-                        <select value={selectedProjectId} onChange={e => setSelectedProjectId(e.target.value)} className="w-full p-3 border rounded-md bg-white dark:bg-slate-800">
+                        <label htmlFor="project-select" className="sr-only">Select project</label>
+                        <select
+                            id="project-select"
+                            value={selectedProjectId}
+                            onChange={e => setSelectedProjectId(e.target.value)}
+                            className="w-full p-3 border rounded-md bg-white dark:bg-slate-800"
+                        >
                             <option value="">-- Select a project --</option>
                             {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                         </select>

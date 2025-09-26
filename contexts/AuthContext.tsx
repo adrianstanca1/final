@@ -16,6 +16,17 @@ const PERSISTENCE_KEY = 'asagents_auth_persistence';
 
 const isBrowser = () => typeof window !== 'undefined';
 
+<<<<<<< HEAD
+=======
+const isAuthenticatedSession = (result: LoginResult): result is AuthenticatedSession =>
+    typeof result === 'object' &&
+    result !== null &&
+    'token' in result &&
+    'refreshToken' in result &&
+    'user' in result &&
+    'company' in result;
+
+>>>>>>> origin/main
 const getBrowserStorage = (persistence: Persistence): Storage | null => {
     if (!isBrowser()) return null;
     return persistence === 'local' ? window.localStorage : window.sessionStorage;
@@ -255,9 +266,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 userAgent: isBrowser() ? navigator.userAgent : 'server',
             });
 
+<<<<<<< HEAD
             if (response.mfaRequired) {
+=======
+            if ('mfaRequired' in response && response.mfaRequired) {
+>>>>>>> origin/main
                 setAuthState(prev => ({ ...prev, loading: false }));
                 return { mfaRequired: true, userId: response.userId };
+            }
+
+            if (!isAuthenticatedSession(response)) {
+                throw new Error('Authentication response did not include a session.');
             }
 
             finalizeLogin(response, desiredPersistence);
