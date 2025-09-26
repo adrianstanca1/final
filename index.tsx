@@ -3,11 +3,19 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import { AuthProvider as MockAuthProvider } from './contexts/AuthContext';
 import { AuthProvider as SupabaseAuthProvider } from './contexts/SupabaseAuthContext';
+import { AuthProvider as FirebaseAuthProvider } from './contexts/FirebaseAuthContext';
 
-// Check if we should use Supabase authentication
+// Determine which authentication provider to use
 const useSupabaseAuth = import.meta.env.VITE_USE_SUPABASE_AUTH === 'true';
+const useFirebaseAuth = import.meta.env.VITE_USE_FIREBASE_AUTH === 'true';
 
-const AuthProvider = useSupabaseAuth ? SupabaseAuthProvider : MockAuthProvider;
+// Priority: Firebase > Supabase > Mock (default)
+let AuthProvider = MockAuthProvider;
+if (useFirebaseAuth) {
+  AuthProvider = FirebaseAuthProvider;
+} else if (useSupabaseAuth) {
+  AuthProvider = SupabaseAuthProvider;
+}
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
