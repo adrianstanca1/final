@@ -50,6 +50,15 @@ Keep the CI workflow required in branch protection so code cannot merge without 
 2. Trigger the **Deploy to GitHub Pages** workflow manually (Actions → Deploy to GitHub Pages → Run workflow) or push to `main`.
 3. The workflow uploads the `dist/` artefact built by Vite and publishes it at the configured Pages URL.
 
+### IONOS production stack
+
+IONOS remains the system of record for the production environment. Follow the dedicated [IONOS Deployment Playbook](docs/deployment/ionos.md) for:
+
+- Importing multi-tenant schemas and data into MariaDB.
+- Deploying the Express backend from `server/` with JWT auth, rate limiting, and tenant-scoped uploads.
+- Publishing the static Vite build to the IONOS webspace and pointing DNS for `asagents.co.uk` and `api.asagents.co.uk` to the correct hosts.
+- Enabling HTTPS, enforcing password rotation, and scheduling backups for both the database and the tenant-specific `docs/` tree.
+
 ## 🔍 Post-deploy verification
 
 - Load the deployed site (Vercel preview or production URL) and confirm the Gemini-backed experiences render correctly.

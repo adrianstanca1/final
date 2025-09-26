@@ -29,6 +29,17 @@ The app reads Gemini credentials from the standard Vite prefix so they are avail
 | `GEMINI_API_KEY` | Optional. Server-side Gemini key used during builds and as a fallback for tooling. |
 | `VITE_API_BASE_URL` | Optional. REST endpoint for an external auth service. When omitted the mock API persists data in encrypted browser storage. |
 
+### Backend service (IONOS-ready)
+
+The repository now ships with a production-ready Express backend under [`server/`](server/). Copy `server/.env.example` to `.env` and populate the MariaDB credentials, JWT secrets, and upload path before starting the API locally with `npm run dev --prefix server`.
+
+| Variable | Description |
+| --- | --- |
+| `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` | MariaDB connection parameters. Provide the tenant-aware database provisioned on IONOS. |
+| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Secrets used to sign stateless JWT access and refresh tokens. |
+| `UPLOAD_ROOT` | Filesystem directory for tenant-specific uploads (`docs/<tenant_id>/`). |
+| `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX` | Express rate limiter configuration to shield the API from abuse. |
+
 ## Deploying to Vercel
 
 1. Create a new Vercel project and link this repository.
@@ -41,6 +52,22 @@ After the first build completes, visit the generated Vercel URL to confirm the a
 ### Configure authentication backend
 
 By default the registration and login flows use the encrypted in-browser mock API. Provide a `VITE_API_BASE_URL` in `.env.local` (and mirror it in production secrets) to connect to a real authentication service. If that service becomes unreachable you can allow automatic fallback to the mock implementation by exposing `window.__ASAGENTS_API_BASE_URL__` at runtime or by calling `configureAuthClient({ baseUrl, allowMockFallback: true })` during app bootstrap.
+
+To exercise the new multi-tenant backend locally:
+
+```bash
+# Terminal 1 – start the Express API
+cd server
+npm install
+npm run dev
+
+# Terminal 2 – run the Vite frontend with the real API
+cp .env.example .env.local
+echo "VITE_API_BASE_URL=http://localhost:4000" >> .env.local
+npm run dev
+```
+
+Seed the MariaDB database with [`docs/db/schema.sql`](docs/db/schema.sql) and [`docs/db/seed.sql`](docs/db/seed.sql) before logging in.
 
 ## Deployment automation
 
