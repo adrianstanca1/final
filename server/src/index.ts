@@ -9,13 +9,97 @@ import authRoutes from './routes/auth.js';
 import documentRoutes from './routes/documents.js';
 import projectRoutes from './routes/projects.js';
 import invoiceRoutes from './routes/invoices.js';
-import systemRoutes from './routes/system.js';
+import systemRoutes, { setManagers } from './routes/system.js';
 import taskRoutes from './routes/tasks.js';
 import companyRoutes from './routes/companies.js';
 import expenseRoutes from './routes/expenses.js';
+import userRoutes from './routes/users.js';
+import dashboardRoutes from './routes/dashboard.js';
+import notificationRoutes from './routes/notifications.js';
 import { authenticateUser } from './middleware/authenticate.js';
 
+// Import our new managers system
+import { ManagersIntegration } from './managers/ManagersIntegration.js';
+import { getCompleteManagersConfig } from './config/managers-config.js';
+import type { Environment } from './types/managers.js';
+
 const app = express();
+
+// Global managers instance
+let managers: ManagersIntegration;
+
+// Initialize managers system
+async function initializeManagers() {
+  try {
+    const environment: Environment = (process.env.NODE_ENV as Environment) || 'development';
+    const config = getCompleteManagersConfig(environment);
+
+    logger.info(`Initializing ASAgents Managers for ${environment} environment...`);
+
+    // Initialize all managers with integration
+    managers = await ManagersIntegration.initialize(config);
+
+    logger.info('✅ Managers initialized successfully!');
+
+    // Setup initial secrets from environment
+    await setupInitialSecrets();
+
+    return managers;
+  } catch (error) {
+    logger.error({ error }, '❌ Failed to initialize managers');
+    throw error;
+  }
+}
+
+// Setup initial secrets from environment variables
+async function setupInitialSecrets() {
+  const environment: Environment = (process.env.NODE_ENV as Environment) || 'development';
+
+  try {
+    // JWT secrets
+    if (env.jwtAccessSecret) {
+      await managers.secrets.setSecret(
+        'jwt_access_secret',
+        env.jwtAccessSecret,
+        {
+          type: 'jwt_secret',
+          environment,
+          description: 'JWT access token secret',
+          rotationInterval: 90
+        }
+      );
+    }
+
+    if (env.jwtRefreshSecret) {
+      await managers.secrets.setSecret(
+        'jwt_refresh_secret',
+        env.jwtRefreshSecret,
+        {
+          type: 'jwt_secret',
+          environment,
+          description: 'JWT refresh token secret',
+          rotationInterval: 90
+        }
+      );
+    }
+
+    // Database credentials
+    await managers.secrets.setSecret(
+      'db_password',
+      env.dbPassword,
+      {
+        type: 'database_credential',
+        environment,
+        description: 'Database password',
+        rotationInterval: 180
+      }
+    );
+
+    logger.info('✅ Initial secrets setup complete');
+  } catch (error) {
+    logger.error({ error }, 'Failed to setup initial secrets');
+  }
+}
 
 app.use(helmet());
 app.use(cors({ origin: true, credentials: true }));
@@ -38,6 +122,9 @@ app.use('/api/system', systemRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/expenses', expenseRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.get('/api/me', authenticateUser, (req, res) => {
   if (!req.user) {
@@ -50,10 +137,73 @@ app.get('/api/me', authenticateUser, (req, res) => {
 app.use('/docs', express.static(env.uploadRoot));
 
 async function bootstrap() {
-  await fs.mkdir(env.uploadRoot, { recursive: true });
-  const port = Number(process.env.PORT ?? 4000);
-  app.listen(port, () => logger.info(`API listening on :${port}`));
+  try {
+    // Initialize managers first
+    await initializeManagers();
+
+    // Pass managers to system routes
+    if (managers) {
+      setManagers(managers);
+    }
+
+    // Setup enhanced middleware using managers
+    if (managers) {
+      // Use managers' security middleware
+      app.use(managers.api.securityHeadersMiddleware());
+
+      // Enhanced authentication middleware for protected routes
+      app.use('/api', (req, res, next) => {
+        // Skip auth for public endpoints
+        if (req.path === '/system/health' || req.path === '/auth/login' || req.path === '/auth/register') {
+          return next();
+        }
+
+        // Use our enhanced authentication
+        return managers.api.authenticationMiddleware()(req, res, next);
+      });
+
+      // Enhanced rate limiting
+      app.use('/api', managers.api.rateLimitMiddleware());
+
+      // Response formatting
+      app.use('/api', managers.api.responseFormattingMiddleware());
+    }
+
+    await fs.mkdir(env.uploadRoot, { recursive: true });
+    const port = Number(process.env.PORT ?? 4000);
+
+    app.listen(port, () => {
+      logger.info(`🚀 ASAgents API Server listening on :${port}`);
+      logger.info(`📊 Health check: http://localhost:${port}/api/system/health`);
+
+      if (managers) {
+        // Log startup metrics
+        managers.monitoring.info('Server started', 'server', { port });
+        managers.monitoring.recordMetric('server_starts', 1, 'counter');
+      }
+    });
+  } catch (error) {
+    logger.error({ error }, 'Failed to bootstrap server');
+    throw error;
+  }
 }
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  logger.info('🛑 Received SIGTERM, shutting down gracefully...');
+  if (managers) {
+    await managers.shutdown();
+  }
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  logger.info('🛑 Received SIGINT, shutting down gracefully...');
+  if (managers) {
+    await managers.shutdown();
+  }
+  process.exit(0);
+});
 
 bootstrap().catch((error) => {
   logger.error({ error }, 'Failed to start API');

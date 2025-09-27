@@ -71,14 +71,14 @@ export const MultimodalInput: React.FC<MultimodalInputProps> = ({
   const processFile = useCallback(async (file: File) => {
     const validation = validateFile(file);
     if (!validation.isValid) {
-      onError(validation.error!);
+      onError(validation.error || 'Invalid file');
       return;
     }
 
     setIsProcessing(true);
     try {
       const content: Partial<MultimodalContent> = {
-        type: validation.mediaType!,
+        type: validation.mediaType || 'document',
         metadata: {
           filename: file.name,
           fileSize: file.size,
@@ -92,7 +92,7 @@ export const MultimodalInput: React.FC<MultimodalInputProps> = ({
         const img = new Image();
         img.onload = () => {
           content.metadata = {
-            ...content.metadata!,
+            ...content.metadata,
             dimensions: { width: img.width, height: img.height }
           };
           onContentSubmit(content);
@@ -153,13 +153,15 @@ export const MultimodalInput: React.FC<MultimodalInputProps> = ({
     <div className={`space-y-6 ${className}`}>
       {/* File Upload Area */}
       <Card className={`relative transition-colors ${dragActive ? 'border-blue-500 bg-blue-50' : ''}`}>
-        <div
-          className="p-8 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-gray-400 transition-colors"
+        <button
+          type="button"
+          className="w-full p-8 border-2 border-dashed border-gray-300 rounded-lg text-center cursor-pointer hover:border-gray-400 transition-colors bg-transparent"
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
           onDragOver={handleDrag}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
+          aria-label="Click to upload file or drag and drop"
         >
           <div className="space-y-4">
             <div className="text-4xl">📁</div>
@@ -179,11 +181,12 @@ export const MultimodalInput: React.FC<MultimodalInputProps> = ({
               </div>
             )}
           </div>
-        </div>
+        </button>
         <input
           ref={fileInputRef}
           type="file"
           className="hidden"
+          aria-label="Upload file for multimodal analysis"
           onChange={handleFileSelect}
           accept={enabledTypes.flatMap(type => SUPPORTED_TYPES[type]).join(',')}
         />

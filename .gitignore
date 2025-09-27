@@ -23,3 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 oracleJdk-25/
+.vercel
+
+# External repositories
+google-api-nodejs-client/

@@ -62,7 +62,7 @@ const BarChart: React.FC<{ data: { label: string, value: number }[], barColor: s
                     <div className="text-xs font-bold text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{item.value}</div>
                     <div
                         className={`dashboard-bar ${barColor}`}
-                        style={{ '--bar-height': `${(item.value / maxValue) * 90}%` } as React.CSSProperties}
+                        style={{ height: `${(item.value / maxValue) * 90}%` }}
                         title={`${item.label}: ${item.value}`}
                     ></div>
                     <span className="text-xs mt-1 text-muted-foreground">{item.label}</span>
