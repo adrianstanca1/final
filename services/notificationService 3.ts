@@ -184,7 +184,7 @@ export class NotificationService {
       // Relative path (not protocol or host)
       if (url.startsWith('/')) return true;
       // Absolute: Check same-origin
-      const dest = new URL(url, window.location.origin);
+      const dest = new URL(url, window.location.href);
       return dest.origin === window.location.origin;
     } catch (e) {
       // Invalid URLs are considered unsafe
