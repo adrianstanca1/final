@@ -160,8 +160,10 @@ export class NotificationService {
         notification.close();
 
         // Handle notification click based on data
-        if (options.data?.url) {
+        if (options.data?.url && this.isSafeUrl(options.data.url)) {
           window.location.href = options.data.url;
+        } else if (options.data?.url) {
+          console.warn('Blocked unsafe notification redirect:', options.data.url);
         }
       };
 
@@ -173,6 +175,23 @@ export class NotificationService {
       console.error('Failed to show browser notification:', error);
     }
   }
+  /**
+   * Helper to validate URLs for safe client-side redirects
+   * Allows only relative paths or same-origin absolute URLs
+   */
+  private isSafeUrl(url: string): boolean {
+    try {
+      // Relative path (not protocol or host)
+      if (url.startsWith('/')) return true;
+      // Absolute: Check same-origin
+      const dest = new URL(url, window.location.origin);
+      return dest.origin === window.location.origin;
+    } catch (e) {
+      // Invalid URLs are considered unsafe
+      return false;
+    }
+  }
+
 
   // Push notification subscription
   async subscribeToPush(): Promise<NotificationSubscription | null> {
