@@ -230,5 +230,3 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     </div>
   );
 };
-
-export default OwnerDashboard;
