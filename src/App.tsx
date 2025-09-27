@@ -93,7 +93,14 @@ const ToastMessage: React.FC<{ toast: Toast; onDismiss: (id: number) => void }> 
   };
 
   const toastStyle = isNotification ? typeClasses.notification : typeClasses[toast.type];
-  const title = isNotification ? "New Notification" : (toast.type === 'success' ? "Success" : "Error");
+  let title: string;
+  if (isNotification) {
+    title = "New Notification";
+  } else if (toast.type === 'success') {
+    title = "Success";
+  } else {
+    title = "Error";
+  }
 
   return (
     <div className={`${baseClasses} ${toastStyle}`}>
@@ -102,7 +109,7 @@ const ToastMessage: React.FC<{ toast: Toast; onDismiss: (id: number) => void }> 
         <p className="font-bold">{title}</p>
         <p>{toast.message}</p>
       </div>
-      <button onClick={() => onDismiss(toast.id)} className="p-1 -m-1 rounded-full hover:bg-black/10 flex-shrink-0">&times;</button>
+      <button type="button" onClick={() => onDismiss(toast.id)} className="p-1 -m-1 rounded-full hover:bg-black/10 flex-shrink-0">&times;</button>
     </div>
   );
 };
@@ -213,7 +220,7 @@ function App() {
   }, [user]); // Remove addToast dependency
 
   useEffect(() => {
-    if (user && user.companyId) {
+    if (user?.companyId) {
       api.getCompanySettings(user.companyId).then(setCompanySettings);
     }
   }, [user]);
@@ -515,8 +522,9 @@ function App() {
                   addToast('MFA required — continue in classic login.', 'success');
                   setAuthView('classic-login');
                 }
-              } catch (_) {
+              } catch (error) {
                 // AuthContext handles error & state
+                console.warn('Authentication error handled by AuthContext:', error);
               }
             }}
             addToast={addToast}
