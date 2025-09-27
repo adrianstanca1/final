@@ -10,6 +10,8 @@ interface SidebarProps {
   pendingTimesheetCount: number;
   openIncidentCount: number;
   unreadMessageCount: number;
+}
+
 interface NavItemProps {
   icon: React.ReactNode;
   label: string;
@@ -17,6 +19,8 @@ interface NavItemProps {
   activeView: View;
   setActiveView: (view: View) => void;
   badgeCount?: number;
+}
+
 interface NavSectionProps {
   title: string;
   children: React.ReactNode;
@@ -32,11 +36,10 @@ const NavSection: React.FC<NavSectionProps> = ({ title, children }) => (
 const NavItem: React.FC<NavItemProps> = ({ icon, label, view, activeView, setActiveView, badgeCount }) => (
   <button
     onClick={() => setActiveView(view)}
-    className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-md text-sm transition-colors ${
-      activeView === view
+    className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 rounded-md text-sm transition-colors ${activeView === view
         ? 'bg-primary text-primary-foreground font-semibold shadow'
         : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-    }`}
+      }`}
   >
     <div className="flex items-center gap-3">
       {icon}

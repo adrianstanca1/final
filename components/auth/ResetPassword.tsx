@@ -4,8 +4,8 @@ import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 
 interface ResetPasswordProps {
-  token: string;
-  onSuccess: () => void;
+    token: string;
+    onSuccess: () => void;
 }
 
 const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password = '' }) => {
@@ -27,11 +27,13 @@ const PasswordStrengthIndicator: React.FC<{ password?: string }> = ({ password =
             <div className={`h-1.5 rounded-full transition-all duration-300 ${color}`} style={{ width: `${width}%` }}></div>
         </div>
     );
-const InputField = ({ label, name, type = 'text', value = '', onChange, error }: { label: string; name: string; type?: string; value?: string; onChange: (name: string, value: string) => void; error?: string;}) => (
+};
+
+const InputField = ({ label, name, type = 'text', value = '', onChange, error }: { label: string; name: string; type?: string; value?: string; onChange: (name: string, value: string) => void; error?: string; }) => (
     <div>
         <label htmlFor={name} className="block text-sm font-medium text-muted-foreground">{label}</label>
         <input id={name} name={name} type={type} value={value} onChange={e => onChange(name, e.target.value)} required
-                className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm ${error ? 'border-destructive' : 'border-border'}`} />
+            className={`mt-1 block w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary sm:text-sm ${error ? 'border-destructive' : 'border-border'}`} />
         {error && <p className="text-xs text-destructive mt-1">{error}</p>}
     </div>
 );
@@ -71,7 +73,7 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ token, onSuccess }
 
     if (success) {
         return (
-             <div className="min-h-screen bg-background flex flex-col justify-center py-12 sm:px-6 lg:px-8">
+            <div className="min-h-screen bg-background flex flex-col justify-center py-12 sm:px-6 lg:px-8">
                 <Card className="sm:mx-auto sm:w-full sm:max-w-md text-center">
                     <h2 className="text-2xl font-bold text-foreground mb-4">Password Reset Successfully!</h2>
                     <p className="text-muted-foreground mb-6">You can now sign in with your new password.</p>
@@ -90,7 +92,7 @@ export const ResetPassword: React.FC<ResetPasswordProps> = ({ token, onSuccess }
                 </p>
             </div>
             <Card className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-                 {error && <div className="mb-4 p-3 bg-destructive/10 text-destructive text-sm rounded-md">{error}</div>}
+                {error && <div className="mb-4 p-3 bg-destructive/10 text-destructive text-sm rounded-md">{error}</div>}
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <InputField label="New Password" name="password" type="password" value={password} onChange={(_, val) => setPassword(val)} />
                     <PasswordStrengthIndicator password={password} />

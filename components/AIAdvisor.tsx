@@ -14,6 +14,8 @@ interface AIAdvisorProps {
     user: User;
     addToast: (message: string, type: 'success' | 'error') => void;
     onBack: () => void;
+}
+
 interface ChatMessage {
     role: 'user' | 'model';
     text: string;

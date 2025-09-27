@@ -9,16 +9,19 @@ interface Props {
   level?: 'page' | 'section' | 'component';
   resetKeys?: Array<string | number>;
   resetOnPropsChange?: boolean;
+}
+
 interface State {
   hasError: boolean;
   error?: Error;
   errorInfo?: ErrorInfo;
   errorId: string;
+}
+
 /**
  * Enhanced Error Boundary with better error reporting, retry mechanisms,
  * and different fallback strategies based on error level
  */
-}
 
 export class ErrorBoundary extends Component<Props, State> {
   private resetTimeoutId: number | null = null;
@@ -30,8 +33,8 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public static getDerivedStateFromError(error: Error): Partial<State> {
     const errorId = `error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    return { 
-      hasError: true, 
+    return {
+      hasError: true,
       error,
       errorId
     };
@@ -139,7 +142,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   private renderPageErrorFallback = () => {
     const { error, errorId } = this.state;
-    
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="max-w-lg w-full border-destructive">
@@ -179,7 +182,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   private renderSectionErrorFallback = () => {
     const { error, errorId } = this.state;
-    
+
     return (
       <Card className="border-destructive/50 bg-destructive/5">
         <div className="flex items-start gap-3">
@@ -235,6 +238,8 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return this.props.children;
   }
+}
+
 // Convenience wrapper components for different error levels
 export const PageErrorBoundary: React.FC<Omit<Props, 'level'>> = (props) => (
   <ErrorBoundary {...props} level="page" />
