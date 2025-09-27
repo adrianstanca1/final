@@ -3,7 +3,7 @@ import {
   SecretsManagerConfig, 
   APIManagerConfig, 
   Environment 
-} from '../types/managers';
+} from '../types/managers.js';
 
 // Default Security Policy
 export const defaultSecurityPolicy: SecurityPolicy = {

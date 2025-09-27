@@ -4,7 +4,7 @@ import {
   Alert, 
   LogLevel, 
   ManagerError 
-} from '../types/managers';
+} from '../types/managers.js';
 
 export class MonitoringManager {
   private static instance: MonitoringManager;

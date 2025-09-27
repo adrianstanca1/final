@@ -15,7 +15,7 @@ import {
   AuthorizationError,
   RateLimitError,
   ValidationError
-} from '../types/managers';
+} from '../types/managers.js';
 import { SecurityManager } from './SecurityManager.js';
 import { SecretsManager } from './SecretsManager.js';
 

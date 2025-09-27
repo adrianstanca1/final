@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { promisify } from 'util';
-import { EncryptionResult, SecurityPolicy, ManagerError } from '../types/managers';
+import { EncryptionResult, SecurityPolicy, ManagerError } from '../types/managers.js';
 
 const scrypt = promisify(crypto.scrypt);
 

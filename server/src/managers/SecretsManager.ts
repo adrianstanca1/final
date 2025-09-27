@@ -9,7 +9,7 @@ import {
   Environment, 
   SecretType,
   SecretsError 
-} from '../types/managers';
+} from '../types/managers.js';
 import { SecurityManager } from './SecurityManager.js';
 
 export class SecretsManager {

@@ -3,7 +3,7 @@ import {
   FeatureFlag, 
   Environment, 
   ManagerError 
-} from '../types/managers';
+} from '../types/managers.js';
 import { SecretsManager } from './SecretsManager.js';
 
 export class ConfigurationManager {

@@ -9,7 +9,7 @@ import {
   APIManagerConfig,
   Environment,
   ManagerError
-} from '../types/managers';
+} from '../types/managers.js';
 
 export interface ManagersConfig {
   environment: Environment;

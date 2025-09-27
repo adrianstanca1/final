@@ -12,7 +12,7 @@ export const env = {
   dbHost: requireEnv('DB_HOST'),
   dbPort: Number(process.env.DB_PORT ?? 3306),
   dbUser: requireEnv('DB_USER'),
-  dbPassword: requireEnv('DB_PASSWORD'),
+  dbPassword: process.env.DB_PASSWORD ?? '',
   dbName: requireEnv('DB_NAME'),
   dbConnectionLimit: Number(process.env.DB_CONNECTION_LIMIT ?? 10),
   jwtAccessSecret: requireEnv('JWT_ACCESS_SECRET'),
