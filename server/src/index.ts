@@ -16,7 +16,10 @@ import expenseRoutes from './routes/expenses.js';
 import userRoutes from './routes/users.js';
 import dashboardRoutes from './routes/dashboard.js';
 import notificationRoutes from './routes/notifications.js';
+import analyticsRoutes from './routes/analytics.js';
+import timeTrackingRoutes from './routes/timeTracking.js';
 import { authenticateUser } from './middleware/authenticate.js';
+import { realTimeService } from './services/realTimeService.js';
 
 // Import our new managers system
 import { ManagersIntegration } from './managers/ManagersIntegration.js';
@@ -125,6 +128,8 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.use('/api/time-tracking', timeTrackingRoutes);
 
 app.get('/api/me', authenticateUser, (req, res) => {
   if (!req.user) {
@@ -172,9 +177,10 @@ async function bootstrap() {
     await fs.mkdir(env.uploadRoot, { recursive: true });
     const port = Number(process.env.PORT ?? 4000);
 
-    app.listen(port, () => {
+    const server = app.listen(port, () => {
       logger.info(`🚀 ASAgents API Server listening on :${port}`);
       logger.info(`📊 Health check: http://localhost:${port}/api/system/health`);
+      logger.info(`🔌 WebSocket server available at ws://localhost:${port}/ws`);
 
       if (managers) {
         // Log startup metrics
@@ -182,6 +188,10 @@ async function bootstrap() {
         managers.monitoring.recordMetric('server_starts', 1, 'counter');
       }
     });
+
+    // Initialize WebSocket server for real-time features
+    realTimeService.initialize(server);
+    logger.info('✅ Real-time WebSocket service initialized');
   } catch (error) {
     logger.error({ error }, 'Failed to bootstrap server');
     throw error;
@@ -191,6 +201,10 @@ async function bootstrap() {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   logger.info('🛑 Received SIGTERM, shutting down gracefully...');
+
+  // Shutdown real-time service
+  realTimeService.shutdown();
+
   if (managers) {
     await managers.shutdown();
   }
@@ -199,6 +213,10 @@ process.on('SIGTERM', async () => {
 
 process.on('SIGINT', async () => {
   logger.info('🛑 Received SIGINT, shutting down gracefully...');
+
+  // Shutdown real-time service
+  realTimeService.shutdown();
+
   if (managers) {
     await managers.shutdown();
   }

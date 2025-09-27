@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { authenticateUser, type AuthenticatedRequest } from '../middleware/authenticate.js';
 import { pool } from '../services/db.js';
 import { IntegrationService } from '../services/integration.js';
+import { EnhancedIntegrationService } from '../services/enhancedIntegration.js';
+import { realTimeService } from '../services/realTimeService.js';
 import type { RowDataPacket } from 'mysql2/promise';
 
 interface ProjectSummaryRow extends RowDataPacket {
@@ -55,6 +57,109 @@ router.get('/snapshot', authenticateUser, async (req: AuthenticatedRequest, res)
     console.error('Error generating dashboard snapshot:', error);
     return res.status(500).json({
       message: 'Failed to generate dashboard snapshot',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Get enhanced dashboard data with comprehensive analytics
+router.get('/enhanced', authenticateUser, async (req: AuthenticatedRequest, res) => {
+  try {
+    const tenantId = req.user?.tenant_id;
+    const userId = req.user?.sub;
+
+    if (!tenantId || !userId) {
+      return res.status(400).json({ message: 'Invalid user context' });
+    }
+
+    // Use enhanced integration service for comprehensive dashboard data
+    const enhancedData = await EnhancedIntegrationService.getEnhancedDashboardData(tenantId, userId);
+
+    // Broadcast real-time event for dashboard access
+    realTimeService.broadcastEvent({
+      type: 'user_activity',
+      entityType: 'user',
+      entityId: userId,
+      tenantId,
+      userId,
+      data: { action: 'dashboard_accessed', timestamp: new Date().toISOString() },
+      timestamp: new Date().toISOString()
+    });
+
+    return res.json(enhancedData);
+  } catch (error) {
+    console.error('Error generating enhanced dashboard data:', error);
+    return res.status(500).json({
+      message: 'Failed to generate enhanced dashboard data',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Get analytics for specific time period
+router.get('/analytics/period', authenticateUser, async (req: AuthenticatedRequest, res) => {
+  try {
+    const tenantId = req.user?.tenant_id;
+    const { startDate, endDate } = req.query;
+
+    if (!tenantId) {
+      return res.status(400).json({ message: 'Invalid user context' });
+    }
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ message: 'Start date and end date are required' });
+    }
+
+    const analytics = await EnhancedIntegrationService.getAnalyticsForPeriod(
+      tenantId,
+      startDate as string,
+      endDate as string
+    );
+
+    return res.json(analytics);
+  } catch (error) {
+    console.error('Error fetching period analytics:', error);
+    return res.status(500).json({
+      message: 'Failed to fetch analytics',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Get user performance metrics
+router.get('/analytics/user/:userId', authenticateUser, async (req: AuthenticatedRequest, res) => {
+  try {
+    const tenantId = req.user?.tenant_id;
+    const { userId } = req.params;
+
+    if (!tenantId) {
+      return res.status(400).json({ message: 'Invalid user context' });
+    }
+
+    const metrics = await EnhancedIntegrationService.getUserPerformanceMetrics(
+      tenantId,
+      parseInt(userId)
+    );
+
+    return res.json(metrics);
+  } catch (error) {
+    console.error('Error fetching user performance metrics:', error);
+    return res.status(500).json({
+      message: 'Failed to fetch user metrics',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Get real-time connection statistics
+router.get('/realtime/stats', authenticateUser, async (req: AuthenticatedRequest, res) => {
+  try {
+    const stats = realTimeService.getStats();
+    return res.json(stats);
+  } catch (error) {
+    console.error('Error fetching real-time stats:', error);
+    return res.status(500).json({
+      message: 'Failed to fetch real-time statistics',
       error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
