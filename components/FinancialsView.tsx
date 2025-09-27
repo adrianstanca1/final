@@ -54,6 +54,9 @@ const BarChart: React.FC<{ data: { label: string; value: number }[]; barColor: s
   );
 };
 
+// Editable fields for invoice line items
+type EditableInvoiceLineItemField = 'description' | 'quantity' | 'unitPrice';
+
 export const FinancialsView: React.FC<{ user: User; addToast: (message: string, type: 'success' | 'error') => void }> = ({
   user,
   addToast,

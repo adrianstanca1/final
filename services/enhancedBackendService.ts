@@ -36,8 +36,8 @@ class EnhancedBackendService {
       timeout: 10000, // 10 seconds
     };
 
-    // Initial health check
-    this.checkBackendHealth();
+    // Don't perform async operations in constructor
+    // Health check will be performed on first use
   }
 
   /**
