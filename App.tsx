@@ -133,7 +133,7 @@ const AppInner: React.FC = () => {
     setTenantOptions(option);
     setActiveTenantId(user.companyId ?? null);
     setTenantsLoading(false);
-  }, [user, company]);
+  }, [user?.id, user?.role, user?.companyId, company?.name]);
 
   const selectedTenantName = useMemo(() => {
     if (!activeTenantId) return company?.name || 'Workspace';

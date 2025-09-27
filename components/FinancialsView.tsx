@@ -80,6 +80,7 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
   const [isGeneratingForecast, setIsGeneratingForecast] = useState(false);
   const [forecastError, setForecastError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const [lineItems, setLineItems] = useState<InvoiceLineItemDraft[]>([]);
 
   const canManageFinances = hasPermission(user, Permission.MANAGE_FINANCES);
 
@@ -1057,3 +1058,13 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
 };
 
 export default FinancialsView;
+
+function createLineItemDraft(): InvoiceLineItemDraft {
+  return {
+    id: `new-${Date.now()}`,
+    description: '',
+    quantity: 1,
+    unitPrice: 0,
+    // ...other fields if needed...
+  };
+}
