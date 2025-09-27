@@ -10,6 +10,9 @@ import documentRoutes from './routes/documents.js';
 import projectRoutes from './routes/projects.js';
 import invoiceRoutes from './routes/invoices.js';
 import systemRoutes from './routes/system.js';
+import taskRoutes from './routes/tasks.js';
+import companyRoutes from './routes/companies.js';
+import expenseRoutes from './routes/expenses.js';
 import { authenticateUser } from './middleware/authenticate.js';
 
 const app = express();
@@ -32,6 +35,9 @@ app.use('/api/documents', documentRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/system', systemRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/companies', companyRoutes);
+app.use('/api/expenses', expenseRoutes);
 
 app.get('/api/me', authenticateUser, (req, res) => {
   if (!req.user) {

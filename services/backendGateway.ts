@@ -5,6 +5,8 @@ import { getStorage } from '../utils/storage';
 import { computeProjectPortfolioSummary } from '../utils/projectPortfolio';
 import { ApiError } from './apiErrorHandler';
 import { getAuthConnectionInfo, subscribeToAuthClientChanges } from './authClient';
+import { backendApi } from './backendApiService';
+import { getEnvironment } from '../config/environment';
 import type {
     BackendConnectionState,
     BackendInteractionEvent,

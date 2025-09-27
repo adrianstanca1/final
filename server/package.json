@@ -8,7 +8,10 @@
     "start": "node --env-file=.env dist/index.js",
     "build": "tsc -p tsconfig.json",
     "lint": "eslint \"src/**/*.ts\"",
-    "hash-password": "tsx scripts/hash-password.ts"
+    "hash-password": "tsx scripts/hash-password.ts",
+    "migrate": "node scripts/runMigrations.js",
+    "migrate:dry-run": "node scripts/runMigrations.js --dry-run",
+    "db:setup": "npm run migrate"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",

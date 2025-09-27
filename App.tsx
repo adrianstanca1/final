@@ -12,9 +12,10 @@ import { PrincipalAdminDashboard } from './components/PrincipalAdminDashboard';
 import { SettingsView } from './components/SettingsView';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
 import { ClientsView } from './components/ClientsView';
-import type { View } from './types';
-import { Role, type Company } from './types';
+import type { View, Company } from './types';
+import { Role } from './types';
 import { api } from './services/mockApi';
+import { enhancedBackend } from './services/enhancedBackendService';
 
 const ButtonRow: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div className="flex items-center justify-center gap-2">{children}</div>
