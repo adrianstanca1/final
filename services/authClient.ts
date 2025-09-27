@@ -239,7 +239,17 @@ export const authClient = {
         try {
             let oauthUserInfo: OAuthUserInfo | null = null;
 
-            if (provider === 'google' || provider === 'facebook') {
+            if (provider === 'google') {
+                // Try direct Google OAuth first, fallback to OAuth.io
+                try {
+                    await oauthService.initiateGoogleAuth();
+                    // This will redirect, so we won't reach this point
+                    throw new Error('Google authentication redirect failed');
+                } catch (googleError) {
+                    console.warn('Direct Google OAuth failed, trying OAuth.io:', googleError);
+                    oauthUserInfo = await oauthService.initiateOAuthIo(provider);
+                }
+            } else if (provider === 'facebook') {
                 oauthUserInfo = await oauthService.initiateOAuthIo(provider);
             }
 
@@ -284,6 +294,31 @@ export const authClient = {
             );
         } catch (error) {
             console.error('GitHub callback failed:', error);
+            throw error;
+        }
+    },
+
+    googleLogin: async (): Promise<AuthenticatedSession> => {
+        try {
+            await oauthService.initiateGoogleAuth();
+            // This will redirect to Google, so we won't reach this point
+            throw new Error('Google authentication redirect failed');
+        } catch (error) {
+            console.error('Google OAuth failed:', error);
+            throw error;
+        }
+    },
+
+    handleGoogleCallback: async (code: string, state: string): Promise<AuthenticatedSession> => {
+        try {
+            const userInfo = await oauthService.handleGoogleCallback(code, state);
+            return await withAuthFallback<AuthenticatedSession>(
+                '/auth/google/callback',
+                { method: 'POST', body: JSON.stringify({ code, state }) },
+                () => authApi.socialLogin({ provider: 'google', email: userInfo.email, name: userInfo.name })
+            );
+        } catch (error) {
+            console.error('Google callback failed:', error);
             throw error;
         }
     },

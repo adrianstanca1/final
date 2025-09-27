@@ -34,23 +34,40 @@ const AppInner: React.FC = () => {
     else console.info(message);
   }, []);
 
-  // Handle GitHub OAuth callback
+  // Handle OAuth callbacks (GitHub and Google)
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
     const state = urlParams.get('state');
+    const pathname = window.location.pathname;
 
-    if (code && state && window.location.pathname === '/') {
-      // This is a GitHub OAuth callback
-      authClient.handleGitHubCallback(code, state)
+    if (code && state) {
+      let callbackPromise: Promise<any>;
+      let providerName: string;
+
+      if (pathname === '/auth/github/callback' || (pathname === '/' && state.includes('github'))) {
+        // GitHub OAuth callback
+        callbackPromise = authClient.handleGitHubCallback(code, state);
+        providerName = 'GitHub';
+      } else if (pathname === '/auth/google/callback' || (pathname === '/' && state.includes('google'))) {
+        // Google OAuth callback
+        callbackPromise = authClient.handleGoogleCallback(code, state);
+        providerName = 'Google';
+      } else {
+        // Default to GitHub for backward compatibility
+        callbackPromise = authClient.handleGitHubCallback(code, state);
+        providerName = 'GitHub';
+      }
+
+      callbackPromise
         .then(() => {
           // Clear URL parameters
           window.history.replaceState({}, document.title, window.location.pathname);
-          addToast('Successfully signed in with GitHub!', 'success');
+          addToast(`Successfully signed in with ${providerName}!`, 'success');
         })
         .catch((error) => {
-          console.error('GitHub OAuth callback failed:', error);
-          addToast('GitHub sign-in failed. Please try again.', 'error');
+          console.error(`${providerName} OAuth callback failed:`, error);
+          addToast(`${providerName} sign-in failed. Please try again.`, 'error');
           // Clear URL parameters even on error
           window.history.replaceState({}, document.title, window.location.pathname);
         });

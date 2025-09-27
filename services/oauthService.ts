@@ -3,6 +3,10 @@ import { getEnvironment } from '../config/environment';
 import type { SocialProvider, User } from '../types';
 
 export interface OAuthConfig {
+  google: {
+    clientId: string;
+    enabled: boolean;
+  };
   github: {
     clientId: string;
     enabled: boolean;
@@ -42,11 +46,83 @@ class OAuthService {
   isProviderEnabled(provider: SocialProvider): boolean {
     switch (provider) {
       case 'google':
-        return this.config.oauthIo.enabled;
+        return this.config.google.enabled || this.config.oauthIo.enabled;
       case 'facebook':
         return this.config.oauthIo.enabled;
       default:
         return false;
+    }
+  }
+
+  /**
+   * Initiate Google OAuth flow
+   */
+  async initiateGoogleAuth(): Promise<void> {
+    if (!this.config.google.enabled) {
+      throw new Error('Google OAuth is not configured');
+    }
+
+    const params = new URLSearchParams({
+      client_id: this.config.google.clientId,
+      redirect_uri: `${window.location.origin}/auth/google/callback`,
+      scope: 'openid email profile',
+      response_type: 'code',
+      state: this.generateState(),
+    });
+
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    window.location.href = authUrl;
+  }
+
+  /**
+   * Handle Google OAuth callback
+   */
+  async handleGoogleCallback(code: string, state: string): Promise<OAuthUserInfo> {
+    if (!this.validateState(state)) {
+      throw new Error('Invalid OAuth state parameter');
+    }
+
+    try {
+      // Exchange code for access token (should be done on backend in production)
+      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          client_id: this.config.google.clientId,
+          client_secret: process.env.GOOGLE_CLIENT_SECRET || '', // Should be on backend
+          code,
+          grant_type: 'authorization_code',
+          redirect_uri: `${window.location.origin}/auth/google/callback`,
+        }),
+      });
+
+      const tokenData = await tokenResponse.json();
+
+      if (tokenData.error) {
+        throw new Error(`Google OAuth error: ${tokenData.error_description}`);
+      }
+
+      // Fetch user info with the access token
+      const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: {
+          'Authorization': `Bearer ${tokenData.access_token}`,
+        },
+      });
+
+      const userData = await userResponse.json();
+
+      return {
+        id: userData.id,
+        email: userData.email,
+        name: userData.name,
+        avatar: userData.picture,
+        provider: 'google',
+      };
+    } catch (error) {
+      console.error('Google OAuth error:', error);
+      throw new Error('Failed to authenticate with Google');
     }
   }
 

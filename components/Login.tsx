@@ -131,6 +131,16 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
     }
   };
 
+  const handleGoogleLogin = async () => {
+    setError(null);
+    try {
+      // Use direct Google OAuth
+      await socialLogin('google');
+    } catch (err: any) {
+      setError(err?.message ?? 'Unable to sign in with Google.');
+    }
+  };
+
   const handleGitHubLogin = async () => {
     setError(null);
     try {
@@ -258,7 +268,7 @@ export const Login: React.FC<LoginProps> = ({ onSwitchToRegister, onSwitchToForg
             type="button"
             variant="secondary"
             className="w-full flex items-center justify-center gap-2"
-            onClick={() => handleSocialLogin('google')}
+            onClick={handleGoogleLogin}
             isLoading={isLoading}
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">

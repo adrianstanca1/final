@@ -6,6 +6,10 @@ export interface Environment {
   isDevelopment: boolean;
   isProduction: boolean;
   oauth: {
+    google: {
+      clientId: string;
+      enabled: boolean;
+    };
     github: {
       clientId: string;
       enabled: boolean;
@@ -34,6 +38,10 @@ const environments: Record<string, Environment> = {
     isDevelopment: true,
     isProduction: false,
     oauth: {
+      google: {
+        clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
+        enabled: !!import.meta.env.VITE_GOOGLE_CLIENT_ID,
+      },
       github: {
         clientId: import.meta.env.VITE_GITHUB_CLIENT_ID || '',
         enabled: !!import.meta.env.VITE_GITHUB_CLIENT_ID,
@@ -55,6 +63,10 @@ const environments: Record<string, Environment> = {
     isDevelopment: false,
     isProduction: true,
     oauth: {
+      google: {
+        clientId: import.meta.env.VITE_GOOGLE_CLIENT_ID || '',
+        enabled: !!import.meta.env.VITE_GOOGLE_CLIENT_ID,
+      },
       github: {
         clientId: import.meta.env.VITE_GITHUB_CLIENT_ID || '',
         enabled: !!import.meta.env.VITE_GITHUB_CLIENT_ID,
