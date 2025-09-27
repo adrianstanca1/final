@@ -18,13 +18,13 @@ interface ViewAccessBoundaryProps {
   fallbackView?: View;
   onNavigate?: (view: View) => void;
   children: React.ReactNode;
+}
+
 const humanise = (value: string): string =>
   value
     .split('_')
     .map((segment) => segment.charAt(0) + segment.slice(1).toLowerCase())
     .join(' ');
-
-}
 
 const PermissionRequirements: React.FC<{ permissions: Permission[]; anyGroups: Permission[][] }> = ({ permissions, anyGroups }) => {
   const uniquePermissions = Array.from(new Set(permissions));

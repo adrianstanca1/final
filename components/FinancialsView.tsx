@@ -636,8 +636,6 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
 
   if (loading) return <Card>Loading financials...</Card>;
 
-  const canManageFinances = hasPermission(user, Permission.MANAGE_FINANCES);
-
   return (
     <div className="space-y-6">
       <div className="text-center p-6">
