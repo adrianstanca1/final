@@ -4,12 +4,38 @@ import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { InviteCompanyModal } from './InviteCompanyModal';
+import { formatFileSize } from '../utils/fileUtils';
 
 interface PrincipalAdminDashboardProps {
   user: User;
   addToast: (message: string, type: 'success' | 'error') => void;
   selectedTenantName?: string | null;
 }
+
+// Helper functions for improved status display
+const getStatusStyles = (status?: string): string => {
+  switch (status?.toLowerCase()) {
+    case 'suspended':
+    case 'inactive':
+      return 'bg-red-100 text-red-700';
+    case 'pending':
+    case 'trial':
+      return 'bg-yellow-100 text-yellow-700';
+    case 'active':
+    case 'verified':
+      return 'bg-emerald-100 text-emerald-700';
+    case 'premium':
+    case 'enterprise':
+      return 'bg-blue-100 text-blue-700';
+    default:
+      return 'bg-emerald-100 text-emerald-700';
+  }
+};
+
+const getStatusDisplay = (status?: string): string => {
+  if (!status) return 'Active';
+  return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+};
 
 const KpiCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode }> = ({
   title,
@@ -122,10 +148,12 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
       setMetrics(metricsData);
     } catch (error) {
       if (controller.signal.aborted) return;
+      console.error('Failed to load platform data:', error);
       addToast('Failed to load platform data.', 'error');
     } finally {
-      if (controller.signal.aborted) return;
-      setLoading(false);
+      if (!controller.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, [addToast]);
 
@@ -271,9 +299,8 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
                 {companies.map((company) => (
                   <tr
                     key={company.id}
-                    className={`hover:bg-muted/50 ${
-                      selectedTenantName && company.name === selectedTenantName ? 'border-l-4 border-primary bg-primary/5' : ''
-                    }`}
+                    className={`hover:bg-muted/50 ${selectedTenantName && company.name === selectedTenantName ? 'border-l-4 border-primary bg-primary/5' : ''
+                      }`}
                   >
                     <td className="px-4 py-3">
                       <div className="font-semibold text-slate-900">{company.name}</div>
@@ -285,17 +312,13 @@ export const PrincipalAdminDashboard: React.FC<PrincipalAdminDashboardProps> = (
                     <td className="px-4 py-3 text-slate-700">{company.subscriptionPlan || 'FREE'}</td>
                     <td className="px-4 py-3">
                       <span
-                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${
-                          company.status === 'Suspended'
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-emerald-100 text-emerald-700'
-                        }`}
+                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-semibold ${getStatusStyles(company.status)}`}
                       >
-                        {company.status || 'Active'}
+                        {getStatusDisplay(company.status)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right text-slate-700">
-                      {`${(company.storageUsageGB || 0).toFixed(1)} GB`}
+                      {formatFileSize((company.storageUsageGB || 0) * 1024 * 1024 * 1024)}
                     </td>
                   </tr>
                 ))}
