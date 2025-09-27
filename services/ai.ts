@@ -19,6 +19,7 @@ import {
 import { apiCache } from './cacheService';
 import { wrapError, withRetry } from '../utils/errorHandling';
 import { getEnvironment } from '../config/environment';
+import { geminiService } from './geminiService';
 
 const MODEL_NAME = 'gemini-2.0-flash-001';
 let cachedClient: GoogleGenAI | null = null;
@@ -133,8 +134,11 @@ export interface AdvisorPromptResult {
 }
 
 const getClient = (): GoogleGenAI | null => {
-  const { geminiApiKey } = getEnvironment();
+  const environment = getEnvironment();
+  const geminiApiKey = environment.gemini.apiKey || import.meta.env.VITE_GEMINI_API_KEY;
+
   if (!geminiApiKey) {
+    console.warn('Gemini API key is not configured. AI features will be disabled.');
     return null;
   }
 

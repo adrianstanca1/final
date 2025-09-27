@@ -23,6 +23,11 @@ export interface Environment {
     allowMockFallback: boolean;
     useSupabase: boolean;
   };
+  gemini: {
+    apiKey: string;
+    browserKey: string;
+    enabled: boolean;
+  };
 }
 
 export interface EnvironmentShape extends Environment {
@@ -55,6 +60,11 @@ const environments: Record<string, Environment> = {
       allowMockFallback: import.meta.env.VITE_ALLOW_MOCK_FALLBACK !== 'false',
       useSupabase: import.meta.env.VITE_USE_SUPABASE === 'true',
     },
+    gemini: {
+      apiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
+      browserKey: import.meta.env.VITE_GEMINI_BROWSER_KEY || '',
+      enabled: !!(import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_GEMINI_BROWSER_KEY),
+    },
   },
   production: {
     name: 'production',
@@ -79,6 +89,11 @@ const environments: Record<string, Environment> = {
     features: {
       allowMockFallback: import.meta.env.VITE_ALLOW_MOCK_FALLBACK !== 'false',
       useSupabase: import.meta.env.VITE_USE_SUPABASE === 'true',
+    },
+    gemini: {
+      apiKey: import.meta.env.VITE_GEMINI_API_KEY || '',
+      browserKey: import.meta.env.VITE_GEMINI_BROWSER_KEY || '',
+      enabled: !!(import.meta.env.VITE_GEMINI_API_KEY || import.meta.env.VITE_GEMINI_BROWSER_KEY),
     },
   },
 };
