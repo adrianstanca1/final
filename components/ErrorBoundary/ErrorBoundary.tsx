@@ -249,3 +249,5 @@ export const SectionErrorBoundary: React.FC<Omit<Props, 'level'>> = (props) => (
 export const ComponentErrorBoundary: React.FC<Omit<Props, 'level'>> = (props) => (
   <ErrorBoundary {...props} level="component" />
 );
+
+};

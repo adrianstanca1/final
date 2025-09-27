@@ -14,9 +14,9 @@ import { TaskModal } from './TaskModal';
 import { ViewHeader } from './layout/ViewHeader';
 
 interface AllTasksViewProps {
-  user: User;
-  addToast: (message: string, type: 'success' | 'error') => void;
-  isOnline: boolean;
+    user: User;
+    addToast: (message: string, type: 'success' | 'error') => void;
+    isOnline: boolean;
 }
 
 
@@ -35,11 +35,18 @@ const TaskDetailModal: React.FC<{
     const [newComment, setNewComment] = useState('');
 
     useEffect(() => { setEditableTask(task); }, [task]);
+
+    // TaskDetailModal implementation would go here
+    return (
+        <div>Task Detail Modal Content</div>
+    );
+};
+
 const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOnline }) => {
 
     const canManage = hasPermission(user, Permission.MANAGE_TASKS);
     const isTaskDone = task.status === TodoStatus.DONE;
-    
+
     const allOtherTasks = useMemo(() => {
         return allTasksForProject.filter(t => t.id !== task.id);
     }, [allTasksForProject, task.id]);
@@ -59,7 +66,7 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOnline })
     const handleFieldChange = (field: keyof Todo, value: any) => setEditableTask(prev => ({ ...prev, [field]: value }));
     const handleSave = () => { onUpdateTask(task, editableTask); setIsEditing(false); };
     const handleCancel = () => { setEditableTask(task); setIsEditing(false); };
-    
+
     const handleSubtaskChange = (id: number, field: 'text' | 'isCompleted', value: string | boolean) => {
         setEditableTask(prev => ({
             ...prev,
@@ -77,12 +84,12 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOnline })
             })
         }));
     };
-    
+
     const handleAddSubtask = () => {
         const newSubtask: SubTask = { id: Date.now(), text: '', isCompleted: false };
         setEditableTask(prev => ({ ...prev, subTasks: [...(prev.subTasks || []), newSubtask] }));
     };
-    
+
     const handleDeleteSubtask = (id: number) => {
         setEditableTask(prev => ({ ...prev, subTasks: (prev.subTasks || []).filter(st => st.id !== id) }));
     };
@@ -99,15 +106,15 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOnline })
         };
 
         const updatedComments = [...(editableTask.comments || []), commentToAdd];
-        
+
         const updatedTaskWithComment = { ...editableTask, comments: updatedComments };
         setEditableTask(updatedTaskWithComment);
-        
+
         onUpdateTask(task, { comments: updatedComments });
-        
+
         setNewComment('');
     };
-    
+
     const handleStatusChange = (newStatus: TodoStatus) => {
         if (!areDependenciesMet && (newStatus === TodoStatus.IN_PROGRESS || newStatus === TodoStatus.DONE)) {
             addToast("Cannot start task until its dependencies are complete.", "error");
@@ -115,7 +122,7 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOnline })
         }
         handleFieldChange('status', newStatus);
     };
-    
+
     const handleDependencyChange = (selectedIds: string[]) => {
         const numericIds = selectedIds.map(id => isNaN(parseInt(id, 10)) ? id : parseInt(id, 10));
         setEditableTask(prev => ({ ...prev, dependsOn: numericIds }));
@@ -127,17 +134,17 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOnline })
         const completed = subTasks.filter(st => st.isCompleted).length;
         return (completed / subTasks.length) * 100;
     }, [editableTask.subTasks]);
-    
+
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
             <Card className="w-full max-w-2xl h-auto max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                 <div className="flex justify-between items-start mb-2">
+                <div className="flex justify-between items-start mb-2">
                     {isEditing ? (
                         <input type="text" title="Task name" placeholder="Task name" value={editableTask.text} onChange={(e) => handleFieldChange('text', e.target.value)} className="text-xl font-bold w-full -ml-1 p-1 rounded-md border" />
                     ) : (
                         <h3 className="text-xl font-bold">{task.text}</h3>
                     )}
-                    
+
                     {!isEditing && canManage && !isTaskDone && (
                         <Button size="sm" variant="secondary" onClick={() => setIsEditing(true)}>Edit</Button>
                     )}
@@ -147,15 +154,15 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOnline })
                 <div className="flex-grow overflow-y-auto pr-2 space-y-6">
                     {!areDependenciesMet && (
                         <div className="p-3 bg-yellow-50 text-yellow-800 rounded-md text-sm my-4 flex items-center gap-2">
-                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" /></svg>
                             <span>This task is blocked. Complete prerequisite tasks to proceed.</span>
                         </div>
                     )}
                     <div className="grid grid-cols-2 gap-4 text-sm">
-                         <div><span className="font-semibold">Status:</span> {isEditing ? (
-                            <select 
+                        <div><span className="font-semibold">Status:</span> {isEditing ? (
+                            <select
                                 title="Task status"
-                                value={editableTask.status} 
+                                value={editableTask.status}
                                 onChange={(e) => handleStatusChange(e.target.value as TodoStatus)}
                                 className="p-1 border rounded-md bg-white ml-2"
                             >
@@ -173,13 +180,13 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOnline })
                     <div>
                         <h4 className="font-semibold mb-2">Dependencies</h4>
                         <div className="space-y-2">
-                             <div>
+                            <div>
                                 <p className="text-xs font-semibold text-slate-500">Depends On:</p>
                                 {isEditing ? (
-                                    <select 
+                                    <select
                                         title="Task dependencies"
-                                        multiple 
-                                        value={(editableTask.dependsOn || []).map(String)} 
+                                        multiple
+                                        value={(editableTask.dependsOn || []).map(String)}
                                         onChange={e => handleDependencyChange(Array.from(e.target.selectedOptions, (option) => (option as HTMLOptionElement).value))}
                                         className="w-full p-2 border rounded-md bg-white h-24"
                                         disabled={isTaskDone}
@@ -203,7 +210,7 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOnline })
 
                     <div>
                         <div className="flex justify-between items-center mb-2">
-                             <h4 className="font-semibold">Sub-tasks ({editableTask.subTasks?.filter(s => s.isCompleted).length || 0} / {editableTask.subTasks?.length || 0})</h4>
+                            <h4 className="font-semibold">Sub-tasks ({editableTask.subTasks?.filter(s => s.isCompleted).length || 0} / {editableTask.subTasks?.length || 0})</h4>
                         </div>
                         <div className="w-full bg-slate-200 rounded-full h-2 mb-2">
                             <div className="bg-green-500 h-2 rounded-full subtask-progress-bar" style={{ '--subtask-progress': `${subtaskProgress}%` } as React.CSSProperties}></div>
@@ -211,8 +218,8 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOnline })
                         <div className="space-y-2 max-h-40 overflow-y-auto">
                             {(isEditing ? editableTask.subTasks : task.subTasks)?.map((subtask) => (
                                 <div key={subtask.id} className="flex items-center gap-3 p-1 rounded-md group hover:bg-slate-50">
-                                    <input 
-                                        type="checkbox" 
+                                    <input
+                                        type="checkbox"
                                         title="Sub-task completed"
                                         checked={subtask.isCompleted}
                                         disabled={!isEditing || isTaskDone}
@@ -220,7 +227,7 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOnline })
                                         className="h-4 w-4 rounded text-green-600 focus:ring-green-500"
                                     />
                                     {isEditing ? (
-                                        <input 
+                                        <input
                                             type="text"
                                             title="Sub-task name"
                                             placeholder="Sub-task name"
@@ -241,7 +248,7 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOnline })
                                 </div>
                             ))}
                         </div>
-                        
+
                         {isEditing && !isTaskDone && (
                             <Button size="sm" variant="secondary" onClick={handleAddSubtask} className="mt-2">Add Sub-task</Button>
                         )}
@@ -289,7 +296,7 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOnline })
                         <Button onClick={handleSave}>Save Changes</Button>
                     </div>
                 ) : (
-                     <div className="mt-4 pt-4 border-t flex justify-end">
+                    <div className="mt-4 pt-4 border-t flex justify-end">
                         <Button variant="secondary" onClick={onClose}>Close</Button>
                     </div>
                 )}
@@ -368,7 +375,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
         if (selectedProjectId === 'all') return todos;
         return todos.filter(t => t.projectId.toString() === selectedProjectId);
     }, [todos, selectedProjectId]);
-    
+
     const handleOpenTaskModal = (task: Todo | null) => {
         setTaskToEdit(task);
         setIsTaskModalOpen(true);
@@ -387,7 +394,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                 setTodos(originalTodos);
             });
     };
-    
+
     const handleTaskSelectionChange = (taskId: string | number) => {
         setSelectedTaskIds(prev => {
             const newSet = new Set(prev);
@@ -396,8 +403,8 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
             return newSet;
         });
     };
-    
-     const handleTaskModalSuccess = () => {
+
+    const handleTaskModalSuccess = () => {
         // Just refresh all data to ensure dependency graph is correct
         fetchData();
     };
@@ -407,7 +414,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
             addToast("No tasks selected for bulk update.", "error");
             return;
         }
-        
+
         const updates: Partial<Todo> = {};
         if (bulkStatus) updates.status = bulkStatus;
         if (bulkPriority) updates.priority = bulkPriority;
@@ -427,13 +434,13 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
             setBulkPriority('');
             setBulkAssignee('');
             fetchData(); // Refresh data
-        } catch(error) {
+        } catch (error) {
             addToast("Failed to perform bulk update.", "error");
         } finally {
             setIsBulkUpdating(false);
         }
     };
-    
+
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) {
             setSelectedTaskIds(new Set(filteredTodos.map(t => t.id)));
@@ -472,7 +479,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
 
     return (
         <div className="space-y-6">
-            {isTaskModalOpen && <TaskModal user={user} projects={projects} users={personnel} onClose={() => setIsTaskModalOpen(false)} onSuccess={handleTaskModalSuccess} addToast={addToast} taskToEdit={taskToEdit} allProjectTasks={todos}/>}
+            {isTaskModalOpen && <TaskModal user={user} projects={projects} users={personnel} onClose={() => setIsTaskModalOpen(false)} onSuccess={handleTaskModalSuccess} addToast={addToast} taskToEdit={taskToEdit} allProjectTasks={todos} />}
             <ViewHeader
                 view="all-tasks"
                 actions={canManage ? <Button onClick={() => handleOpenTaskModal(null)}>Add Task</Button> : undefined}
@@ -543,20 +550,20 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
             </Card>
 
             <Card>
-                 <div className="flex flex-col md:flex-row gap-4 mb-4 pb-4 border-b">
-                     <select title="Project filter" value={projectFilter} onChange={e => setProjectFilter(e.target.value)} className="w-full md:w-auto p-2 border bg-white rounded-md">
+                <div className="flex flex-col md:flex-row gap-4 mb-4 pb-4 border-b">
+                    <select title="Project filter" value={projectFilter} onChange={e => setProjectFilter(e.target.value)} className="w-full md:w-auto p-2 border bg-white rounded-md">
                         <option value="all">All Projects</option>
                         {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
-                     <select title="Assignee filter" value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)} className="w-full md:w-auto p-2 border bg-white rounded-md">
+                    <select title="Assignee filter" value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)} className="w-full md:w-auto p-2 border bg-white rounded-md">
                         <option value="all">All Assignees</option>
                         <option value="unassigned">Unassigned</option>
                         {personnel.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                 </div>
-                
+
                 {canManage && selectedTasks.size > 0 && (
-                     <div className="p-4 bg-slate-100 rounded-lg mb-4 flex flex-col md:flex-row gap-4 items-center animate-card-enter">
+                    <div className="p-4 bg-slate-100 rounded-lg mb-4 flex flex-col md:flex-row gap-4 items-center animate-card-enter">
                         <span className="font-semibold">{selectedTasks.size} tasks selected</span>
                         <select title="Bulk status" value={bulkStatus} onChange={e => setBulkStatus(e.target.value as TodoStatus | '')} className="p-2 border bg-white rounded-md"><option value="">Change Status...</option>{Object.values(TodoStatus).map(s => <option key={s} value={s}>{s}</option>)}</select>
                         <select title="Bulk priority" value={bulkPriority} onChange={e => setBulkPriority(e.target.value as TodoPriority | '')} className="p-2 border bg-white rounded-md"><option value="">Change Priority...</option>{Object.values(TodoPriority).map(p => <option key={p} value={p}>{p}</option>)}</select>
@@ -584,30 +591,30 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                                 const taskDependencies = (task.dependsOn || []).map(depId => tasks.find(t => t.id === depId)).filter(Boolean) as Todo[];
                                 const isTaskBlocked = taskDependencies.some(dep => dep.status !== TodoStatus.DONE);
                                 return (
-                                <tr key={task.id} className={`hover:bg-slate-50 ${isTaskBlocked ? 'opacity-60' : 'cursor-pointer'}`} onClick={() => !isTaskBlocked && setSelectedTask(task)}>
-                                    {canManage && <td className="px-6 py-4" onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedTasks.has(task.id)} onChange={() => handleSelectTask(task.id)} /></td>}
-                                    <td className="px-6 py-4 font-medium">
-                                        <div className="flex items-center gap-2">
-                                            {isTaskBlocked && (
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
-                                                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                                                </svg>
-                                            )}
-                                            <span>{task.text}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-slate-500">{projectMap.get(task.projectId)}</td>
-                                    <td className="px-6 py-4 text-sm">{task.assigneeId ? <div className="flex items-center gap-2"><Avatar name={personnelMap.get(task.assigneeId) || ''} className="w-6 h-6 text-xs" /><span>{personnelMap.get(task.assigneeId)}</span></div> : 'Unassigned'}</td>
-                                    <td className={`px-6 py-4 text-sm ${isOverdue ? 'text-red-600 font-semibold' : ''}`}>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'N/A'}</td>
-                                    <td className="px-6 py-4 text-sm"><PriorityDisplay priority={task.priority} /></td>
-                                    <td className="px-6 py-4 text-sm"><span className="px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-800">{task.status}</span></td>
-                                </tr>
+                                    <tr key={task.id} className={`hover:bg-slate-50 ${isTaskBlocked ? 'opacity-60' : 'cursor-pointer'}`} onClick={() => !isTaskBlocked && setSelectedTask(task)}>
+                                        {canManage && <td className="px-6 py-4" onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedTasks.has(task.id)} onChange={() => handleSelectTask(task.id)} /></td>}
+                                        <td className="px-6 py-4 font-medium">
+                                            <div className="flex items-center gap-2">
+                                                {isTaskBlocked && (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                                    </svg>
+                                                )}
+                                                <span>{task.text}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-slate-500">{projectMap.get(task.projectId)}</td>
+                                        <td className="px-6 py-4 text-sm">{task.assigneeId ? <div className="flex items-center gap-2"><Avatar name={personnelMap.get(task.assigneeId) || ''} className="w-6 h-6 text-xs" /><span>{personnelMap.get(task.assigneeId)}</span></div> : 'Unassigned'}</td>
+                                        <td className={`px-6 py-4 text-sm ${isOverdue ? 'text-red-600 font-semibold' : ''}`}>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'N/A'}</td>
+                                        <td className="px-6 py-4 text-sm"><PriorityDisplay priority={task.priority} /></td>
+                                        <td className="px-6 py-4 text-sm"><span className="px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-800">{task.status}</span></td>
+                                    </tr>
                                 )
                             })}
                         </tbody>
                     </table>
                 </div>
-                 {filteredTasks.length === 0 && <p className="text-center py-8 text-slate-500">No open tasks match your filters.</p>}
+                {filteredTasks.length === 0 && <p className="text-center py-8 text-slate-500">No open tasks match your filters.</p>}
 
                 {/* Completed Tasks Section */}
                 <div className="mt-8">
@@ -625,7 +632,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                                             <p className="text-xs text-slate-500">in {projectMap.get(task.projectId)}</p>
                                         </div>
                                     </div>
-                                     <div className="text-right text-xs text-slate-500">
+                                    <div className="text-right text-xs text-slate-500">
                                         <p>Completed by {personnelMap.get(task.completedBy!) || 'Unknown'}</p>
                                         {task.completedAt && <p>{new Date(task.completedAt).toLocaleDateString()}</p>}
                                     </div>
@@ -636,20 +643,20 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                 </div>
             </Card>
             <Card>
-                 <div className="flex flex-col md:flex-row gap-4 mb-4 pb-4 border-b">
-                     <select title="Project filter" value={projectFilter} onChange={e => setProjectFilter(e.target.value)} className="w-full md:w-auto p-2 border bg-white rounded-md">
+                <div className="flex flex-col md:flex-row gap-4 mb-4 pb-4 border-b">
+                    <select title="Project filter" value={projectFilter} onChange={e => setProjectFilter(e.target.value)} className="w-full md:w-auto p-2 border bg-white rounded-md">
                         <option value="all">All Projects</option>
                         {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
-                     <select title="Assignee filter" value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)} className="w-full md:w-auto p-2 border bg-white rounded-md">
+                    <select title="Assignee filter" value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)} className="w-full md:w-auto p-2 border bg-white rounded-md">
                         <option value="all">All Assignees</option>
                         <option value="unassigned">Unassigned</option>
                         {personnel.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                     </select>
                 </div>
-                
+
                 {canManage && selectedTasks.size > 0 && (
-                     <div className="p-4 bg-slate-100 rounded-lg mb-4 flex flex-col md:flex-row gap-4 items-center animate-card-enter">
+                    <div className="p-4 bg-slate-100 rounded-lg mb-4 flex flex-col md:flex-row gap-4 items-center animate-card-enter">
                         <span className="font-semibold">{selectedTasks.size} tasks selected</span>
                         <select title="Bulk status" value={bulkStatus} onChange={e => setBulkStatus(e.target.value as TodoStatus | '')} className="p-2 border bg-white rounded-md"><option value="">Change Status...</option>{Object.values(TodoStatus).map(s => <option key={s} value={s}>{s}</option>)}</select>
                         <select title="Bulk priority" value={bulkPriority} onChange={e => setBulkPriority(e.target.value as TodoPriority | '')} className="p-2 border bg-white rounded-md"><option value="">Change Priority...</option>{Object.values(TodoPriority).map(p => <option key={p} value={p}>{p}</option>)}</select>
@@ -677,30 +684,30 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                                 const taskDependencies = (task.dependsOn || []).map(depId => tasks.find(t => t.id === depId)).filter(Boolean) as Todo[];
                                 const isTaskBlocked = taskDependencies.some(dep => dep.status !== TodoStatus.DONE);
                                 return (
-                                <tr key={task.id} className={`hover:bg-slate-50 ${isTaskBlocked ? 'opacity-60' : 'cursor-pointer'}`} onClick={() => !isTaskBlocked && setSelectedTask(task)}>
-                                    {canManage && <td className="px-6 py-4" onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedTasks.has(task.id)} onChange={() => handleSelectTask(task.id)} /></td>}
-                                    <td className="px-6 py-4 font-medium">
-                                        <div className="flex items-center gap-2">
-                                            {isTaskBlocked && (
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
-                                                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
-                                                </svg>
-                                            )}
-                                            <span>{task.text}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm text-slate-500">{projectMap.get(task.projectId)}</td>
-                                    <td className="px-6 py-4 text-sm">{task.assigneeId ? <div className="flex items-center gap-2"><Avatar name={personnelMap.get(task.assigneeId) || ''} className="w-6 h-6 text-xs" /><span>{personnelMap.get(task.assigneeId)}</span></div> : 'Unassigned'}</td>
-                                    <td className={`px-6 py-4 text-sm ${isOverdue ? 'text-red-600 font-semibold' : ''}`}>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'N/A'}</td>
-                                    <td className="px-6 py-4 text-sm"><PriorityDisplay priority={task.priority} /></td>
-                                    <td className="px-6 py-4 text-sm"><span className="px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-800">{task.status}</span></td>
-                                </tr>
+                                    <tr key={task.id} className={`hover:bg-slate-50 ${isTaskBlocked ? 'opacity-60' : 'cursor-pointer'}`} onClick={() => !isTaskBlocked && setSelectedTask(task)}>
+                                        {canManage && <td className="px-6 py-4" onClick={e => e.stopPropagation()}><input type="checkbox" checked={selectedTasks.has(task.id)} onChange={() => handleSelectTask(task.id)} /></td>}
+                                        <td className="px-6 py-4 font-medium">
+                                            <div className="flex items-center gap-2">
+                                                {isTaskBlocked && (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor">
+                                                        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                                                    </svg>
+                                                )}
+                                                <span>{task.text}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm text-slate-500">{projectMap.get(task.projectId)}</td>
+                                        <td className="px-6 py-4 text-sm">{task.assigneeId ? <div className="flex items-center gap-2"><Avatar name={personnelMap.get(task.assigneeId) || ''} className="w-6 h-6 text-xs" /><span>{personnelMap.get(task.assigneeId)}</span></div> : 'Unassigned'}</td>
+                                        <td className={`px-6 py-4 text-sm ${isOverdue ? 'text-red-600 font-semibold' : ''}`}>{task.dueDate ? new Date(task.dueDate).toLocaleDateString() : 'N/A'}</td>
+                                        <td className="px-6 py-4 text-sm"><PriorityDisplay priority={task.priority} /></td>
+                                        <td className="px-6 py-4 text-sm"><span className="px-2 py-1 text-xs font-medium rounded-full bg-slate-100 text-slate-800">{task.status}</span></td>
+                                    </tr>
                                 )
                             })}
                         </tbody>
                     </table>
                 </div>
-                 {filteredTasks.length === 0 && <p className="text-center py-8 text-slate-500">No open tasks match your filters.</p>}
+                {filteredTasks.length === 0 && <p className="text-center py-8 text-slate-500">No open tasks match your filters.</p>}
 
                 {/* Completed Tasks Section */}
                 <div className="mt-8">
@@ -718,7 +725,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                                             <p className="text-xs text-slate-500">in {projectMap.get(task.projectId)}</p>
                                         </div>
                                     </div>
-                                     <div className="text-right text-xs text-slate-500">
+                                    <div className="text-right text-xs text-slate-500">
                                         <p>Completed by {personnelMap.get(task.completedBy!) || 'Unknown'}</p>
                                         {task.completedAt && <p>{new Date(task.completedAt).toLocaleDateString()}</p>}
                                     </div>
@@ -728,7 +735,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                     </details>
                 </div>
             </Card>
-            
+
             <KanbanBoard
                 todos={filteredTodos}
                 allTodos={todos}

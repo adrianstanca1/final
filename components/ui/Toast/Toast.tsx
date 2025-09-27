@@ -11,6 +11,8 @@ export interface ToastProps {
     onClick: () => void;
   };
   onDismiss: () => void;
+}
+
 export function Toast({ id, type = 'info', title, message, action, onDismiss }: ToastProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
@@ -114,8 +116,8 @@ export function Toast({ id, type = 'info', title, message, action, onDismiss }: 
         relative w-full max-w-sm p-4 border rounded-lg shadow-lg backdrop-blur-sm
         transition-all duration-200 ease-out transform
         ${colors.container}
-        ${isVisible && !isExiting 
-          ? 'translate-x-0 opacity-100 scale-100' 
+        ${isVisible && !isExiting
+          ? 'translate-x-0 opacity-100 scale-100'
           : 'translate-x-full opacity-0 scale-95'
         }
         ${isExiting ? 'translate-x-full opacity-0 scale-95' : ''}
@@ -130,14 +132,14 @@ export function Toast({ id, type = 'info', title, message, action, onDismiss }: 
         {/* Content */}
         <div className="flex-1 min-w-0">
           {title && (
-            <h4 
+            <h4
               id={`toast-title-${id}`}
               className={`text-sm font-semibold ${colors.title}`}
             >
               {title}
             </h4>
           )}
-          <p 
+          <p
             id={`toast-message-${id}`}
             className={`text-sm ${title ? 'mt-1' : ''} ${colors.message}`}
           >
@@ -180,12 +182,11 @@ export function Toast({ id, type = 'info', title, message, action, onDismiss }: 
       {/* Progress bar for timed toasts */}
       {type !== 'error' && (
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/10 dark:bg-white/10 rounded-b-lg overflow-hidden">
-          <div 
-            className={`h-full transition-all duration-100 ease-linear ${
-              type === 'success' ? 'bg-green-500' :
-              type === 'warning' ? 'bg-yellow-500' :
-              'bg-blue-500'
-            }`}
+          <div
+            className={`h-full transition-all duration-100 ease-linear ${type === 'success' ? 'bg-green-500' :
+                type === 'warning' ? 'bg-yellow-500' :
+                  'bg-blue-500'
+              }`}
             style={{
               animation: isVisible && !isExiting ? 'toast-progress 5s linear forwards' : 'none'
             }}
