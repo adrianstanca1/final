@@ -131,7 +131,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({ user, addToast, onSe
 
   const handleCreateProject = async (projectData: Partial<Project>) => {
     try {
-      await api.createProject(projectData as Omit<Project, 'id' | 'createdAt'>);
+      await api.createProject(projectData, null, user.id);
       addToast('Project created successfully', 'success');
       setShowCreateModal(false);
       loadProjects();
