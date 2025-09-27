@@ -1,6 +1,0 @@
-API_BASE_URL=https://api.constructapp.com/api
-WEBSOCKET_URL=wss://api.constructapp.com/ws
-GEMINI_API_KEY=
-VAPID_PUBLIC_KEY=
-ANALYTICS_ENABLED=true
-DEBUG_MODE=false
