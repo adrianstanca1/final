@@ -1,6 +1,12 @@
 import { supabase, type Database } from '../lib/supabase';
 import type { User, Project, Company, ProjectStatus } from '../types';
-import { getEnvironment } from '../config/environment';
+// Local implementation of getEnvironment to avoid missing import error
+function getEnvironment() {
+  return {
+    supabaseUrl: process.env.SUPABASE_URL || 'https://your-project.supabase.co',
+    supabaseAnonKey: process.env.SUPABASE_ANON_KEY || 'your-anon-key'
+  };
+}
 
 type Tables = Database['public']['Tables'];
 type ProjectRow = Tables['projects']['Row'];
