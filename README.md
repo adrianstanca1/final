@@ -28,6 +28,7 @@ The app reads Gemini credentials from the standard Vite prefix so they are avail
 | `VITE_GEMINI_API_KEY` | Required. Client-exposed Gemini key used by the browser app. |
 | `GEMINI_API_KEY` | Optional. Server-side Gemini key used during builds and as a fallback for tooling. |
 | `VITE_API_BASE_URL` | Optional. REST endpoint for an external auth service. When omitted the mock API persists data in encrypted browser storage. |
+<<<<<<< HEAD
 
 ### Backend service (IONOS-ready)
 
@@ -39,6 +40,8 @@ The repository now ships with a production-ready Express backend under [`server/
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | Secrets used to sign stateless JWT access and refresh tokens. |
 | `UPLOAD_ROOT` | Filesystem directory for tenant-specific uploads (`docs/<tenant_id>/`). |
 | `RATE_LIMIT_WINDOW_MS` / `RATE_LIMIT_MAX` | Express rate limiter configuration to shield the API from abuse. |
+=======
+>>>>>>> origin/main
 
 ## Deploying to Vercel
 
@@ -52,6 +55,7 @@ After the first build completes, visit the generated Vercel URL to confirm the a
 ### Configure authentication backend
 
 By default the registration and login flows use the encrypted in-browser mock API. Provide a `VITE_API_BASE_URL` in `.env.local` (and mirror it in production secrets) to connect to a real authentication service. If that service becomes unreachable you can allow automatic fallback to the mock implementation by exposing `window.__ASAGENTS_API_BASE_URL__` at runtime or by calling `configureAuthClient({ baseUrl, allowMockFallback: true })` during app bootstrap.
+<<<<<<< HEAD
 
 To exercise the new multi-tenant backend locally:
 
@@ -68,6 +72,8 @@ npm run dev
 ```
 
 Seed the MariaDB database with [`docs/db/schema.sql`](docs/db/schema.sql) and [`docs/db/seed.sql`](docs/db/seed.sql) before logging in.
+=======
+>>>>>>> origin/main
 
 ## Deployment automation
 
@@ -82,4 +88,8 @@ This project ships with a fully automated CI/CD pipeline backed by GitHub Action
 - **Runbooks & responsibilities**: [docs/deployment-plan.md](docs/deployment-plan.md) outlines automation flow, operational checklists, and ownership model for engineers, reviewers, QA, and on-call.
 - **Vercel-specific setup**: follow [docs/vercel-deployment.md](docs/vercel-deployment.md) to connect the repository to Vercel and provision `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`.
 - **Gemini credentials**: store the shared Gemini credential as `GEMINI_API_KEY` in repository secrets and mirror it to `VITE_GEMINI_API_KEY` (or provide a separate client-safe key). Developers keep personal keys in `.env.local` for local runs.
+<<<<<<< HEAD
 - **Monitoring**: follow the plan's observability section to wire synthetic uptime checks and error tracking so deployments stay production ready.
+=======
+- **Monitoring**: follow the plan's observability section to wire synthetic uptime checks and error tracking so deployments stay production ready.
+>>>>>>> origin/main

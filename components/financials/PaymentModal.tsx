@@ -71,5 +71,8 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ invoice, balance, onClose, 
     </div>
   );
 };
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/main
 export default PaymentModal;

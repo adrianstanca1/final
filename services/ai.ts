@@ -29,6 +29,7 @@ const DEFAULT_GENERATION_CONFIG: GenerateContentConfig = {
   maxOutputTokens: 768,
 };
 
+<<<<<<< HEAD
 const normaliseForCache = (value: unknown): unknown => {
   if (Array.isArray(value)) {
     return value.map(normaliseForCache);
@@ -100,6 +101,8 @@ const extractTextFromResponse = (response?: GenerateContentResponse | null): str
   return null;
 };
 
+=======
+>>>>>>> origin/main
 const hashString = (value: string): string => {
   let hash = 0;
   for (let index = 0; index < value.length; index += 1) {
@@ -165,8 +168,12 @@ const callGemini = async (
   }
 
   // Check cache first
+<<<<<<< HEAD
   const generationConfig = sanitiseGenerationConfig(overrides);
   const cacheKey = `ai:${hashString(prompt)}:${prompt.length}:${JSON.stringify(normaliseForCache(generationConfig))}`;
+=======
+  const cacheKey = `ai:${hashString(prompt)}:${prompt.length}:${JSON.stringify(overrides)}`;
+>>>>>>> origin/main
   const cached = apiCache.get<GenerateContentResponse>(cacheKey);
   if (cached) {
     return cached;
@@ -457,7 +464,11 @@ export const generateAdvisorResponse = async (
 
   const response = await callGemini(prompt, overrides);
 
+<<<<<<< HEAD
   const text = extractTextFromResponse(response);
+=======
+  const text = response?.text?.trim();
+>>>>>>> origin/main
   if (text) {
     const metadata: Record<string, unknown> = {
       intent: input.intent ?? 'general',

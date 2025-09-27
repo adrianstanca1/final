@@ -1,11 +1,13 @@
 // A mock API that persists data using a browser-like storage adapter.
 // Supports offline queuing for write operations.
+// Now integrates with Supabase database service when available.
 
 import { initialData } from './mockData';
 import { apiCache, cacheKeys } from './cacheService';
 import { ValidationService, securityValidation } from './validationService';
 import { notificationService } from './notificationService';
 import { getStorage } from '../utils/storage';
+import { databaseService } from './databaseService';
 import { upgradeLegacyPassword, createPasswordRecord, verifyPassword, sanitizeUser } from '../utils/password';
 import {
     User,
@@ -1337,9 +1339,27 @@ export const api = {
         ensureNotAborted(options?.signal);
         return db.documents as Document[];
     },
+    getProjects: async (options?: RequestOptions): Promise<Project[]> => {
+        ensureNotAborted(options?.signal);
+        try {
+            // Try to use database service first
+            return await databaseService.getProjects();
+        } catch (error) {
+            // Fall back to local data
+            console.warn('Database service unavailable, using local data:', error);
+            return db.projects as Project[];
+        }
+    },
     getProjectsByCompany: async (companyId: string, options?: RequestOptions): Promise<Project[]> => {
         ensureNotAborted(options?.signal);
-        return db.projects.filter(p => p.companyId === companyId) as Project[];
+        try {
+            // Try to use database service first
+            return await databaseService.getProjects(companyId);
+        } catch (error) {
+            // Fall back to local data
+            console.warn('Database service unavailable, using local data:', error);
+            return db.projects.filter(p => p.companyId === companyId) as Project[];
+        }
     },
     getProjectPortfolioSummary: async (companyId: string, options?: ProjectSummaryOptions): Promise<ProjectPortfolioSummary> => {
         ensureNotAborted(options?.signal);
@@ -1379,7 +1399,14 @@ export const api = {
     },
     getCompanies: async (options?: RequestOptions): Promise<Company[]> => {
         ensureNotAborted(options?.signal);
-        return db.companies as Company[];
+        try {
+            // Try to use database service first
+            return await databaseService.getCompanies();
+        } catch (error) {
+            // Fall back to local data
+            console.warn('Database service unavailable, using local data:', error);
+            return db.companies as Company[];
+        }
     },
     getPlatformUsageMetrics: async (options?: RequestOptions): Promise<UsageMetric[]> => {
         ensureNotAborted(options?.signal);
@@ -2076,11 +2103,31 @@ export const api = {
     },
     createProject: async (data: any, templateId: number | null, userId: string): Promise<Project> => {
         const companyId = db.users.find(u=>u.id===userId)?.companyId;
-        const newProject = { ...data, id: String(Date.now()), companyId, status: 'PLANNING', actualCost: 0 };
-        db.projects.push(newProject);
-        db.projectAssignments.push({ userId, projectId: newProject.id });
-        saveDb();
-        return newProject as Project;
+        const projectData = {
+            ...data,
+            companyId,
+            status: data.status || 'PLANNING',
+            actualCost: data.actualCost || 0,
+            spent: data.spent || 0,
+            geofenceRadius: data.geofenceRadius || 100
+        };
+
+        try {
+            // Try to use database service first
+            const newProject = await databaseService.createProject(projectData, userId);
+            // Also add to local assignments for compatibility
+            db.projectAssignments.push({ userId, projectId: newProject.id });
+            saveDb();
+            return newProject;
+        } catch (error) {
+            // Fall back to local storage
+            console.warn('Database service unavailable, using local storage:', error);
+            const newProject = { ...projectData, id: String(Date.now()), createdAt: new Date().toISOString() };
+            db.projects.push(newProject);
+            db.projectAssignments.push({ userId, projectId: newProject.id });
+            saveDb();
+            return newProject as Project;
+        }
     },
     updateProject: async (id: string, data: any, userId: string): Promise<Project> => {
         const index = db.projects.findIndex(p => p.id === id);
@@ -2235,5 +2282,47 @@ export const api = {
         db.projectMessages.push(newMessage);
         saveDb();
         return newMessage as ProjectMessage;
+    },
+    
+    generateCostEstimate: async (description: string, sqft: number, quality: string): Promise<any> => {
+        await delay();
+        
+        // Basic cost calculation based on UK construction rates
+        const baseRatePerSqft = quality === 'basic' ? 80 : quality === 'medium' ? 120 : 180;
+        const baseTotal = sqft * baseRatePerSqft;
+        const contingency = Math.round(baseTotal * 0.15); // 15% contingency
+        const totalEstimate = baseTotal + contingency;
+        
+        const breakdown = [
+            {
+                category: 'Materials',
+                cost: Math.round(baseTotal * 0.4),
+                details: 'Construction materials, fixtures, and finishes'
+            },
+            {
+                category: 'Labour',
+                cost: Math.round(baseTotal * 0.35),
+                details: 'Skilled trades and construction workers'
+            },
+            {
+                category: 'Equipment & Tools',
+                cost: Math.round(baseTotal * 0.1),
+                details: 'Machinery, tools, and equipment rental'
+            },
+            {
+                category: 'Permits & Professional Services',
+                cost: Math.round(baseTotal * 0.15),
+                details: 'Building permits, architect fees, engineering services'
+            }
+        ];
+        
+        const summary = `Estimated cost for ${sqft} sq ft ${quality} quality construction project. This estimate includes materials, labour, equipment, and professional services with a 15% contingency buffer.`;
+        
+        return {
+            totalEstimate,
+            breakdown,
+            contingency,
+            summary
+        };
     }
 };

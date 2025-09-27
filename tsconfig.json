@@ -10,9 +10,10 @@
       "DOM.Iterable"
     ],
     "skipLibCheck": true,
+    "noErrorTruncation": false,
     "types": [
       "node",
-      "vitest",
+      "vitest/globals",
       "vite/client"
     ],
     "moduleResolution": "bundler",
@@ -26,11 +27,31 @@
       ]
     },
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": false,
+    "strict": false,
+    "noImplicitAny": false,
+    "noImplicitReturns": false,
+    "noFallthroughCasesInSwitch": false
   },
-  "files": [
+  "include": [
     "index.tsx",
+<<<<<<< HEAD
     "App.tsx"
+=======
+    "App.tsx",
+    "App.stable.tsx",
+    "vite.config.ts",
+    "types.ts",
+    "components/**/*",
+    "contexts/**/*",
+    "hooks/**/*",
+    "services/**/*",
+    "utils/**/*",
+    "tests/**/*"
+>>>>>>> origin/main
   ],
   "exclude": [
     "node_modules",
