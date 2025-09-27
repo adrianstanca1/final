@@ -1,6 +1,8 @@
 import { pool } from './db.js';
 import { logger } from '../utils/logger.js';
 import type { RowDataPacket } from 'mysql2/promise';
+import { performance } from 'perf_hooks';
+import { validateTenantAccess, addTenantFilter } from '../middleware/tenantIsolation.js';
 
 /**
  * Enhanced Backend Integration Service

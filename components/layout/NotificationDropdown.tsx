@@ -106,71 +106,73 @@ const NotificationIcon: React.FC<{ type: NotificationType }> = ({ type }) => {
                 'bg-slate-100 text-slate-600'
             );
     }
-    export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ user: _user, notifications, onClose, addToast, onNotificationClick, onMarkAllAsRead }) => {
-        const [isMarkingAll, setIsMarkingAll] = React.useState(false);
-        const hasUnread = notifications.some(n => !(n.isRead ?? n.read));
+};
 
-        const handleNotificationSelect = async (notification: Notification) => {
-            try {
-                await onNotificationClick(notification);
-            } catch (error) {
-                console.error('Failed to open notification', error);
-                addToast('Unable to open that notification. Please try again.', 'error');
-                return;
-            }
-            onClose();
-        };
+export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ user: _user, notifications, onClose, addToast, onNotificationClick, onMarkAllAsRead }) => {
+    const [isMarkingAll, setIsMarkingAll] = React.useState(false);
+    const hasUnread = notifications.some(n => !(n.isRead ?? n.read));
 
-        const handleMarkAllClick = async () => {
-            if (!hasUnread || isMarkingAll) return;
-            try {
-                setIsMarkingAll(true);
-                await onMarkAllAsRead();
-                addToast('All notifications marked as read.', 'success');
-            } catch (error) {
-                console.error('Failed to mark notifications as read', error);
-                addToast('Unable to mark notifications as read. Please try again.', 'error');
-            } finally {
-                setIsMarkingAll(false);
-            }
-        };
-
-        return (
-            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-card rounded-md shadow-lg border border-border z-20 flex flex-col max-h-[80vh]">
-                <div className="p-4 border-b border-border flex justify-between items-center">
-                    <h3 className="font-semibold text-lg text-card-foreground">Notifications</h3>
-                    <Button variant="ghost" size="sm" onClick={handleMarkAllClick} disabled={!hasUnread || isMarkingAll}>
-                        {isMarkingAll ? 'Marking...' : 'Mark all as read'}
-                    </Button>
-                </div>
-                <div className="overflow-y-auto">
-                    {notifications.length === 0 ? (
-                        <p className="p-8 text-center text-muted-foreground">You have no notifications.</p>
-                    ) : (
-                        notifications.map(n => {
-                            const isRead = n.isRead ?? n.read;
-                            return (
-                                <div
-                                    key={n.id}
-                                    onClick={() => {
-                                        onNotificationClick(n);
-                                        onClose();
-                                    }}
-                                    className={`flex items-start gap-3 p-4 border-b border-border hover:bg-accent cursor-pointer ${!isRead ? 'bg-primary/10' : ''}`}
-                                >
-                                    {!isRead && <div className="w-2 h-2 rounded-full bg-primary mt-1.5 flex-shrink-0"></div>}
-                                    <div className={`flex-shrink-0 ${isRead ? 'ml-4' : ''}`}>
-                                        <NotificationIcon type={n.type} />
-                                    </div>
-                                    <div className="flex-grow">
-                                        <p className="text-sm text-card-foreground">{n.message}</p>
-                                        <p className="text-xs text-muted-foreground mt-1">{formatDistanceToNow(new Date(n.createdAt))} ago</p>
-                                    </div>
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
-            </div>
-        );
+    const handleNotificationSelect = async (notification: Notification) => {
+        try {
+            await onNotificationClick(notification);
+        } catch (error) {
+            console.error('Failed to open notification', error);
+            addToast('Unable to open that notification. Please try again.', 'error');
+            return;
+        }
+        onClose();
     };
+
+    const handleMarkAllClick = async () => {
+        if (!hasUnread || isMarkingAll) return;
+        try {
+            setIsMarkingAll(true);
+            await onMarkAllAsRead();
+            addToast('All notifications marked as read.', 'success');
+        } catch (error) {
+            console.error('Failed to mark notifications as read', error);
+            addToast('Unable to mark notifications as read. Please try again.', 'error');
+        } finally {
+            setIsMarkingAll(false);
+        }
+    };
+
+    return (
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-card rounded-md shadow-lg border border-border z-20 flex flex-col max-h-[80vh]">
+            <div className="p-4 border-b border-border flex justify-between items-center">
+                <h3 className="font-semibold text-lg text-card-foreground">Notifications</h3>
+                <Button variant="ghost" size="sm" onClick={handleMarkAllClick} disabled={!hasUnread || isMarkingAll}>
+                    {isMarkingAll ? 'Marking...' : 'Mark all as read'}
+                </Button>
+            </div>
+            <div className="overflow-y-auto">
+                {notifications.length === 0 ? (
+                    <p className="p-8 text-center text-muted-foreground">You have no notifications.</p>
+                ) : (
+                    notifications.map(n => {
+                        const isRead = n.isRead ?? n.read;
+                        return (
+                            <div
+                                key={n.id}
+                                onClick={() => {
+                                    onNotificationClick(n);
+                                    onClose();
+                                }}
+                                className={`flex items-start gap-3 p-4 border-b border-border hover:bg-accent cursor-pointer ${!isRead ? 'bg-primary/10' : ''}`}
+                            >
+                                {!isRead && <div className="w-2 h-2 rounded-full bg-primary mt-1.5 flex-shrink-0"></div>}
+                                <div className={`flex-shrink-0 ${isRead ? 'ml-4' : ''}`}>
+                                    <NotificationIcon type={n.type} />
+                                </div>
+                                <div className="flex-grow">
+                                    <p className="text-sm text-card-foreground">{n.message}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">{formatDistanceToNow(new Date(n.createdAt))} ago</p>
+                                </div>
+                            </div>
+                        );
+                    })
+                )}
+            </div>
+        </div>
+    );
+};

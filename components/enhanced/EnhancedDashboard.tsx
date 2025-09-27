@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { User, Project, Todo, Expense, SafetyIncident, Equipment } from '../../types';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Avatar } from '../ui/Avatar';
 import { Tag } from '../ui/Tag';
 import { BarChart } from '../financials/BarChart';
+
+// Enhanced dashboard with real-time updates and advanced analytics
 
 interface EnhancedDashboardProps {
   user: User;
@@ -16,6 +18,24 @@ interface EnhancedDashboardProps {
   team: User[];
   onNavigate: (view: string, data?: any) => void;
   addToast: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
+}
+
+interface DashboardMetrics {
+  performance: {
+    loadTime: number;
+    lastUpdate: Date;
+    dataFreshness: 'real-time' | 'cached' | 'stale';
+  };
+  integrity: {
+    dataConsistency: number;
+    validationErrors: string[];
+    missingData: string[];
+  };
+  analytics: {
+    userEngagement: number;
+    featureUsage: Record<string, number>;
+    errorRate: number;
+  };
 }
 
 interface DashboardWidget {
@@ -59,7 +79,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
   };
 
   return (
-    <Card 
+    <Card
       className={`p-6 cursor-pointer transition-all duration-200 hover:shadow-md ${onClick ? 'hover:scale-105' : ''}`}
       onClick={onClick}
     >
@@ -70,9 +90,8 @@ const MetricCard: React.FC<MetricCardProps> = ({
           {change && (
             <div className="flex items-center mt-2">
               <svg
-                className={`h-4 w-4 mr-1 ${
-                  change.type === 'increase' ? 'text-green-500' : 'text-red-500'
-                }`}
+                className={`h-4 w-4 mr-1 ${change.type === 'increase' ? 'text-green-500' : 'text-red-500'
+                  }`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -84,9 +103,8 @@ const MetricCard: React.FC<MetricCardProps> = ({
                   d={change.type === 'increase' ? 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6' : 'M13 17h8m0 0V9m0 8l-8-8-4 4-6-6'}
                 />
               </svg>
-              <span className={`text-sm font-medium ${
-                change.type === 'increase' ? 'text-green-600' : 'text-red-600'
-              }`}>
+              <span className={`text-sm font-medium ${change.type === 'increase' ? 'text-green-600' : 'text-red-600'
+                }`}>
                 {Math.abs(change.value)}%
               </span>
               <span className="text-sm text-gray-500 ml-1">{change.period}</span>
@@ -177,7 +195,7 @@ const RecentActivity: React.FC<{
           View All
         </Button>
       </div>
-      
+
       <div className="space-y-4">
         {activities.slice(0, 5).map(activity => (
           <div key={activity.id} className="flex items-start space-x-3">
@@ -227,12 +245,12 @@ const ProjectHealthOverview: React.FC<{
     return projects.map(project => {
       const projectTasks = tasks.filter(task => task.projectId === project.id);
       const completedTasks = projectTasks.filter(task => task.status === 'DONE');
-      const overdueTasks = projectTasks.filter(task => 
+      const overdueTasks = projectTasks.filter(task =>
         task.dueDate && new Date(task.dueDate) < new Date() && task.status !== 'DONE'
       );
-      
+
       const progress = projectTasks.length > 0 ? (completedTasks.length / projectTasks.length) * 100 : 0;
-      
+
       let healthStatus: 'excellent' | 'good' | 'warning' | 'critical' = 'excellent';
       if (overdueTasks.length > 0) {
         healthStatus = overdueTasks.length > 3 ? 'critical' : 'warning';
@@ -264,7 +282,7 @@ const ProjectHealthOverview: React.FC<{
   return (
     <Card className="p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">Project Health</h3>
-      
+
       <div className="space-y-4">
         {projectHealth.slice(0, 5).map(({ project, progress, totalTasks, completedTasks, overdueTasks, healthStatus }) => (
           <div
@@ -278,23 +296,22 @@ const ProjectHealthOverview: React.FC<{
                 {healthStatus}
               </div>
             </div>
-            
+
             <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
               <span>{completedTasks}/{totalTasks} tasks completed</span>
               <span>{progress}%</span>
             </div>
-            
+
             <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
               <div
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  progress >= 80 ? 'bg-green-500' :
+                className={`h-2 rounded-full transition-all duration-300 ${progress >= 80 ? 'bg-green-500' :
                   progress >= 60 ? 'bg-blue-500' :
-                  progress >= 40 ? 'bg-yellow-500' : 'bg-red-500'
-                }`}
+                    progress >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+                  }`}
                 style={{ width: `${progress}%` }}
               />
             </div>
-            
+
             {overdueTasks > 0 && (
               <div className="flex items-center text-xs text-red-600">
                 <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -343,10 +360,10 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
     const completedTasks = tasks.filter(t => t.status === 'DONE').length;
     const totalTasks = tasks.length;
     const taskCompletionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
-    
+
     const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
     const pendingExpenses = expenses.filter(e => e.status === 'PENDING').length;
-    
+
     const openIncidents = incidents.filter(i => i.status === 'OPEN').length;
     const availableEquipment = equipment.filter(e => e.status === 'AVAILABLE').length;
 
@@ -426,7 +443,7 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
             Here's what's happening with your projects today.
           </p>
         </div>
-        
+
         <div className="flex items-center space-x-3">
           <select
             value={refreshInterval || ''}
@@ -438,7 +455,7 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
             <option value="60">Auto-refresh 1m</option>
             <option value="300">Auto-refresh 5m</option>
           </select>
-          
+
           <Button
             variant="secondary"
             onClick={() => {
@@ -467,7 +484,7 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
           color="blue"
           onClick={() => onNavigate('projects')}
         />
-        
+
         <MetricCard
           title="Task Completion"
           value={`${metrics.taskCompletionRate}%`}
@@ -479,7 +496,7 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
           color="green"
           onClick={() => onNavigate('tasks')}
         />
-        
+
         <MetricCard
           title="Total Expenses"
           value={`$${metrics.totalExpenses.toLocaleString()}`}
@@ -491,7 +508,7 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
           color="yellow"
           onClick={() => onNavigate('financials')}
         />
-        
+
         <MetricCard
           title="Safety Incidents"
           value={metrics.openIncidents}
@@ -515,7 +532,7 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
             onProjectClick={(project) => onNavigate('project-detail', project)}
           />
         </div>
-        
+
         {/* Recent Activity */}
         <div>
           <RecentActivity
@@ -542,7 +559,7 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
             barColor="bg-blue-500"
           />
         </Card>
-        
+
         <Card className="p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Team Performance</h3>
           <div className="space-y-4">
@@ -550,7 +567,7 @@ export const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
               const memberTasks = tasks.filter(t => t.assigneeId === member.id);
               const completedTasks = memberTasks.filter(t => t.status === 'DONE');
               const completionRate = memberTasks.length > 0 ? (completedTasks.length / memberTasks.length) * 100 : 0;
-              
+
               return (
                 <div key={member.id} className="flex items-center space-x-3">
                   <Avatar

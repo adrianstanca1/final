@@ -123,6 +123,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
     const [operationalInsights, setOperationalInsights] = useState<OperationalInsights | null>(null);
     const [snapshotMetadata, setSnapshotMetadata] = useState<DashboardSnapshotMetadata | null>(null);
 
+    // Enhanced dashboard state
+    const [dashboardHealth, setDashboardHealth] = useState<'excellent' | 'good' | 'warning' | 'critical'>('good');
+    const [realTimeUpdates, setRealTimeUpdates] = useState(true);
+    const [dataIntegrity, setDataIntegrity] = useState({ score: 95, issues: [] as string[] });
+    const [performanceMetrics, setPerformanceMetrics] = useState({ loadTime: 0, lastUpdate: new Date() });
+
     const [aiSelectedProjectId, setAiSelectedProjectId] = useState<string | null>(null);
     const [aiSummary, setAiSummary] = useState<ProjectHealthSummaryResult | null>(null);
     const [aiSummaryProjectId, setAiSummaryProjectId] = useState<string | null>(null);
