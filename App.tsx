@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Login } from './components/Login';
 import { UserRegistration } from './components/UserRegistration';
+import { authClient } from './services/authClient';
 import { Card } from './components/ui/Card';
 import { Sidebar as SidebarLite } from './components/layout/SidebarLite';
 import { ToolsView } from './components/ToolsView';
@@ -32,6 +33,29 @@ const AppInner: React.FC = () => {
     if (type === 'error') console.error(message);
     else console.info(message);
   }, []);
+
+  // Handle GitHub OAuth callback
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const state = urlParams.get('state');
+
+    if (code && state && window.location.pathname === '/') {
+      // This is a GitHub OAuth callback
+      authClient.handleGitHubCallback(code, state)
+        .then(() => {
+          // Clear URL parameters
+          window.history.replaceState({}, document.title, window.location.pathname);
+          addToast('Successfully signed in with GitHub!', 'success');
+        })
+        .catch((error) => {
+          console.error('GitHub OAuth callback failed:', error);
+          addToast('GitHub sign-in failed. Please try again.', 'error');
+          // Clear URL parameters even on error
+          window.history.replaceState({}, document.title, window.location.pathname);
+        });
+    }
+  }, [addToast]);
 
   useEffect(() => {
     if (!user) {

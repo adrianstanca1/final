@@ -1,6 +1,7 @@
 import { authApi } from './mockApi';
 import type { LoginCredentials, RegistrationPayload, User, Company, Role, CompanyType, SocialProvider } from '../types';
 import { getEnvironment, refreshEnvironment } from '../config/environment';
+import { oauthService, type OAuthUserInfo } from './oauthService';
 
 export type AuthenticatedSession = {
     success: true;
@@ -233,12 +234,59 @@ export const authClient = {
             () => authApi.register(payload)
         ),
 
-    socialLogin: (provider: SocialProvider, profile: { email?: string; name?: string } = {}): Promise<AuthenticatedSession> =>
-        withAuthFallback<AuthenticatedSession>(
+    socialLogin: async (provider: SocialProvider, profile: { email?: string; name?: string } = {}): Promise<AuthenticatedSession> => {
+        // Try OAuth service first for enhanced authentication
+        try {
+            let oauthUserInfo: OAuthUserInfo | null = null;
+
+            if (provider === 'google' || provider === 'facebook') {
+                oauthUserInfo = await oauthService.initiateOAuthIo(provider);
+            }
+
+            if (oauthUserInfo) {
+                // Use OAuth service data
+                return await withAuthFallback<AuthenticatedSession>(
+                    '/auth/social/login',
+                    { method: 'POST', body: JSON.stringify({ provider, ...oauthUserInfo }) },
+                    () => authApi.socialLogin({ provider, email: oauthUserInfo!.email, name: oauthUserInfo!.name })
+                );
+            }
+        } catch (error) {
+            console.warn('OAuth service failed, falling back to basic social login:', error);
+        }
+
+        // Fallback to basic social login
+        return withAuthFallback<AuthenticatedSession>(
             '/auth/social/login',
             { method: 'POST', body: JSON.stringify({ provider, ...profile }) },
             () => authApi.socialLogin({ provider, ...profile })
-        ),
+        );
+    },
+
+    githubLogin: async (): Promise<AuthenticatedSession> => {
+        try {
+            await oauthService.initiateGitHubAuth();
+            // This will redirect to GitHub, so we won't reach this point
+            throw new Error('GitHub authentication redirect failed');
+        } catch (error) {
+            console.error('GitHub OAuth failed:', error);
+            throw error;
+        }
+    },
+
+    handleGitHubCallback: async (code: string, state: string): Promise<AuthenticatedSession> => {
+        try {
+            const userInfo = await oauthService.handleGitHubCallback(code, state);
+            return await withAuthFallback<AuthenticatedSession>(
+                '/auth/github/callback',
+                { method: 'POST', body: JSON.stringify({ code, state }) },
+                () => authApi.socialLogin({ provider: 'google', email: userInfo.email, name: userInfo.name })
+            );
+        } catch (error) {
+            console.error('GitHub callback failed:', error);
+            throw error;
+        }
+    },
 
     verifyMfa: (userId: string, code: string): Promise<AuthenticatedSession> =>
         withAuthFallback<AuthenticatedSession>(

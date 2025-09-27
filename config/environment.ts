@@ -5,14 +5,24 @@ export interface Environment {
   authUrl: string;
   isDevelopment: boolean;
   isProduction: boolean;
+  oauth: {
+    github: {
+      clientId: string;
+      enabled: boolean;
+    };
+    oauthIo: {
+      publicKey: string;
+      enabled: boolean;
+    };
+  };
+  features: {
+    allowMockFallback: boolean;
+    useSupabase: boolean;
+  };
 }
 
-export interface EnvironmentShape {
-  name: string;
-  apiUrl: string;
-  authUrl: string;
-  isDevelopment: boolean;
-  isProduction: boolean;
+export interface EnvironmentShape extends Environment {
+  timestamp?: string;
   [key: string]: any;
 }
 
@@ -23,6 +33,20 @@ const environments: Record<string, Environment> = {
     authUrl: 'http://localhost:3000/auth',
     isDevelopment: true,
     isProduction: false,
+    oauth: {
+      github: {
+        clientId: import.meta.env.VITE_GITHUB_CLIENT_ID || '',
+        enabled: !!import.meta.env.VITE_GITHUB_CLIENT_ID,
+      },
+      oauthIo: {
+        publicKey: import.meta.env.VITE_OAUTH_IO_PUBLIC_KEY || '',
+        enabled: !!import.meta.env.VITE_OAUTH_IO_PUBLIC_KEY,
+      },
+    },
+    features: {
+      allowMockFallback: import.meta.env.VITE_ALLOW_MOCK_FALLBACK !== 'false',
+      useSupabase: import.meta.env.VITE_USE_SUPABASE === 'true',
+    },
   },
   production: {
     name: 'production',
@@ -30,6 +54,20 @@ const environments: Record<string, Environment> = {
     authUrl: '/auth',
     isDevelopment: false,
     isProduction: true,
+    oauth: {
+      github: {
+        clientId: import.meta.env.VITE_GITHUB_CLIENT_ID || '',
+        enabled: !!import.meta.env.VITE_GITHUB_CLIENT_ID,
+      },
+      oauthIo: {
+        publicKey: import.meta.env.VITE_OAUTH_IO_PUBLIC_KEY || '',
+        enabled: !!import.meta.env.VITE_OAUTH_IO_PUBLIC_KEY,
+      },
+    },
+    features: {
+      allowMockFallback: import.meta.env.VITE_ALLOW_MOCK_FALLBACK !== 'false',
+      useSupabase: import.meta.env.VITE_USE_SUPABASE === 'true',
+    },
   },
 };
 
