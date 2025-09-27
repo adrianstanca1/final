@@ -16,6 +16,7 @@ export type Database = {
           max_users: number
           status: string
           created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
@@ -23,12 +24,15 @@ export type Database = {
           storage_usage_gb?: number
           max_users?: number
           status?: string
+          created_at?: string
+          updated_at?: string
         }
         Update: {
           name?: string
           storage_usage_gb?: number
           max_users?: number
           status?: string
+          updated_at?: string
         }
       }
       users: {
@@ -43,6 +47,7 @@ export type Database = {
           phone: string | null
           mfa_enabled: boolean
           created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
@@ -54,6 +59,8 @@ export type Database = {
           avatar?: string | null
           phone?: string | null
           mfa_enabled?: boolean
+          created_at?: string
+          updated_at?: string
         }
         Update: {
           company_id?: string
@@ -64,6 +71,7 @@ export type Database = {
           avatar?: string | null
           phone?: string | null
           mfa_enabled?: boolean
+          updated_at?: string
         }
       }
       projects: {
@@ -85,6 +93,7 @@ export type Database = {
           work_classification: string
           geofence_radius: number
           created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
@@ -103,6 +112,8 @@ export type Database = {
           project_type: string
           work_classification: string
           geofence_radius?: number
+          created_at?: string
+          updated_at?: string
         }
         Update: {
           name?: string
@@ -119,6 +130,77 @@ export type Database = {
           project_type?: string
           work_classification?: string
           geofence_radius?: number
+          updated_at?: string
+        }
+      }
+      tasks: {
+        Row: {
+          id: string
+          project_id: string
+          title: string
+          description: string | null
+          status: string
+          priority: string
+          assignee_id: string | null
+          due_date: string | null
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          title: string
+          description?: string | null
+          status?: string
+          priority?: string
+          assignee_id?: string | null
+          due_date?: string | null
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          project_id?: string
+          title?: string
+          description?: string | null
+          status?: string
+          priority?: string
+          assignee_id?: string | null
+          due_date?: string | null
+          updated_at?: string
+        }
+      }
+      expenses: {
+        Row: {
+          id: string
+          project_id: string
+          category: string
+          amount: number
+          description: string
+          date: string
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          category: string
+          amount: number
+          description: string
+          date: string
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          project_id?: string
+          category?: string
+          amount?: number
+          description?: string
+          date?: string
+          updated_at?: string
         }
       }
     }
