@@ -1,18 +1,24 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Login } from './components/Login';
 import { UserRegistration } from './components/UserRegistration';
 import { Card } from './components/ui/Card';
 import { Sidebar as SidebarLite } from './components/layout/SidebarLite';
 import { ToolsView } from './components/ToolsView';
-import { FinancialsViewLite } from './components/FinancialsViewLite';
+import { FinancialsView } from './components/FinancialsView';
 import { Dashboard } from './components/Dashboard';
 import { PrincipalAdminDashboard } from './components/PrincipalAdminDashboard';
 import { SettingsView } from './components/SettingsView';
 import { ErrorBoundary } from './components/layout/ErrorBoundary';
+import { ClientsView } from './components/ClientsView';
 import type { View } from './types';
 import { Role, type Company } from './types';
 import { api } from './services/mockApi';
+
+const ButtonRow: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="flex items-center justify-center gap-2">{children}</div>
+);
+
 
 const AppInner: React.FC = () => {
   const { user, company, logout } = useAuth();
@@ -20,12 +26,12 @@ const AppInner: React.FC = () => {
   const [activeView, setActiveView] = useState<View>('dashboard');
   const [tenantOptions, setTenantOptions] = useState<Array<{ id: string; name: string }>>([]);
   const [activeTenantId, setActiveTenantId] = useState<string | null>(null);
-  const [tenantsLoading, setTenantsLoading] = useState(false);
+  const [tenantsLoading, setTenantsLoading] = useState(false); // State to track loading of tenant options
 
-  const addToast = (message: string, type: 'success' | 'error') => {
+  const addToast = useCallback((message: string, type: 'success' | 'error') => {
     if (type === 'error') console.error(message);
-    else console.log(message);
-  };
+    else console.info(message);
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -226,7 +232,10 @@ const AppInner: React.FC = () => {
               <ToolsView user={user} addToast={addToast} setActiveView={setActiveView} />
             )}
             {activeView === 'financials' && (
-              <FinancialsViewLite user={user} addToast={addToast} />
+              <FinancialsView user={user} addToast={addToast} />
+            )}
+            {activeView === 'clients' && (
+              <ClientsView user={user} addToast={addToast} />
             )}
             {activeView === 'settings' && <SettingsView />}
             {activeView !== 'tools' &&
@@ -234,21 +243,18 @@ const AppInner: React.FC = () => {
               activeView !== 'dashboard' &&
               activeView !== 'principal-dashboard' &&
               activeView !== 'settings' && (
-              <Card className="p-6">
-                <h2 className="text-xl font-semibold text-foreground">Coming soon</h2>
-                <p className="text-sm text-muted-foreground mt-1">The "{activeView}" view will be restored next.</p>
-              </Card>
-            )}
+                <Card className="p-6">
+
+                  <h2 className="text-xl font-semibold text-foreground">Coming soon</h2>
+                  <p className="text-sm text-muted-foreground mt-1">The "{activeView}" view will be restored next.</p>
+                </Card>
+              )}
           </ErrorBoundary>
         </main>
       </div>
     </div>
   );
 };
-
-const ButtonRow: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="flex items-center justify-center gap-2">{children}</div>
-);
 
 const App: React.FC = () => (
   <AuthProvider>

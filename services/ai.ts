@@ -1,4 +1,4 @@
-import { GoogleGenAI, GenerateContentResponse } from '@google/genai';
+import { GoogleGenAI, GenerateContentResponse, type GenerateContentConfig } from '@google/genai';
 import {
   Project,
   Todo,
@@ -24,11 +24,85 @@ const MODEL_NAME = 'gemini-2.0-flash-001';
 let cachedClient: GoogleGenAI | null = null;
 let cachedApiKey: string | null = null;
 
-const DEFAULT_GENERATION_CONFIG = {
+const DEFAULT_GENERATION_CONFIG: GenerateContentConfig = {
   temperature: 0.35,
   maxOutputTokens: 768,
 };
 
+<<<<<<< HEAD
+const normaliseForCache = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map(normaliseForCache);
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .filter(([, entryValue]) => entryValue !== undefined)
+        .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
+        .map(([key, entryValue]) => [key, normaliseForCache(entryValue)]),
+    );
+  }
+
+  return value;
+};
+
+const sanitiseGenerationConfig = (
+  overrides: Partial<GenerateContentConfig> = {},
+): GenerateContentConfig => {
+  const merged: Record<string, unknown> = {
+    ...DEFAULT_GENERATION_CONFIG,
+    ...overrides,
+  };
+
+  const filteredEntries = Object.entries(merged).filter(([, value]) => value !== undefined);
+  return filteredEntries.length
+    ? (Object.fromEntries(filteredEntries) as GenerateContentConfig)
+    : (DEFAULT_GENERATION_CONFIG as GenerateContentConfig);
+};
+
+const stripJsonCodeFences = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith('```')) {
+    return trimmed;
+  }
+
+  const withoutOpeningFence = trimmed.replace(/^```(?:json)?/i, '').trimStart();
+  if (withoutOpeningFence.endsWith('```')) {
+    return withoutOpeningFence.slice(0, -3).trimEnd();
+  }
+  return withoutOpeningFence.trim();
+};
+
+const extractTextFromResponse = (response?: GenerateContentResponse | null): string | null => {
+  if (!response) {
+    return null;
+  }
+
+  const directText = response.text?.trim();
+  if (directText) {
+    return directText;
+  }
+
+  const candidates = response.candidates ?? [];
+  for (const candidate of candidates) {
+    const parts = candidate.content?.parts ?? [];
+    const text = parts
+      .map(part => ('text' in part && typeof part.text === 'string' ? part.text.trim() : ''))
+      .filter(Boolean)
+      .join('\n')
+      .trim();
+
+    if (text) {
+      return text;
+    }
+  }
+
+  return null;
+};
+
+=======
+>>>>>>> origin/main
 const hashString = (value: string): string => {
   let hash = 0;
   for (let index = 0; index < value.length; index += 1) {
@@ -82,7 +156,7 @@ const getClient = (): GoogleGenAI | null => {
   }
 };
 
-type GenerationOverrides = Partial<typeof DEFAULT_GENERATION_CONFIG>;
+type GenerationOverrides = Partial<GenerateContentConfig>;
 
 const callGemini = async (
   prompt: string,
@@ -94,22 +168,30 @@ const callGemini = async (
   }
 
   // Check cache first
+<<<<<<< HEAD
+  const generationConfig = sanitiseGenerationConfig(overrides);
+  const cacheKey = `ai:${hashString(prompt)}:${prompt.length}:${JSON.stringify(normaliseForCache(generationConfig))}`;
+=======
   const cacheKey = `ai:${hashString(prompt)}:${prompt.length}:${JSON.stringify(overrides)}`;
+>>>>>>> origin/main
   const cached = apiCache.get<GenerateContentResponse>(cacheKey);
   if (cached) {
     return cached;
   }
 
   try {
-    const config = { ...DEFAULT_GENERATION_CONFIG, ...overrides };
-
     // Use retry mechanism for API calls
     const result = await withRetry(
       async () => {
         return await client.models.generateContent({
           model: MODEL_NAME,
-          contents: prompt,
-          config,
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: prompt }],
+            },
+          ],
+          config: generationConfig,
         });
       },
       {
@@ -121,7 +203,7 @@ const callGemini = async (
         operation: 'callGemini',
         component: 'ai-service',
         timestamp: new Date().toISOString(),
-        metadata: { prompt: prompt.slice(0, 100), config: overrides },
+        metadata: { prompt: prompt.slice(0, 100), config: generationConfig },
       }
     );
 
@@ -136,7 +218,7 @@ const callGemini = async (
       operation: 'callGemini',
       component: 'ai-service',
       timestamp: new Date().toISOString(),
-      metadata: { prompt: prompt.slice(0, 100), config: overrides },
+      metadata: { prompt: prompt.slice(0, 100), config: generationConfig },
     });
     console.error('Gemini request failed', wrappedError);
     return null;
@@ -382,7 +464,11 @@ export const generateAdvisorResponse = async (
 
   const response = await callGemini(prompt, overrides);
 
+<<<<<<< HEAD
+  const text = extractTextFromResponse(response);
+=======
   const text = response?.text?.trim();
+>>>>>>> origin/main
   if (text) {
     const metadata: Record<string, unknown> = {
       intent: input.intent ?? 'general',
@@ -545,9 +631,8 @@ Respond in Markdown using bullet points as requested.`;
 
   const response = await callGemini(prompt);
 
-  if (response?.text) {
-    const text = response.text.trim();
-    if (text.length > 0) {
+  const text = extractTextFromResponse(response);
+  if (text) {
       const taskSummary = buildTaskSummary(input.tasks);
       const incidentSummary = buildIncidentSummary(input.incidents);
       const expenseSummary = buildExpenseSummary(input.expenses);
@@ -577,7 +662,6 @@ Respond in Markdown using bullet points as requested.`;
         isFallback: false,
         metadata,
       };
-    }
   }
 
   return buildFallbackProjectSummary(input);
@@ -712,15 +796,13 @@ Respond with concise Markdown. Prioritise actionable insights, references to doc
 
   const response = await callGemini(prompt, { maxOutputTokens: 512 });
 
-  if (response?.text) {
-    const text = response.text.trim();
-    if (text.length > 0) {
-      return {
-        text,
-        model: response.modelVersion ?? MODEL_NAME,
-        isFallback: false,
-      };
-    }
+  const text = extractTextFromResponse(response);
+  if (text) {
+    return {
+      text,
+      model: response?.modelVersion ?? MODEL_NAME,
+      isFallback: false,
+    };
   }
 
   return buildFallbackSearch(input);
@@ -910,36 +992,282 @@ Respond in Markdown using bullet points.`;
 
   const response = await callGemini(prompt, { maxOutputTokens: 768, temperature: 0.3 });
 
-  if (response?.text) {
-    const text = response.text.trim();
-    if (text.length > 0) {
+  const text = extractTextFromResponse(response);
+  if (text) {
+    const metadata: Record<string, unknown> = {
+      horizonMonths,
+      averageMonthlyProfit: snapshot.averageProfit,
+      projectedCash: snapshot.projectedCash,
+      profitTrendPct: Number(Number.isFinite(snapshot.profitTrendPct) ? snapshot.profitTrendPct.toFixed(1) : '0'),
+      openInvoiceBalance: snapshot.openInvoiceBalance,
+      approvedExpenseRunRate: snapshot.approvedExpenseRunRate,
+      cashFlow: snapshot.cashFlow,
+      currency: snapshot.currency,
+      isFallback: false,
+    };
+
+    if (response?.modelVersion) {
+      metadata.modelVersion = response.modelVersion;
+    }
+    if (response?.usageMetadata) {
+      metadata.usageMetadata = response.usageMetadata;
+    }
+
+    return {
+      summary: text,
+      model: response?.modelVersion ?? MODEL_NAME,
+      isFallback: false,
+      metadata,
+    };
+  }
+
+  return buildFallbackFinancialForecast({ ...input, horizonMonths }, snapshot);
+};
+
+export type CostEstimateQuality = 'basic' | 'standard' | 'high-end';
+
+export interface CostEstimateInput {
+  description: string;
+  squareFootage: number;
+  quality: CostEstimateQuality;
+  currency?: string;
+  location?: string;
+  requestedBy?: string;
+}
+
+export interface CostEstimateBreakdownItem {
+  category: string;
+  cost: number;
+  details: string;
+}
+
+export interface CostEstimateResult {
+  totalEstimate: number;
+  breakdown: CostEstimateBreakdownItem[];
+  contingency: number;
+  summary: string;
+  model?: string;
+  isFallback: boolean;
+  metadata: Record<string, unknown>;
+}
+
+type InternalCostEstimateInput = CostEstimateInput & { currency: string; squareFootage: number };
+
+const COST_PER_SQFT: Record<CostEstimateQuality, number> = {
+  basic: 120,
+  standard: 165,
+  'high-end': 225,
+};
+
+const CONTINGENCY_RATE = 0.12;
+
+const COST_BREAKDOWN_TEMPLATE: Array<{ category: string; share: number; details: string }> = [
+  {
+    category: 'Structure & shell',
+    share: 0.3,
+    details: 'Foundations, frame, envelope and core stability works.',
+  },
+  {
+    category: 'Building services',
+    share: 0.22,
+    details: 'Mechanical, electrical, plumbing, fire and life safety systems.',
+  },
+  {
+    category: 'Interior fit-out',
+    share: 0.2,
+    details: 'Partitions, finishes, joinery, fixtures and specialist spaces.',
+  },
+  {
+    category: 'Site & preliminaries',
+    share: 0.18,
+    details: 'Site setup, logistics, temporary works and programme management.',
+  },
+  {
+    category: 'Professional & compliance',
+    share: 0.1,
+    details: 'Design coordination, surveys, permits and quality assurance.',
+  },
+];
+
+const COST_ESTIMATE_SCHEMA: Record<string, unknown> = {
+  type: 'object',
+  properties: {
+    totalEstimate: { type: 'number' },
+    breakdown: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          category: { type: 'string' },
+          cost: { type: 'number' },
+          details: { type: 'string' },
+        },
+        required: ['category', 'cost'],
+      },
+      minItems: 3,
+    },
+    contingency: { type: 'number' },
+    summary: { type: 'string' },
+  },
+  required: ['totalEstimate', 'breakdown', 'contingency', 'summary'],
+};
+
+const buildFallbackCostEstimate = (
+  input: InternalCostEstimateInput,
+  reason: 'llm-unavailable' | 'invalid-json',
+): CostEstimateResult => {
+  const qualityRate = COST_PER_SQFT[input.quality] ?? COST_PER_SQFT.standard;
+  const baseCost = Math.max(input.squareFootage, 1) * qualityRate;
+  const contingency = Math.round(baseCost * CONTINGENCY_RATE);
+  const totalEstimate = Math.round(baseCost + contingency);
+
+  const breakdown = COST_BREAKDOWN_TEMPLATE.map(item => ({
+    category: item.category,
+    cost: Math.round(baseCost * item.share),
+    details: item.details,
+  }));
+
+  const summary = [
+    `Offline baseline for ${input.squareFootage.toLocaleString()} sq ft (${input.quality.replace('-', ' ')}) project: ~${formatCurrency(totalEstimate, input.currency)} including ${Math.round(CONTINGENCY_RATE * 100)}% contingency.`,
+    'Tune procurement packages and configure a Gemini API key for supplier-calibrated estimates.',
+  ].join('\n');
+
+  return {
+    totalEstimate,
+    breakdown,
+    contingency,
+    summary,
+    isFallback: true,
+    metadata: {
+      quality: input.quality,
+      squareFootage: input.squareFootage,
+      baseRatePerSqFt: qualityRate,
+      contingencyRate: CONTINGENCY_RATE,
+      currency: input.currency,
+      fallbackReason: reason,
+      isFallback: true,
+    },
+  };
+};
+
+type ParsedCostEstimate = Pick<CostEstimateResult, 'totalEstimate' | 'breakdown' | 'contingency' | 'summary'>;
+
+const parseCostEstimateResponse = (payload: string): ParsedCostEstimate | null => {
+  try {
+    const normalised = stripJsonCodeFences(payload);
+    const data = JSON.parse(normalised);
+    if (!data || typeof data !== 'object') {
+      return null;
+    }
+
+    const totalEstimate = Number((data as Record<string, unknown>).totalEstimate);
+    const contingency = Number((data as Record<string, unknown>).contingency);
+    const summary = typeof (data as Record<string, unknown>).summary === 'string'
+      ? ((data as Record<string, unknown>).summary as string).trim()
+      : '';
+
+    const breakdownRaw = Array.isArray((data as Record<string, unknown>).breakdown)
+      ? ((data as Record<string, unknown>).breakdown as Array<Record<string, unknown>>)
+      : [];
+
+    const breakdown: CostEstimateBreakdownItem[] = breakdownRaw
+      .map(item => ({
+        category: typeof item.category === 'string' ? item.category.trim() : '',
+        cost: Number(item.cost),
+        details: typeof item.details === 'string' ? item.details.trim() : '',
+      }))
+      .filter(item => Boolean(item.category) && Number.isFinite(item.cost) && item.cost >= 0)
+      .map(item => ({
+        category: item.category,
+        cost: Math.round(item.cost),
+        details: item.details || 'No additional detail provided.',
+      }));
+
+    if (!Number.isFinite(totalEstimate) || totalEstimate <= 0) {
+      return null;
+    }
+    if (!Number.isFinite(contingency) || contingency < 0) {
+      return null;
+    }
+    if (!summary) {
+      return null;
+    }
+    if (!breakdown.length) {
+      return null;
+    }
+
+    return {
+      totalEstimate: Math.round(totalEstimate),
+      contingency: Math.round(contingency),
+      breakdown,
+      summary,
+    };
+  } catch (error) {
+    console.warn('[ai] Failed to parse cost estimate response as JSON', error);
+    return null;
+  }
+};
+
+export const generateCostEstimate = async (
+  input: CostEstimateInput,
+): Promise<CostEstimateResult> => {
+  const currency = input.currency ?? 'GBP';
+  const squareFootage = Number.isFinite(input.squareFootage)
+    ? Math.max(1, Math.round(input.squareFootage))
+    : 0;
+  const description = input.description.trim();
+
+  if (!description || squareFootage <= 0) {
+    throw new Error('Description and positive square footage are required to estimate costs.');
+  }
+
+  const promptSegments = [
+    'You are a UK construction quantity surveyor generating an order-of-magnitude estimate.',
+    `Project brief: ${description}`,
+    `Floor area: ${squareFootage.toLocaleString()} sq ft`,
+    `Finish quality: ${input.quality}`,
+    input.location ? `Location/context: ${input.location}` : null,
+    input.requestedBy ? `Requested by: ${input.requestedBy}` : null,
+    `Respond with a single JSON object matching the provided schema in ${currency}.`,
+    'Normalise costs to 2024 pricing and include UK-typical allowances.',
+  ].filter(Boolean);
+
+  const prompt = `${promptSegments.join('\n')}`;
+
+  const response = await callGemini(prompt, {
+    maxOutputTokens: 640,
+    temperature: 0.2,
+    responseMimeType: 'application/json',
+    responseSchema: COST_ESTIMATE_SCHEMA,
+  });
+
+  const text = extractTextFromResponse(response);
+  if (text) {
+    const parsed = parseCostEstimateResponse(text);
+    if (parsed) {
       const metadata: Record<string, unknown> = {
-        horizonMonths,
-        averageMonthlyProfit: snapshot.averageProfit,
-        projectedCash: snapshot.projectedCash,
-        profitTrendPct: Number(snapshot.profitTrendPct.toFixed(1)),
-        openInvoiceBalance: snapshot.openInvoiceBalance,
-        approvedExpenseRunRate: snapshot.approvedExpenseRunRate,
-        cashFlow: snapshot.cashFlow,
-        currency: snapshot.currency,
+        quality: input.quality,
+        squareFootage,
+        currency,
+        breakdownCategories: parsed.breakdown.length,
         isFallback: false,
       };
 
-      if (response.modelVersion) {
+      if (response?.modelVersion) {
         metadata.modelVersion = response.modelVersion;
       }
-      if (response.usageMetadata) {
+      if (response?.usageMetadata) {
         metadata.usageMetadata = response.usageMetadata;
       }
 
       return {
-        summary: text,
-        model: response.modelVersion ?? MODEL_NAME,
+        ...parsed,
+        model: response?.modelVersion ?? MODEL_NAME,
         isFallback: false,
         metadata,
       };
     }
   }
 
-  return buildFallbackFinancialForecast({ ...input, horizonMonths }, snapshot);
+  return buildFallbackCostEstimate({ ...input, currency, squareFootage }, text ? 'invalid-json' : 'llm-unavailable');
 };
