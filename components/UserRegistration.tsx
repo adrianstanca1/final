@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { useAuth } from '../contexts/AuthContext';
+import './UserRegistration.css';
 import { authClient, type InvitePreview } from '../services/authClient';
 import { CompanyType, type RegistrationPayload, Role, type SocialProvider } from '../types';
 import { AuthEnvironmentNotice } from './auth/AuthEnvironmentNotice';
@@ -147,7 +148,10 @@ const PasswordStrengthMeter: React.FC<{ password: string; rules?: PasswordRule[]
     return (
         <div className="space-y-1">
             <div className="h-1.5 w-full rounded-full bg-muted">
-                <div className={`h-1.5 rounded-full transition-all duration-300 ${color}`} style={{ width: `${width}%` }} />
+                <div
+                    className={`password-strength-bar ${color}`}
+                    style={{ '--strength-width': `${width}%` } as React.CSSProperties}
+                />
             </div>
             <p className="text-xs text-muted-foreground">
                 Password strength: <span className="font-medium text-foreground">{labels[labelIndex]}</span>
@@ -853,7 +857,7 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                             href="https://asagents.co.uk/terms"
                                             className="text-primary underline"
                                             target="_blank"
-                                            rel="noreferrer"
+                                            rel="noopener noreferrer"
                                         >
                                             AS Agents Terms, Security & Data Processing policies
                                         </a>

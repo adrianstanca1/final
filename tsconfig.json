@@ -38,9 +38,6 @@
   },
   "include": [
     "index.tsx",
-<<<<<<< HEAD
-    "App.tsx"
-=======
     "App.tsx",
     "App.stable.tsx",
     "vite.config.ts",
@@ -51,7 +48,6 @@
     "services/**/*",
     "utils/**/*",
     "tests/**/*"
->>>>>>> origin/main
   ],
   "exclude": [
     "node_modules",

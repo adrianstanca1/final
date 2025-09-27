@@ -92,16 +92,16 @@ export const CostEstimator: React.FC<CostEstimatorProps> = ({ user, addToast, on
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4 p-4 border rounded-lg bg-slate-50">
                     <div>
-                        <label className="block text-sm font-medium">Project Description</label>
-                        <textarea value={description} onChange={e => setDescription(e.target.value)} rows={5} className="w-full p-2 border rounded" placeholder="e.g., Two-story office building with open-plan interior and glass facade." />
+                        <label htmlFor="project-description" className="block text-sm font-medium">Project Description</label>
+                        <textarea id="project-description" value={description} onChange={e => setDescription(e.target.value)} rows={5} className="w-full p-2 border rounded" placeholder="e.g., Two-story office building with open-plan interior and glass facade." />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium">Square Footage</label>
-                        <input type="number" value={sqft} onChange={e => setSqft(e.target.value === '' ? '' : parseInt(e.target.value))} className="w-full p-2 border rounded" placeholder="5000" />
+                        <label htmlFor="square-footage" className="block text-sm font-medium">Square Footage</label>
+                        <input id="square-footage" type="number" value={sqft} onChange={e => setSqft(e.target.value === '' ? '' : parseInt(e.target.value))} className="w-full p-2 border rounded" placeholder="5000" />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium">Finish Quality</label>
-                        <select value={quality} onChange={e => setQuality(e.target.value)} className="w-full p-2 border rounded bg-white">
+                        <label htmlFor="finish-quality" className="block text-sm font-medium">Finish Quality</label>
+                        <select id="finish-quality" value={quality} onChange={e => setQuality(e.target.value)} className="w-full p-2 border rounded bg-white">
                             <option value="basic">Basic</option>
                             <option value="standard">Standard</option>
                             <option value="high-end">High-End</option>

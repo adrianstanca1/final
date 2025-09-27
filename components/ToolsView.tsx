@@ -53,7 +53,7 @@ export const ToolsView: React.FC<ToolsViewProps> = ({ user, addToast, setActiveV
     if (currentTool) {
         return (
             <div>
-                <button onClick={() => setActiveTool(null)} className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 mb-4">
+                <button type="button" onClick={() => setActiveTool(null)} className="flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 mb-4">
                     &larr; Back to all tools
                 </button>
                 {currentTool.component}

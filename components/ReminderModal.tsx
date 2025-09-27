@@ -20,7 +20,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ todo, user, onClos
     const [duration, setDuration] = useState('10m'); // 10m, 1h, 1d
     const [customDateTime, setCustomDateTime] = useState('');
     const [isSaving, setIsSaving] = useState(false);
-    
+
     // FIX: Cast todo to any to access reminderAt, as it's a dynamic property in the mock data
     const todoWithReminder = todo as any;
 
@@ -60,7 +60,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ todo, user, onClos
         }
 
         let reminderTime: Date | null = null;
-        
+
         if (mode === 'duration') {
             if (!todo.dueDate) {
                 addToast("Cannot set a duration-based reminder without a due date.", "error");
@@ -97,7 +97,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ todo, user, onClos
             setIsSaving(false);
         }
     };
-    
+
     const handleRemove = async () => {
         setIsSaving(true);
         try {
@@ -118,20 +118,20 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ todo, user, onClos
                 <h3 className="text-lg font-bold mb-4">Set Reminder for "{(todo as any).text || todo.title}"</h3>
                 <div className="space-y-4">
                     <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
-                        <button onClick={() => setMode('duration')} className={`flex-1 p-2 rounded-md text-sm transition-all ${mode === 'duration' ? 'bg-white dark:bg-slate-700 shadow' : ''}`} disabled={!todo.dueDate}>Before Due Date</button>
-                        <button onClick={() => setMode('custom')} className={`flex-1 p-2 rounded-md text-sm transition-all ${mode === 'custom' ? 'bg-white dark:bg-slate-700 shadow' : ''}`}>Custom Time</button>
+                        <button type="button" onClick={() => setMode('duration')} className={`flex-1 p-2 rounded-md text-sm transition-all ${mode === 'duration' ? 'bg-white dark:bg-slate-700 shadow' : ''}`} disabled={!todo.dueDate}>Before Due Date</button>
+                        <button type="button" onClick={() => setMode('custom')} className={`flex-1 p-2 rounded-md text-sm transition-all ${mode === 'custom' ? 'bg-white dark:bg-slate-700 shadow' : ''}`}>Custom Time</button>
                     </div>
                     {!todo.dueDate && mode === 'duration' && <p className="text-xs text-red-500 text-center">A due date must be set for this option.</p>}
 
                     {mode === 'duration' && todo.dueDate && (
-                        <select value={duration} onChange={e => setDuration(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-700">
+                        <select value={duration} onChange={e => setDuration(e.target.value)} className="w-full p-2 border rounded bg-white dark:bg-slate-700" aria-label="Reminder duration before due date">
                             <option value="10m">10 minutes before</option>
                             <option value="1h">1 hour before</option>
                             <option value="1d">1 day before</option>
                         </select>
                     )}
                     {mode === 'custom' && (
-                        <input type="datetime-local" value={customDateTime} onChange={e => setCustomDateTime(e.target.value)} className="w-full p-2 border rounded" />
+                        <input type="datetime-local" value={customDateTime} onChange={e => setCustomDateTime(e.target.value)} className="w-full p-2 border rounded" aria-label="Custom reminder date and time" />
                     )}
                 </div>
                 <div className="flex justify-between items-center mt-6 pt-4 border-t dark:border-slate-700">

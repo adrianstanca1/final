@@ -114,7 +114,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, u
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <button onClick={onBack} className="p-2 hover:bg-gray-100 rounded-lg dark:hover:bg-gray-800" aria-label="Go back">
+          <button type="button" onClick={onBack} className="p-2 hover:bg-gray-100 rounded-lg dark:hover:bg-gray-800" aria-label="Go back">
             ←
           </button>
           <div>
@@ -130,6 +130,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, u
         )}
         {canManage && !isBlocked && (
           <button
+            type="button"
             onClick={() => onEdit({} as Todo)}
             className="p-1.5 rounded-full opacity-0 group-hover:opacity-100 hover:bg-black/10 text-muted-foreground hover:text-foreground transition-opacity disabled:opacity-50"
             aria-label="Edit task"
@@ -150,6 +151,7 @@ export const ProjectDetailView: React.FC<ProjectDetailViewProps> = ({ project, u
             type="range"
             min="0"
             max="100"
+            aria-label="Project progress percentage"
             value={progress}
             onChange={e => setProgress(Number(e.target.value))}
             onMouseUp={e => handleProgressChangeCommit(Number(e.currentTarget.value))}

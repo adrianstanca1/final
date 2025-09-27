@@ -40,7 +40,6 @@ const ClientModal: React.FC<ClientModalProps> = ({ clientToEdit, onClose, onSucc
       setIsSaving(false);
     }
   };
-<<<<<<< HEAD
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -101,65 +100,4 @@ const ClientModal: React.FC<ClientModalProps> = ({ clientToEdit, onClose, onSucc
   );
 };
 
-=======
-
-  return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <Card className="w-full max-w-lg" onClick={event => event.stopPropagation()}>
-        <h3 className="text-lg font-bold mb-4">{clientToEdit ? 'Edit Client' : 'Add New Client'}</h3>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="text"
-            value={name}
-            onChange={event => setName(event.target.value)}
-            placeholder="Client Name"
-            className="w-full p-2 border rounded"
-            required
-          />
-          <input
-            type="email"
-            value={email}
-            onChange={event => setEmail(event.target.value)}
-            placeholder="Contact Email"
-            className="w-full p-2 border rounded"
-            required
-          />
-          <input
-            type="tel"
-            value={phone}
-            onChange={event => setPhone(event.target.value)}
-            placeholder="Contact Phone"
-            className="w-full p-2 border rounded"
-            required
-          />
-          <textarea
-            value={address}
-            onChange={event => setAddress(event.target.value)}
-            placeholder="Billing Address"
-            className="w-full p-2 border rounded"
-            rows={3}
-            required
-          />
-          <input
-            type="text"
-            value={terms}
-            onChange={event => setTerms(event.target.value)}
-            placeholder="Payment Terms (e.g., Net 30)"
-            className="w-full p-2 border rounded"
-            required
-          />
-          <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" isLoading={isSaving}>
-              Save Client
-            </Button>
-          </div>
-        </form>
-      </Card>
-    </div>
-  );
-};
->>>>>>> origin/main
 export default ClientModal;

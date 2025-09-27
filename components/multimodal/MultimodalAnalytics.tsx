@@ -230,13 +230,13 @@ const MultimodalAnalytics: React.FC<MultimodalAnalyticsProps> = ({
         <div className="flex gap-2">
           {(['24h', '7d', '30d', '90d'] as const).map((range) => (
             <button
+              type="button"
               key={range}
               onClick={() => onTimeRangeChange(range)}
-              className={`px-3 py-1 rounded text-sm ${
-                timeRange === range
+              className={`px-3 py-1 rounded text-sm ${timeRange === range
                   ? 'bg-blue-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+                }`}
             >
               {range}
             </button>

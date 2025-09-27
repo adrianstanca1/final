@@ -15,8 +15,9 @@ import {
     ProjectPortfolioSummary,
     OperationalInsights,
     DashboardSnapshotMetadata,
- } from '../types';
+} from '../types';
 import './ui/storageUsage.css';
+import './Dashboard.css';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Avatar } from './ui/Avatar';
@@ -59,7 +60,11 @@ const BarChart: React.FC<{ data: { label: string, value: number }[], barColor: s
             {data.map((item, index) => (
                 <div key={index} className="flex flex-col items-center justify-end h-full w-full group">
                     <div className="text-xs font-bold text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">{item.value}</div>
-                    <div className={`${barColor} w-full rounded-t-sm group-hover:opacity-80 transition-opacity`} style={{ height: `${(item.value / maxValue) * 90}%` }} title={`${item.label}: ${item.value}`}></div>
+                    <div
+                        className={`dashboard-bar ${barColor}`}
+                        style={{ '--bar-height': `${(item.value / maxValue) * 90}%` } as React.CSSProperties}
+                        title={`${item.label}: ${item.value}`}
+                    ></div>
                     <span className="text-xs mt-1 text-muted-foreground">{item.label}</span>
                 </div>
             ))}
@@ -171,8 +176,8 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                     taskCount: snapshot.tasks.length,
                     source: snapshot.metadata.source,
                     usedFallback: snapshot.metadata.usedFallback,
-                     fallbackReason: snapshot.metadata.fallbackReason,
-                  },
+                    fallbackReason: snapshot.metadata.fallbackReason,
+                },
             });
         } catch (error) {
             if (controller.signal.aborted) return;
@@ -500,230 +505,231 @@ export const Dashboard: React.FC<DashboardProps> = ({ user, addToast, setActiveV
                         </div>
                     )}
                 </Card>
-                            <Card className="space-y-4 p-6">
-                                <h2 className="text-lg font-semibold text-foreground">Upcoming deadlines</h2>
-                                {upcomingDeadlines.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground">No due dates in the next few weeks.</p>
-                                ) : (
-                                    <ul className="space-y-3 text-sm">
-                                        {upcomingDeadlines.map(deadline => (
-                                            <li key={deadline.id} className="flex items-center justify-between">
-                                                <div>
-                                                    <p className="font-semibold text-foreground">{deadline.name}</p>
-                                                    <p className={`text-xs ${deadline.isOverdue ? 'text-destructive' : 'text-muted-foreground'}`}>
-                                                        {new Date(deadline.endDate).toLocaleDateString()} • {deadline.isOverdue ? 'Overdue' : `Due in ${Math.max(0, deadline.daysRemaining)} day(s)`}
-                                                    </p>
-                                                </div>
-                                                <Tag
-                                                    label={deadline.status.replace(/_/g, ' ')}
-                                                    color={deadline.isOverdue ? 'red' : 'blue'}
-                                                />
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </Card>
-                            <Card className="space-y-4 p-6">
-                                <h2 className="text-lg font-semibold text-foreground">Operational snapshot</h2>
-                                <div className="space-y-3 text-sm">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-muted-foreground">Open incidents</span>
-                                        <span className="font-semibold text-foreground">
-                                            {openIncidentsCount}
-                                            {highSeverityCount > 0 && (
-                                                <span className="text-xs font-medium text-destructive"> • {highSeverityCount} high</span>
-                                            )}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-muted-foreground">Tasks due next 7 days</span>
-                                        <span className={`font-semibold ${tasksDueSoon > 5 ? 'text-amber-600' : 'text-foreground'}`}>{tasksDueSoon}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-muted-foreground">Overdue tasks</span>
-                                        <span className={`font-semibold ${overdueTasks > 0 ? 'text-destructive' : 'text-foreground'}`}>{overdueTasks}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-muted-foreground">Active tasks</span>
-                                        <span className="font-semibold text-foreground">{scheduleInProgress}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-muted-foreground">Pending approvals</span>
-                                        <span className="font-semibold text-foreground">{pendingApprovals}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-muted-foreground">Avg hours / shift</span>
-                                        <span className="font-semibold text-foreground">{averageHours.toFixed(1)}h</span>
-                                    </div>
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                    Burn per active project {formatCurrency(burnPerProject, operationalCurrency)}
-                                    {overtimeHours > 0 ? ` • ${overtimeHours.toFixed(1)} overtime hrs` : ''}
-                                </p>
-                                {operationalAlerts.length > 0 && (
-                                    <div className="space-y-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
-                                        <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Alerts</p>
-                                        <ul className="space-y-1 text-sm text-muted-foreground">
-                                            {operationalAlerts.slice(0, 3).map(alert => (
-                                                <li key={alert.id} className="flex items-start gap-2">
-                                                    <span
-                                                        className={`mt-1 h-2 w-2 rounded-full ${alert.severity === 'critical'
-                                                                ? 'bg-destructive'
-                                                                : alert.severity === 'warning'
-                                                                    ? 'bg-amber-500'
-                                                                    : 'bg-primary'
-                                                            }`}
-                                                    />
-                                                    <span>{alert.message}</span>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                )}
-                            </Card>
-                            <Card className="space-y-4 p-6">
-                                <h2 className="text-lg font-semibold text-foreground">Operational snapshot</h2>
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-muted-foreground">Open incidents</span>
-                                        <span className="font-semibold text-foreground">{openIncidents.length}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-muted-foreground">High severity</span>
-                                        <span className="font-semibold text-destructive">{highSeverityIncidents.length}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-muted-foreground">Active tasks</span>
-                                        <span className="font-semibold text-foreground">{tasksInProgress}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-muted-foreground">Approved spend</span>
-                                        <span className="font-semibold text-foreground">{formatCurrency(approvedExpenseTotal)}</span>
-                                    </div>
-                                </div>
-
-                            </Card>
-                        </section>
-
-                        <section className="grid gap-6 xl:grid-cols-[2fr,1fr]">
-                            <Card className="space-y-4 p-6">
-                                <div className="flex flex-col gap-2">
-                                    <h2 className="text-lg font-semibold text-foreground">AI project briefing</h2>
-                                    <p className="text-sm text-muted-foreground">Generate a Gemini-powered health summary for any live job.</p>
-                                </div>
-                                {activeProjects.length === 0 ? (
-                                    <p className="text-sm text-muted-foreground">Add an active project to run an AI briefing.</p>
-                                ) : (
-                                    <div className="flex flex-wrap items-center gap-3">
-                                        <select
-                                            value={aiSelectedProjectId ?? ''}
-                                            onChange={event => setAiSelectedProjectId(event.target.value || null)}
-                                            className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                                            disabled={isGeneratingAiSummary}
-                                        >
-                                            {activeProjects.map(project => (
-                                                <option key={project.id} value={project.id}>
-                                                    {project.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        <Button onClick={handleGenerateProjectBrief} isLoading={isGeneratingAiSummary} disabled={isGeneratingAiSummary || !aiSelectedProjectId}>
-                                            {aiSummary && aiSummaryProjectId === aiSelectedProjectId ? 'Refresh brief' : 'Generate brief'}
-                                        </Button>
-                                    </div>
-                                )}
-                                {aiError && <p className="text-sm text-destructive">{aiError}</p>}
-                                {aiSummary && aiSummaryProjectId === aiSelectedProjectId ? (
-                                    <div className="space-y-3">
-                                        <div className="space-y-1">{renderMarkdownSummary(aiSummary.summary)}</div>
-                                        <p className="text-xs text-muted-foreground">
-                                            {aiSummary.isFallback ? 'Offline insight' : 'AI insight'}
-                                            {aiSummary.model ? ` • ${aiSummary.model}` : ''}
+                <Card className="space-y-4 p-6">
+                    <h2 className="text-lg font-semibold text-foreground">Upcoming deadlines</h2>
+                    {upcomingDeadlines.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No due dates in the next few weeks.</p>
+                    ) : (
+                        <ul className="space-y-3 text-sm">
+                            {upcomingDeadlines.map(deadline => (
+                                <li key={deadline.id} className="flex items-center justify-between">
+                                    <div>
+                                        <p className="font-semibold text-foreground">{deadline.name}</p>
+                                        <p className={`text-xs ${deadline.isOverdue ? 'text-destructive' : 'text-muted-foreground'}`}>
+                                            {new Date(deadline.endDate).toLocaleDateString()} • {deadline.isOverdue ? 'Overdue' : `Due in ${Math.max(0, deadline.daysRemaining)} day(s)`}
                                         </p>
                                     </div>
-                                ) : (
-                                    <p className="text-sm text-muted-foreground">Run the assistant to receive targeted recommendations.</p>
+                                    <Tag
+                                        label={deadline.status.replace(/_/g, ' ')}
+                                        color={deadline.isOverdue ? 'red' : 'blue'}
+                                    />
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </Card>
+                <Card className="space-y-4 p-6">
+                    <h2 className="text-lg font-semibold text-foreground">Operational snapshot</h2>
+                    <div className="space-y-3 text-sm">
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Open incidents</span>
+                            <span className="font-semibold text-foreground">
+                                {openIncidentsCount}
+                                {highSeverityCount > 0 && (
+                                    <span className="text-xs font-medium text-destructive"> • {highSeverityCount} high</span>
                                 )}
-                            </Card>
-                            <Card className="space-y-4 p-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h2 className="text-lg font-semibold text-foreground">Team availability</h2>
-                                        <p className="text-sm text-muted-foreground">Crew status across the organisation.</p>
-                                    </div>
-                                    <Button variant="ghost" size="sm" onClick={() => setActiveView('users')}>Manage team</Button>
-                                </div>
-                                <p className="text-xs text-muted-foreground">
-                                    {complianceRate}% timesheets approved • {pendingApprovals} pending
-                                </p>
-
-                                <div className="space-y-3 text-sm">
-                                    {Object.entries(availabilityBreakdown).map(([status, count]) => (
-                                        <div key={status} className="flex items-center justify-between">
-                                            <span className="text-muted-foreground">{status}</span>
-                                            <span className="font-semibold text-foreground">{count}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </Card>
-                        </section>
-
-                        <section className="grid gap-6 lg:grid-cols-2">
-                            <Card className="p-6">
-                                <h2 className="text-lg font-semibold text-foreground">Tasks completed this week</h2>
-                                <BarChart data={weeklyTaskData} barColor="bg-primary" />
-                            </Card>
-                            <Card className="space-y-4 p-6">
-                                <h2 className="text-lg font-semibold text-foreground">People on deck</h2>
-                                <div className="space-y-3 max-h-56 overflow-y-auto pr-2">
-                                    {team.slice(0, 10).map(member => (
-                                        <div key={member.id} className="flex items-center gap-3 rounded-md p-2 hover:bg-accent">
-                                            <Avatar name={`${member.firstName} ${member.lastName}`} imageUrl={member.avatar} className="h-9 w-9" />
-                                            <div className="flex-grow">
-                                                <p className="text-sm font-semibold text-foreground">{`${member.firstName} ${member.lastName}`}</p>
-                                                <p className="text-xs text-muted-foreground">{member.role}</p>
-                                            </div>
-                                            <Tag label={member.availability ?? 'Unknown'} color={availabilityTagColor[member.availability || AvailabilityStatus.AVAILABLE]} />
-                                        </div>
-                                    ))}
-                                </div>
-                            </Card>
-                        </section>
-
-                        <section className="grid gap-6 lg:grid-cols-2">
-                            <Card className="space-y-4 p-6">
-                                <h2 className="text-lg font-semibold text-foreground">Equipment summary</h2>
-                                <div className="space-y-2 max-h-52 overflow-y-auto pr-2">
-                                    {equipment.map(item => (
-                                        <div key={item.id} className="flex items-center justify-between rounded-md p-2 hover:bg-accent">
-                                            <span className="text-sm font-medium text-foreground">{item.name}</span>
-                                            <EquipmentStatusBadge status={item.status} />
-                                        </div>
-                                    ))}
-                                </div>
-                            </Card>
-                            <Card className="space-y-4 p-6">
-                                <h2 className="text-lg font-semibold text-foreground">Task activity log</h2>
-                                <div className="space-y-3 max-h-52 overflow-y-auto pr-2">
-                                    {activityLog.slice(0, 12).map(log => {
-                                        const actor = userMap.get(log.actorId);
-                                        const actorName = actor ? `${actor.firstName} ${actor.lastName}` : '?';
-                                        return (
-                                            <div key={log.id} className="flex items-start gap-3">
-                                                <Avatar name={actorName} className="h-8 w-8 text-xs" />
-                                                <div>
-                                                    <p className="text-sm text-foreground">
-                                                        <span className="font-semibold">{actorName}</span> {log.action.replace(/_/g, ' ')}
-                                                        {log.target?.name ? `: "${log.target.name}"` : ''}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground">{new Date(log.timestamp).toLocaleString()}</p>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </Card>
-                        </section>
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Tasks due next 7 days</span>
+                            <span className={`font-semibold ${tasksDueSoon > 5 ? 'text-amber-600' : 'text-foreground'}`}>{tasksDueSoon}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Overdue tasks</span>
+                            <span className={`font-semibold ${overdueTasks > 0 ? 'text-destructive' : 'text-foreground'}`}>{overdueTasks}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Active tasks</span>
+                            <span className="font-semibold text-foreground">{scheduleInProgress}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Pending approvals</span>
+                            <span className="font-semibold text-foreground">{pendingApprovals}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Avg hours / shift</span>
+                            <span className="font-semibold text-foreground">{averageHours.toFixed(1)}h</span>
+                        </div>
                     </div>
-                    );
+                    <p className="text-xs text-muted-foreground">
+                        Burn per active project {formatCurrency(burnPerProject, operationalCurrency)}
+                        {overtimeHours > 0 ? ` • ${overtimeHours.toFixed(1)} overtime hrs` : ''}
+                    </p>
+                    {operationalAlerts.length > 0 && (
+                        <div className="space-y-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Alerts</p>
+                            <ul className="space-y-1 text-sm text-muted-foreground">
+                                {operationalAlerts.slice(0, 3).map(alert => (
+                                    <li key={alert.id} className="flex items-start gap-2">
+                                        <span
+                                            className={`mt-1 h-2 w-2 rounded-full ${alert.severity === 'critical'
+                                                ? 'bg-destructive'
+                                                : alert.severity === 'warning'
+                                                    ? 'bg-amber-500'
+                                                    : 'bg-primary'
+                                                }`}
+                                        />
+                                        <span>{alert.message}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                </Card>
+                <Card className="space-y-4 p-6">
+                    <h2 className="text-lg font-semibold text-foreground">Operational snapshot</h2>
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Open incidents</span>
+                            <span className="font-semibold text-foreground">{openIncidents.length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">High severity</span>
+                            <span className="font-semibold text-destructive">{highSeverityIncidents.length}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Active tasks</span>
+                            <span className="font-semibold text-foreground">{tasksInProgress}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-muted-foreground">Approved spend</span>
+                            <span className="font-semibold text-foreground">{formatCurrency(approvedExpenseTotal)}</span>
+                        </div>
+                    </div>
+
+                </Card>
+            </section>
+
+            <section className="grid gap-6 xl:grid-cols-[2fr,1fr]">
+                <Card className="space-y-4 p-6">
+                    <div className="flex flex-col gap-2">
+                        <h2 className="text-lg font-semibold text-foreground">AI project briefing</h2>
+                        <p className="text-sm text-muted-foreground">Generate a Gemini-powered health summary for any live job.</p>
+                    </div>
+                    {activeProjects.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">Add an active project to run an AI briefing.</p>
+                    ) : (
+                        <div className="flex flex-wrap items-center gap-3">
+                            <select
+                                value={aiSelectedProjectId ?? ''}
+                                onChange={event => setAiSelectedProjectId(event.target.value || null)}
+                                className="rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                                aria-label="Select project for AI briefing"
+                                disabled={isGeneratingAiSummary}
+                            >
+                                {activeProjects.map(project => (
+                                    <option key={project.id} value={project.id}>
+                                        {project.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <Button onClick={handleGenerateProjectBrief} isLoading={isGeneratingAiSummary} disabled={isGeneratingAiSummary || !aiSelectedProjectId}>
+                                {aiSummary && aiSummaryProjectId === aiSelectedProjectId ? 'Refresh brief' : 'Generate brief'}
+                            </Button>
+                        </div>
+                    )}
+                    {aiError && <p className="text-sm text-destructive">{aiError}</p>}
+                    {aiSummary && aiSummaryProjectId === aiSelectedProjectId ? (
+                        <div className="space-y-3">
+                            <div className="space-y-1">{renderMarkdownSummary(aiSummary.summary)}</div>
+                            <p className="text-xs text-muted-foreground">
+                                {aiSummary.isFallback ? 'Offline insight' : 'AI insight'}
+                                {aiSummary.model ? ` • ${aiSummary.model}` : ''}
+                            </p>
+                        </div>
+                    ) : (
+                        <p className="text-sm text-muted-foreground">Run the assistant to receive targeted recommendations.</p>
+                    )}
+                </Card>
+                <Card className="space-y-4 p-6">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h2 className="text-lg font-semibold text-foreground">Team availability</h2>
+                            <p className="text-sm text-muted-foreground">Crew status across the organisation.</p>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => setActiveView('users')}>Manage team</Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                        {complianceRate}% timesheets approved • {pendingApprovals} pending
+                    </p>
+
+                    <div className="space-y-3 text-sm">
+                        {Object.entries(availabilityBreakdown).map(([status, count]) => (
+                            <div key={status} className="flex items-center justify-between">
+                                <span className="text-muted-foreground">{status}</span>
+                                <span className="font-semibold text-foreground">{count}</span>
+                            </div>
+                        ))}
+                    </div>
+                </Card>
+            </section>
+
+            <section className="grid gap-6 lg:grid-cols-2">
+                <Card className="p-6">
+                    <h2 className="text-lg font-semibold text-foreground">Tasks completed this week</h2>
+                    <BarChart data={weeklyTaskData} barColor="bg-primary" />
+                </Card>
+                <Card className="space-y-4 p-6">
+                    <h2 className="text-lg font-semibold text-foreground">People on deck</h2>
+                    <div className="space-y-3 max-h-56 overflow-y-auto pr-2">
+                        {team.slice(0, 10).map(member => (
+                            <div key={member.id} className="flex items-center gap-3 rounded-md p-2 hover:bg-accent">
+                                <Avatar name={`${member.firstName} ${member.lastName}`} imageUrl={member.avatar} className="h-9 w-9" />
+                                <div className="flex-grow">
+                                    <p className="text-sm font-semibold text-foreground">{`${member.firstName} ${member.lastName}`}</p>
+                                    <p className="text-xs text-muted-foreground">{member.role}</p>
+                                </div>
+                                <Tag label={member.availability ?? 'Unknown'} color={availabilityTagColor[member.availability || AvailabilityStatus.AVAILABLE]} />
+                            </div>
+                        ))}
+                    </div>
+                </Card>
+            </section>
+
+            <section className="grid gap-6 lg:grid-cols-2">
+                <Card className="space-y-4 p-6">
+                    <h2 className="text-lg font-semibold text-foreground">Equipment summary</h2>
+                    <div className="space-y-2 max-h-52 overflow-y-auto pr-2">
+                        {equipment.map(item => (
+                            <div key={item.id} className="flex items-center justify-between rounded-md p-2 hover:bg-accent">
+                                <span className="text-sm font-medium text-foreground">{item.name}</span>
+                                <EquipmentStatusBadge status={item.status} />
+                            </div>
+                        ))}
+                    </div>
+                </Card>
+                <Card className="space-y-4 p-6">
+                    <h2 className="text-lg font-semibold text-foreground">Task activity log</h2>
+                    <div className="space-y-3 max-h-52 overflow-y-auto pr-2">
+                        {activityLog.slice(0, 12).map(log => {
+                            const actor = userMap.get(log.actorId);
+                            const actorName = actor ? `${actor.firstName} ${actor.lastName}` : '?';
+                            return (
+                                <div key={log.id} className="flex items-start gap-3">
+                                    <Avatar name={actorName} className="h-8 w-8 text-xs" />
+                                    <div>
+                                        <p className="text-sm text-foreground">
+                                            <span className="font-semibold">{actorName}</span> {log.action.replace(/_/g, ' ')}
+                                            {log.target?.name ? `: "${log.target.name}"` : ''}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">{new Date(log.timestamp).toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </Card>
+            </section>
+        </div>
+    );
 };
