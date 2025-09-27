@@ -50,16 +50,19 @@ const sanitizeBaseUrl = (value?: string | null): string | null => {
 };
 
 const initialEnvironment = getEnvironment();
-let defaultBaseUrl = initialEnvironment.apiBaseUrl;
-let defaultAllowMockFallback =
-    initialEnvironment.featureFlags.allowMockFallback ?? !defaultBaseUrl;
+let defaultBaseUrl = initialEnvironment.apiUrl;
+let defaultAllowMockFallback = !defaultBaseUrl;
 let runtimeBaseUrl = defaultBaseUrl;
 let allowMockFallback = defaultAllowMockFallback;
 
 type AuthClientListener = () => void;
 const subscribers = new Set<AuthClientListener>();
+let cachedConnectionInfo: AuthConnectionInfo | null = null;
 
 const notifySubscribers = () => {
+    // Invalidate cache when configuration changes
+    cachedConnectionInfo = null;
+
     subscribers.forEach(listener => {
         try {
             listener();
@@ -171,9 +174,10 @@ export const configureAuthClient = (options: { baseUrl?: string | null; allowMoc
 };
 
 export const resetAuthClient = () => {
-    const refreshed = refreshEnvironment();
-    defaultBaseUrl = refreshed.apiBaseUrl;
-    defaultAllowMockFallback = refreshed.featureFlags.allowMockFallback ?? !defaultBaseUrl;
+    refreshEnvironment();
+    const refreshed = getEnvironment();
+    defaultBaseUrl = refreshed.apiUrl;
+    defaultAllowMockFallback = !defaultBaseUrl;
 
     const hasChanged = runtimeBaseUrl !== defaultBaseUrl || allowMockFallback !== defaultAllowMockFallback;
     runtimeBaseUrl = defaultBaseUrl;
@@ -194,12 +198,25 @@ const formatBaseHost = (baseUrl: string | null) => {
     }
 };
 
-export const getAuthConnectionInfo = (): AuthConnectionInfo => ({
-    mode: runtimeBaseUrl ? ('backend' as const) : ('mock' as const),
-    baseUrl: runtimeBaseUrl,
-    baseHost: formatBaseHost(runtimeBaseUrl),
-    allowMockFallback,
-});
+export const getAuthConnectionInfo = (): AuthConnectionInfo => {
+    const currentMode = runtimeBaseUrl ? ('backend' as const) : ('mock' as const);
+    const currentBaseHost = formatBaseHost(runtimeBaseUrl);
+
+    if (!cachedConnectionInfo ||
+        cachedConnectionInfo.mode !== currentMode ||
+        cachedConnectionInfo.baseUrl !== runtimeBaseUrl ||
+        cachedConnectionInfo.baseHost !== currentBaseHost ||
+        cachedConnectionInfo.allowMockFallback !== allowMockFallback) {
+
+        cachedConnectionInfo = {
+            mode: currentMode,
+            baseUrl: runtimeBaseUrl,
+            baseHost: currentBaseHost,
+            allowMockFallback,
+        };
+    }
+    return cachedConnectionInfo;
+};
 
 export const authClient = {
     login: (credentials: LoginCredentials): Promise<LoginResult> =>

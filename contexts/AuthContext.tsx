@@ -31,7 +31,7 @@ const clearStoredTokens = () => {
 };
 
 const storeTokens = (token: string, refreshToken: string | null, persistence: Persistence) => {
-    const targetStorage = getBrowserStorage(persistence);
+    const targetStorage = getStorage(persistence);
     if (!targetStorage) return;
 
     targetStorage.setItem(TOKEN_KEY, token);
@@ -40,7 +40,7 @@ const storeTokens = (token: string, refreshToken: string | null, persistence: Pe
     }
     targetStorage.setItem(PERSISTENCE_KEY, persistence);
 
-    const otherStorage = getBrowserStorage(persistence === 'local' ? 'session' : 'local');
+    const otherStorage = getStorage(persistence === 'local' ? 'session' : 'local');
     otherStorage?.removeItem(TOKEN_KEY);
     otherStorage?.removeItem(REFRESH_TOKEN_KEY);
     otherStorage?.removeItem(PERSISTENCE_KEY);
@@ -140,7 +140,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 const expiresIn = decoded.exp * 1000 - Date.now() - 60000;
                 if (expiresIn > 0) {
                     tokenRefreshTimeout = setTimeout(async () => {
-                        const storage = getBrowserStorage(persistence);
+                        const storage = getStorage(persistence);
                         if (!storage) {
                             return;
                         }

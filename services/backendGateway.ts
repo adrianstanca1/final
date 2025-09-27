@@ -66,6 +66,7 @@ class BackendGateway {
     private readonly storage = getStorage();
     private queue: QueuedInteraction[];
     private syncingQueue = false;
+    private cachedState: BackendConnectionState | null = null;
 
     private constructor() {
         this.queue = this.loadQueue();
@@ -91,7 +92,10 @@ class BackendGateway {
     }
 
     getState(): BackendConnectionState {
-        return { ...this.state };
+        if (!this.cachedState) {
+            this.cachedState = { ...this.state };
+        }
+        return this.cachedState;
     }
 
     subscribe(listener: (state: BackendConnectionState) => void): () => void {
@@ -511,6 +515,7 @@ class BackendGateway {
 
     private setState(patch: Partial<BackendConnectionState>) {
         this.state = { ...this.state, ...patch };
+        this.cachedState = null; // Invalidate cache
         this.emitState();
     }
 
