@@ -38,8 +38,8 @@ export interface EnvironmentShape extends Environment {
 const environments: Record<string, Environment> = {
   development: {
     name: 'development',
-    apiUrl: 'http://localhost:3000/api',
-    authUrl: 'http://localhost:3000/auth',
+    apiUrl: 'http://localhost:4000/api',
+    authUrl: 'http://localhost:4000/auth',
     isDevelopment: true,
     isProduction: false,
     oauth: {
