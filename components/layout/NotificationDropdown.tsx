@@ -161,26 +161,9 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ user
                             <div className="flex-grow">
                                 <p className="text-sm text-card-foreground">{n.message}</p>
                                 <p className="text-xs text-muted-foreground mt-1">{formatDistanceToNow(new Date(n.createdAt))} ago</p>
-
-                    notifications.map(n => {
-                        const isRead = n.isRead ?? n.read;
-                        return (
-                            <div
-                                key={n.id}
-                                onClick={() => handleNotificationSelect(n)}
-                                className={`flex items-start gap-3 p-4 border-b border-border hover:bg-accent cursor-pointer ${!isRead ? 'bg-primary/10' : ''}`}
-                            >
-                                {!isRead && <div className="w-2 h-2 rounded-full bg-primary mt-1.5 flex-shrink-0"></div>}
-                                <div className={`flex-shrink-0 ${isRead ? 'ml-4' : ''}`}>
-                                    <NotificationIcon type={n.type} />
-                                </div>
-                                <div className="flex-grow">
-                                    <p className="text-sm text-card-foreground">{n.message}</p>
-                                    <p className="text-xs text-muted-foreground mt-1">{formatDistanceToNow(new Date(n.createdAt))} ago</p>
-                                </div>
                             </div>
-                        );
-                    })
+                        </div>
+                    ))
                 )}
             </div>
         </div>

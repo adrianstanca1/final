@@ -13,14 +13,16 @@ export interface ToastOptions {
     onClick: () => void;
   };
   onDismiss?: () => void;
+}
+
 interface ToastContextType {
   addToast: (options: ToastOptions) => string;
   removeToast: (id: string) => void;
   clearAllToasts: () => void;
   updateToast: (id: string, updates: Partial<ToastOptions>) => void;
-const ToastContext = createContext<ToastContextType | undefined>(undefined);
-
 }
+
+const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 export function useToast() {
   const context = useContext(ToastContext);
@@ -28,9 +30,13 @@ export function useToast() {
     throw new Error('useToast must be used within a ToastProvider');
   }
   return context;
+}
+
 interface ToastState extends ToastOptions {
   id: string;
   createdAt: number;
+}
+
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastState[]>([]);
   const timeoutRefs = useRef<Map<string, NodeJS.Timeout>>(new Map());

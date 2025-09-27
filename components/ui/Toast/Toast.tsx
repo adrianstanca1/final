@@ -11,6 +11,8 @@ export interface ToastProps {
     onClick: () => void;
   };
   onDismiss: () => void;
+}
+
 export function Toast({ id, type = 'info', title, message, action, onDismiss }: ToastProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
