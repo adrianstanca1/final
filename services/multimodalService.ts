@@ -139,23 +139,26 @@ class MultimodalService {
       throw new Error('Gemini client not initialized');
     }
 
-    const model = this.geminiClient.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-001' 
+    const startTime = Date.now();
+    const model = this.geminiClient.getGenerativeModel({
+      model: 'gemini-2.0-flash-001'
     });
 
     // Get image data
     const imageData = await this.getImageData(content);
-    
+
     const analysisPrompt = `
-      Analyze this image in detail and provide:
-      1. Objects detected with confidence scores and bounding boxes
-      2. Any text visible in the image (OCR)
-      3. Scene description
-      4. Dominant colors
-      5. Safety assessment
-      6. Descriptive tags
-      
-      Format the response as JSON.
+      Analyze this image in detail and provide a JSON response with:
+      {
+        "objects": [{"name": "object_name", "confidence": 0.95, "boundingBox": {"x": 0, "y": 0, "width": 100, "height": 100}}],
+        "text": "extracted text from image",
+        "description": "detailed scene description",
+        "colors": ["#FF0000", "#00FF00", "#0000FF"],
+        "safety": {"isAppropriate": true, "concerns": []},
+        "tags": ["tag1", "tag2", "tag3"]
+      }
+
+      Be thorough and accurate in your analysis.
     `;
 
     const result = await model.generateContent([
@@ -170,12 +173,13 @@ class MultimodalService {
 
     const response = result.response.text();
     const imageAnalysis = this.parseImageAnalysisResponse(response);
+    const processingTime = Date.now() - startTime;
 
     return {
       aiProvider: 'gemini',
       modelVersion: 'gemini-2.0-flash-001',
       confidence: this.calculateAverageConfidence(imageAnalysis.objects),
-      processingTime: Date.now() - Date.now(),
+      processingTime,
       imageAnalysis
     };
   }

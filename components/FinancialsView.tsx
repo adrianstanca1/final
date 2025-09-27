@@ -11,14 +11,12 @@ import {
   Permission,
   Expense,
   InvoiceStatus,
-  QuoteStatus,
   InvoiceLineItem,
   InvoiceLineItemDraft,
   ExpenseStatus,
   FinancialForecast,
-
 } from '../types';
-import { getDerivedStatus, getInvoiceFinancials } from '../utils/finance';
+import { getDerivedStatus, getInvoiceFinancials, formatCurrency } from '../utils/finance';
 import { api } from '../services/mockApi';
 import { generateFinancialForecast } from '../services/ai';
 import { Card } from './ui/Card';
@@ -26,12 +24,7 @@ import { Button } from './ui/Button';
 import { InvoiceStatusBadge, QuoteStatusBadge } from './ui/StatusBadge';
 import { hasPermission } from '../services/auth';
 import { Tag } from './ui/Tag';
-import { ExpenseModal } from './ExpenseModal';
-import ClientModal from './financials/ClientModal';
 import './FinancialsView.css';
-import InvoiceModal from './financials/InvoiceModal';
-import PaymentModal from './financials/PaymentModal';
-import { formatCurrency } from '../utils/finance';
 
 type FinancialsTab = 'dashboard' | 'invoices' | 'expenses' | 'clients';
 
@@ -81,6 +74,8 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
   const [forecastError, setForecastError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [lineItems, setLineItems] = useState<InvoiceLineItemDraft[]>([]);
+  const [taxRate, setTaxRate] = useState<number | ''>(0);
+  const [retentionRate, setRetentionRate] = useState<number | ''>(0);
 
   const canManageFinances = hasPermission(user, Permission.MANAGE_FINANCES);
 
@@ -641,22 +636,30 @@ export const FinancialsView: React.FC<{ user: User; addToast: (message: string, 
 
   if (loading) return <Card>Loading financials...</Card>;
 
-  const selectedInvoice = modal === 'invoice' || modal === 'payment' ? (selectedItem as Invoice) : null;
-  const isInvoiceReadOnly =
-    !canManageFinances ||
-    selectedInvoice?.status === InvoiceStatus.PAID ||
-    selectedInvoice?.status === InvoiceStatus.CANCELLED;
+  const canManageFinances = hasPermission(user, Permission.MANAGE_FINANCES);
 
   return (
     <div className="space-y-6">
       <div className="text-center p-6">
         <h1 className="text-2xl font-bold">Financials</h1>
-        <p className="text-muted-foreground">Financial data will be displayed here...</p>
+        <p className="text-muted-foreground">Comprehensive financial management dashboard</p>
       </div>
+
+      {/* Dashboard Content */}
+      <DashboardTab
+        kpis={data.kpis}
+        monthly={data.monthly}
+        costs={data.costs}
+        forecasts={data.forecasts}
+        onGenerateForecast={handleGenerateForecast}
+        isGeneratingForecast={isGeneratingForecast}
+        forecastError={forecastError}
+      />
     </div>
   );
 
 
+  // Move component definitions outside the main component
   interface DashboardTabProps {
     kpis: FinancialKPIs | null;
     monthly: MonthlyFinancials[];
