@@ -870,6 +870,229 @@ export interface Message {
     error?: string;
 }
 
+// === MULTIMODAL AI SYSTEM TYPES ===
+
+export type MediaType = 'text' | 'image' | 'audio' | 'video' | 'document' | 'mixed';
+
+export type ProcessingStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+
+export type AIProvider = 'gemini' | 'openai' | 'anthropic' | 'java-enterprise';
+
+export interface ContentMetadata {
+  filename?: string;
+  fileSize?: number;
+  mimeType?: string;
+  dimensions?: { width: number; height: number };
+  duration?: number;
+  source: 'upload' | 'url' | 'generated';
+  originalUrl?: string;
+  encoding?: string;
+  bitrate?: number;
+  sampleRate?: number;
+  channels?: number;
+}
+
+export interface ProcessingResults {
+  aiProvider: AIProvider;
+  modelVersion: string;
+  confidence: number;
+  processingTime: number;
+  textAnalysis?: TextAnalysisResult;
+  imageAnalysis?: ImageAnalysisResult;
+  audioAnalysis?: AudioAnalysisResult;
+  videoAnalysis?: VideoAnalysisResult;
+  documentAnalysis?: DocumentAnalysisResult;
+  crossModalAnalysis?: CrossModalAnalysisResult;
+}
+
+export interface TextAnalysisResult {
+  extractedText: string;
+  language: string;
+  sentiment: {
+    score: number;
+    label: 'positive' | 'negative' | 'neutral';
+    confidence: number;
+  };
+  entities: Array<{
+    text: string;
+    type: string;
+    confidence: number;
+  }>;
+  keywords: string[];
+  summary?: string;
+  topics?: string[];
+}
+
+export interface ImageAnalysisResult {
+  objects: Array<{
+    name: string;
+    confidence: number;
+    boundingBox: { x: number; y: number; width: number; height: number };
+  }>;
+  faces: Array<{
+    confidence: number;
+    boundingBox: { x: number; y: number; width: number; height: number };
+    emotions?: Array<{ emotion: string; confidence: number }>;
+    age?: number;
+    gender?: string;
+  }>;
+  scenes: Array<{ name: string; confidence: number }>;
+  colors: Array<{
+    hex: string;
+    percentage: number;
+    name: string;
+  }>;
+  safetyLabels: Array<{
+    name: string;
+    confidence: number;
+    severity: 'low' | 'medium' | 'high';
+  }>;
+  description: string;
+  tags: string[];
+  textInImage?: string;
+}
+
+export interface AudioAnalysisResult {
+  transcription: string;
+  language: string;
+  confidence: number;
+  speakers?: Array<{
+    id: string;
+    segments: Array<{ start: number; end: number; text: string }>;
+  }>;
+  emotions?: Array<{
+    emotion: string;
+    confidence: number;
+    timestamp: number;
+  }>;
+  musicAnalysis?: {
+    tempo: number;
+    key: string;
+    genre: string;
+    instruments: string[];
+  };
+  noiseLevel: number;
+  qualityScore: number;
+}
+
+export interface VideoAnalysisResult {
+  scenes: Array<{
+    start: number;
+    end: number;
+    description: string;
+    confidence: number;
+  }>;
+  objects: Array<{
+    name: string;
+    confidence: number;
+    timestamps: Array<{ start: number; end: number }>;
+  }>;
+  faces: Array<{
+    confidence: number;
+    timestamps: Array<{ start: number; end: number }>;
+  }>;
+  activities: Array<{
+    name: string;
+    confidence: number;
+    timestamps: Array<{ start: number; end: number }>;
+  }>;
+  audioTrack?: AudioAnalysisResult;
+  thumbnail?: string;
+  keyFrames: Array<{ timestamp: number; imageUrl: string }>;
+}
+
+export interface DocumentAnalysisResult {
+  extractedText: string;
+  language: string;
+  pageCount: number;
+  structure: {
+    headings: Array<{ level: number; text: string; page: number }>;
+    paragraphs: Array<{ text: string; page: number }>;
+    tables: Array<{ data: string[][]; page: number }>;
+    images: Array<{ description: string; page: number }>;
+  };
+  metadata: {
+    title?: string;
+    author?: string;
+    createdDate?: string;
+    modifiedDate?: string;
+    subject?: string;
+    keywords?: string[];
+  };
+  summary: string;
+  keyPoints: string[];
+}
+
+export interface CrossModalAnalysisResult {
+  coherenceScore: number;
+  complementarity: number;
+  redundancy: number;
+  mainTheme: string;
+  insights: Array<{
+    type: 'correlation' | 'contradiction' | 'enhancement';
+    description: string;
+    confidence: number;
+  }>;
+  recommendations: Array<{
+    action: string;
+    reason: string;
+    priority: 'high' | 'medium' | 'low';
+  }>;
+}
+
+export interface MultimodalContent {
+  id: string;
+  type: MediaType;
+  status: ProcessingStatus;
+  createdAt: string;
+  updatedAt: string;
+  userId: string;
+  projectId?: string;
+  metadata: ContentMetadata;
+  processingResults?: ProcessingResults;
+  tags?: string[];
+  description?: string;
+}
+
+export interface ProcessingJob {
+  id: string;
+  contentId: string;
+  type: 'analysis' | 'transcription' | 'translation' | 'enhancement';
+  status: ProcessingStatus;
+  progress: number;
+  startedAt: string;
+  completedAt?: string;
+  error?: string;
+  priority: 'low' | 'medium' | 'high';
+}
+
+export interface MultimodalSearchQuery {
+  text?: string;
+  filters: {
+    mediaTypes?: MediaType[];
+    dateRange?: {
+      start: string;
+      end: string;
+    };
+    minConfidence?: number;
+    tags?: string[];
+    userId?: string;
+    projectId?: string;
+  };
+  sortBy?: 'relevance' | 'date' | 'confidence';
+  sortOrder?: 'asc' | 'desc';
+  limit?: number;
+  offset?: number;
+}
+
+export interface MultimodalSearchResult {
+  content: MultimodalContent;
+  relevanceScore: number;
+  matchedFields: string[];
+  snippet?: string;
+  highlights?: string[];
+}
+
 export interface WhiteboardNote {
     id: string;
     projectId: string;

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import type { User, Project, Todo } from '../types';
+// FIX: Changed Todo to Task and imported correct enums
+import { User, Project, Task as Todo, TodoPriority, TodoStatus } from '../types';
 import { api } from '../services/mockApi';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
@@ -207,14 +208,14 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ user, addToast, onBack }) 
   const statusTag =
     advisorMode === 'live'
       ? {
-          label: lastModel ? `Live • ${lastModel}` : 'Live • Gemini',
-          color: 'green' as const,
-        }
+        label: lastModel ? `Live • ${lastModel}` : 'Live • Gemini',
+        color: 'green' as const,
+      }
       : advisorMode === 'fallback'
         ? {
-            label: 'Offline insights',
-            color: 'yellow' as const,
-          }
+          label: 'Offline insights',
+          color: 'yellow' as const,
+        }
         : null;
 
   return (
@@ -266,11 +267,10 @@ export const AIAdvisor: React.FC<AIAdvisorProps> = ({ user, addToast, onBack }) 
                     </div>
                   ) : null}
                   <div
-                    className={`max-w-lg rounded-lg px-4 py-2 text-sm shadow-sm ${
-                      message.role === 'assistant'
-                        ? 'border border-border/50 bg-card text-foreground'
-                        : 'bg-primary text-primary-foreground'
-                    }`}
+                    className={`max-w-lg rounded-lg px-4 py-2 text-sm shadow-sm ${message.role === 'assistant'
+                      ? 'border border-border/50 bg-card text-foreground'
+                      : 'bg-primary text-primary-foreground'
+                      }`}
                   >
                     {message.text}
                   </div>

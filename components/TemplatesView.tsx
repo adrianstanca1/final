@@ -7,8 +7,8 @@ import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 
 interface TemplatesViewProps {
-  user: User;
-  addToast: (message: string, type: 'success' | 'error') => void;
+    user: User;
+    addToast: (message: string, type: 'success' | 'error') => void;
 }
 
 const CreateTemplateModal: React.FC<{
@@ -32,7 +32,7 @@ const CreateTemplateModal: React.FC<{
         }
         setList(newList.filter(item => item !== undefined));
     };
-    
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setIsSaving(true);
@@ -47,7 +47,7 @@ const CreateTemplateModal: React.FC<{
             addToast("Template created successfully.", "success");
             onSuccess();
             onClose();
-        } catch(error) {
+        } catch (error) {
             addToast("Failed to create template.", "error");
         } finally {
             setIsSaving(false);
@@ -59,19 +59,19 @@ const CreateTemplateModal: React.FC<{
             <Card className="w-full max-w-2xl" onClick={e => e.stopPropagation()}>
                 <h3 className="text-xl font-bold mb-4">Create New Template</h3>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <input type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="Template Name" className="w-full p-2 border rounded" required/>
-                    <textarea value={description} onChange={e=>setDescription(e.target.value)} placeholder="Description" className="w-full p-2 border rounded" rows={3}/>
-                    
+                    <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Template Name" className="w-full p-2 border rounded" required />
+                    <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Description" className="w-full p-2 border rounded" rows={3} />
+
                     <div>
                         <h4 className="font-semibold">Template Tasks</h4>
                         {tasks.map((task, index) => (
-                            <input key={index} type="text" value={task} onChange={e => handleListChange(index, e.target.value, tasks, setTasks)} placeholder="+ Add task" className="w-full p-1 border-b mt-1"/>
+                            <input key={index} type="text" value={task} onChange={e => handleListChange(index, e.target.value, tasks, setTasks)} placeholder="+ Add task" className="w-full p-1 border-b mt-1" />
                         ))}
                     </div>
-                     <div>
+                    <div>
                         <h4 className="font-semibold">Document Categories</h4>
                         {categories.map((cat, index) => (
-                            <input key={index} type="text" value={cat} onChange={e => handleListChange(index, e.target.value, categories, setCategories)} placeholder="+ Add category" className="w-full p-1 border-b mt-1"/>
+                            <input key={index} type="text" value={cat} onChange={e => handleListChange(index, e.target.value, categories, setCategories)} placeholder="+ Add category" className="w-full p-1 border-b mt-1" />
                         ))}
                     </div>
 
@@ -84,67 +84,67 @@ const CreateTemplateModal: React.FC<{
         </div>
     );
 
-export const TemplatesView: React.FC<TemplatesViewProps> = ({ user, addToast }) => {
-    const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const abortControllerRef = useRef<AbortController | null>(null);
+    export const TemplatesView: React.FC<TemplatesViewProps> = ({ user, addToast }) => {
+        const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
+        const [loading, setLoading] = useState(true);
+        const [isModalOpen, setIsModalOpen] = useState(false);
+        const abortControllerRef = useRef<AbortController | null>(null);
 
-    const fetchData = useCallback(async () => {
-        const controller = new AbortController();
-        abortControllerRef.current?.abort();
-        abortControllerRef.current = controller;
-
-        setLoading(true);
-        try {
-            if (!user.companyId) return;
-            const data = await api.getProjectTemplates(user.companyId, { signal: controller.signal });
-            if (controller.signal.aborted) return;
-            setTemplates(data);
-        } catch (error) {
-            if (controller.signal.aborted) return;
-            addToast("Failed to load templates.", "error");
-        } finally {
-            if (controller.signal.aborted) return;
-            setLoading(false);
-        }
-    }, [user.companyId, addToast]);
-
-    useEffect(() => {
-        fetchData();
-        return () => {
+        const fetchData = useCallback(async () => {
+            const controller = new AbortController();
             abortControllerRef.current?.abort();
-        };
-    }, [fetchData]);
+            abortControllerRef.current = controller;
 
-    if (loading) return <Card><p>Loading templates...</p></Card>;
+            setLoading(true);
+            try {
+                if (!user.companyId) return;
+                const data = await api.getProjectTemplates(user.companyId, { signal: controller.signal });
+                if (controller.signal.aborted) return;
+                setTemplates(data);
+            } catch (error) {
+                if (controller.signal.aborted) return;
+                addToast("Failed to load templates.", "error");
+            } finally {
+                if (controller.signal.aborted) return;
+                setLoading(false);
+            }
+        }, [user.companyId, addToast]);
 
-    return (
-        <div className="space-y-6">
-             {isModalOpen && (
-                <CreateTemplateModal
-                    user={user}
-                    onClose={() => setIsModalOpen(false)}
-                    onSuccess={fetchData}
-                    addToast={addToast}
-                />
-            )}
-            <div className="flex justify-between items-center">
-                <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Project Templates</h2>
-                <Button onClick={() => setIsModalOpen(true)}>Create Template</Button>
+        useEffect(() => {
+            fetchData();
+            return () => {
+                abortControllerRef.current?.abort();
+            };
+        }, [fetchData]);
+
+        if (loading) return <Card><p>Loading templates...</p></Card>;
+
+        return (
+            <div className="space-y-6">
+                {isModalOpen && (
+                    <CreateTemplateModal
+                        user={user}
+                        onClose={() => setIsModalOpen(false)}
+                        onSuccess={fetchData}
+                        addToast={addToast}
+                    />
+                )}
+                <div className="flex justify-between items-center">
+                    <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100">Project Templates</h2>
+                    <Button onClick={() => setIsModalOpen(true)}>Create Template</Button>
+                </div>
+                <div className="space-y-4">
+                    {templates.map(template => (
+                        <Card key={template.id}>
+                            <h3 className="font-bold text-lg">{template.name}</h3>
+                            <p className="text-sm text-slate-600">{template.description}</p>
+                            <div className="mt-4 flex gap-4 text-sm text-slate-500">
+                                <span><strong>{template.templateTasks.length}</strong> tasks</span>
+                                <span><strong>{template.documentCategories.length}</strong> document categories</span>
+                            </div>
+                        </Card>
+                    ))}
+                </div>
             </div>
-            <div className="space-y-4">
-                {templates.map(template => (
-                    <Card key={template.id}>
-                        <h3 className="font-bold text-lg">{template.name}</h3>
-                        <p className="text-sm text-slate-600">{template.description}</p>
-                        <div className="mt-4 flex gap-4 text-sm text-slate-500">
-                            <span><strong>{template.templateTasks.length}</strong> tasks</span>
-                            <span><strong>{template.documentCategories.length}</strong> document categories</span>
-                        </div>
-                    </Card>
-                ))}
-            </div>
-        </div>
-    );
-};
+        );
+    };

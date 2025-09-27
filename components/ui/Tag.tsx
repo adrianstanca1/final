@@ -1,9 +1,9 @@
 import React from 'react';
 
 interface TagProps extends React.HTMLAttributes<HTMLSpanElement> {
-  label: string;
-  color?: 'green' | 'blue' | 'red' | 'gray' | 'yellow';
-  statusIndicator?: 'green' | 'blue' | 'red' | 'gray' | 'yellow';
+    label: string;
+    color?: 'green' | 'blue' | 'red' | 'gray' | 'yellow';
+    statusIndicator?: 'green' | 'blue' | 'red' | 'gray' | 'yellow';
 }
 
 export const Tag: React.FC<TagProps> = ({ label, color = 'gray', className, statusIndicator, ...props }) => {
@@ -22,7 +22,7 @@ export const Tag: React.FC<TagProps> = ({ label, color = 'gray', className, stat
         yellow: 'bg-yellow-500',
         gray: 'bg-slate-400',
     };
-    
+
     const finalClassName = [
         'inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full',
         colorClasses[color],

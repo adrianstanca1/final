@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 // FIX: Corrected import paths to be relative.
 import { User, Project, Permission, Role } from '../types';
-import { api } from '../services/mockApi';
+import { api } from '../services/apiService';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { hasPermission } from '../services/auth';
@@ -25,11 +25,11 @@ export const DailySummaryGenerator: React.FC<DailySummaryGeneratorProps> = ({ us
     const fetchProjects = useCallback(async () => {
         if (!user.companyId) return;
         try {
-            
+
             let userProjects: Project[];
             if (hasPermission(user, Permission.VIEW_ALL_PROJECTS)) {
                 userProjects = await api.getProjectsByCompany(user.companyId);
-// FIX: Replaced non-existent Role.PM with Role.PROJECT_MANAGER.
+                // FIX: Replaced non-existent Role.PM with Role.PROJECT_MANAGER.
             } else if (user.role === Role.PROJECT_MANAGER) { // PMs might not have VIEW_ALL_PROJECTS but manage some
                 userProjects = await api.getProjectsByManager(user.id);
             } else { // Operatives, etc.
@@ -117,7 +117,7 @@ export const DailySummaryGenerator: React.FC<DailySummaryGeneratorProps> = ({ us
                         <div className="p-4 border rounded-md bg-white whitespace-pre-wrap font-mono text-sm">
                             {summary}
                         </div>
-                         <Button variant="secondary" className="mt-4" onClick={() => navigator.clipboard.writeText(summary).then(() => addToast("Report copied to clipboard!", "success"))}>
+                        <Button variant="secondary" className="mt-4" onClick={() => navigator.clipboard.writeText(summary).then(() => addToast("Report copied to clipboard!", "success"))}>
                             Copy Report
                         </Button>
                     </div>

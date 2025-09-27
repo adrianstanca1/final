@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { User, Project, Todo, TodoStatus, Timesheet } from '../types';
-import { api } from '../services/mockApi';
+import { api } from '../services/apiService';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { KanbanBoard } from './KanbanBoard';
 
 interface MyDayViewProps {
-  user: User;
-  addToast: (message: string, type: 'success' | 'error') => void;
+    user: User;
+    addToast: (message: string, type: 'success' | 'error') => void;
 }
 
 export const MyDayView: React.FC<MyDayViewProps> = ({ user, addToast }) => {
@@ -67,7 +67,7 @@ export const MyDayView: React.FC<MyDayViewProps> = ({ user, addToast }) => {
             abortControllerRef.current?.abort();
         };
     }, [fetchData]);
-    
+
     const handleTaskStatusChange = async (taskId: string | number, newStatus: TodoStatus) => {
         try {
             // FIX: Ensure taskId is a string for the API call.
@@ -79,7 +79,7 @@ export const MyDayView: React.FC<MyDayViewProps> = ({ user, addToast }) => {
             addToast("Failed to update task status.", 'error');
         }
     };
-    
+
     const handleTaskSelectionChange = (taskId: string | number) => {
         setSelectedTaskIds(prev => {
             const newSet = new Set(prev);
@@ -91,7 +91,7 @@ export const MyDayView: React.FC<MyDayViewProps> = ({ user, addToast }) => {
             return newSet;
         });
     };
-    
+
     const handleAIPrioritization = async () => {
         setIsPrioritizing(true);
         try {
@@ -116,12 +116,12 @@ export const MyDayView: React.FC<MyDayViewProps> = ({ user, addToast }) => {
     const activeProject = useMemo(() => projects.find(p => p.status === 'ACTIVE'), [projects]);
     const activeTimesheet = useMemo(() => timesheets.find(ts => ts.clockOut === null), [timesheets]);
 
-    if(loading) return <Card>Loading your day...</Card>;
+    if (loading) return <Card>Loading your day...</Card>;
 
     return (
         <div className="space-y-6">
             <h1 className="text-3xl font-bold text-foreground">My Day</h1>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <Card className="lg:col-span-1">
                     <h2 className="font-semibold text-lg mb-2">Time Clock</h2>
@@ -131,27 +131,27 @@ export const MyDayView: React.FC<MyDayViewProps> = ({ user, addToast }) => {
                             <Button variant="danger" className="w-full mt-4">Clock Out</Button>
                         </div>
                     ) : (
-                         <div>
+                        <div>
                             <p className="text-center text-lg">You are currently clocked out.</p>
-                             <Button variant="primary" className="w-full mt-4">Clock In</Button>
+                            <Button variant="primary" className="w-full mt-4">Clock In</Button>
                         </div>
                     )}
                 </Card>
-                 <Card className="lg:col-span-2">
+                <Card className="lg:col-span-2">
                     <h2 className="font-semibold text-lg mb-2">Quick Info</h2>
                     <p><strong>Active Project:</strong> {activeProject?.name || 'None'}</p>
                     <p><strong>Pending Tasks:</strong> {todos.filter(t => t.status !== TodoStatus.DONE).length}</p>
                 </Card>
             </div>
-            
+
             <div>
                 <div className="flex justify-between items-center mb-4">
-                     <h2 className="text-xl font-bold text-foreground">My Tasks</h2>
-                     <Button onClick={handleAIPrioritization} isLoading={isPrioritizing}>
+                    <h2 className="text-xl font-bold text-foreground">My Tasks</h2>
+                    <Button onClick={handleAIPrioritization} isLoading={isPrioritizing}>
                         ✨ Prioritize with AI
                     </Button>
                 </div>
-                <KanbanBoard 
+                <KanbanBoard
                     todos={todos}
                     allTodos={allTodos}
                     user={user}
