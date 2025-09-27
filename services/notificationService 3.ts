@@ -181,16 +181,16 @@ export class NotificationService {
    */
   private isSafeUrl(url: string): boolean {
     try {
-      // Relative path (not protocol or host)
-      if (url.startsWith('/')) return true;
-      // Absolute: Check same-origin
-      const dest = new URL(url, window.location.href);
+      // Block protocol-relative URLs (e.g., //evil.com)
+      if (/^\/\//.test(url)) return false;
+      // Resolve the URL against the current origin
+      const dest = new URL(url, window.location.origin);
+      // Only allow same-origin URLs
       return dest.origin === window.location.origin;
     } catch (e) {
       // Invalid URLs are considered unsafe
       return false;
     }
-  }
 
 
   // Push notification subscription
