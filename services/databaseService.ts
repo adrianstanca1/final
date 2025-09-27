@@ -202,7 +202,7 @@ class DatabaseService {
     }
 
     try {
-      const updateData: any = {};
+      const updateData: Partial<Tables['projects']['Update']> = {};
       
       if (updates.name) updateData.name = updates.name;
       if (updates.locationAddress) updateData.location_address = updates.locationAddress;
