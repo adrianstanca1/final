@@ -4,7 +4,8 @@
 
 ### Hosting Details
 - **Provider**: IONOS Ultimate Hosting
-- **Account**: adrian.stanca1@gmail.com
+- **Account**: your-email@example.com
+
 - **Domain**: (Your domain will be configured through IONOS)
 
 ### Deployment Method Options
