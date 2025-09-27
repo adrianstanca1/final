@@ -16,15 +16,7 @@ const PERSISTENCE_KEY = 'asagents_auth_persistence';
 
 const isBrowser = () => typeof window !== 'undefined';
 
-const isAuthenticatedSession = (result: LoginResult): result is AuthenticatedSession =>
-    typeof result === 'object' &&
-    result !== null &&
-    'token' in result &&
-    'refreshToken' in result &&
-    'user' in result &&
-    'company' in result;
-
-const getBrowserStorage = (persistence: Persistence): Storage | null => {
+const getStorage = (persistence: Persistence): Storage | null => {
     if (!isBrowser()) return null;
     return persistence === 'local' ? window.localStorage : window.sessionStorage;
 };
@@ -262,8 +254,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 ipAddress: 'unknown',
                 userAgent: isBrowser() ? navigator.userAgent : 'server',
             });
-
-            if ('mfaRequired' in response && response.mfaRequired) {
+            if (response.mfaRequired) {
                 setAuthState(prev => ({ ...prev, loading: false }));
                 return { mfaRequired: true, userId: response.userId };
             }

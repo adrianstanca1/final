@@ -164,13 +164,12 @@ const StepIndicator: React.FC<{ currentStep: RegistrationStep }> = ({ currentSte
             return (
                 <li
                     key={step.id}
-                    className={`flex-1 rounded-lg border px-4 py-3 text-left transition ${
-                        isActive
-                            ? 'border-primary bg-primary/5 text-primary'
-                            : isComplete
+                    className={`flex-1 rounded-lg border px-4 py-3 text-left transition ${isActive
+                        ? 'border-primary bg-primary/5 text-primary'
+                        : isComplete
                             ? 'border-emerald-400 bg-emerald-50 text-emerald-600'
                             : 'border-border bg-muted/40 text-muted-foreground'
-                    }`}
+                        }`}
                 >
                     <div className="text-xs font-semibold uppercase tracking-wide">Step {index + 1}</div>
                     <div className="text-sm font-semibold text-foreground">{step.title}</div>
@@ -197,7 +196,7 @@ const SocialAuthButtons: React.FC<{ onSocial: (provider: SocialProvider) => void
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.09-1.92 3.28-4.74 3.28-8.09z" />
                 <path fill="#34A853" d="M12 24c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.25 1.05-3.71 1.05-2.85 0-5.26-1.92-6.13-4.49H2.18v2.82C3.99 21.53 7.68 24 12 24z" />
                 <path fill="#FBBC05" d="M5.87 15.13c-.22-.66-.35-1.36-.35-2.13s.13-1.47.35-2.13V8.05H2.18A11.99 11.99 0 000 12.99c0 1.9.45 3.69 1.18 4.94l4.69-2.8z" />
-                <path fill="#EA4335" d="M12 4.75c1.62 0 3.07.56 4.21 1.64l3.16-3.16C17.46 1.16 14.97 0 12 0 7.68 0 3.99 2.47 2.18 6.05l3.69 2.82C6.74 6.67 9.15 4.75 12 4.75z" />
+                <path fill="#EA4335" d="M12 4.75c1.62 0 3.07.56 4.21 1.64l3.16-3.16C17.46 1.16 14.97 0 12 0 7.68 0 3.99 2.47 2.08 6.05l3.69 2.82C6.74 6.67 9.15 4.75 12 4.75z" />
                 <path fill="none" d="M0 0h24v24H0z" />
             </svg>
             Continue with Google
@@ -535,9 +534,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                         type="text"
                                         value={form.firstName}
                                         onChange={event => updateField('firstName', event.target.value)}
-                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                            errors.firstName ? 'border-destructive' : 'border-border'
-                                        }`}
+                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.firstName ? 'border-destructive' : 'border-border'
+                                            }`}
                                     />
                                     {errors.firstName && <p className="text-xs text-destructive">{errors.firstName}</p>}
                                 </label>
@@ -547,9 +545,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                         type="text"
                                         value={form.lastName}
                                         onChange={event => updateField('lastName', event.target.value)}
-                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                            errors.lastName ? 'border-destructive' : 'border-border'
-                                        }`}
+                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.lastName ? 'border-destructive' : 'border-border'
+                                            }`}
                                     />
                                     {errors.lastName && <p className="text-xs text-destructive">{errors.lastName}</p>}
                                 </label>
@@ -560,9 +557,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                         value={form.email}
                                         onChange={event => updateField('email', event.target.value)}
                                         onBlur={handleEmailBlur}
-                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                            errors.email ? 'border-destructive' : 'border-border'
-                                        }`}
+                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.email ? 'border-destructive' : 'border-border'
+                                            }`}
                                     />
                                     <div className="flex items-center justify-between text-xs text-muted-foreground">
                                         <span>
@@ -581,9 +577,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                         value={form.username}
                                         onChange={event => updateField('username', event.target.value)}
                                         placeholder="e.g. omnitenant.builder"
-                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                            errors.username ? 'border-destructive' : 'border-border'
-                                        }`}
+                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.username ? 'border-destructive' : 'border-border'
+                                            }`}
                                     />
                                     <p className="text-xs text-muted-foreground">Unique handle for cross-tenant visibility.</p>
                                     {errors.username && <p className="text-xs text-destructive">{errors.username}</p>}
@@ -603,9 +598,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                         type="password"
                                         value={form.password}
                                         onChange={event => updateField('password', event.target.value)}
-                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                            errors.password ? 'border-destructive' : 'border-border'
-                                        }`}
+                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.password ? 'border-destructive' : 'border-border'
+                                            }`}
                                     />
                                     <p className="text-xs text-muted-foreground">
                                         Use at least {PASSWORD_MIN_LENGTH} characters with numbers and symbols.
@@ -624,9 +618,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                         type="password"
                                         value={form.confirmPassword}
                                         onChange={event => updateField('confirmPassword', event.target.value)}
-                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                            errors.confirmPassword ? 'border-destructive' : 'border-border'
-                                        }`}
+                                        className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.confirmPassword ? 'border-destructive' : 'border-border'
+                                            }`}
                                     />
                                     {errors.confirmPassword && (
                                         <p className="text-xs text-destructive">{errors.confirmPassword}</p>
@@ -642,11 +635,10 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                         <button
                                             type="button"
                                             onClick={() => updateField('companySelection', 'create')}
-                                            className={`rounded-lg border px-4 py-3 text-left transition ${
-                                                form.companySelection === 'create'
-                                                    ? 'border-primary bg-primary/5 text-primary'
-                                                    : 'border-border hover:border-primary'
-                                            }`}
+                                            className={`rounded-lg border px-4 py-3 text-left transition ${form.companySelection === 'create'
+                                                ? 'border-primary bg-primary/5 text-primary'
+                                                : 'border-border hover:border-primary'
+                                                }`}
                                         >
                                             <span className="block text-sm font-semibold">Create a new tenant</span>
                                             <span className="text-xs text-muted-foreground">
@@ -656,11 +648,10 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                         <button
                                             type="button"
                                             onClick={() => updateField('companySelection', 'join')}
-                                            className={`rounded-lg border px-4 py-3 text-left transition ${
-                                                form.companySelection === 'join'
-                                                    ? 'border-primary bg-primary/5 text-primary'
-                                                    : 'border-border hover:border-primary'
-                                            }`}
+                                            className={`rounded-lg border px-4 py-3 text-left transition ${form.companySelection === 'join'
+                                                ? 'border-primary bg-primary/5 text-primary'
+                                                : 'border-border hover:border-primary'
+                                                }`}
                                         >
                                             <span className="block text-sm font-semibold">Join an existing tenant</span>
                                             <span className="text-xs text-muted-foreground">
@@ -680,9 +671,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                                 type="text"
                                                 value={form.companyName}
                                                 onChange={event => updateField('companyName', event.target.value)}
-                                                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                                    errors.companyName ? 'border-destructive' : 'border-border'
-                                                }`}
+                                                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.companyName ? 'border-destructive' : 'border-border'
+                                                    }`}
                                             />
                                             {errors.companyName && (
                                                 <p className="text-xs text-destructive">{errors.companyName}</p>
@@ -693,9 +683,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                             <select
                                                 value={form.companyType}
                                                 onChange={event => updateField('companyType', event.target.value as CompanyType)}
-                                                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                                    errors.companyType ? 'border-destructive' : 'border-border'
-                                                }`}
+                                                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.companyType ? 'border-destructive' : 'border-border'
+                                                    }`}
                                             >
                                                 <option value="">Select type</option>
                                                 {COMPANY_TYPES.map(type => (
@@ -714,9 +703,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                                 type="email"
                                                 value={form.companyEmail}
                                                 onChange={event => updateField('companyEmail', event.target.value)}
-                                                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                                    errors.companyEmail ? 'border-destructive' : 'border-border'
-                                                }`}
+                                                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.companyEmail ? 'border-destructive' : 'border-border'
+                                                    }`}
                                             />
                                             {errors.companyEmail && (
                                                 <p className="text-xs text-destructive">{errors.companyEmail}</p>
@@ -738,9 +726,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                                 value={form.companyWebsite}
                                                 onChange={event => updateField('companyWebsite', event.target.value)}
                                                 placeholder="https://"
-                                                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                                    errors.companyWebsite ? 'border-destructive' : 'border-border'
-                                                }`}
+                                                className={`w-full rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.companyWebsite ? 'border-destructive' : 'border-border'
+                                                    }`}
                                             />
                                             {errors.companyWebsite && (
                                                 <p className="text-xs text-destructive">{errors.companyWebsite}</p>
@@ -757,9 +744,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                                     type="text"
                                                     value={form.inviteToken}
                                                     onChange={event => updateField('inviteToken', event.target.value.toUpperCase())}
-                                                    className={`flex-1 rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${
-                                                        errors.inviteToken ? 'border-destructive' : 'border-border'
-                                                    }`}
+                                                    className={`flex-1 rounded-md border px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary ${errors.inviteToken ? 'border-destructive' : 'border-border'
+                                                        }`}
                                                 />
                                                 <Button type="button" variant="secondary" onClick={handleInviteLookup} isLoading={isCheckingInvite}>
                                                     Verify invite
@@ -782,11 +768,10 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                                         type="button"
                                                         key={role}
                                                         onClick={() => updateField('role', role)}
-                                                        className={`rounded-lg border px-4 py-3 text-left text-sm transition ${
-                                                            form.role === role
-                                                                ? 'border-primary bg-primary/5 text-primary'
-                                                                : 'border-border hover:border-primary'
-                                                        }`}
+                                                        className={`rounded-lg border px-4 py-3 text-left text-sm transition ${form.role === role
+                                                            ? 'border-primary bg-primary/5 text-primary'
+                                                            : 'border-border hover:border-primary'
+                                                            }`}
                                                     >
                                                         <span className="block font-semibold">{ROLE_DETAILS[role].label}</span>
                                                         <span className="text-xs text-muted-foreground">
@@ -859,9 +844,8 @@ export const UserRegistration: React.FC<UserRegistrationProps> = ({ onSwitchToLo
                                         type="checkbox"
                                         checked={form.termsAccepted}
                                         onChange={event => updateField('termsAccepted', event.target.checked)}
-                                        className={`mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary ${
-                                            errors.termsAccepted ? 'border-destructive' : ''
-                                        }`}
+                                        className={`mt-1 h-4 w-4 rounded border-border text-primary focus:ring-primary ${errors.termsAccepted ? 'border-destructive' : ''
+                                            }`}
                                     />
                                     <span>
                                         I agree to the{' '}
