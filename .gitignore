@@ -25,3 +25,6 @@ legacy/
 *.sw?
 oracleJdk-25/
 .vercel
+Dockerfile
+docker-compose.yaml
+docker-compose.yml

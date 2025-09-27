@@ -5,19 +5,79 @@
  */
 
 import { execSync } from 'child_process';
-import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
 import { deployConfig } from '../deploy.config.js';
 
 const args = process.argv.slice(2);
-const environment = args[0] || 'production';
-const target = args[1] || 'vercel';
-const dryRun = args.includes('--dry-run');
+const positionalArgs = args.filter((arg) => !arg.startsWith('--'));
+const flagArgs = args.filter((arg) => arg.startsWith('--'));
+
+function parseFlags(list) {
+  return list.reduce((acc, arg) => {
+    const normalized = arg.replace(/^--/, '');
+    if (!normalized) return acc;
+
+    const [key, value] = normalized.split('=');
+    if (value === undefined) {
+      acc[key] = true;
+    } else if (value === 'false') {
+      acc[key] = false;
+    } else if (value === 'true') {
+      acc[key] = true;
+    } else {
+      acc[key] = value;
+    }
+    return acc;
+  }, {});
+}
+
+const parsedFlags = parseFlags(flagArgs);
+
+const environment = positionalArgs[0] || 'production';
+const target = positionalArgs[1] || 'vercel';
+const dryRun = flagArgs.includes('--dry-run');
+const skipRemoteDeploy =
+  flagArgs.includes('--skip-remote') ||
+  flagArgs.includes('--local-only') ||
+  process.env.DEPLOY_SKIP_REMOTE === 'true';
+const skipInstall =
+  parsedFlags['skip-install'] || process.env.DEPLOY_SKIP_INSTALL === 'true';
+const skipTests =
+  parsedFlags['skip-tests'] || process.env.DEPLOY_SKIP_TESTS === 'true';
+const skipLint =
+  parsedFlags['skip-lint'] || process.env.DEPLOY_SKIP_LINT === 'true';
+const skipTypeCheck =
+  parsedFlags['skip-typecheck'] || process.env.DEPLOY_SKIP_TYPECHECK === 'true';
+const skipAudit =
+  parsedFlags['skip-audit'] || process.env.DEPLOY_SKIP_AUDIT === 'true';
+const skipBuild =
+  parsedFlags['skip-build'] || process.env.DEPLOY_SKIP_BUILD === 'true';
+const skipOptimize =
+  parsedFlags['skip-optimize'] || process.env.DEPLOY_SKIP_OPTIMIZE === 'true';
+const skipSitemap =
+  parsedFlags['skip-sitemap'] ||
+  process.env.DEPLOY_SKIP_SITEMAP === 'true' ||
+  skipBuild;
+const skipPostChecks =
+  parsedFlags['skip-post-checks'] || process.env.DEPLOY_SKIP_POST_CHECKS === 'true';
+const skipNotify =
+  parsedFlags['skip-notify'] || process.env.DEPLOY_SKIP_NOTIFY === 'true';
+const forceInstall =
+  parsedFlags['force-install'] || process.env.DEPLOY_FORCE_INSTALL === 'true';
+const onlyFlag = parsedFlags['only'];
+const onlySteps =
+  typeof onlyFlag === 'string' && onlyFlag.trim()
+    ? new Set(onlyFlag.split(',').map((value) => value.trim()).filter(Boolean))
+    : null;
 
 console.log(`🚀 Starting deployment to ${environment} environment on ${target}...`);
 
 if (dryRun) {
   console.log('🔍 DRY RUN MODE - No actual deployment will occur');
+}
+
+if (skipRemoteDeploy && !dryRun) {
+  console.log('🛠️  Local-only mode enabled - remote deployment steps will be skipped');
 }
 
 // Validate environment
@@ -37,39 +97,129 @@ if (!deployConfig.targets[target]) {
 const config = deployConfig.environments[environment];
 const targetConfig = deployConfig.targets[target];
 
-async function runCommand(command, description) {
+const stepResults = [];
+
+function isStepEnabled(stepId) {
+  if (!onlySteps) return true;
+  return onlySteps.has(stepId);
+}
+
+function writeFileIfChanged(path, content) {
+  if (dryRun) {
+    console.log(`   Would update ${path}`);
+    return;
+  }
+
+  if (existsSync(path)) {
+    const existing = readFileSync(path, 'utf8');
+    if (existing === content) {
+      console.log(`   ${path} already up to date`);
+      return;
+    }
+  }
+
+  writeFileSync(path, content);
+  console.log(`   ${path} updated`);
+}
+
+function ensureCommandAvailable(command, { optional = false, hint } = {}) {
+  if (dryRun) {
+    return true;
+  }
+
+  try {
+    execSync(`command -v ${command}`, { stdio: 'ignore', shell: true });
+    return true;
+  } catch (error) {
+    const message = `Required command "${command}" is not available on PATH.`;
+    if (optional) {
+      console.warn(`⚠️  ${message}`);
+      if (hint) {
+        console.warn(`   ${hint}`);
+      }
+      return false;
+    }
+
+    console.error(`❌ ${message}`);
+    if (hint) {
+      console.error(`   ${hint}`);
+    }
+    process.exit(1);
+  }
+}
+
+async function recordStep(stepId, description, executor, { optional = false, skip = false } = {}) {
+  if (!isStepEnabled(stepId)) {
+    console.log(`⏭️  Skipping ${description} (not included in --only filter)`);
+    stepResults.push({ stepId, description, status: 'filtered', details: 'Filtered via --only flag' });
+    return;
+  }
+
+  if (skip) {
+    console.log(`⏭️  Skipping ${description}`);
+    stepResults.push({ stepId, description, status: 'skipped', details: 'Skipped via flag' });
+    return;
+  }
+
+  try {
+    const result = (await executor()) || {};
+    const status = result.status || 'success';
+    const details = result.details;
+
+    if (status === 'warning') {
+      const message = details ? ` (${details})` : '';
+      console.warn(`⚠️  ${description} completed with warnings${message}`);
+    } else if (status === 'skipped') {
+      console.log(`⏭️  ${description} skipped`);
+    } else {
+      console.log(`✅ ${description} completed`);
+    }
+
+    stepResults.push({ stepId, description, status, details, optional });
+  } catch (error) {
+    if (optional) {
+      console.warn(`⚠️  ${description} failed but marked optional: ${error.message}`);
+      stepResults.push({ stepId, description, status: 'warning', details: error.message, optional });
+      return;
+    }
+
+    throw error;
+  }
+}
+
+async function runCommand(command, description, options = {}) {
+  const { allowFailure = false } = options;
+
   console.log(`📋 ${description}...`);
   if (dryRun) {
     console.log(`   Command: ${command}`);
-    return;
+    return { success: true, skipped: true };
   }
-  
+
   try {
     execSync(command, { stdio: 'inherit' });
-    console.log(`✅ ${description} completed`);
+    return { success: true };
   } catch (error) {
+    if (allowFailure) {
+      return { success: false, error };
+    }
+
     console.error(`❌ ${description} failed:`, error.message);
     process.exit(1);
   }
 }
 
 async function updateEnvironmentVariables() {
-  console.log('🔧 Setting up environment variables...');
-  
-  const envContent = Object.entries(config)
-    .map(([key, value]) => `${key}=${value}`)
-    .join('\n');
-  
-  if (!dryRun) {
-    writeFileSync('.env.production', envContent);
-  }
-  
-  console.log('✅ Environment variables configured');
+  const envContent =
+    Object.entries(config)
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n') + '\n';
+
+  writeFileIfChanged('.env.production', envContent);
+  return { details: 'Environment variables configured' };
 }
 
 async function runPreDeploymentChecks() {
-  console.log('🔍 Running pre-deployment checks...');
-  
   // Check if required files exist
   const requiredFiles = [
     'package.json',
@@ -85,7 +235,7 @@ async function runPreDeploymentChecks() {
       process.exit(1);
     }
   }
-  
+
   // Validate package.json
   const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
   if (!packageJson.scripts.build) {
@@ -93,62 +243,122 @@ async function runPreDeploymentChecks() {
     process.exit(1);
   }
   
-  console.log('✅ Pre-deployment checks passed');
+  return { details: 'All required files present' };
 }
 
 async function installDependencies() {
-  await runCommand('npm ci', 'Installing dependencies');
+  if (dryRun) {
+    console.log('   Would ensure dependencies are installed via npm ci');
+    return { status: 'success', details: 'Dry run' };
+  }
+
+  const hasNodeModules = existsSync('node_modules');
+  if (skipInstall && hasNodeModules && !forceInstall) {
+    console.log('   node_modules detected - skipping reinstall (override with --force-install)');
+    return { status: 'skipped', details: 'Existing node_modules reused' };
+  }
+
+  const command = hasNodeModules && !forceInstall ? 'npm install' : 'npm ci';
+  const result = await runCommand(command, `Installing dependencies with ${command}`);
+  if (result.skipped) {
+    return { status: 'success', details: 'Dry run' };
+  }
+
+  return result.success ? { status: 'success' } : { status: 'warning', details: 'Dependency installation reported warnings' };
 }
 
 async function runTests() {
-  await runCommand('npm test', 'Running tests');
+  const result = await runCommand('npm test', 'Running tests');
+  if (result.skipped) {
+    return { status: 'success', details: 'Dry run' };
+  }
+
+  return result.success ? { status: 'success' } : { status: 'warning', details: 'Tests returned warnings' };
 }
 
 async function runLinting() {
-  try {
-    await runCommand('npm run lint', 'Running linting');
-  } catch (error) {
-    console.log('⚠️  Linting not configured, skipping...');
+  const result = await runCommand('npm run lint', 'Running linting', { allowFailure: true });
+
+  if (result?.success === false) {
+    return { status: 'warning', details: 'Linting encountered issues (non-blocking)' };
   }
+
+  return { status: 'success' };
 }
 
 async function runTypeChecking() {
-  try {
-    await runCommand('npx tsc --noEmit --skipLibCheck', 'Running TypeScript type checking');
-  } catch (error) {
-    console.log('⚠️  TypeScript errors found in components, but services are working. Continuing deployment...');
-    // Check if services compile correctly
-    await runCommand('npx tsc --noEmit services/*.ts', 'Checking service TypeScript compilation');
+  if (skipTypeCheck) {
+    return { status: 'skipped', details: 'Type checks disabled by flag' };
   }
+
+  const fullCheck = await runCommand('npx tsc --noEmit --skipLibCheck', 'Running TypeScript type checking', {
+    allowFailure: true,
+  });
+
+  if (fullCheck.skipped) {
+    return { status: 'success', details: 'Dry run' };
+  }
+
+  if (fullCheck?.success === false) {
+    console.log('⚠️  Full project type check failed. Running targeted services compilation to ensure critical paths remain stable...');
+    const targeted = await runCommand(
+      'npx tsc --noEmit -p tsconfig.services.json',
+      'Checking service TypeScript compilation for core services'
+    );
+    if (targeted.skipped) {
+      return {
+        status: 'success',
+        details: 'Dry run',
+      };
+    }
+    return targeted.success
+      ? {
+          status: 'warning',
+          details: 'Full type check failed, services check succeeded',
+        }
+      : {
+          status: 'warning',
+          details: 'TypeScript checks reported issues',
+        };
+  }
+
+  return { status: 'success' };
 }
 
 async function buildApplication() {
-  await runCommand('npm run build', 'Building application');
+  const result = await runCommand('npm run build', 'Building application');
+  if (result.skipped) {
+    return { status: 'success', details: 'Dry run' };
+  }
+  return result.success ? { status: 'success' } : { status: 'warning', details: 'Build completed with warnings' };
 }
 
 async function runSecurityAudit() {
-  try {
-    await runCommand('npm audit --audit-level=high', 'Running security audit');
-  } catch (error) {
-    console.log('⚠️  Security audit found issues, but continuing deployment...');
+  const result = await runCommand('npm audit --audit-level=high', 'Running security audit', { allowFailure: true });
+
+  if (result.skipped) {
+    return { status: 'success', details: 'Dry run' };
   }
+
+  if (result?.success === false) {
+    return { status: 'warning', details: 'Review audit findings post-deploy' };
+  }
+
+  return { status: 'success' };
 }
 
 async function optimizeAssets() {
-  console.log('🎨 Optimizing assets...');
-  
-  if (!dryRun) {
-    // Compress images, minify CSS, etc.
-    // This would typically use tools like imagemin, cssnano, etc.
-    console.log('   Asset optimization would run here');
+  if (dryRun) {
+    console.log('   Would run asset optimization (imagemin, cssnano, etc.)');
+    return { status: 'success' };
   }
-  
-  console.log('✅ Assets optimized');
+
+  // Placeholder for actual optimization commands. Hook for future integration.
+  console.log('   Asset optimization hooks ready (no-op)');
+  return { status: 'success' };
 }
 
 async function generateSitemap() {
-  console.log('🗺️  Generating sitemap...');
-  
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
@@ -158,17 +368,18 @@ async function generateSitemap() {
     <priority>1.0</priority>
   </url>
 </urlset>`;
-  
+
   if (!dryRun) {
-    writeFileSync('dist/sitemap.xml', sitemap);
+    mkdirSync('dist', { recursive: true });
+    writeFileIfChanged('dist/sitemap.xml', sitemap);
+    return { status: 'success' };
   }
-  
-  console.log('✅ Sitemap generated');
+
+  console.log('   Would write sitemap to dist/sitemap.xml');
+  return { status: 'success', details: 'Dry run' };
 }
 
 async function deployToVercel() {
-  console.log('🚀 Deploying to Vercel...');
-  
   // Create vercel.json configuration
   const vercelConfig = {
     version: 2,
@@ -182,18 +393,30 @@ async function deployToVercel() {
     rewrites: targetConfig.rewrites,
     env: config,
   };
-  
+
+  const serializedConfig = `${JSON.stringify(vercelConfig, null, 2)}\n`;
+
   if (!dryRun) {
-    writeFileSync('vercel.json', JSON.stringify(vercelConfig, null, 2));
-    await runCommand('npx vercel --prod', 'Deploying to Vercel');
+    writeFileIfChanged('vercel.json', serializedConfig);
   }
-  
-  console.log('✅ Deployed to Vercel');
+
+  if (!dryRun && !skipRemoteDeploy) {
+    ensureCommandAvailable('npx', {
+      hint: 'npx is provided with Node.js and npm. Ensure they are installed and accessible.',
+    });
+    await runCommand('npx vercel --prod', 'Deploying to Vercel');
+    return { status: 'success' };
+  }
+
+  if (!dryRun && skipRemoteDeploy) {
+    console.log('ℹ️  Vercel configuration updated locally - remote deploy skipped');
+    return { status: 'warning', details: 'Remote deploy skipped (local-only mode)' };
+  }
+
+  return { status: 'success', details: 'Dry run completed' };
 }
 
 async function deployToNetlify() {
-  console.log('🚀 Deploying to Netlify...');
-  
   // Create netlify.toml configuration
   const netlifyConfig = `
 [build]
@@ -215,79 +438,165 @@ ${Object.entries(targetConfig.headers[0].values).map(([key, value]) => `
 `).join('')}
 `;
   
+  const serializedConfig = `${netlifyConfig}\n`;
+
   if (!dryRun) {
-    writeFileSync('netlify.toml', netlifyConfig);
-    await runCommand('npx netlify deploy --prod', 'Deploying to Netlify');
+    writeFileIfChanged('netlify.toml', serializedConfig);
   }
-  
-  console.log('✅ Deployed to Netlify');
+
+  if (!dryRun && !skipRemoteDeploy) {
+    ensureCommandAvailable('npx', {
+      hint: 'npx is provided with Node.js and npm. Ensure they are installed and accessible.',
+    });
+    await runCommand('npx netlify deploy --prod', 'Deploying to Netlify');
+    return { status: 'success' };
+  }
+
+  if (!dryRun && skipRemoteDeploy) {
+    console.log('ℹ️  Netlify configuration updated locally - remote deploy skipped');
+    return { status: 'warning', details: 'Remote deploy skipped (local-only mode)' };
+  }
+
+  return { status: 'success', details: 'Dry run completed' };
 }
 
 async function deployToDocker() {
-  console.log('🐳 Building Docker image...');
-  
+  const packageJson = JSON.parse(readFileSync('package.json', 'utf8'));
+  const version = packageJson.version && packageJson.version !== '0.0.0' ? packageJson.version : new Date().toISOString().replace(/[:.]/g, '-');
+
+  const registry = targetConfig.registry ? targetConfig.registry.replace(/\/$/, '') : '';
+  const imageBaseName = targetConfig.imageName || 'construction-app';
+  const repository = registry ? `${registry}/${imageBaseName}` : imageBaseName;
+  const versionTag = `${repository}:${version}`;
+  const latestTag = `${repository}:latest`;
+
   const dockerfile = `
-FROM ${targetConfig.baseImage}
+FROM ${targetConfig.baseImage} AS builder
 
 WORKDIR ${targetConfig.workdir}
 
 COPY package*.json ./
-RUN npm ci --only=production
+RUN npm ci
 
-COPY dist/ ./dist/
-COPY public/ ./public/
+COPY . .
+RUN npm run build
+
+FROM ${targetConfig.runtimeImage}
+
+WORKDIR ${targetConfig.workdir}
+ENV NODE_ENV=production
+
+COPY package*.json ./
+RUN npm ci --omit=dev && npm install -g serve
+
+COPY --from=builder ${targetConfig.workdir}/dist ./dist
+COPY --from=builder ${targetConfig.workdir}/public ./public
 
 EXPOSE ${targetConfig.port}
 
 HEALTHCHECK --interval=${targetConfig.healthcheck.interval} \\
   --timeout=${targetConfig.healthcheck.timeout} \\
   --retries=${targetConfig.healthcheck.retries} \\
-  CMD ${targetConfig.healthcheck.test.join(' ')}
+  ${targetConfig.healthcheck.test.join(' ')}
 
-${Object.entries(targetConfig.environment).map(([key, value]) => `ENV ${key}=${value}`).join('\n')}
+${Object.entries(targetConfig.environment)
+    .map(([key, value]) => `ENV ${key}=${value}`)
+    .join('\n')}
 
-CMD ["npm", "start"]
+CMD ["serve", "-s", "dist", "-l", "${targetConfig.port}"]
 `;
-  
+
+  const composeFile = `services:
+  ${targetConfig.containerName}:
+    image: ${latestTag}
+    container_name: ${targetConfig.containerName}
+    restart: unless-stopped
+    ports:
+${(targetConfig.publishPorts || [])
+    .map((mapping) => `      - "${mapping}"`)
+    .join('\n') || '      - "4173:4173"'}
+    environment:
+${Object.entries(targetConfig.environment)
+    .map(([key, value]) => `      ${key}: ${value}`)
+    .join('\n')}
+`;
+
   if (!dryRun) {
-    writeFileSync('Dockerfile', dockerfile);
-    await runCommand('docker build -t construction-app .', 'Building Docker image');
-    await runCommand('docker tag construction-app construction-app:latest', 'Tagging Docker image');
+    writeFileIfChanged('Dockerfile', `${dockerfile}\n`);
+    writeFileIfChanged('docker-compose.yaml', `${composeFile}\n`);
   }
-  
-  console.log('✅ Docker image built');
+
+  if (dryRun) {
+    console.log('   Dockerfile and docker-compose.yaml generated (dry run)');
+    console.log(`   Image would be built with tag ${versionTag}`);
+    return { status: 'success' };
+  }
+
+  ensureCommandAvailable('docker', {
+    hint: 'Install Docker and ensure the docker CLI is available before deploying to the docker target.',
+  });
+
+  await runCommand(`docker build -t ${versionTag} .`, 'Building Docker image');
+  await runCommand(`docker tag ${versionTag} ${latestTag}`, 'Tagging Docker image as latest');
+
+  if (targetConfig.pushImage && !skipRemoteDeploy) {
+    await runCommand(`docker push ${versionTag}`, 'Pushing versioned Docker image');
+    await runCommand(`docker push ${latestTag}`, 'Pushing latest Docker image');
+  } else if (targetConfig.pushImage) {
+    console.log('ℹ️  Docker push skipped (local-only mode)');
+  }
+
+  if (skipRemoteDeploy) {
+    console.log('ℹ️  Docker image built locally - skipping container restart');
+    return { status: 'warning', details: 'Remote restart skipped (local-only mode)' };
+  }
+
+  const containerName = targetConfig.containerName || 'construction-app';
+  const publishFlags = (targetConfig.publishPorts || []).map((mapping) => `-p ${mapping}`).join(' ');
+  const envFlags = Object.entries(targetConfig.environment || {})
+    .map(([key, value]) => `-e ${key}=${value}`)
+    .join(' ');
+  const runArgs = (targetConfig.runArgs || []).join(' ');
+
+  await runCommand(`docker rm -f ${containerName} 2>/dev/null || true`, 'Removing existing Docker container');
+  await runCommand(
+    `docker run -d --name ${containerName} ${publishFlags} ${envFlags} ${runArgs} ${latestTag}`.replace(/\s+/g, ' ').trim(),
+    'Starting Docker container'
+  );
+
+  return { status: 'success' };
 }
 
 async function runPostDeploymentChecks() {
-  console.log('🔍 Running post-deployment checks...');
-  
   if (dryRun) {
     console.log('   Post-deployment checks would run here');
-    return;
+    return { status: 'success', details: 'Dry run' };
   }
-  
+
   // Health check, smoke tests, etc.
   console.log('   Checking deployment health...');
-  
-  console.log('✅ Post-deployment checks passed');
+
+  return { status: 'success' };
 }
 
 async function notifyDeployment() {
-  console.log('📢 Sending deployment notifications...');
-  
   const deploymentInfo = {
     environment,
     target,
     timestamp: new Date().toISOString(),
     version: JSON.parse(readFileSync('package.json', 'utf8')).version,
+    localOnly: skipRemoteDeploy,
   };
-  
+
   if (!dryRun) {
     // Send notifications to Slack, Discord, email, etc.
     console.log('   Deployment notifications sent');
+  } else {
+    console.log('   Would send deployment notifications');
   }
-  
-  console.log('✅ Notifications sent');
+
+  console.log(`   Notification payload: ${JSON.stringify(deploymentInfo)}`);
+  return { status: 'success', details: `Version ${deploymentInfo.version}` };
 }
 
 // Main deployment flow
@@ -296,43 +605,103 @@ async function deploy() {
     console.log(`\n🎯 Deploying Construction Management App`);
     console.log(`   Environment: ${environment}`);
     console.log(`   Target: ${target}`);
-    console.log(`   Dry Run: ${dryRun}\n`);
+    console.log(`   Dry Run: ${dryRun}`);
+    console.log(`   Remote Deploy: ${skipRemoteDeploy ? 'skipped (local-only mode)' : 'enabled'}\n`);
     
-    await runPreDeploymentChecks();
-    await updateEnvironmentVariables();
-    await installDependencies();
-    await runTypeChecking();
-    await runTests();
-    await runLinting();
-    await runSecurityAudit();
-    await buildApplication();
-    await optimizeAssets();
-    await generateSitemap();
-    
+    await recordStep('precheck', 'Pre-deployment checks', runPreDeploymentChecks);
+    await recordStep('env', 'Configure environment variables', updateEnvironmentVariables);
+    await recordStep('install', 'Install dependencies', installDependencies, {
+      skip: skipInstall && !forceInstall,
+    });
+    await recordStep('typecheck', 'TypeScript validation', runTypeChecking, {
+      skip: skipTypeCheck,
+    });
+    await recordStep('test', 'Run test suite', runTests, {
+      skip: skipTests,
+    });
+    await recordStep('lint', 'Lint codebase', runLinting, {
+      skip: skipLint,
+      optional: true,
+    });
+    await recordStep('audit', 'Security audit', runSecurityAudit, {
+      skip: skipAudit,
+      optional: true,
+    });
+    await recordStep('build', 'Build application', buildApplication, {
+      skip: skipBuild,
+    });
+    await recordStep('optimize', 'Optimize static assets', optimizeAssets, {
+      skip: skipOptimize,
+      optional: true,
+    });
+    await recordStep('sitemap', 'Generate sitemap', generateSitemap, {
+      skip: skipSitemap,
+      optional: true,
+    });
+
     // Deploy to specific target
-    switch (target) {
-      case 'vercel':
-        await deployToVercel();
-        break;
-      case 'netlify':
-        await deployToNetlify();
-        break;
-      case 'docker':
-        await deployToDocker();
-        break;
-      default:
-        console.error(`❌ Unsupported deployment target: ${target}`);
-        process.exit(1);
-    }
-    
-    await runPostDeploymentChecks();
-    await notifyDeployment();
-    
+    await recordStep('deploy', `Deploy to ${target}`, async () => {
+      switch (target) {
+        case 'vercel':
+          return deployToVercel();
+        case 'netlify':
+          return deployToNetlify();
+        case 'docker':
+          return deployToDocker();
+        default:
+          console.error(`❌ Unsupported deployment target: ${target}`);
+          process.exit(1);
+      }
+    });
+    await recordStep('post-checks', 'Post-deployment verification', runPostDeploymentChecks, {
+      skip: skipPostChecks,
+      optional: true,
+    });
+    await recordStep('notify', 'Notify stakeholders', notifyDeployment, {
+      skip: skipNotify,
+      optional: true,
+    });
+
+    printSummary();
+
     console.log('\n🎉 Deployment completed successfully!');
-    
+
   } catch (error) {
     console.error('\n💥 Deployment failed:', error.message);
     process.exit(1);
+  }
+}
+
+function printSummary() {
+  console.log('\n📦 Deployment Summary');
+  for (const step of stepResults) {
+    let icon = '•';
+    switch (step.status) {
+      case 'success':
+        icon = '✅';
+        break;
+      case 'warning':
+        icon = '⚠️';
+        break;
+      case 'skipped':
+      case 'filtered':
+        icon = '⏭️';
+        break;
+      default:
+        icon = '•';
+    }
+
+    const detail = step.details ? ` – ${step.details}` : '';
+    const optionalLabel = step.optional ? ' (optional)' : '';
+    console.log(` ${icon} ${step.description}${optionalLabel}${detail}`);
+  }
+
+  if (skipRemoteDeploy) {
+    console.log('\nℹ️  Remote deployment steps were skipped. Run without --local-only to execute platform commands.');
+  }
+
+  if (onlySteps) {
+    console.log(`ℹ️  Limited execution via --only=${Array.from(onlySteps).join(',')}`);
   }
 }
 

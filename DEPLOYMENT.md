@@ -90,6 +90,35 @@ npm run deploy:vercel
 npm run deploy:production vercel
 ```
 
+#### Local-only deployment (CI-safe)
+```bash
+# Run the full deployment pipeline but skip the remote platform step
+npm run deploy -- --local-only
+
+# Or set an environment variable for repeated use
+DEPLOY_SKIP_REMOTE=true npm run deploy
+```
+
+#### Granular pipeline control
+
+The deployment runner now supports fine-grained flags so teams can tailor the pipeline for different stages:
+
+| Flag | Purpose |
+| --- | --- |
+| `--skip-install` | Re-use existing `node_modules` (use `--force-install` to override) |
+| `--skip-tests` | Bypass the Vitest suite when quick smoke deploys are needed |
+| `--skip-typecheck` | Disable TypeScript validation entirely |
+| `--skip-lint` | Omit linting (already optional when executed) |
+| `--skip-audit` | Skip the `npm audit` security scan |
+| `--skip-build` | Assume a prior `npm run build` output exists |
+| `--skip-optimize` | Omit post-build asset optimization hooks |
+| `--skip-sitemap` | Prevent sitemap regeneration (automatically implied by `--skip-build`) |
+| `--skip-post-checks` | Skip health checks after deployment |
+| `--skip-notify` | Suppress stakeholder notifications |
+| `--only=step1,step2` | Execute only the listed step IDs (see summary output for IDs) |
+
+Every run prints a 📦 deployment summary that mirrors the executed steps, highlights warnings, and reminds you when remote commands were skipped.
+
 #### 2. Deploy to Netlify
 ```bash
 npm run deploy:netlify
@@ -97,8 +126,22 @@ npm run deploy:netlify
 
 #### 3. Deploy with Docker
 ```bash
+# Build the multi-stage Docker image, tag it, and run the container locally
 npm run deploy:docker
+
+# Skip container restart/push but keep image + artifact generation
+npm run deploy:docker -- --local-only
+
+# Push the image to a registry (set DOCKER_PUSH=true and optionally DOCKER_REGISTRY)
+DOCKER_PUSH=true DOCKER_REGISTRY=registry.example.com npm run deploy:docker
 ```
+
+The Docker deployment target now:
+
+- Generates an optimized multi-stage `Dockerfile` and companion `docker-compose.yaml`
+- Builds a production-ready image tagged with the package version (or timestamp) and `latest`
+- Optionally pushes the image to a registry when `DOCKER_PUSH=true`
+- Restarts the running container (`constructapp-web`) with published port `4173:4173` unless `--local-only` or `DEPLOY_SKIP_REMOTE=true`
 
 ### Advanced Deployment
 
@@ -149,6 +192,9 @@ CDN_URL=your_cdn_url
 ```bash
 # Type checking
 npm run type-check
+
+# Targeted service layer check used by the deploy script fallback
+npx tsc --noEmit -p tsconfig.services.json
 
 # Run tests
 npm test

@@ -231,18 +231,25 @@ export const deployConfig = {
 
     docker: {
       baseImage: 'node:18-alpine',
+      runtimeImage: 'node:18-alpine',
       workdir: '/app',
-      port: 3000,
+      port: 4173,
+      imageName: 'constructapp/web',
+      containerName: 'constructapp-web',
+      publishPorts: ['4173:4173'],
+      pushImage: process.env.DOCKER_PUSH === 'true',
+      registry: process.env.DOCKER_REGISTRY || '',
       healthcheck: {
-        test: ['CMD', 'curl', '-f', 'http://localhost:3000/health'],
+        test: ['CMD-SHELL', 'curl -f http://localhost:4173/ || exit 1'],
         interval: '30s',
         timeout: '10s',
         retries: 3,
       },
       environment: {
         NODE_ENV: 'production',
-        PORT: '3000',
+        PORT: '4173',
       },
+      runArgs: ['--restart', 'unless-stopped'],
     },
   },
 
