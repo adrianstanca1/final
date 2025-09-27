@@ -2114,7 +2114,7 @@ export const api = {
 
         try {
             // Try to use database service first
-            const newProject = await databaseService.createProject(projectData);
+            const newProject = await databaseService.createProject(projectData, userId);
             // Also add to local assignments for compatibility
             db.projectAssignments.push({ userId, projectId: newProject.id });
             saveDb();
