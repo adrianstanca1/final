@@ -319,7 +319,7 @@ class DatabaseService {
       email: row.email,
       firstName: row.first_name,
       lastName: row.last_name,
-      role: row.role as any,
+      role: row.role as User['role'],
       avatar: row.avatar,
       phone: row.phone,
       mfaEnabled: row.mfa_enabled,
