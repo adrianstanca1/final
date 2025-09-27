@@ -1,6 +1,6 @@
 import { pool } from './db.js';
 import { logger } from '../utils/logger.js';
-import type { RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import type { RowDataPacket } from 'mysql2/promise';
 
 /**
  * Enhanced Backend Integration Service

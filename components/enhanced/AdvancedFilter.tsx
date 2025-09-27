@@ -2,7 +2,6 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { User, Project, TodoStatus, TodoPriority, ExpenseStatus } from '../../types';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
-import { Tag } from '../ui/Tag';
 
 export interface FilterCriteria {
   search?: string;
@@ -285,6 +284,7 @@ export const AdvancedFilter: React.FC<AdvancedFilterProps> = ({
                 {onDeleteFilter && (
                   <button
                     type="button"
+                    title="Delete filter"
                     onClick={() => onDeleteFilter(filter.id)}
                     className="ml-1 text-red-500 hover:text-red-700"
                   >
@@ -387,9 +387,11 @@ export const AdvancedFilter: React.FC<AdvancedFilterProps> = ({
         >
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs text-gray-600 mb-1">From</label>
+              <label htmlFor="date-from" className="block text-xs text-gray-600 mb-1">From</label>
               <input
+                id="date-from"
                 type="date"
+                title="Start date"
                 value={criteria.dateRange?.start || ''}
                 onChange={(e) => updateCriteria({
                   dateRange: { ...criteria.dateRange, start: e.target.value }
@@ -398,9 +400,11 @@ export const AdvancedFilter: React.FC<AdvancedFilterProps> = ({
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-600 mb-1">To</label>
+              <label htmlFor="date-to" className="block text-xs text-gray-600 mb-1">To</label>
               <input
+                id="date-to"
                 type="date"
+                title="End date"
                 value={criteria.dateRange?.end || ''}
                 onChange={(e) => updateCriteria({
                   dateRange: { ...criteria.dateRange, end: e.target.value }

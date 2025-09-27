@@ -213,7 +213,10 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOnline })
                             <h4 className="font-semibold">Sub-tasks ({editableTask.subTasks?.filter(s => s.isCompleted).length || 0} / {editableTask.subTasks?.length || 0})</h4>
                         </div>
                         <div className="w-full bg-slate-200 rounded-full h-2 mb-2">
-                            <div className="bg-green-500 h-2 rounded-full subtask-progress-bar" style={{ '--subtask-progress': `${subtaskProgress}%` } as React.CSSProperties}></div>
+                            <div
+                                className="bg-green-500 h-2 rounded-full subtask-progress-bar transition-all duration-300"
+                                style={{ width: `${subtaskProgress}%` }}
+                            ></div>
                         </div>
                         <div className="space-y-2 max-h-40 overflow-y-auto">
                             {(isEditing ? editableTask.subTasks : task.subTasks)?.map((subtask) => (
@@ -241,7 +244,7 @@ const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOnline })
                                         </span>
                                     )}
                                     {isEditing && (
-                                        <button title="Delete sub-task" onClick={() => handleDeleteSubtask(subtask.id)} className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button type="button" title="Delete sub-task" onClick={() => handleDeleteSubtask(subtask.id)} className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                         </button>
                                     )}
@@ -511,6 +514,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                         Select all
                     </label>
                     <select
+                        title="Filter by project"
                         value={selectedProjectId}
                         onChange={e => setSelectedProjectId(e.target.value)}
                         className="rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none"
@@ -523,6 +527,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                     <div className="flex flex-wrap items-center gap-4 border-t border-border bg-primary/5 px-4 py-4 text-sm">
                         <span className="font-semibold text-foreground">{selectedTaskIds.size} task(s) selected</span>
                         <select
+                            title="Change status for selected tasks"
                             onChange={e => setBulkAction({ type: 'status', value: e.target.value })}
                             className="rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none"
                         >
@@ -530,6 +535,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                             {Object.values(TodoStatus).map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
                         </select>
                         <select
+                            title="Change assignee for selected tasks"
                             onChange={e => setBulkAction({ type: 'assignee', value: e.target.value })}
                             className="rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none"
                         >
@@ -538,6 +544,7 @@ export const AllTasksView: React.FC<AllTasksViewProps> = ({ user, addToast, isOn
                             {personnel.map(p => <option key={p.id} value={p.id}>{`${p.firstName} ${p.lastName}`}</option>)}
                         </select>
                         <select
+                            title="Change priority for selected tasks"
                             onChange={e => setBulkAction({ type: 'priority', value: e.target.value })}
                             className="rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none"
                         >

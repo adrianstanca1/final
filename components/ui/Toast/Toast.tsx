@@ -13,7 +13,7 @@ export interface ToastProps {
   onDismiss: () => void;
 }
 
-export function Toast({ id, type = 'info', title, message, action, onDismiss }: ToastProps) {
+export function Toast({ id, type = 'info', title, message, action, onDismiss }: Readonly<ToastProps>) {
   const [isVisible, setIsVisible] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
 
@@ -103,6 +103,12 @@ export function Toast({ id, type = 'info', title, message, action, onDismiss }: 
   };
 
   const colors = getColorClasses();
+  let progressBarColor = 'bg-blue-500';
+  if (type === 'success') {
+    progressBarColor = 'bg-green-500';
+  } else if (type === 'warning') {
+    progressBarColor = 'bg-yellow-500';
+  }
 
   return (
     <div
@@ -110,8 +116,6 @@ export function Toast({ id, type = 'info', title, message, action, onDismiss }: 
       aria-live="polite"
       aria-labelledby={title ? `toast-title-${id}` : undefined}
       aria-describedby={`toast-message-${id}`}
-      onKeyDown={handleKeyDown}
-      tabIndex={0}
       className={`
         relative w-full max-w-sm p-4 border rounded-lg shadow-lg backdrop-blur-sm
         transition-all duration-200 ease-out transform
@@ -183,23 +187,13 @@ export function Toast({ id, type = 'info', title, message, action, onDismiss }: 
       {type !== 'error' && (
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/10 dark:bg-white/10 rounded-b-lg overflow-hidden">
           <div
-            className={`h-full transition-all duration-100 ease-linear ${type === 'success' ? 'bg-green-500' :
-                type === 'warning' ? 'bg-yellow-500' :
-                  'bg-blue-500'
-              }`}
-            style={{
-              animation: isVisible && !isExiting ? 'toast-progress 5s linear forwards' : 'none'
-            }}
+            className={`h-full transition-all duration-100 ease-linear toast-progress-bar ${progressBarColor}`}
+            data-animation={isVisible && !isExiting ? 'progress' : 'none'}
           />
         </div>
       )}
 
-      <style jsx>{`
-        @keyframes toast-progress {
-          from { width: 100%; }
-          to { width: 0%; }
-        }
-      `}</style>
+
     </div>
   );
 }

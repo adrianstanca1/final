@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { User, Todo, TodoStatus, TodoPriority, Project } from '../../types';
+import { User, Todo, TodoStatus, Project } from '../../types';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { Avatar } from '../ui/Avatar';
@@ -38,7 +38,6 @@ interface KanbanColumnProps {
 
 interface TaskCardProps {
   todo: Todo;
-  allTodos: Todo[];
   user: User;
   personnel: User[];
   isSelected: boolean;
@@ -72,9 +71,8 @@ const EnhancedTaskCard: React.FC<TaskCardProps> = ({
 
   return (
     <Card
-      className={`p-3 cursor-pointer transition-all duration-200 hover:shadow-md ${
-        isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : ''
-      } ${isOverdue ? 'border-red-300 bg-red-50' : ''}`}
+      className={`p-3 cursor-pointer transition-all duration-200 hover:shadow-md ${isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : ''
+        } ${isOverdue ? 'border-red-300 bg-red-50' : ''}`}
       draggable
       onDragStart={onDragStart}
       onClick={handleClick}
@@ -113,7 +111,7 @@ const EnhancedTaskCard: React.FC<TaskCardProps> = ({
             {todo.tags && todo.tags.length > 0 && (
               <div className="flex space-x-1">
                 {todo.tags.slice(0, 2).map((tag, index) => (
-                  <Tag key={index} variant="secondary" size="sm">
+                  <Tag key={`${todo.id}-tag-${tag}-${index}`} variant="secondary" size="sm">
                     {tag}
                   </Tag>
                 ))}
@@ -126,14 +124,13 @@ const EnhancedTaskCard: React.FC<TaskCardProps> = ({
 
           {/* Due date */}
           {todo.dueDate && (
-            <div className={`text-xs ${
-              isOverdue ? 'text-red-600 font-medium' : 
+            <div className={`text-xs ${isOverdue ? 'text-red-600 font-medium' :
               daysUntilDue !== null && daysUntilDue <= 3 ? 'text-yellow-600' : 'text-gray-500'
-            }`}>
-              {isOverdue ? 'Overdue' : 
-               daysUntilDue === 0 ? 'Due today' :
-               daysUntilDue === 1 ? 'Due tomorrow' :
-               `${daysUntilDue}d left`}
+              }`}>
+              {isOverdue ? 'Overdue' :
+                daysUntilDue === 0 ? 'Due today' :
+                  daysUntilDue === 1 ? 'Due tomorrow' :
+                    `${daysUntilDue}d left`}
             </div>
           )}
         </div>
@@ -147,7 +144,8 @@ const EnhancedTaskCard: React.FC<TaskCardProps> = ({
             </div>
             <div className="w-full bg-gray-200 rounded-full h-1.5">
               <div
-                className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+                className="bg-blue-600 h-1.5 rounded-full transition-all duration-300 subtask-progress"
+                data-progress={`${(todo.subTasks.filter(st => st.isCompleted).length / todo.subTasks.length) * 100}%`}
                 style={{
                   width: `${(todo.subTasks.filter(st => st.isCompleted).length / todo.subTasks.length) * 100}%`
                 }}
@@ -203,14 +201,13 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
 
   if (showSwimlanes && swimlaneGroups) {
     return (
-      <div className={`flex-1 ${getStatusColor(status)} rounded-lg border-2 transition-colors ${
-        isOver ? 'border-blue-500 bg-blue-50' : ''
-      }`}>
+      <div className={`flex-1 ${getStatusColor(status)} rounded-lg border-2 transition-colors ${isOver ? 'border-blue-500 bg-blue-50' : ''
+        }`}>
         <div className="p-4 border-b bg-white rounded-t-lg">
           <h3 className="font-semibold text-gray-900">{title}</h3>
           <span className="text-sm text-gray-500">({todos.length} tasks)</span>
         </div>
-        
+
         <div
           className="p-2 min-h-[500px]"
           onDragOver={handleDragOver}
@@ -247,9 +244,8 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
 
   return (
     <div
-      className={`flex-1 ${getStatusColor(status)} rounded-lg border-2 transition-colors ${
-        isOver ? 'border-blue-500 bg-blue-50' : ''
-      }`}
+      className={`flex-1 ${getStatusColor(status)} rounded-lg border-2 transition-colors ${isOver ? 'border-blue-500 bg-blue-50' : ''
+        }`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -258,7 +254,7 @@ const KanbanColumn: React.FC<KanbanColumnProps> = ({
         <h3 className="font-semibold text-gray-900">{title}</h3>
         <span className="text-sm text-gray-500">({todos.length} tasks)</span>
       </div>
-      
+
       <div className="p-3 space-y-3 min-h-[500px] max-h-[600px] overflow-y-auto">
         {todos.map(todo => (
           <EnhancedTaskCard
@@ -356,6 +352,7 @@ export const EnhancedKanbanBoard: React.FC<EnhancedKanbanBoardProps> = ({
           <div className="flex items-center space-x-2">
             <label className="text-sm text-gray-600">Group by:</label>
             <select
+              title="Group tasks by"
               value={groupBy}
               onChange={(e) => {
                 // This would be handled by parent component

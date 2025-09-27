@@ -145,3 +145,4 @@ const PermissionRequirements: React.FC<{ permissions: Permission[]; anyGroups: P
           </Card>
         </div>
       );
+    };
